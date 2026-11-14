@@ -67,6 +67,8 @@ const custom = {
   rect: S('<rect x="3" y="6" width="18" height="12" rx="1"/><circle cx="3" cy="6" r="1.9" fill="currentColor"/><circle cx="21" cy="18" r="1.9" fill="currentColor"/>'),
   'rect-c': S('<rect x="3" y="6" width="18" height="12" rx="1"/><circle cx="12" cy="12" r="1.9" fill="currentColor"/><circle cx="21" cy="18" r="1.9" fill="currentColor"/><path d="M12 12l9 6" opacity=".45" stroke-dasharray="1.5 2.5"/>'),
   polygon: S('<path d="M12 3l8.5 6.2-3.2 10H6.7l-3.2-10z"/><circle cx="12" cy="12.5" r="1.6" fill="currentColor"/>'),
+  fillet: S('<path d="M5 4v9a7 7 0 0 0 7 7h8"/><path d="M5 20h.01" opacity=".6"/>'),
+  chamfer: S('<path d="M5 4v8l8 8h7"/><path d="M5 20h.01" opacity=".6"/>'),
   // constructivos: circulo en traza y punto, arcos con punto en cada extremo, en gris
   ccircle: S('<circle cx="12" cy="12" r="9" stroke-dasharray="6 3 .1 3" opacity=".6"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>'),
   carcc: S('<path d="M5 19V5M5 19h14" opacity=".25"/><path d="M5.6 5.2A14 14 0 0 1 18.6 18.4" opacity=".6"/><path d="M4 5h1.6M18.4 19H20" /><circle cx="5" cy="19" r="1.6" fill="currentColor"/>'),

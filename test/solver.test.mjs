@@ -11,6 +11,7 @@ import { parseValue, evalExpr, isPlainNumber, exprRefs, renameInExpr } from '../
 import { makeVector, unmakeVector, syncVectors, isVector, vecArrow, vecEnds } from '../src/vectors.js';
 import { recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive, textVarErrors, usesTextVars, varsList } from '../src/params.js';
 import { runsOf, plainText } from '../src/tvars.js';
+import { cornerOf, filletCorner, chamferCorner, maxFillet } from '../src/corners.js';
 import { nameDims } from '../src/model.js';
 import { trimAt, extendEnd, cutsOf, curveCuts, linearArray, mirrorCopy, circularArray, clipOf, pasteClip, bboxOf } from '../src/edit.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from '../src/shapes.js';
@@ -2932,6 +2933,122 @@ t('variables de texto: renombrar una cota las actualiza y el texto se mide por t
   assert.ok(!/[\uE000\uE001]/.test(svg));
   const dxf = exportDXF(d, 5);
   assert.ok(dxf.includes('w:=Ancho*2 8') && !/[\uE000\uE001]/.test(dxf));
+});
+
+const rectDoc = (W = 10, H = 6) => { // rectangulo fijo en (0,0), con sus cotas de ancho y alto
+  const d = newDoc();
+  const p = [addPoint(d, 0, 0), addPoint(d, W, 0), addPoint(d, W, H), addPoint(d, 0, H)];
+  d.pts[p[0]].fixed = true;
+  const l = addRectangle(d, p, {});
+  const kw = addCon(d, { t: 'DIST', refs: [p[0], p[1]], v: W }), kh = addCon(d, { t: 'DIST', refs: [p[1], p[2]], v: H });
+  return { d, p, l, kw, kh };
+};
+const distPL = (P, A, B) => Math.abs(((P.x - A.x) * (B.y - A.y) - (P.y - A.y) * (B.x - A.x)) / Math.hypot(B.x - A.x, B.y - A.y));
+t('redondeo: un arco tangente a las dos lineas, con el radio como cota editable y el vertice virtual en su lugar', () => {
+  const { d, p, l, kw, kh } = rectDoc();
+  const r = filletCorner(d, p[2], 2); // esquina superior derecha
+  assert.ok(r.ok, r.msg);
+  assert.ok(solve(d, []).ok);
+  const arc = d.arcs[r.arc], C = d.pts[arc.c];
+  near(arc.r, 2, 1e-6); near(C.x, 8, 1e-6); near(C.y, 4, 1e-6); // centro a r de cada lado
+  const [q1, q2] = r.pts, Q1 = d.pts[q1], Q2 = d.pts[q2];
+  for (const [Q, id] of [[Q1, 0], [Q2, 1]]) { near(Math.hypot(Q.x - C.x, Q.y - C.y), 2, 1e-6); void id; }
+  assert.ok(Math.abs(Q1.x - 10) < 1e-6 || Math.abs(Q1.y - 6) < 1e-6);
+  // las lineas del rectangulo terminan en los puntos de tangencia y siguen horizontal y vertical
+  const ends = [d.lines[l[1]].b, d.lines[l[2]].a].sort();
+  assert.deepEqual(ends, [q1, q2].sort());
+  near(d.pts[p[2]].x, 10, 1e-6); near(d.pts[p[2]].y, 6, 1e-6); // el vertice virtual sigue en la esquina
+  near(dimValue(d, d.cons[kw]), 10, 1e-6); near(dimValue(d, d.cons[kh]), 6, 1e-6); // y las cotas del rectangulo valen
+  near(distPL(C, d.pts[d.lines[l[1]].a], d.pts[d.lines[l[1]].b]), 2, 1e-6);
+  // el radio es una cota: cambiarla mueve el arco
+  const kr = Object.keys(d.cons).find((k) => d.cons[k].t === 'RAD');
+  assert.ok(/^R\d+$/.test(d.cons[kr].name));
+  d.cons[kr].v = 3;
+  assert.ok(solve(d, []).ok);
+  near(d.arcs[r.arc].r, 3, 1e-6); near(d.pts[d.arcs[r.arc].c].x, 7, 1e-6); near(d.pts[d.arcs[r.arc].c].y, 3, 1e-6);
+  // y el rectangulo se puede cambiar de tamano: el redondeo lo sigue
+  d.cons[kw].v = 14;
+  assert.ok(solve(d, []).ok);
+  near(d.pts[p[2]].x, 14, 1e-4); near(d.pts[d.arcs[r.arc].c].x, 11, 1e-4); near(d.pts[d.arcs[r.arc].c].y, 3, 1e-4);
+  // dos redondeos en la misma linea
+  const r2 = filletCorner(d, p[1], 1.5);
+  assert.ok(r2.ok, r2.msg); assert.ok(solve(d, []).ok);
+  near(d.arcs[r2.arc].r, 1.5, 1e-6);
+});
+t('redondeo: la igualdad de longitudes pasa a distancias hasta el vertice virtual y las cotas de longitud siguen valiendo', () => {
+  const d = newDoc();
+  const c = addPoint(d, 0, 0), v = [];
+  d.pts[c].fixed = true;
+  for (let i = 0; i < 6; i++) v.push(addPoint(d, 10 * Math.cos((i * Math.PI) / 3), 10 * Math.sin((i * Math.PI) / 3)));
+  const ls = addPolygon(d, c, v, {}); // hexagono: EQL oculta entre todos los lados
+  const kl = addCon(d, { t: 'DIST', refs: [v[2], v[3]], v: 10 }); // cota de longitud de un lado
+  assert.ok(solve(d, []).ok);
+  const r = filletCorner(d, v[2], 1);
+  assert.ok(r.ok, r.msg);
+  assert.ok(solve(d, []).ok, 'el hexagono con un vertice redondeado resuelve');
+  assert.deepEqual(d.cons[kl].refs, [v[2], v[3]]); // la cota de longitud sigue entre los vertices (el virtual no se mueve)
+  near(Math.hypot(d.pts[v[2]].x - d.pts[v[3]].x, d.pts[v[2]].y - d.pts[v[3]].y), 10, 1e-4);
+  assert.ok(Object.values(d.cons).some((k) => k.t === 'EQD' && k.refs.length === 4 && k.refs.includes(v[2])));
+  // redondear los seis vertices
+  for (const q of [v[0], v[1], v[3], v[4], v[5]]) { const x = filletCorner(d, q, 1); assert.ok(x.ok, x.msg); }
+  assert.ok(solve(d, []).ok);
+  assert.equal(Object.keys(d.arcs).length, 6);
+});
+t('redondeo: esquinas con lineas libres, rellenos y errores', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 10, 2), c = addPoint(d, 8, 12);
+  d.pts[a].fixed = true; d.pts[c].fixed = true;
+  const l1 = addLine(d, a, b, {}), l2 = addLine(d, b, c, {});
+  const h = d.hatches ||= {}; void h;
+  const C = cornerOf(d, b);
+  assert.ok(C.ok); assert.ok(C.theta > 0.2 && C.theta < 3);
+  assert.ok(maxFillet(C) > 1);
+  const bad = filletCorner(d, b, 100); assert.ok(!bad.ok); assert.match(bad.msg, /máximo/);
+  assert.ok(!filletCorner(d, b, 0).ok);
+  assert.match(filletCorner(d, a, 1).msg, /no es la esquina/); // solo una linea llega ahi
+  const r = filletCorner(d, b, 2);
+  assert.ok(r.ok, r.msg); assert.ok(solve(d, []).ok);
+  const arc = d.arcs[r.arc], cen = d.pts[arc.c];
+  near(distPL(cen, d.pts[d.lines[l1].a], d.pts[d.lines[l1].b]), 2, 1e-5);
+  near(distPL(cen, d.pts[d.lines[l2].a], d.pts[d.lines[l2].b]), 2, 1e-5);
+  // el vertice virtual se queda donde estaba la esquina, sobre las dos rectas
+  near(d.pts[b].x, 10, 1e-5); near(d.pts[b].y, 2, 1e-5);
+  assert.ok(!filletCorner(d, b, 1).ok); // ya no es esquina: nadie termina ahi
+  // alineadas: no hay esquina
+  const e = newDoc();
+  const p0 = addPoint(e, 0, 0), p1 = addPoint(e, 5, 0), p2 = addPoint(e, 10, 0);
+  addLine(e, p0, p1, {}); addLine(e, p1, p2, {});
+  assert.match(filletCorner(e, p1, 1).msg, /alineadas/);
+  // un relleno que usaba las dos lineas incluye el arco
+  const f = rectDoc();
+  f.d.hatches = { h1: { ids: [...f.l], kind: 'lineas' } };
+  const fr = filletCorner(f.d, f.p[0], 1.5);
+  assert.ok(fr.ok, fr.msg); assert.ok(f.d.hatches.h1.ids.includes(fr.arc));
+});
+t('chaflan: una linea entre las dos, con una cota por tramo que se puede editar', () => {
+  const { d, p, l, kw, kh } = rectDoc();
+  const r = chamferCorner(d, p[2], 2);
+  assert.ok(r.ok, r.msg);
+  assert.ok(solve(d, []).ok);
+  const [q1, q2] = r.pts, L = d.lines[r.line];
+  assert.deepEqual([L.a, L.b], [q1, q2]);
+  // q1 y q2 quedan sobre los lados del rectangulo, uno en el superior y otro en el derecho, a 2 de la esquina (10, 6)
+  assert.ok([d.pts[q1], d.pts[q2]].some((q) => Math.abs(q.y - 6) < 1e-6 && Math.abs(q.x - 8) < 1e-6) && [d.pts[q1], d.pts[q2]].some((q) => Math.abs(q.x - 10) < 1e-6 && Math.abs(q.y - 4) < 1e-6));
+  near(Math.hypot(d.pts[q1].x - 10, d.pts[q1].y - 6), 2, 1e-6); near(Math.hypot(d.pts[q2].x - 10, d.pts[q2].y - 6), 2, 1e-6);
+  near(dimValue(d, d.cons[kw]), 10, 1e-6); near(dimValue(d, d.cons[kh]), 6, 1e-6);
+  const dists = r.dims;
+  assert.equal(dists.length, 2);
+  assert.ok(dists.every((k) => d.cons[k].t === 'DIST' && d.cons[k].refs.includes(p[2]) && /^D\d+$/.test(d.cons[k].name)));
+  d.cons[dists[0]].v = 3; // un tramo mas largo: el chaflan deja de ser simetrico
+  assert.ok(solve(d, []).ok);
+  const far = d.cons[dists[0]].refs.find((x) => x !== p[2]);
+  near(Math.hypot(d.pts[far].x - 10, d.pts[far].y - 6), 3, 1e-6);
+  // distancias distintas, y demasiado grande
+  const g = rectDoc();
+  const r2 = chamferCorner(g.d, g.p[0], 1, 2.5); assert.ok(r2.ok, r2.msg); assert.ok(solve(g.d, []).ok);
+  assert.ok(!chamferCorner(g.d, g.p[1], 50).ok); assert.match(chamferCorner(g.d, g.p[1], 50).msg, /máximo/);
+  assert.ok(!chamferCorner(g.d, g.p[1], -1).ok);
+  void l;
 });
 
 console.log(`\n${passed} pruebas pasaron`);

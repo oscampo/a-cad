@@ -13,6 +13,7 @@ import { splitElement } from './split.js';
 import { boxSelect } from './boxsel.js';
 import { crossPoints } from './snapx.js';
 import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, pasteClip } from './edit.js';
+import { cornerOf, filletCorner, chamferCorner, maxFillet } from './corners.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, angSector, angTrue, initAngle, trackAngles, DIAM } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
@@ -1557,6 +1558,11 @@ function toolUp(p, q) {
   }
   if (tool === 'trim') { if (d?.trimmed) afterChange(); else draw(); return; }
   if (tool === 'extend') { extendAt(p); return; }
+  if (tool === 'fillet' || tool === 'chamfer') {
+    const h = hitTest(p.x, p.y);
+    if (h?.k === 'pt') cornerTool([h.id]); else toast('Toca el punto de una esquina, donde se juntan dos líneas');
+    return;
+  }
   const moved = d?.moved;
   const sDown = snapAt(q.down.x, q.down.y, { press: true }), sUp = snapAt(p.x, p.y, { press: !moved });
   if (tool === 'point') {
@@ -1833,6 +1839,37 @@ function extendAt(p) {
   }
   if (!ok) { doc = JSON.parse(bak); undoStack.pop(); updateButtons(); toast(r.ok ? 'No se pudo extender: conflicto con las restricciones' : r.msg); draw(); return; }
   sel = [{ k: h.k, id: h.id }];
+  afterChange();
+}
+
+// Redondeo o chaflan (segun la herramienta) en las esquinas dadas (puntos donde se juntan dos lineas), con un solo valor.
+// El valor puede ser una formula: queda en la cota de cada esquina.
+async function cornerTool(pids) {
+  const fillet = toolName === 'fillet', cs = pids.map((id) => cornerOf(doc, id)), good = cs.filter((c) => c.ok);
+  if (!good.length) { toast(cs[0]?.msg || 'Toca el punto de una esquina'); return; }
+  const lim = Math.min(...good.map((c) => (fillet ? maxFillet(c) : Math.min(c.A.len, c.B.len))));
+  const last = fillet ? opts.cornerR : opts.chamferD;
+  const initial = last > 0 && last < lim ? last : Math.max(Math.round(lim * 25) / 100, 0.01); // un cuarto del maximo
+  const ask = askNumber((fillet ? 'Radio del redondeo' : 'Distancia del chaflán') + (good.length > 1 ? ` (${good.length} esquinas)` : ''), initial);
+  $('dlgRefRow').style.display = 'none'; // aqui no hay cota de solo lectura: el valor siempre manda
+  const v = await ask;
+  if (v === null) return;
+  const expr = dlgExpr;
+  pushUndo();
+  let done = 0; const fails = [], made = [];
+  for (const c of good) {
+    const r = fillet ? filletCorner(doc, c.pid, v) : chamferCorner(doc, c.pid, v);
+    if (!r.ok) { fails.push(r.msg); continue; }
+    if (expr) for (const k of r.dims) doc.cons[k].expr = expr;
+    made.push(fillet ? { k: 'ar', id: r.arc } : { k: 'ln', id: r.line });
+    done++;
+  }
+  if (!done) { rollback(); toast(fails[0]); afterChange(); return; }
+  const st = settle(doc, solve, []);
+  if (!st.ok) { rollback(); toast(st.error || 'No se pudo: entra en conflicto con las restricciones del dibujo'); afterChange(); return; }
+  if (fillet) opts.cornerR = v; else opts.chamferD = v;
+  sel = made;
+  if (fails.length) toast(`${done} de ${good.length} esquinas: ${fails[0]}`);
   afterChange();
 }
 
@@ -2467,6 +2504,8 @@ const HINTS = {
   ellipse: 'Elipse: toca el centro; luego toca (o arrastra hasta) el extremo del primer eje y, por último, un punto del segundo eje. Se puede arrastrar desde el centro.',
   trim: 'Recortar: mantén presionado y arrastra sobre los tramos que quieres quitar (entre cruces con otros elementos). Un toque recorta un solo tramo.',
   extend: 'Extender: toca un segmento o arco cerca del extremo que quieres alargar hasta el primer elemento que encuentre.',
+  fillet: 'Redondeo: toca el punto de una esquina (donde se juntan dos líneas) y teclea el radio. Con varias esquinas seleccionadas antes de elegir la herramienta, las redondea todas con el mismo radio. El radio queda como cota editable.',
+  chamfer: 'Chaflán: toca el punto de una esquina (donde se juntan dos líneas) y teclea la distancia desde la esquina. Con varias esquinas seleccionadas antes de elegir la herramienta, las achaflana todas. Cada tramo queda como cota editable.',
 };
 function ltLabel(o) {
   const lt = allLtypes(doc)[o.ltype] || allLtypes(doc).continua;
@@ -2585,6 +2624,10 @@ function setTool(t) {
   document.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === t));
   closeFly(); syncGroups(t);
   if (t !== 'intersect') pending = null;
+  if (t === 'fillet' || t === 'chamfer') { // con puntos ya seleccionados, se aplica a esas esquinas
+    const pts = sel.filter((x) => x.k === 'pt' && doc.pts[x.id]).map((x) => x.id);
+    if (pts.length) cornerTool(pts);
+  }
   if (t === 'dim') startDimTool();
   updateStatus(); draw();
 }
@@ -2601,6 +2644,7 @@ const GROUPS = {
   arc: [['arcc', 'arc-c', 'Arco por centro y extremos (R)'], ['arc3', 'arc-3', 'Arco por 3 puntos (A)'], ['carcc', 'carcc', 'Arco constructivo por centro y extremos'], ['carc3', 'carc3', 'Arco constructivo por 3 puntos']],
   ellipse: [['ellipse', 'ellipse', 'Elipse: centro y dos ejes (O)'], ['earc', 'earc', 'Elipse parcial (arco elíptico)']],
   rect: [['rect', 'rect', 'Rectángulo por diagonal (B)'], ['rectc', 'rect-c', 'Rectángulo de centro']],
+  corner: [['fillet', 'fillet', 'Redondeo (F): toca una esquina y teclea el radio'], ['chamfer', 'chamfer', 'Chaflán: toca una esquina y teclea la distancia']],
   clip: [['copy', 'copy', 'Copiar la selección (Ctrl+C)'], ['paste', 'paste', 'Pegar: toca el punto donde va el centro de lo copiado (Ctrl+V)']],
 };
 // Cada elemento de un grupo es una herramienta, salvo Filtrar y Copiar, que son acciones.
@@ -3536,7 +3580,7 @@ window.addEventListener('keydown', (e) => {
   else if ((e.ctrlKey || e.metaKey) && k === 'v') { e.preventDefault(); pasteTool(); }
   else if (k === 'escape') { if (pickResolve) { const r = pickResolve; pickResolve = null; r(null); } else if (pending) { if (tool === 'spline' && pending.ids?.length >= 2) finishSpline(false); else cancelPending(); } else { sel = []; afterChange(); } }
   else if (k === 'delete' || k === 'backspace') $('del').click();
-  else if (!e.ctrlKey && !e.metaKey) { const m = { v: 'select', p: 'point', l: 'line', c: 'circle', i: 'intersect', d: 'dim', a: 'arc3', r: 'arcc', t: 'text', s: 'spline', x: 'trim', e: 'extend', o: 'ellipse', b: 'rect', g: 'polygon', k: 'cline', m: 'mline', w: 'vector' }[k]; if (m) setTool(m); }
+  else if (!e.ctrlKey && !e.metaKey) { const m = { v: 'select', p: 'point', l: 'line', c: 'circle', i: 'intersect', d: 'dim', a: 'arc3', r: 'arcc', t: 'text', s: 'spline', x: 'trim', e: 'extend', o: 'ellipse', b: 'rect', g: 'polygon', k: 'cline', m: 'mline', w: 'vector', f: 'fillet' }[k]; if (m) { e.preventDefault(); setTool(m); } } // preventDefault: si la herramienta abre un cuadro de texto, la letra no se escribe en el
 });
 window.addEventListener('keyup', (e) => { if (e.code === 'Space') spaceDown = false; if (e.key === 'Shift') shiftDown = false; });
 // Area visible real (con teclado en pantalla): los dialogos se acomodan arriba de ella

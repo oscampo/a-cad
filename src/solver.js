@@ -80,6 +80,12 @@ function conPrims(doc, id, k) {
       return ctr(r[0]) === ctr(r[1]) ? [] : [{ ...base, type: 'p2p_coincident', p1_id: ctr(r[0]), p2_id: ctr(r[1]) }];
     }
     case 'MID': return [{ ...base, type: 'p2p_symmetric_ppp', p1_id: r[0], p2_id: r[1], p_id: r[2] }];
+    case 'TANEP': { // linea tangente a un arco en un punto que es extremo de los dos: la linea es perpendicular al radio que llega al punto.
+      // Es lo que usa el redondeo. La tangencia comun (distancia del centro a la recta = radio) es singular cuando el punto de
+      // contacto es extremo de la linea y del arco (el solver la daria por conflicto al cambiar el radio); esta no lo es.
+      const [lid, aid, q] = r, l = doc.lines[lid], a = doc.arcs[aid];
+      return [{ ...base, type: 'perpendicular_pppp', l1p1_id: l.a === q ? l.b : l.a, l1p2_id: q, l2p1_id: a.c, l2p2_id: q }];
+    }
     case 'TANLC': return kd[1] === 'a'
       ? [{ ...base, type: 'tangent_la', l_id: r[0], a_id: r[1] }]
       : [{ ...base, type: 'tangent_lc', l_id: r[0], c_id: r[1] }];
