@@ -2,19 +2,30 @@
 // measure(linea) -> ancho de la linea para una altura de texto de 1 (en el navegador sale
 // de measureText; en las pruebas puede ser una aproximacion).
 import { evalExpr } from './expr.js';
-import { varsOf } from './params.js';
+import { varsOf, textVars } from './params.js';
+import { IT0, IT1, DEF_SRC, runsOf } from './tvars.js';
+export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
 
 // Salidas en textos: [=expresion] se reemplaza por el valor de la expresion, que puede usar los nombres de las cotas
 // (D1, A1, O2...) y funciones: "El diametro es [=O1] cm", "vueltas: [=A1/(2π)]". Un ángulo vale su medida en radianes.
 // Si la expresion falla, queda ⚠ en su lugar.
-const OUT_RE = /\[=([^\]]*)\]/g;
+// Definiciones de variables: «x[:=valor]» se muestra como «x:=valor» en cursiva (entre marcas IT0 e IT1, ver runsOf); si la
+// definicion no vale (repetida, choca con una cota, falla) lleva un ⚠ al final.
+const TEXT_RE = () => new RegExp(DEF_SRC + '|' + OUT_SRC, 'g');
+const OUT_SRC = /\[=([^\]]*)\]/.source;
 export function textValue(doc, t) {
   const s = String(t.text ?? '');
-  if (!s.includes('[=')) return s;
-  let vars = null;
-  return s.replace(OUT_RE, (m, ex) => {
-    try { vars ||= varsOf(doc); return fmtNum(evalExpr(ex, { vars }).value); } catch (e) { return '⚠'; }
+  const hasDef = s.includes('[:='), hasOut = s.includes('[=');
+  if (!hasDef && !hasOut) return s;
+  let vars = null, st = null, tid = null, idx = 0;
+  if (hasDef) { tid = Object.keys(doc.texts || {}).find((k) => doc.texts[k] === t); st = textVars(doc); }
+  return s.replace(TEXT_RE(), (m, name, ex, out) => {
+    if (name !== undefined) { // definicion
+      const bad = st.bad.has(tid + ':' + idx++);
+      return IT0 + name + ':=' + ex + (bad ? ' ⚠' : '') + IT1;
+    }
+    try { vars ||= varsOf(doc); return fmtNum(evalExpr(out, { vars }).value); } catch (e) { return '⚠'; }
   });
 }
 // El texto tal como se ve (con sus salidas calculadas): el mismo objeto si no hay ninguna.
@@ -73,10 +84,13 @@ export function textPose(doc, t) {
   return { ang, anchor };
 }
 
+// Ancho de una linea para altura 1: suma el de sus tramos (los de cursiva se miden aparte). measure(texto, fuente, cursiva).
+export const lineWidth = (measure, line, font) => runsOf(line).reduce((w, r) => w + measure(r.s, font, r.it), 0);
+
 // Caja en el sistema local del texto (x a la derecha, y arriba, origen en el punto de insercion).
 export function textFrame(t, measure, anchor = t.anchor) {
   const lines = String(t.text ?? '').split('\n');
-  const w = Math.max(0.0001, ...lines.map((l) => measure(l, t.font) * t.h));
+  const w = Math.max(0.0001, ...lines.map((l) => lineWidth(measure, l, t.font) * t.h));
   const hh = lines.length * LINE_SPACING * t.h;
   const ax = { l: 0, c: 0.5, r: 1 }[anchor?.[1] ?? 'l'];
   const ay = { t: 0, m: 0.5, b: 1 }[anchor?.[0] ?? 'b'];

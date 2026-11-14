@@ -16,9 +16,9 @@ import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, past
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, angSector, angTrue, initAngle, trackAngles, DIAM } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
-import { textFrame, textHit, textPose, shownText, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss } from './text.js';
+import { textFrame, textHit, textPose, shownText, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss } from './text.js';
 import * as gh from './github.js';
-import { varsOf, varsList, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive } from './params.js';
+import { varsOf, varsList, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg } from './icons.js';
 import { buildTree, kindOf, conLabel } from './tree.js';
@@ -872,9 +872,9 @@ function conAnchors(k) {
 const FONT = '-apple-system, system-ui, "Segoe UI", sans-serif';
 let mctx = null;
 // ancho de una linea de texto para altura 1 (se escala por la altura real del texto)
-function measureRel(line, font) {
+function measureRel(line, font, italic = false) {
   if (!mctx) mctx = document.createElement('canvas').getContext('2d');
-  mctx.font = `100px ${fontCss(font)}`;
+  mctx.font = `${italic ? 'italic ' : ''}100px ${fontCss(font)}`;
   return mctx.measureText(line).width / 100;
 }
 
@@ -889,7 +889,14 @@ function drawTexts(c, o) {
     c.rotate(-(pose.ang * Math.PI) / 180);
     c.font = `${t.h * sc * dpr}px ${fontCss(t.font)}`;
     c.fillStyle = colorOf(t.color, o); c.textBaseline = 'top'; c.textAlign = 'left';
-    f.lines.forEach((ln, i) => c.fillText(ln, f.xmin * sc * dpr, (-f.ymax * sc + (i * LINE_SPACING + 0.1) * t.h * sc) * dpr));
+    f.lines.forEach((ln, i) => {
+      let x = f.xmin; // las definiciones de variables («x:=valor») van en cursiva: cada tramo con su fuente
+      for (const r of runsOf(ln)) {
+        c.font = `${r.it ? 'italic ' : ''}${t.h * sc * dpr}px ${fontCss(t.font)}`;
+        c.fillText(r.s, x * sc * dpr, (-f.ymax * sc + (i * LINE_SPACING + 0.1) * t.h * sc) * dpr);
+        x += measureRel(r.s, t.font, r.it) * t.h;
+      }
+    });
     if (o.ui && isSel('tx', id)) {
       c.strokeStyle = theme.sel; c.lineWidth = 1.5 * dpr; c.setLineDash([5 * dpr, 3 * dpr]);
       c.strokeRect(f.xmin * sc * dpr, -f.ymax * sc * dpr, f.w * sc * dpr, f.hh * sc * dpr);
@@ -1859,8 +1866,21 @@ function askText(labelText, initial) {
   });
 }
 
+// Tras cambiar un texto: las variables que define («x[:=valor]») no pueden chocar con una cota, repetirse ni fallar (un problema
+// que ya existia antes de la edicion no cuenta) y las cotas con formulas que las leen se recalculan. false: se deshizo todo.
+function textEditOk(before) {
+  const bad = textVarErrors(doc).find((e) => !before.some((b) => b.key === e.key));
+  if (bad) { rollback(); toast(bad.msg); afterChange(); return false; }
+  if (usesTextVars(doc)) {
+    const st = settle(doc, solve, []);
+    if (!st.ok) { rollback(); toast(st.error || 'No se pudo: entra en conflicto con otras restricciones'); afterChange(); return false; }
+  }
+  return true;
+}
+
 async function placeText(sUp) {
   pushUndo();
+  const before = textVarErrors(doc);
   const reuse = sUp.type === 'pt';
   const pid = pointFrom(sUp); // el punto de insercion es un punto real: admite restricciones
   if (!reuse) doc.pts[pid].txOnly = true; // punto propio del texto: solo se ve al seleccionarlo
@@ -1869,6 +1889,7 @@ async function placeText(sUp) {
   if (val !== null) cur.tx.font = $('dlgTFont').value;
   if (val === null || !val.trim()) { rollback(); afterChange(); return; }
   const id = addText(doc, pid, val, { h: cur.tx.h ?? niceHeight(), ang: cur.tx.ang, anchor: cur.tx.anchor, color: cur.color, readable: cur.tx.readable, font: $('dlgTFont').value || cur.tx.font });
+  if (!textEditOk(before)) return;
   sel = [{ k: 'tx', id }];
   finishEdit();
 }
@@ -2920,7 +2941,12 @@ function openProps(h) {
     body.appendChild(propRow('Color', propColors(o, 'color')));
     const ta = document.createElement('textarea');
     ta.rows = 2; ta.value = o.text; ta.style.cssText = 'flex:1 1 100%;min-height:56px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);font:inherit';
-    ta.onchange = () => { if (ta.value.trim()) propSet((x) => { x.text = ta.value; }); else ta.value = propObj().text; };
+    ta.onchange = () => {
+      if (!ta.value.trim()) { ta.value = propObj().text; return; }
+      const before = textVarErrors(doc);
+      pushUndo(); propObj().text = ta.value;
+      if (textEditOk(before)) afterChange();
+    };
     body.appendChild(propRow('Texto', ta));
     body.appendChild(propRow('Fuente', propSelect(FONTS.map((f) => [f[0], f[1]]), o.font || '', (v) => propSet((x) => { x.font = v; }))));
     body.appendChild(propRow('Altura', propNumber(o.h, (v, i) => { const n = Number(v); if (n > 0) propSet((x) => { x.h = n; }); else i.value = String(propObj().h); }, { min: '0.01' })));

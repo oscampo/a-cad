@@ -1,6 +1,6 @@
 import { visibleDoc, hatchLoops, allLtypes, arcOf, arcSamples, splinePolyline, ellipsePolyline } from './model.js';
 import { dashFromPattern, norm, splineBezier } from './geom.js';
-import { textFrame, textCorners, textPose, shownText, LINE_SPACING, fontCss } from './text.js';
+import { textFrame, textCorners, textPose, shownText, runsOf, plainText, LINE_SPACING, fontCss } from './text.js';
 import { vecArrow } from './vectors.js';
 import { layoutDim } from './dims.js';
 
@@ -156,7 +156,7 @@ export function exportSVG(doc, ltScale = 1, vis = {}) {
     const pose = textPose(doc, t);
     const f = textFrame(t, approx, pose.anchor);
     const anchor = { l: 'start', c: 'middle', r: 'end' }[pose.anchor[1]];
-    const lines = f.lines.map((ln, i) => `<tspan x="${n((anchor === 'start' ? f.xmin : anchor === 'middle' ? f.xmin + f.w / 2 : f.xmin + f.w) * K)}" y="${n((-f.ymax + (i * LINE_SPACING + 0.95) * t.h) * K)}">${esc(ln)}</tspan>`).join('');
+    const lines = f.lines.map((ln, i) => `<tspan x="${n((anchor === 'start' ? f.xmin : anchor === 'middle' ? f.xmin + f.w / 2 : f.xmin + f.w) * K)}" y="${n((-f.ymax + (i * LINE_SPACING + 0.95) * t.h) * K)}">${runsOf(ln).map((r) => (r.it ? `<tspan font-style="italic">${esc(r.s)}</tspan>` : esc(r.s))).join('')}</tspan>`).join('');
     out.push(`<text transform="translate(${X(P.x)} ${Y(P.y)}) rotate(${n(-pose.ang)})" font-family="${t.font ? fontCss(t.font).replace(/"/g, "'") : 'sans-serif'}" font-size="${n(t.h * K)}" text-anchor="${anchor}" fill="${col(t.color)}">${lines}</text>`);
   }
   // cotas
@@ -226,7 +226,7 @@ export function exportDXF(doc, viewScale = 5, vis = {}) {
       const x = h72 === 0 ? f.xmin : h72 === 1 ? f.xmin + f.w / 2 : f.xmin + f.w;
       const y = f.ymax - (i + 1) * 1.2 * t.h + 0.2 * t.h; // linea base
       const wx = P.x + x * c0 - y * s0, wy = P.y + x * s0 + y * c0;
-      g(0, 'TEXT'); g(8, '0'); g(10, wx); g(20, wy); g(30, 0); g(40, t.h); g(1, ln.replace(/\s+/g, ' '));
+      g(0, 'TEXT'); g(8, '0'); g(10, wx); g(20, wy); g(30, 0); g(40, t.h); g(1, plainText(ln).replace(/\s+/g, ' '));
       g(50, pose.ang); g(72, h72); g(11, wx); g(21, wy); g(31, 0); g(73, 0);
     });
   }

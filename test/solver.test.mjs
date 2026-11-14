@@ -2,14 +2,15 @@ import assert from 'node:assert/strict';
 import { addLayer, deleteLayer, layerCount, isHidden, shownEntries, layerHiddenPoints, consHidden, visibleDoc, newDoc, addPoint, addLine, addCircle, addArc, addCon, addText, addSpline, deleteItems, hatchLoops, arcOf, cleanup, splinePolyline, conTag, ensureNumbers, addEllipse, ellipseOf, ellipsePolyline, ellipsePoint, ellipseParam, ellipseRange, isPartial } from '../src/model.js';
 import { startTrace, recordTraces, traceToSpline, offsetPolyline, firstLap } from '../src/curves.js';
 import { layoutDim, dragDim, dimValue, dimText, angSector, angTrue, initAngle, trackAngles } from '../src/dims.js';
-import { textFrame, textCorners, textHit, textPose, rawAngle, textValue, shownText } from '../src/text.js';
+import { textFrame, textCorners, textHit, textPose, rawAngle, textValue, shownText, lineWidth } from '../src/text.js';
 import { exportSVG, exportSVGLaser, exportDXF, dimLayouts, extraExtents, laserClasses, styleKey } from '../src/export.js';
 import { splitElement } from '../src/split.js';
 import { buildTree, conLabel } from '../src/tree.js';
 import { cleanFileBase } from '../src/files.js';
 import { parseValue, evalExpr, isPlainNumber, exprRefs, renameInExpr } from '../src/expr.js';
 import { makeVector, unmakeVector, syncVectors, isVector, vecArrow, vecEnds } from '../src/vectors.js';
-import { recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive } from '../src/params.js';
+import { recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive, textVarErrors, usesTextVars, varsList } from '../src/params.js';
+import { runsOf, plainText } from '../src/tvars.js';
 import { nameDims } from '../src/model.js';
 import { trimAt, extendEnd, cutsOf, curveCuts, linearArray, mirrorCopy, circularArray, clipOf, pasteClip, bboxOf } from '../src/edit.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from '../src/shapes.js';
@@ -2772,6 +2773,165 @@ t('planimetro: reiniciar la marca en otro lugar del dibujo deja la lectura en ce
   assert.ok(solve(d, []).ok);
   near(dimValue(d, d.cons[kD]), D0, 1e-6, 'la lectura vuelve a su valor de partida');
   drag(30, 0); assert.ok(Math.abs(dimValue(d, d.cons[kD]) - D0) > 1, 'y desde ahi vuelve a acumular');
+});
+
+t('formulas: redondeo, comparacion y trigonometria extra', () => {
+  const v = (src, o) => evalExpr(src, o).value;
+  near(v('round(2.675; 2)'), 2.68); near(v('round(-2.5)'), -3); near(v('redondear(7.456;1)'), 7.5); near(v('round(7.4)'), 7);
+  near(v('floor(-1.2)'), -2); near(v('ceil(1.2)'), 2); near(v('trunc(-1.7)'), -1); near(v('sign(-5)'), -1); near(v('piso(2.9)+techo(2.1)'), 5);
+  near(v('min(3; 1; 2)'), 1); near(v('max(3, 8)'), 8); near(v('mod(-1; 5)'), 4); near(v('clamp(15; 0; 10)'), 10); near(v('clamp(-3; 0; 10)'), 0); near(v('hypot(3; 4)'), 5);
+  near(v('atan2(1; 1)'), 45); near(v('atan2(1; -1)'), 135); near(v('atan2(1; 1)', { radians: true }), Math.PI / 4);
+  near(v('sinh(1)'), Math.sinh(1)); near(v('cosh(0)'), 1); near(v('tanh(0)'), 0); near(v('asinh(1)'), Math.asinh(1)); near(v('atanh(0.5)'), Math.atanh(0.5));
+  near(v('sec(60)'), 2); near(v('csc(30)'), 2); near(v('cot(45)'), 1); near(v('sec(π/3)'), 2);
+  near(v('deg(π)'), 180); near(v('rad(180)'), Math.PI); near(v('sin(rad(30))'), 0.5);
+  // un valor que viene de π sigue siendo radianes tras redondear
+  assert.equal(evalExpr('round(π; 2)').rad, true);
+  // comparaciones: 1 si se cumple, 0 si no (== y != toleran el redondeo)
+  assert.equal(v('3<5'), 1); assert.equal(v('3>=5'), 0); assert.equal(v('2==2.0000000001'), 1); assert.equal(v('2!=3'), 1); assert.equal(v('5≤5'), 1);
+  near(v('2*(3<4)+1'), 3);
+  // si(condicion; verdadero; falso) solo evalua la rama elegida
+  near(v('si(1<2; 10; 20)'), 10); near(v('si(0; 1/0; 7)'), 7); near(v('if(2>1; 3; sqrt(-1)/0)'), 3);
+  assert.throws(() => evalExpr('si(1; 1/0; 7)'), /cero/);
+  // errores
+  assert.throws(() => evalExpr('max(2,5)'), /valores/); // «2,5» es un decimal: un solo valor
+  assert.throws(() => evalExpr('min(4)'), /valores/); assert.throws(() => evalExpr('atan2(1)'), /2 valores/); assert.throws(() => evalExpr('round(1;2;3)'), /valores/);
+  assert.throws(() => evalExpr('mod(7; 0)'), /cero/); assert.throws(() => evalExpr('round(1; 1.5)'), /entero/); assert.throws(() => evalExpr('1<2<3'), /Sobra/);
+  assert.throws(() => evalExpr('sin(30; 5)'), /solo valor/);
+  // con variables y coma tras un valor
+  near(v('max(a, 5)+b', { vars: { a: { v: 9, r: false }, b: { v: 1, r: false } } }), 10);
+  // nombres reservados: no se pueden usar como nombre de cota
+  for (const n of ['round', 'max', 'atan2', 'si', 'if', 'deg', 'sinh']) assert.ok(checkName(newDoc(), n, null), 'reservado: ' + n);
+  assert.deepEqual(exprRefs('max(D1; round(L2; 1))'), ['D1', 'L2']);
+  // «t» esta reservada para el tiempo (solo en minuscula): no es nombre de cota ni de variable y todavia no vale nada
+  assert.match(checkName(newDoc(), 't', null), /tiempo/); assert.equal(checkName(newDoc(), 'T', null), null);
+  assert.throws(() => evalExpr('2*t'), /reservada para el tiempo/);
+  for (const n of ['j', 'ω', 'θ', 'α']) { assert.match(checkName(newDoc(), n, null), /uso futuro/); assert.throws(() => evalExpr('2*' + n), /uso futuro/); }
+  for (const n of ['J', 'Ω', 'Θ', 'Α', 'β', 'i']) assert.equal(checkName(newDoc(), n, null), null, n); // solo esas minusculas exactas
+  for (const n of ['π', 'pi', 'e']) assert.match(checkName(newDoc(), n, null), /constante/);
+  const dt = newDoc(); addText(dt, addPoint(dt, 0, 0), 't[:=5]  T[:=2]', {});
+  assert.deepEqual(textVarErrors(dt).map((e) => e.msg), ['«t» está reservada para el tiempo']);
+  assert.equal(varsOf(dt).T.v, 2); assert.ok(!('t' in varsOf(dt)));
+});
+t('variables de texto: x[:=valor] se lee en salidas, en cursiva, y no se puede repetir ni chocar con una cota', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 4, 0); d.pts[a].fixed = true;
+  const l = addLine(d, a, b, {}); addCon(d, { t: 'H', refs: [l] });
+  addCon(d, { t: 'DIST', refs: [a, b], v: 4 }); // D1
+  const P = addPoint(d, 1, 1);
+  const def = addText(d, P, 'k[:=D1*2+1]', {}), out = addText(d, P, 'k vale [=k] y dos k [=2*k]', {});
+  assert.deepEqual(runsOf(textValue(d, d.texts[def])), [{ s: 'k:=D1*2+1', it: true }]); // se ve «k:=valor» en cursiva
+  assert.equal(plainText(textValue(d, d.texts[def])), 'k:=D1*2+1');
+  assert.equal(textValue(d, d.texts[out]), 'k vale 9 y dos k 18');
+  // mezclado con texto normal: solo la definicion va en cursiva
+  const mix = addText(d, P, 'Dato: n[:=3]  ok', {});
+  assert.deepEqual(runsOf(textValue(d, d.texts[mix])), [{ s: 'Dato: ', it: false }, { s: 'n:=3', it: true }, { s: '  ok', it: false }]);
+  assert.equal(varsOf(d).n.v, 3); assert.equal(varsOf(d).k.v, 9);
+  assert.ok(varsList(d).includes('k = 9 (texto)'));
+  // una variable puede usar otras variables (en cualquier orden) y los angulos de π son radianes
+  addText(d, P, 'm[:=n+k]  q[:=π/2]', {});
+  assert.equal(varsOf(d).m.v, 12); near(varsOf(d).q.v, Math.PI / 2); assert.equal(varsOf(d).q.r, true);
+  assert.equal(textVarErrors(d).length, 0);
+  // el valor sigue a la cota
+  d.cons[Object.keys(d.cons).find((k) => d.cons[k].t === 'DIST')].v = 10;
+  assert.equal(textValue(d, d.texts[out]), 'k vale 21 y dos k 42');
+  // multiples lineas y varias definiciones en un texto
+  const multi = addText(d, P, 'r1[:=1]\nr2[:=2]', {});
+  assert.equal(varsOf(d).r1.v + varsOf(d).r2.v, 3);
+  assert.equal(textValue(d, d.texts[multi]).split('\n').length, 2);
+  // repetida: la segunda es la mala y el texto lo marca con ⚠; la primera sigue valiendo
+  const dup = addText(d, P, 'n[:=99]', {});
+  assert.equal(varsOf(d).n.v, 3);
+  assert.ok(textVarErrors(d).some((e) => /más de una vez/.test(e.msg)));
+  assert.ok(plainText(textValue(d, d.texts[dup])).endsWith('⚠'));
+  assert.ok(!plainText(textValue(d, d.texts[mix])).includes('⚠'));
+  delete d.texts[dup];
+  assert.equal(textVarErrors(d).length, 0);
+  // choca con una cota: gana la cota
+  const clash = addText(d, P, 'D1[:=5]', {});
+  assert.ok(textVarErrors(d).some((e) => /nombre de una cota/.test(e.msg)));
+  assert.equal(varsOf(d).D1.v, 10);
+  delete d.texts[clash];
+  // funcion o constante como nombre, y expresion invalida o desconocida
+  const f = addText(d, P, 'sin[:=5]  pi[:=3]  z[:=2+]  w[:=nada*2]', {});
+  const msgs = textVarErrors(d).map((e) => e.msg).join(' | ');
+  assert.ok(/«sin» es una función/.test(msgs) && /«pi» es una función/.test(msgs) && /«z»/.test(msgs) && /«w»/.test(msgs), msgs);
+  assert.ok((plainText(textValue(d, d.texts[f]))).split('⚠').length === 5);
+  delete d.texts[f];
+  // un nombre de cota no puede coincidir con una variable de texto
+  assert.match(checkName(d, 'k', null), /variable de texto/);
+  assert.equal(checkName(d, 'Ancho', null), null);
+  // en un ciclo todas fallan
+  const cyc = addText(d, P, 'c1[:=c2+1]  c2[:=c1+1]', {});
+  assert.ok(textVarErrors(d).length >= 2); assert.ok(!('c1' in varsOf(d)));
+  delete d.texts[cyc];
+  assert.equal(textVarErrors(d).length, 0);
+});
+t('variables de texto: las leen las cotas con formula, se recalculan en orden y no admiten ciclos', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 10, 0), c = addPoint(d, 0, 6), e = addPoint(d, 0, -3); d.pts[a].fixed = true;
+  const l1 = addLine(d, a, b, {}), l2 = addLine(d, a, c, {}), l3 = addLine(d, a, e, {});
+  addCon(d, { t: 'H', refs: [l1] }); addCon(d, { t: 'V', refs: [l2] }); addCon(d, { t: 'V', refs: [l3] });
+  const k1 = addCon(d, { t: 'DIST', refs: [a, b], v: 10 }); // D1
+  const k2 = addCon(d, { t: 'DIST', refs: [a, c], v: 6, expr: 'x+1' }); // D2 = x + 1
+  const k3 = addCon(d, { t: 'DIST', refs: [a, e], v: 3, expr: 'D2*2' }); // D3 = 2*D2
+  nameDims(d);
+  const P = addPoint(d, 5, 5);
+  addText(d, P, 'x[:=D1/2]', {}); // x depende de D1
+  assert.ok(usesTextVars(d));
+  assert.ok(solve(d, []).ok);
+  const rc = recompute(d); assert.ok(rc.ok, rc.error);
+  near(d.cons[k2].v, 6); near(d.cons[k3].v, 12); // 10/2+1 y 2*6
+  d.cons[k1].v = 20;
+  assert.ok(recompute(d).ok);
+  near(d.cons[k2].v, 11); near(d.cons[k3].v, 22); // D1 -> x -> D2 -> D3 en orden
+  assert.ok(solve(d, []).ok);
+  near(Math.hypot(d.pts[c].x - d.pts[a].x, d.pts[c].y - d.pts[a].y), 11, 1e-4);
+  // una variable que depende de una cota con formula tambien va despues de ella
+  addText(d, P, 'y[:=D3+1]', {});
+  d.cons[k2].expr = 'x+y'; // D2 = x + y, y = D3 + 1, D3 = 2*D2: en circulo
+  const bad = recompute(d); assert.ok(!bad.ok); assert.match(bad.error, /círculo|propia fórmula/);
+  d.cons[k2].expr = 'x+1';
+  assert.ok(recompute(d).ok);
+  // sin la variable, la formula pierde su base y se avisa
+  d.texts = {};
+  assert.ok(!recompute(d).ok);
+  assert.ok(pruneFormulas(d).includes('D2'));
+  assert.equal(d.cons[k2].expr, undefined);
+  // la variable que lee una cota de solo lectura la vuelve reactiva (la entrada se mantiene fija al resolver)
+  const d2 = newDoc();
+  const p0 = addPoint(d2, 0, 0), p1 = addPoint(d2, 8, 0), p2 = addPoint(d2, 0, 5); d2.pts[p0].fixed = true;
+  const m1 = addLine(d2, p0, p1, {}), m2 = addLine(d2, p0, p2, {});
+  addCon(d2, { t: 'H', refs: [m1] }); addCon(d2, { t: 'V', refs: [m2] });
+  addCon(d2, { t: 'DIST', refs: [p0, p1], v: 8, ref: true }); // D1 de lectura
+  const kk = addCon(d2, { t: 'DIST', refs: [p0, p2], v: 5, expr: 'w' });
+  nameDims(d2);
+  assert.equal(hasReactive(d2), false);
+  addText(d2, addPoint(d2, 3, 3), 'w[:=D1/2]', {});
+  assert.equal(hasReactive(d2), true);
+  void kk;
+});
+t('variables de texto: renombrar una cota las actualiza y el texto se mide por tramos (cursiva) y se exporta', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 4, 0); d.pts[a].fixed = true;
+  const l = addLine(d, a, b, {}); addCon(d, { t: 'H', refs: [l] });
+  const k = addCon(d, { t: 'DIST', refs: [a, b], v: 4 }); nameDims(d);
+  const P = addPoint(d, 1, 1);
+  const tx = addText(d, P, 'w[:=D1*2]  [=w]', { h: 2 });
+  renameDim(d, k, 'Ancho');
+  assert.equal(d.texts[tx].text, 'w[:=Ancho*2]  [=w]');
+  assert.equal(plainText(textValue(d, d.texts[tx])), 'w:=Ancho*2  8');
+  // el ancho suma los tramos: la cursiva se mide con su propia funcion
+  const calls = [];
+  const w = textFrame(shownText(d, d.texts[tx]), (s, f, it) => { calls.push([s, it]); return s.length * (it ? 1 : 0.5); }).w;
+  assert.deepEqual(calls, [['w:=Ancho*2', true], ['  8', false]]);
+  near(w, (10 * 1 + 3 * 0.5) * 2);
+  assert.equal(lineWidth((s) => s.length, 'plano', ''), 5);
+  // exportar: SVG con tramo en cursiva y DXF sin marcas
+  const svg = exportSVG(d, 1);
+  assert.match(svg, /<tspan font-style="italic">w:=Ancho\*2<\/tspan>/);
+  assert.ok(!/[\uE000\uE001]/.test(svg));
+  const dxf = exportDXF(d, 5);
+  assert.ok(dxf.includes('w:=Ancho*2 8') && !/[\uE000\uE001]/.test(dxf));
 });
 
 console.log(`\n${passed} pruebas pasaron`);

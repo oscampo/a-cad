@@ -5,7 +5,8 @@
 // resolver y recalcular se repite hasta que ya nada cambia (settle). Si no se estabiliza se avisa y se deshace.
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
 import { dimValue, angTrue, initAngle, trackAngles } from './dims.js';
-import { parseValue, exprRefs, renameInExpr, isReservedName, NAME_RE } from './expr.js';
+import { parseValue, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE } from './expr.js';
+import { textVarState } from './tvars.js';
 
 const DEG = Math.PI / 180;
 const named = (doc) => Object.entries(doc.cons).filter(([, k]) => isNamedDim(k) && k.name);
@@ -18,24 +19,58 @@ export function varValue(doc, k) {
   if (k.t === 'RAD' && k.refs[0] in doc.circles) return { v: 2 * v, r: false };
   return { v, r: false };
 }
-// Variables disponibles (sin la cota exceptId, que no puede usarse a si misma).
+// Estado de las variables de los textos («x[:=valor]») con los valores actuales de las cotas.
+export function textVars(doc, exceptId = null) {
+  const dimVars = {};
+  for (const [id, k] of named(doc)) if (id !== exceptId) dimVars[k.name] = varValue(doc, k);
+  return textVarState(doc, dimVars, new Set(named(doc).map(([, k]) => k.name)));
+}
+const hasDefs = (doc) => Object.values(doc.texts || {}).some((t) => typeof t.text === 'string' && t.text.includes('[:='));
+const NO_TV = { win: new Map(), names: new Set(), vals: {}, errs: new Map() };
+const tvOf = (doc) => (hasDefs(doc) ? textVars(doc) : NO_TV);
+// Variables disponibles (sin la cota exceptId, que no puede usarse a si misma): las de las cotas y las de los textos.
 export function varsOf(doc, exceptId = null) {
   const out = {};
   for (const [id, k] of named(doc)) if (id !== exceptId) out[k.name] = varValue(doc, k);
-  return out;
+  if (!hasDefs(doc)) return out;
+  return Object.assign(out, textVarState(doc, out, new Set(named(doc).map(([, k]) => k.name))).vals);
 }
 // Texto corto de las variables para mostrarlas al escribir una formula: "D1 = 25, A1 = 45°".
 export function varsList(doc, exceptId = null) {
-  return named(doc).filter(([id]) => id !== exceptId).map(([, k]) => {
+  const dims = named(doc).filter(([id]) => id !== exceptId).map(([, k]) => {
     const v = dimValue(doc, k), x = k.t === 'RAD' && k.refs[0] in doc.circles ? 2 * v : v;
     return `${k.name} = ${Math.round(x * 1000) / 1000}${k.t === 'ANG' ? '°' : ''}${k.ref ? ' (lectura)' : ''}`;
-  }).join(', ');
+  });
+  const tv = hasDefs(doc) ? textVars(doc, exceptId).vals : {};
+  return dims.concat(Object.entries(tv).map(([n, x]) => `${n} = ${Math.round(x.v * 1000) / 1000} (texto)`)).join(', ');
+}
+// Nombres de las variables definidas en textos (las que alguna definicion valida usa).
+export const textVarNames = (doc) => (hasDefs(doc) ? textVars(doc).names : new Set());
+// Cotas (por nombre) de las que depende una formula, directamente o a traves de variables de texto.
+function dimRefs(doc, expr, st = tvOf(doc), seen = new Set()) {
+  const out = new Set();
+  for (const n of exprRefs(expr)) {
+    if (st.win.has(n)) { if (seen.has(n)) continue; seen.add(n); for (const m of dimRefs(doc, st.win.get(n).expr, st, seen)) out.add(m); } else out.add(n);
+  }
+  return out;
+}
+// ¿Alguna formula de una cota lee una variable de texto?
+export function usesTextVars(doc) {
+  if (!hasDefs(doc)) return false;
+  const st = tvOf(doc);
+  return drivers(doc).some(([, k]) => k.expr && exprRefs(k.expr).some((n) => st.names.has(n)));
+}
+// Problemas de las definiciones de los textos: [{ key, msg }] (repetidas, que chocan con una cota, que fallan o se piden en circulo).
+export function textVarErrors(doc) {
+  if (!hasDefs(doc)) return [];
+  return [...textVars(doc).errs].map(([n, msg]) => ({ key: n + '|' + msg, msg }));
 }
 
 export function checkName(doc, name, exceptId) {
   if (!NAME_RE.test(name)) return 'El nombre usa letras, números y _, y empieza con una letra';
-  if (isReservedName(name)) return `«${name}» es una función o constante`;
+  if (isReservedName(name)) return reservedWhy(name);
   if (Object.entries(doc.cons).some(([id, k]) => id !== exceptId && k.name === name)) return `Ya existe una cota llamada «${name}»`;
+  if (textVarNames(doc).has(name)) return `Ya existe una variable de texto llamada «${name}»`;
   return null;
 }
 
@@ -45,8 +80,8 @@ export function renameDim(doc, id, name) {
   if (!old || old === name) { k.name = name; return; }
   k.name = name;
   for (const o of Object.values(doc.cons)) if (o.expr) o.expr = renameInExpr(o.expr, old, name);
-  // las salidas de los textos ([=D1]) tambien siguen al nombre
-  for (const t of Object.values(doc.texts || {})) if (typeof t.text === 'string' && t.text.includes('[=')) t.text = t.text.replace(/\[=([^\]]*)\]/g, (m, ex) => '[=' + renameInExpr(ex, old, name) + ']');
+  // las salidas de los textos ([=D1]) y los valores de sus variables (x[:=2*D1]) tambien siguen al nombre
+  for (const t of Object.values(doc.texts || {})) if (typeof t.text === 'string' && (t.text.includes('[=') || t.text.includes('[:='))) t.text = t.text.replace(/\[=([^\]]*)\]/g, (m, ex) => '[=' + renameInExpr(ex, old, name) + ']').replace(/\[:=([^\]]*)\]/g, (m, ex) => '[:=' + renameInExpr(ex, old, name) + ']');
 }
 
 // Evalua en orden las cotas definidas con formula. { ok: true } o { ok: false, error } sin dejar nada a medias:
@@ -57,13 +92,16 @@ export function renameDim(doc, id, name) {
 export function recompute(doc, omega = 1, hook = null) {
   for (const [, k] of drivers(doc)) if (k.t === 'ANG' && k.expr && k.cur === undefined) initAngle(doc, k); // las angulares con formula usan valor continuo
   const dr = drivers(doc), byName = new Map(named(doc).map(([id, k]) => [k.name, id])), f = dr.filter(([, k]) => k.expr);
-  const deps = new Map();
+  const deps = new Map(), tv = tvOf(doc);
   for (const [id, k] of f) {
     const ids = [];
     for (const n of exprRefs(k.expr)) {
       if (n === k.name) return { ok: false, error: `${k.name} no puede usarse en su propia fórmula` };
-      if (!byName.has(n)) return { ok: false, error: `En la fórmula de ${k.name}: «${n}» no es una cota` };
-      ids.push(byName.get(n));
+      if (!byName.has(n) && !tv.names.has(n)) return { ok: false, error: `En la fórmula de ${k.name}: «${n}» no es una cota ni una variable` };
+    }
+    for (const n of dimRefs(doc, k.expr, tv)) { // tambien las cotas de las que dependen las variables de texto que lee
+      if (n === k.name) return { ok: false, error: `${k.name} no puede usarse en su propia fórmula (la lee a través de una variable de texto)` };
+      if (byName.has(n)) ids.push(byName.get(n));
     }
     deps.set(id, ids);
   }
@@ -104,7 +142,7 @@ export function recompute(doc, omega = 1, hook = null) {
 // Quita la formula (queda el valor actual) de las cotas cuyas variables ya no existen.
 // Devuelve los nombres afectados.
 export function pruneFormulas(doc) {
-  const names = new Set(named(doc).map(([, k]) => k.name)), out = [];
+  const names = new Set([...named(doc).map(([, k]) => k.name), ...textVarNames(doc)]), out = [];
   for (const k of Object.values(doc.cons)) {
     if (!k.expr) continue;
     if (!isNamedDim(k) || k.ref || exprRefs(k.expr).some((n) => !names.has(n) || n === k.name)) { delete k.expr; if (k.name) out.push(k.name); }
@@ -116,13 +154,14 @@ export function pruneFormulas(doc) {
 export function hasReactive(doc) {
   const refs = new Set(named(doc).filter(([, k]) => k.ref).map(([, k]) => k.name));
   if (!refs.size) return false;
-  return drivers(doc).some(([, k]) => k.expr && exprRefs(k.expr).some((n) => refs.has(n)));
+  const st = tvOf(doc);
+  return drivers(doc).some(([, k]) => k.expr && [...dimRefs(doc, k.expr, st)].some((n) => refs.has(n)));
 }
 
 // Puntos que miden las cotas de solo lectura que leen las formulas (las entradas del sistema).
 function measuredPoints(doc) {
-  const want = new Set();
-  for (const [, k] of drivers(doc)) if (k.expr) for (const n of exprRefs(k.expr)) want.add(n);
+  const want = new Set(), st = tvOf(doc);
+  for (const [, k] of drivers(doc)) if (k.expr) for (const n of dimRefs(doc, k.expr, st)) want.add(n);
   const pts = new Set(), endsOf = (lid) => { const l = doc.lines[lid]; if (l) { pts.add(l.a); pts.add(l.b); } };
   for (const [, k] of named(doc)) {
     if (!k.ref || !want.has(k.name)) continue;

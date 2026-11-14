@@ -10,12 +10,42 @@ const FUNCS = {
   cos: (x, r) => Math.cos(r ? x : x / TAU_DEG), tan: (x, r) => Math.tan(r ? x : x / TAU_DEG),
   asin: (x, r, rm) => (rm ? Math.asin(x) : Math.asin(x) * TAU_DEG), acos: (x, r, rm) => (rm ? Math.acos(x) : Math.acos(x) * TAU_DEG), atan: (x, r, rm) => (rm ? Math.atan(x) : Math.atan(x) * TAU_DEG),
   sqrt: Math.sqrt, raiz: Math.sqrt, abs: Math.abs, exp: Math.exp, ln: Math.log, log: Math.log10, log10: Math.log10,
+  // trigonometria extra: sec, csc y cot siguen la regla de sin/cos/tan; las hiperbolicas no llevan angulos
+  sec: (x, r) => 1 / Math.cos(r ? x : x / TAU_DEG), csc: (x, r) => 1 / Math.sin(r ? x : x / TAU_DEG), cot: (x, r) => 1 / Math.tan(r ? x : x / TAU_DEG),
+  sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh, asinh: Math.asinh, acosh: Math.acosh, atanh: Math.atanh,
+  deg: (x) => x * TAU_DEG, rad: (x) => x / TAU_DEG, // de radianes a grados y de grados a radianes
+  // redondeo
+  floor: Math.floor, piso: Math.floor, ceil: Math.ceil, techo: Math.ceil, trunc: Math.trunc, sign: Math.sign, signo: Math.sign,
 };
-const KEEP_RAD = new Set(['sqrt', 'raiz', 'abs']); // conservan la marca de radianes del argumento
+const KEEP_RAD = new Set(['sqrt', 'raiz', 'abs', 'floor', 'piso', 'ceil', 'techo', 'trunc']); // conservan la marca de radianes del argumento
+const MAKE_RAD = new Set(['rad']); // su resultado es un angulo en radianes
 const CONSTS = { pi: Math.PI, π: Math.PI, e: Math.E };
 
+// Funciones de varios valores (se separan con «;» o con «, »; «2,5» es un solo numero con coma decimal).
+// r: el resultado viene de radianes si algun valor viene de radianes.
+const anyR = (A) => A.some((a) => a.r);
+const rnd = (x, n) => { const f = 10 ** n; return (Math.sign(x) * Math.round(Math.abs(x) * f * (1 + 1e-12))) / f; }; // 2.675 -> 2.68 (la mitad se aleja del cero)
+const MULTI = {
+  min: { n: [2], f: (A) => ({ v: Math.min(...A.map((a) => a.v)), r: anyR(A) }) },
+  max: { n: [2], f: (A) => ({ v: Math.max(...A.map((a) => a.v)), r: anyR(A) }) },
+  clamp: { n: [3, 3], f: (A) => ({ v: Math.min(Math.max(A[0].v, Math.min(A[1].v, A[2].v)), Math.max(A[1].v, A[2].v)), r: anyR(A) }) }, // clamp(x; minimo; maximo)
+  hypot: { n: [2], f: (A) => ({ v: Math.hypot(...A.map((a) => a.v)), r: anyR(A) }) },
+  atan2: { n: [2, 2], f: (A, rm) => { const v = Math.atan2(A[0].v, A[1].v); return { v: rm ? v : v * TAU_DEG, r: false }; } }, // atan2(y; x), en grados
+  mod: { n: [2, 2], f: (A) => { if (A[1].v === 0) throw rt('División entre cero'); return { v: A[0].v - A[1].v * Math.floor(A[0].v / A[1].v), r: anyR(A) }; } }, // el resultado lleva el signo del divisor
+  round: { n: [1, 2], f: (A) => { const d = A.length > 1 ? A[1].v : 0; if (!Number.isInteger(d) || d < 0 || d > 12) throw new Error('round(x; n): n debe ser un entero de 0 a 12'); return { v: rnd(A[0].v, d), r: A[0].r }; } },
+};
+MULTI.redondear = MULTI.round;
+const LAZY = new Set(['if', 'si']); // si(condicion; si_verdadero; si_falso): solo se evalua la rama elegida
+// error de calculo (division entre cero, raiz negativa): una rama de si() que no se elige no lo propaga
+const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
+
 // Nombres que no puede llevar una cota: funciones y constantes del evaluador.
-export const isReservedName = (n) => { const l = String(n).toLowerCase(); return l in FUNCS || l in CONSTS || l === 'log10'; };
+// Nombres reservados para uso futuro (solo en esa minuscula exacta; «T» o «Ω» siguen libres): «t» es el tiempo y «j», «ω», «θ» y «α»
+// quedan guardadas para los motores, las animaciones y los calculos dinamicos. Todavia no valen nada.
+export const TIME_VAR = 't';
+export const FUTURE_VARS = new Set([TIME_VAR, 'j', 'ω', 'θ', 'α']);
+export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || l === 'log10'; };
+export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : `«${n}» es una función o constante`);
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*$/;
 const ID_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*/;
 
@@ -26,6 +56,11 @@ function tokenize(src, vars = null, loose = false) {
   while (i < src.length) {
     const c = src[i];
     if (/\s/.test(c)) { i++; continue; }
+    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'op' && last.v === ')'));
+    // separador de argumentos: «;», o una coma tras un valor («max(a, 5)»); «2,5» ya lo tomo el numero como decimal
+    if (c === ';' || (c === ',' && afterValue)) { toks.push({ t: 'sep', i, j: i + 1 }); i++; continue; }
+    const cm = /^(<=|>=|==|!=|<|>|≤|≥|≠)/.exec(src.slice(i));
+    if (cm) { toks.push({ t: 'cmp', v: { '≤': '<=', '≥': '>=', '≠': '!=' }[cm[0]] || cm[0], i, j: i + cm[0].length }); i += cm[0].length; continue; }
     let m = /^(\d+([.,]\d+)?|[.,]\d+)/.exec(src.slice(i));
     if (m) { toks.push({ t: 'num', v: Number(m[0].replace(',', '.')), i, j: i + m[0].length }); i += m[0].length; continue; }
     if (c === '√') { toks.push({ t: 'sqrt', i, j: i + 1 }); i++; continue; }
@@ -34,8 +69,9 @@ function tokenize(src, vars = null, loose = false) {
     if (m) {
       const raw = m[0], name = raw.toLowerCase();
       if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: 'var', v: raw, i, j: i + raw.length });
-      else if (name in FUNCS || name in CONSTS) toks.push({ t: 'id', v: name, i, j: i + raw.length });
+      else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name)) toks.push({ t: 'id', v: name, i, j: i + raw.length });
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + raw.length });
+      else if (FUTURE_VARS.has(raw)) throw new Error(`${reservedWhy(raw)} (todavía no tiene valor)`);
       else throw new Error(`No reconozco «${raw}»` + (/\d/.test(raw) || raw.length === 1 ? ' (no hay una cota con ese nombre)' : ''));
       i += raw.length; continue;
     }
@@ -68,6 +104,47 @@ export function evalExpr(src, { radians = false, vars = null } = {}) {
   const startsFactor = () => { const k = peek(); return k && (k.t === 'num' || k.t === 'id' || k.t === 'var' || k.t === 'sqrt' || (k.t === 'op' && k.v === '(')); };
   const bin = (a, b, v) => ({ v, r: a.r || b.r });
 
+  // comparacion (la de menor precedencia): da 1 si se cumple y 0 si no. «==» y «!=» toleran el error de redondeo.
+  function cmp() {
+    const a = expr(), k = peek();
+    if (!k || k.t !== 'cmp') return a;
+    p++;
+    const b = expr(), x = a.v, y = b.v, eq = Math.abs(x - y) <= 1e-9 * Math.max(1, Math.abs(x), Math.abs(y));
+    const ok = { '<': x < y && !eq, '>': x > y && !eq, '<=': x < y || eq, '>=': x > y || eq, '==': eq, '!=': !eq }[k.v];
+    return { v: ok ? 1 : 0, r: false };
+  }
+  // argumento de una rama de si(): si falla por un calculo imposible (1/0, raiz negativa) se guarda el error y se salta
+  // hasta el final del argumento: solo importa si esa rama es la elegida
+  function branch() {
+    const start = p;
+    try { return cmp(); } catch (e) {
+      if (!e.rt) throw e;
+      let d = 0;
+      for (p = start; p < toks.length; p++) {
+        const t = toks[p];
+        if (t.t === 'op' && t.v === '(') d++;
+        else if (t.t === 'op' && t.v === ')') { if (d === 0) break; d--; } else if (t.t === 'sep' && d === 0) break;
+      }
+      return { err: e };
+    }
+  }
+  function call(name, A) {
+    if (LAZY.has(name)) {
+      if (A.length !== 3) throw new Error('si(condición; si_verdadero; si_falso) lleva 3 valores separados por «;»');
+      const pick = A[0].v !== 0 ? A[1] : A[2];
+      if (pick.err) throw pick.err;
+      return pick;
+    }
+    const sep = ' (sepáralos con «;»: «2,5» es un solo número)';
+    if (name in FUNCS) {
+      if (A.length !== 1) throw new Error(`«${name}» recibe un solo valor`);
+      return { v: FUNCS[name](A[0].v, A[0].r || radians, radians), r: MAKE_RAD.has(name) || (KEEP_RAD.has(name) && A[0].r) };
+    }
+    const M = MULTI[name], [lo, hi] = [M.n[0], M.n[1] ?? Infinity];
+    if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === Infinity ? `${lo} valores o más` : lo === hi ? `${lo} valores` : `${lo} o ${hi} valores`}${sep}`);
+    return M.f(A, radians);
+  }
+
   function expr() {
     let a = term();
     while (isOp('+') || isOp('-')) { const o = toks[p++].v; const b = term(); a = bin(a, b, o === '+' ? a.v + b.v : a.v - b.v); }
@@ -76,7 +153,7 @@ export function evalExpr(src, { radians = false, vars = null } = {}) {
   function term() {
     let a = unary();
     for (;;) {
-      if (isOp('*') || isOp('/')) { const o = toks[p++].v; const b = unary(); if (o === '/' && b.v === 0) throw new Error('División entre cero'); a = bin(a, b, o === '*' ? a.v * b.v : a.v / b.v); }
+      if (isOp('*') || isOp('/')) { const o = toks[p++].v; const b = unary(); if (o === '/' && b.v === 0) throw rt('División entre cero'); a = bin(a, b, o === '*' ? a.v * b.v : a.v / b.v); }
       else if (startsFactor()) { const b = unary(); a = bin(a, b, a.v * b.v); } // multiplicacion implicita: 2π, 3(4+1)
       else return a;
     }
@@ -96,9 +173,9 @@ export function evalExpr(src, { radians = false, vars = null } = {}) {
     if (!k) throw new Error('Expresión incompleta');
     if (k.t === 'num') return { v: k.v, r: false };
     if (k.t === 'var') return { v: vars[k.v].v, r: !!vars[k.v].r };
-    if (k.t === 'sqrt') { const a = primary(); if (a.v < 0) throw new Error('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r }; }
+    if (k.t === 'sqrt') { const a = primary(); if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r }; }
     if (k.t === 'op' && k.v === '(') {
-      const a = expr();
+      const a = cmp();
       if (!isOp(')')) throw new Error('Falta cerrar un paréntesis');
       p++;
       return a;
@@ -107,15 +184,20 @@ export function evalExpr(src, { radians = false, vars = null } = {}) {
       if (k.v in CONSTS) return { v: CONSTS[k.v], r: k.v === 'pi' || k.v === 'π' };
       if (!isOp('(')) throw new Error(`«${k.v}» necesita paréntesis, p. ej. ${k.v}(30)`);
       p++;
-      const a = expr();
+      const A = [];
+      if (isOp(')')) throw new Error(`«${k.v}» necesita al menos un valor`);
+      for (;;) {
+        A.push(LAZY.has(k.v) && A.length ? branch() : cmp());
+        if (peek()?.t === 'sep') { p++; continue; }
+        break;
+      }
       if (!isOp(')')) throw new Error('Falta cerrar un paréntesis');
       p++;
-      const v = FUNCS[k.v](a.v, a.r || radians, radians);
-      return { v, r: KEEP_RAD.has(k.v) ? a.r : false };
+      return call(k.v, A);
     }
     throw new Error('Expresión no válida');
   }
-  const res = expr();
+  const res = cmp();
   if (p < toks.length) throw new Error('Sobra algo al final de la expresión');
   if (!Number.isFinite(res.v)) throw new Error('El resultado no es un número');
   return { value: res.v, rad: res.r };
