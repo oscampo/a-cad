@@ -499,6 +499,7 @@ function build(doc, pos, extra, F) {
   const fixedOf = (i) => !!doc.pts[i]?.fixed || isMark(doc, i) || !!F?.map.has(i);
   for (const [id, k] of Object.entries(doc.cons)) if (!F?.skip.has(id) && !(F?.scope && !k.ref && !F.scope.conIn(id)) && !(!k.ref && trivialFixed(doc, k, fixedOf))) out.push(...conPrims(doc, id, k));
   if (F?.gearPrims) out.push(...F.gearPrims);
+  if (F?.stopPrims) for (const s of F.stopPrims) if (!F.scope || F.scope.conIn(s.cid)) out.push(...s.prims);
   if (extra) out.push(...extra);
   return out;
 }
@@ -682,8 +683,13 @@ const finiteIds = (doc) => structural(doc, 'finIds', () => Object.keys(doc.cons)
 //  inside: el punto de contacto cae dentro de los limites graficos (el segmento, el barrido del arco)
 //  gap: separacion con signo entre los elementos (0 = se tocan); cambia de signo al atravesarse
 //  tol: separacion maxima para considerar que se tocan (graficamente en contacto)
-function finiteState(doc, k) {
-  const P = (id) => doc.pts[id], eps = 1e-6;
+// Con k.stop («tope en bordes») devuelve ademas stop(id): las primitivas que sustituyen a la relacion cuando el contacto se sale por un
+// borde, para que el elemento se detenga ahi (el punto en el extremo, el extremo del segmento o del arco sobre el otro elemento).
+function finiteState(doc, k, eps = 1e-6) {
+  const P = (id) => doc.pts[id];
+  const near = (id, p) => { const a = doc.arcs[id], A = P(a.a), B = P(a.b); return Math.hypot(p.x - A.x, p.y - A.y) <= Math.hypot(p.x - B.x, p.y - B.y) ? a.a : a.b; }; // extremo del arco mas cercano a p
+  const onElem = (cid, p, id) => [id in doc.arcs ? { id: `${cid}_stop`, type: 'point_on_arc', p_id: p, a_id: id } : { id: `${cid}_stop`, type: 'point_on_circle', p_id: p, c_id: id }];
+  const coi = (cid, p, q) => [{ id: `${cid}_stop`, type: 'p2p_coincident', p1_id: p, p2_id: q }];
   const centerOf = (id) => P((doc.circles[id] || doc.arcs[id]).c);
   const radiusOf = (id) => (id in doc.circles ? doc.circles[id].r : Math.hypot(P(doc.arcs[id].a).x - P(doc.arcs[id].c).x, P(doc.arcs[id].a).y - P(doc.arcs[id].c).y));
   const onCurve = (id, p) => { // un circulo entero siempre; un arco, solo dentro de su barrido
@@ -696,17 +702,22 @@ function finiteState(doc, k) {
     case 'PONL': { // punto sobre segmento: esta sobre el cuando su distancia a la recta es ~0 y su pie cae entre los extremos
       const p = P(k.refs[0]), l = doc.lines[k.refs[1]], a = P(l.a), b = P(l.b), dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
       const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / (L * L);
-      return { inside: t >= -eps && t <= 1 + eps, gap: ((p.x - a.x) * dy - (p.y - a.y) * dx) / L, tol: 1e-3 * L };
+      return { inside: t >= -eps && t <= 1 + eps, gap: ((p.x - a.x) * dy - (p.y - a.y) * dx) / L, tol: 1e-3 * L, stop: (cid) => coi(cid, k.refs[0], t < 0 ? l.a : l.b) };
     }
     case 'PONC': {
       const p = P(k.refs[0]), c = centerOf(k.refs[1]), r = radiusOf(k.refs[1]);
-      return { inside: onCurve(k.refs[1], p), gap: Math.hypot(p.x - c.x, p.y - c.y) - r, tol: 1e-3 * r };
+      return { inside: onCurve(k.refs[1], p), gap: Math.hypot(p.x - c.x, p.y - c.y) - r, tol: 1e-3 * r, stop: (cid) => (k.refs[1] in doc.arcs ? coi(cid, k.refs[0], near(k.refs[1], p)) : []) };
     }
     case 'TANLC': {
       const [lid, cid] = k.refs, c = centerOf(cid), r = radiusOf(cid), l = doc.lines[lid], a = P(l.a), b = P(l.b), dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
       const t = ((c.x - a.x) * dx + (c.y - a.y) * dy) / (L * L); // pie de la perpendicular desde el centro: el punto de contacto
       const sd = Math.abs(((c.x - a.x) * dy - (c.y - a.y) * dx) / L);
-      return { inside: t >= -eps && t <= 1 + eps && onCurve(cid, { x: a.x + t * dx, y: a.y + t * dy }), gap: sd - r, tol: 1e-3 * Math.max(r, 1e-9) };
+      const q = { x: a.x + t * dx, y: a.y + t * dy };
+      return {
+        inside: t >= -eps && t <= 1 + eps && onCurve(cid, q), gap: sd - r, tol: 1e-3 * Math.max(r, 1e-9),
+        // contacto fuera del segmento: el extremo del segmento se apoya en el circulo o arco; fuera del arco: su extremo se apoya en la linea
+        stop: (sid) => (t < -eps || t > 1 + eps ? onElem(sid, t < 0 ? l.a : l.b, cid) : [{ id: `${sid}_stop`, type: 'point_on_line_pl', p_id: near(cid, q), l_id: lid }]),
+      };
     }
     case 'TANCC': {
       const [c1, c2] = k.refs, C1 = centerOf(c1), C2 = centerOf(c2), d = Math.hypot(C2.x - C1.x, C2.y - C1.y);
@@ -714,9 +725,12 @@ function finiteState(doc, k) {
       const r1 = radiusOf(c1), r2 = radiusOf(c2), u = { x: (C2.x - C1.x) / d, y: (C2.y - C1.y) / d };
       const external = Math.abs(d - (r1 + r2)) <= Math.abs(d - Math.abs(r1 - r2));
       const s1 = external || r1 >= r2 ? 1 : -1, s2 = external ? -1 : r1 >= r2 ? 1 : -1; // lado del contacto en cada circulo
+      const x1 = { x: C1.x + s1 * u.x * r1, y: C1.y + s1 * u.y * r1 }, x2 = { x: C2.x + s2 * u.x * r2, y: C2.y + s2 * u.y * r2 };
       return {
-        inside: onCurve(c1, { x: C1.x + s1 * u.x * r1, y: C1.y + s1 * u.y * r1 }) && onCurve(c2, { x: C2.x + s2 * u.x * r2, y: C2.y + s2 * u.y * r2 }),
+        inside: onCurve(c1, x1) && onCurve(c2, x2),
         gap: external ? d - (r1 + r2) : d - Math.abs(r1 - r2), tol: 1e-3 * (r1 + r2) / 2,
+        // contacto fuera de un arco: el extremo de ese arco se apoya en el otro elemento
+        stop: (sid) => (!onCurve(c1, x1) ? onElem(sid, near(c1, x1), c2) : onElem(sid, near(c2, x2), c1)),
       };
     }
     default: return { inside: true, gap: 0, tol: 1 };
@@ -731,7 +745,7 @@ function finitePts(doc, k) {
 function finiteGaps(doc) {
   const m = new Map();
   for (const id of finiteIds(doc)) {
-    try { const k = doc.cons[id]; m.set(id, { gap: finiteState(doc, k).gap, pos: finitePts(doc, k).map((q) => ({ id: q, x: doc.pts[q].x, y: doc.pts[q].y })) }); } catch { /* geometria incompleta */ }
+    try { const k = doc.cons[id], st = finiteState(doc, k, finEps(k)); m.set(id, { gap: st.gap, on: st.inside && Math.abs(st.gap) <= st.tol, pos: finitePts(doc, k).map((q) => ({ id: q, x: doc.pts[q].x, y: doc.pts[q].y })) }); } catch { /* geometria incompleta */ }
   }
   return m;
 }
@@ -739,20 +753,31 @@ function finiteGaps(doc) {
 // contacto cae dentro de los limites y la separacion es ~0 (o se atravesaron desde la postura anterior prev: entonces se activa y
 // la resolucion los devuelve al contacto). Un punto que simplemente "se proyecta" sobre el segmento no vale: sin esto, un punto lejos
 // de una ranura la seguiria con toda la cruz, y con varias ranuras a la vez las relaciones chocan entre si.
-function finiteOff(doc, prev) {
+// Con k.stop («tope en bordes»), una relacion que estaba valiendo al empezar el paso y cuyo contacto se sale por un borde no se suelta: queda
+// engranada como tope (out.stops: primitivas que detienen el elemento en el borde) hasta el siguiente paso. sticky: topes ya engranados
+// en esta misma resolucion; se conservan (al llegar al borde el contacto vuelve a caer «dentro» y se soltaria, oscilando).
+function finiteOff(doc, prev, sticky) {
   const out = new Set();
+  out.stops = [];
   for (const id of finiteIds(doc)) {
     try {
-      const st = finiteState(doc, doc.cons[id]), pv = prev && prev.get(id);
+      const k = doc.cons[id], st = finiteState(doc, k, finEps(k)), pv = prev && prev.get(id);
+      const kept = sticky && sticky.stops.find((s) => s.cid === id);
+      if (kept) { out.add(id); out.stops.push(kept); continue; }
       const crossed = !!pv && pv.gap * st.gap < 0;
       // en un paso discreto un contacto puede pasarse de largo o rozarse por menos de lo que se movio el punto: la tolerancia suma la
       // mitad de lo que se movio lo que interviene (si el perno entra de lado por la boca de una ranura, a 5 grados de paso queda a ~0,07 de la linea)
       const moved = pv ? Math.max(0, ...pv.pos.map((q) => Math.hypot(doc.pts[q.id].x - q.x, doc.pts[q.id].y - q.y))) : 0;
-      if (!(st.inside && (Math.abs(st.gap) <= st.tol + 0.5 * moved || crossed))) out.add(id);
+      const touching = Math.abs(st.gap) <= st.tol + 0.5 * moved;
+      if (!(st.inside && (touching || crossed))) {
+        out.add(id);
+        if (k.stop && !st.inside && pv && pv.on && touching && st.stop) { const prims = st.stop(id); if (prims.length) out.stops.push({ cid: id, prims }); }
+      }
     } catch { /* geometria incompleta: se deja valer */ }
   }
   return out;
 }
+const finEps = (k) => (k.stop ? 1e-4 : 1e-6); // con tope se tolera un poco mas: el elemento detenido en el borde puede quedar a ~1e-5 de el
 export const finiteInactive = (doc) => finiteOff(doc); // para dibujar atenuadas las que no valen
 const sameSet = (a, b) => a.size === b.size && [...a].every((x) => b.has(x));
 // F con las relaciones apagadas omitidas
@@ -760,6 +785,7 @@ function withOff(F, off) {
   if (!off.size) return F;
   const G = F ? { ...F } : { order: [], skip: new Set(), map: new Map(), idleArcs: new Set() };
   G.skip = new Set([...G.skip, ...off]);
+  if (off.stops?.length) G.stopPrims = off.stops;
   return G;
 }
 
@@ -982,7 +1008,7 @@ export function solve(doc, targets = []) {
   for (let it = 0; it < 3; it++) { // si al resolver cambia que relaciones finitas valen, se resuelve de nuevo con el conjunto nuevo
     r = solveCore(doc, F0, G.targets, G, S, off, it > 0);
     if (!r.ok) break;
-    const off2 = finiteOff(doc, gap0);
+    const off2 = finiteOff(doc, gap0, off);
     if (sameSet(off, off2)) break;
     off = off2;
   }

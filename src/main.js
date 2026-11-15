@@ -2939,15 +2939,24 @@ function renderPropCons() {
       lab.style.cssText = 'display:flex;gap:6px;align-items:center;font-size:12px;flex:none';
       lab.title = 'La relación solo vale mientras los elementos se tocan gráficamente, dentro de los límites del segmento o del arco; fuera, quedan libres';
       cb.type = 'checkbox'; cb.checked = !!k.finite; cb.style.cssText = 'width:20px;height:20px;min-height:20px;margin:0';
-      cb.onchange = () => {
-        pushUndo();
-        if (cb.checked) k.finite = true; else delete k.finite;
+      const apply = () => {
         const ok = (hasReactive(doc) ? settle(doc, solve, []) : solve(doc, [])).ok;
         if (!ok) { rollback(); toast('No se pudo: entra en conflicto con otras restricciones'); }
         afterChange(); renderPropCons();
       };
+      cb.onchange = () => { pushUndo(); if (cb.checked) k.finite = true; else { delete k.finite; delete k.stop; } apply(); };
       lab.append(cb, document.createTextNode('Solo en los límites'));
-      row.append(lb, lab, del);
+      row.append(lb, lab);
+      if (k.finite) { // «tope en bordes»: al salirse por un borde el elemento se detiene ahi en vez de quedar libre
+        const lab2 = document.createElement('label'), cb2 = document.createElement('input');
+        lab2.style.cssText = lab.style.cssText;
+        lab2.title = 'Al llegar al extremo del segmento o del arco el contacto se detiene ahí (el punto no pasa del extremo; el extremo del segmento o del arco se apoya en el otro elemento) en vez de quedar libre';
+        cb2.type = 'checkbox'; cb2.checked = !!k.stop; cb2.style.cssText = cb.style.cssText;
+        cb2.onchange = () => { pushUndo(); if (cb2.checked) k.stop = true; else delete k.stop; apply(); };
+        lab2.append(cb2, document.createTextNode('Tope en bordes'));
+        row.append(lab2);
+      }
+      row.append(del);
     } else row.append(lb, del);
     box.appendChild(row);
   }

@@ -2096,6 +2096,42 @@ t('relacion finita: tangencia circulo-segmento y punto sobre arco solo valen den
   assert.ok(solve(e, [{ id: P, x: -8, y: -8 }]).ok);
   near(e.pts[P].x, -8, 1e-2); near(e.pts[P].y, -8, 1e-2, 'fuera del barrido: libre');
 });
+t('relacion finita con tope en bordes: el elemento se detiene en el borde en vez de quedar libre, y puede volver', () => {
+  // punto sobre un segmento: se detiene en el extremo
+  const d = newDoc();
+  const A = addPoint(d, 0, 0, false), B = addPoint(d, 10, 0, false); d.pts[A].fixed = true; d.pts[B].fixed = true;
+  const l = addLine(d, A, B, {}), P = addPoint(d, 5, 0, false);
+  const k = addCon(d, { t: 'PONL', refs: [P, l], finite: true, stop: true });
+  assert.ok(solve(d, [{ id: P, x: 15, y: 3 }]).ok);
+  near(d.pts[P].x, 10, 1e-3, 'se detiene en el extremo'); near(d.pts[P].y, 0, 1e-3);
+  assert.ok(solve(d, [{ id: P, x: 15, y: 3 }]).ok); // insistir no lo saca
+  near(d.pts[P].x, 10, 1e-3); near(d.pts[P].y, 0, 1e-3);
+  assert.ok(solve(d, [{ id: P, x: 7, y: 3 }]).ok);
+  near(d.pts[P].x, 7, 1e-3); near(d.pts[P].y, 0, 1e-3, 'al volver hacia dentro vuelve a seguir la linea');
+  assert.ok(solve(d, [{ id: P, x: -4, y: 2 }]).ok);
+  near(d.pts[P].x, 0, 1e-3); near(d.pts[P].y, 0, 1e-3, 'y se detiene tambien en el otro extremo');
+  // sin tope sigue igual que antes: libre fuera del segmento
+  delete d.cons[k].stop;
+  assert.ok(solve(d, [{ id: P, x: 6, y: 0 }]).ok);
+  assert.ok(solve(d, [{ id: P, x: 15, y: 3 }]).ok);
+  near(d.pts[P].x, 15, 1e-3); near(d.pts[P].y, 3, 1e-3);
+  // tangencia circulo-segmento: el extremo del segmento se apoya en el circulo
+  const e = newDoc();
+  const A2 = addPoint(e, 0, 0, false), B2 = addPoint(e, 10, 0, false); e.pts[A2].fixed = true; e.pts[B2].fixed = true;
+  const l2 = addLine(e, A2, B2, {}), Q = addPoint(e, 5, 4, false), c = addCircle(e, Q, 4, {});
+  addCon(e, { t: 'RAD', refs: [c], v: 4, hidden: true }); addCon(e, { t: 'TANLC', refs: [l2, c], finite: true, stop: true });
+  assert.ok(solve(e, [{ id: Q, x: 15, y: 6 }]).ok);
+  near(Math.hypot(e.pts[Q].x - 10, e.pts[Q].y), 4, 1e-3, 'el extremo del segmento toca el circulo');
+  assert.ok(e.pts[Q].x < 15 - 1, 'el circulo no llego al destino');
+  // punto sobre un arco: se detiene en el extremo del arco
+  const f = newDoc();
+  const O = addPoint(f, 0, 0, false), S = addPoint(f, 10, 0, false), E = addPoint(f, 0, 10, false); f.pts[O].fixed = true;
+  const arc = addArc(f, O, S, E, 10, {}), P2 = addPoint(f, 7, 7, false);
+  addCon(f, { t: 'RAD', refs: [arc], v: 10, hidden: true }); addCon(f, { t: 'PONC', refs: [P2, arc], finite: true, stop: true });
+  assert.ok(solve(f, [{ id: P2, x: 9, y: 9 }]).ok); // primero se liga al arco
+  assert.ok(solve(f, [{ id: P2, x: -3, y: -9 }]).ok);
+  near(f.pts[P2].x, f.pts[S].x, 1e-2); near(f.pts[P2].y, f.pts[S].y, 1e-2, 'queda en el extremo del arco mas cercano');
+});
 t('solo lo conectado al arrastre: con muchas relaciones sin relacion con el mecanismo el resultado es el mismo y lo demas no se toca', () => {
   const mk = () => {
     const d = newDoc();
