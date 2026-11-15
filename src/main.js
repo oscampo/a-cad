@@ -20,7 +20,7 @@ import { layoutDim, dragDim, dimValue, angSector, angTrue, initAngle, trackAngle
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { textFrame, textHit, textPose, shownText, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss } from './text.js';
 import * as gh from './github.js';
-import { varsOf, varsList, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors } from './params.js';
+import { varsOf, varsList, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg } from './icons.js';
 import { buildTree, kindOf, conLabel } from './tree.js';
@@ -1989,7 +1989,7 @@ const KEYS = [['π', 'π'], ['√', '√('], ['sin', 'sin('], ['cos', 'cos('], [
 function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = 'deg') {
   return new Promise((resolve) => {
     const dlg = $('dlg'), inp = $('dlgInput'), chk = $('dlgRef'), prev = $('dlgPrev');
-    const ctx = dlgCtx || (kind === 'int' ? null : { vars: varsOf(doc), list: varsList(doc) }); dlgCtx = null; dlgName = null;
+    const ctx = dlgCtx || { vars: varsOf(doc), list: varsList(doc) }; dlgCtx = null; dlgName = null;
     const nameRow = $('dlgNameRow'), nameInp = $('dlgName'), varsBox = $('dlgVars');
     varsBox.style.display = ctx?.list ? 'block' : 'none'; varsBox.textContent = ctx?.list ? 'Cotas (úsalas en la fórmula): ' + ctx.list : '';
     nameRow.style.display = ctx && ctx.name !== undefined ? 'flex' : 'none';
@@ -3116,6 +3116,7 @@ function showArrayDialog(st, count) {
     $('arrS2').value = st.s2; $('arrN2').value = st.n2; $('arrF2').checked = st.f2;
     $('arrLink').checked = st.link; $('arrDims').checked = st.dims;
     $('arrErr').textContent = '';
+    $('arrVars').textContent = varsList(doc) ? 'Variables que puedes usar: ' + varsList(doc) : '';
     const read = () => { st.s1 = $('arrS1').value; st.n1 = $('arrN1').value; st.f1 = $('arrF1').checked; st.s2 = $('arrS2').value; st.n2 = $('arrN2').value; st.f2 = $('arrF2').checked; st.link = $('arrLink').checked; st.dims = $('arrDims').checked; };
     let done = false;
     const finish = (v) => { if (done) return; done = true; read(); dlg.close(); if (v === 'ok' || v === 'cancel') arrAxes = null; draw(); resolve(v); };
@@ -3128,14 +3129,16 @@ function showArrayDialog(st, count) {
   });
 }
 
+const readIntField = (txt, label, min, max) => readInt(doc, txt, label, min, max);
+
 // Lee espaciado y copias de una direccion; devuelve null si esta vacia, o {err} si es invalida.
 function readArrayDir(lineId, base, sTxt, nTxt, flip) {
   if (!String(sTxt).trim()) return null;
   let s;
-  try { s = parseValue(sTxt); } catch (e) { return { err: 'Espaciado: ' + e.message }; }
+  try { s = parseValue(sTxt, { vars: varsOf(doc) }); } catch (e) { return { err: 'Espaciado: ' + e.message }; }
   if (!(Math.abs(s) > 1e-9)) return { err: 'El espaciado debe ser distinto de 0' };
   let n = 2; // solo el espaciado: 2 en total, con el original
-  if (String(nTxt).trim() !== '') { n = Number(String(nTxt).replace(',', '.')); if (!Number.isInteger(n) || n < 2 || n > 200) return { err: 'El número total debe ser un entero de 2 a 200' }; }
+  if (String(nTxt).trim() !== '') { const r = readIntField(nTxt, 'Número total', 2, 200); if (r.err) return r; n = r.n; }
   n -= 1; // copias nuevas
   let u = base;
   if (lineId) {
@@ -3187,6 +3190,7 @@ function showCircDialog(st, count) {
     $('cirInfo').textContent = `${count} elemento${count === 1 ? '' : 's'} a copiar`;
     $('cirC').textContent = st.c ? (st.c.id ? `Punto ${st.c.id} (${fmt(st.c.x)}, ${fmt(st.c.y)})` : `(${fmt(st.c.x)}, ${fmt(st.c.y)})`) : 'Origen (0, 0)';
     $('cirLink').checked = st.link; $('cirDims').checked = st.dims;
+    $('cirVars').textContent = varsList(doc) ? 'Variables que puedes usar: ' + varsList(doc) : '';
     $('cirT').value = st.t; $('cirN').value = st.n; $('cirEq').checked = st.eq; $('cirS').value = st.s; $('cirRev').checked = st.rev; $('cirK').value = st.k;
     circC = st.c || { x: 0, y: 0 }; draw();
     const read = () => { st.t = $('cirT').value; st.n = $('cirN').value; st.eq = $('cirEq').checked; st.s = $('cirS').value; st.rev = $('cirRev').checked; st.k = $('cirK').value; st.link = $('cirLink').checked; st.dims = $('cirDims').checked; };
@@ -3216,17 +3220,18 @@ async function circularCmd() {
       continue;
     }
     let T, n = 4, stepDeg;
-    try { T = parseValue(st.t, { angle: true }); } catch (e) { toast('Ángulo total: ' + e.message); continue; }
+    try { T = parseValue(st.t, { angle: true, vars: varsOf(doc) }); } catch (e) { toast('Ángulo total: ' + e.message); continue; }
     if (!(T > 0) || T > 360 + 1e-9) { toast('El ángulo total debe estar entre 0° y 360°'); continue; }
-    if (String(st.n).trim() !== '') { n = Number(String(st.n).replace(',', '.')); if (!Number.isInteger(n) || n < 2 || n > 200) { toast('El número total debe ser un entero de 2 a 200'); continue; } }
+    if (String(st.n).trim() !== '') { const r = readIntField(st.n, 'Número total', 2, 200); if (r.err) { toast(r.err); continue; } n = r.n; }
     if (st.eq) stepDeg = T >= 360 - 1e-9 ? T / n : T / (n - 1);
     else {
-      try { stepDeg = parseValue(st.s, { angle: true }); } catch (e) { toast('Ángulo entre instancias: ' + e.message); continue; }
+      try { stepDeg = parseValue(st.s, { angle: true, vars: varsOf(doc) }); } catch (e) { toast('Ángulo entre instancias: ' + e.message); continue; }
       if (!(Math.abs(stepDeg) > 1e-9)) { toast('El ángulo entre instancias debe ser distinto de 0'); continue; }
     }
     if (st.rev) stepDeg = -stepDeg;
-    const skip = new Set(String(st.k).split(/[\s,;]+/).filter(Boolean).map(Number));
-    if ([...skip].some((v) => !Number.isInteger(v) || v < 2 || v > n)) { toast(`Omitir: números enteros de 2 a ${n} (el 1 es el original)`); continue; }
+    const skip = new Set(); let skipErr = null;
+    for (const tk of splitTop(st.k)) { const r = readIntField(tk, 'Omitir', 2, n); if (r.err) { skipErr = r.err + ' (el 1 es el original)'; break; } skip.add(r.n); }
+    if (skipErr) { toast(skipErr); continue; }
     pushUndo();
     opts.arrLink = st.link; opts.arrDims = st.dims;
     const r = circularArray(doc, items, { c: st.c || { x: 0, y: 0 }, step: (stepDeg * Math.PI) / 180, n, skip, link: st.link, cid: st.c?.id || null, dims: st.dims });

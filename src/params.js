@@ -5,7 +5,7 @@
 // resolver y recalcular se repite hasta que ya nada cambia (settle). Si no se estabiliza se avisa y se deshace.
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
 import { dimValue, angTrue, initAngle, trackAngles } from './dims.js';
-import { parseValue, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE } from './expr.js';
+import { parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE } from './expr.js';
 import { textVarState, hasDefMark } from './tvars.js';
 
 const DEG = Math.PI / 180;
@@ -275,3 +275,25 @@ export function settle(doc, solveFn, targets = [], { maxIter = 40, tol = 1e-5 } 
 }
 
 export { DIM_KIND, dimLetter };
+
+// Campos enteros de las herramientas (matrices, dividir) que aceptan variables: cotas y variables de los textos.
+// Un entero tecleado como numero simple debe ser entero; una formula o variable se redondea al entero mas cercano
+// (como round(formula;0)). Devuelve { n } o { err }.
+export function readInt(doc, txt, label, min, max) {
+  const t = String(txt).trim();
+  let n;
+  if (isPlainNumber(t)) { n = Number(t.replace(',', '.')); if (!Number.isInteger(n)) return { err: `${label}: debe ser un entero de ${min} a ${max}` }; }
+  else { try { n = Math.round(parseValue(t, { vars: varsOf(doc) })); } catch (e) { return { err: `${label}: ${e.message}` }; } }
+  if (!(n >= min && n <= max)) return { err: `${label}: debe ser un entero de ${min} a ${max}` };
+  return { n };
+}
+// Parte una lista de enteros por espacios, comas o punto y coma fuera de parentesis (round(z/2;0) es un solo elemento).
+export function splitTop(txt) {
+  const out = []; let cur = '', depth = 0;
+  for (const ch of String(txt)) {
+    if (ch === '(') depth++; else if (ch === ')') depth = Math.max(0, depth - 1);
+    if (depth === 0 && /[\s,;]/.test(ch)) { if (cur) out.push(cur); cur = ''; } else cur += ch;
+  }
+  if (cur) out.push(cur);
+  return out;
+}

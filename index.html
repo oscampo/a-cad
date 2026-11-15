@@ -265,19 +265,20 @@ body.nopanel #panel { display: none; }
     <legend style="font-size:13px">Dirección 1</legend>
     <div class="row"><span id="arrD1" style="flex:1"></span><button type="button" id="arrPick1">Elegir línea</button></div>
     <div class="row"><label for="arrS1">Espaciado</label><input id="arrS1" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ej. 10 o 2*5"></div>
-    <div class="row"><label for="arrN1">Número total</label><input id="arrN1" type="number" min="2" max="200" step="1" placeholder="2"></div>
+    <div class="row"><label for="arrN1">Número total</label><input id="arrN1" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="2"></div>
     <label style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="arrF1" style="width:22px;height:22px;min-height:22px;margin:0">Invertir sentido</label>
   </fieldset>
   <fieldset style="border:1px solid var(--line);border-radius:8px;margin:0 0 8px;padding:6px 8px">
     <legend style="font-size:13px">Dirección 2 (opcional)</legend>
     <div class="row"><span id="arrD2" style="flex:1"></span><button type="button" id="arrPick2">Elegir línea</button></div>
     <div class="row"><label for="arrS2">Espaciado</label><input id="arrS2" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="vacío = sin 2.ª dirección"></div>
-    <div class="row"><label for="arrN2">Número total</label><input id="arrN2" type="number" min="2" max="200" step="1" placeholder="2"></div>
+    <div class="row"><label for="arrN2">Número total</label><input id="arrN2" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="2"></div>
     <label style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="arrF2" style="width:22px;height:22px;min-height:22px;margin:0">Invertir sentido</label>
   </fieldset>
   <small>El número total incluye el original. Si solo escribes el espaciado, el total es 2 (el original y 1 copia). Con dos direcciones se llena la cuadrícula completa. La dirección sale de la línea elegida (de su inicio a su fin); sin línea, la 1 es horizontal y la 2 perpendicular a la 1.</small>
   <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0"><input type="checkbox" id="arrLink" style="width:22px;height:22px;min-height:22px;margin:0">Vincular las copias al original (restricciones automáticas: distancia, dirección e igualdad)</label>
   <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0"><input type="checkbox" id="arrDims" style="width:22px;height:22px;min-height:22px;margin:0">Mostrar las cotas de la matriz</label>
+  <div id="arrVars" style="color:var(--muted);font-size:12px;overflow-wrap:anywhere"></div>
   <div id="arrErr" style="color:var(--warn);font-size:13px"></div>
   <div class="actions"><button type="button" id="arrCancel">Cancelar</button><button id="arrOk" class="on">Crear copias</button></div>
 </form></dialog>
@@ -288,7 +289,7 @@ body.nopanel #panel { display: none; }
     <div class="row"><span id="cirC" style="flex:1"></span><button type="button" id="cirPick">Elegir punto</button></div>
   </fieldset>
   <div class="row"><label for="cirT">Ángulo total (°)</label><input id="cirT" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
-  <div class="row"><label for="cirN">Número total</label><input id="cirN" type="number" min="2" max="200" step="1" placeholder="4"></div>
+  <div class="row"><label for="cirN">Número total</label><input id="cirN" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="4"></div>
   <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0"><input type="checkbox" id="cirEq" style="width:22px;height:22px;min-height:22px;margin:0">Separación igual (reparte el ángulo total entre las instancias)</label>
   <div class="row" id="cirStepRow"><label for="cirS">Ángulo entre instancias (°)</label><input id="cirS" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
   <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0"><input type="checkbox" id="cirRev" style="width:22px;height:22px;min-height:22px;margin:0">Invertir sentido (horario)</label>
@@ -296,6 +297,7 @@ body.nopanel #panel { display: none; }
   <small>El número total incluye el original (instancia 1); el sentido por defecto es antihorario. Con 360° las instancias se reparten en toda la vuelta; con menos, el original y la última quedan en los extremos. Los puntos sobre el centro se comparten. Sin centro elegido se usa el origen.</small>
   <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0"><input type="checkbox" id="cirLink" style="width:22px;height:22px;min-height:22px;margin:0">Vincular las copias al original (restricciones automáticas: igual distancia al centro y ángulo)</label>
   <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0"><input type="checkbox" id="cirDims" style="width:22px;height:22px;min-height:22px;margin:0">Mostrar la cota angular</label>
+  <div id="cirVars" style="color:var(--muted);font-size:12px;overflow-wrap:anywhere"></div>
   <div class="actions"><button type="button" id="cirCancel">Cancelar</button><button id="cirOk" class="on">Crear copias</button></div>
 </form></dialog>
 <dialog id="dlgP"><form method="dialog">

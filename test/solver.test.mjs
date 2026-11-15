@@ -9,7 +9,7 @@ import { buildTree, conLabel } from '../src/tree.js';
 import { cleanFileBase } from '../src/files.js';
 import { parseValue, evalExpr, isPlainNumber, exprRefs, renameInExpr } from '../src/expr.js';
 import { makeVector, unmakeVector, syncVectors, isVector, vecArrow, vecEnds } from '../src/vectors.js';
-import { recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive, textVarErrors, usesTextVars, varsList } from '../src/params.js';
+import { readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive, textVarErrors, usesTextVars, varsList } from '../src/params.js';
 import { runsOf, plainText } from '../src/tvars.js';
 import { cornerOf, filletCorner, chamferCorner, maxFillet } from '../src/corners.js';
 import { rigidShape, looseShape, isRigid } from '../src/rigid.js';
@@ -3110,6 +3110,22 @@ t('forma fija de un spline: sus puntos giran y se mueven como un cuerpo rigido; 
   // puntos en una recta: bastan dos anclas
   const q = newDoc(); const qp = [0, 1, 2, 3].map((x) => addPoint(q, x, 0, true)); const qs = addSpline(q, qp, { color: 'auto', ltype: 'continua', w: 2 }, false);
   assert.ok(rigidShape(q, qs).ok); assert.ok(solve(q, []).ok);
+});
+
+t('campos enteros de matrices y dividir: aceptan variables y formulas (se redondean) y rechazan lo invalido', () => {
+  const d = newDoc();
+  addText(d, addPoint(d, 0, 0), 'z{=17.4}  m{=3}  k{=2.5}', {});
+  assert.equal(readInt(d, '12', 'N', 2, 200).n, 12);
+  assert.equal(readInt(d, '2,0', 'N', 2, 200).n, 2);
+  assert.ok(readInt(d, '2.5', 'N', 2, 200).err); // un numero simple debe ser entero
+  assert.equal(readInt(d, 'z', 'N', 2, 200).n, 17); // variable: se redondea
+  assert.equal(readInt(d, 'z/2', 'N', 2, 200).n, 9);
+  assert.equal(readInt(d, 'round(z;0)+m', 'N', 2, 200).n, 20);
+  assert.equal(readInt(d, 'k', 'N', 2, 200).n, 3);
+  assert.match(readInt(d, 'z*100', 'N', 2, 200).err, /entero de 2 a 200/);
+  assert.match(readInt(d, 'nada', 'N', 2, 200).err, /^N:/);
+  assert.deepEqual(splitTop('3, 5; round(z/2;0) 7'), ['3', '5', 'round(z/2;0)', '7']);
+  assert.deepEqual(splitTop('  '), []);
 });
 
 console.log(`\n${passed} pruebas pasaron`);
