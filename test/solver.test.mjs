@@ -9,7 +9,7 @@ import { buildTree, conLabel } from '../src/tree.js';
 import { cleanFileBase } from '../src/files.js';
 import { parseValue, evalExpr, isPlainNumber, exprRefs, renameInExpr } from '../src/expr.js';
 import { makeVector, unmakeVector, syncVectors, isVector, vecArrow, vecEnds } from '../src/vectors.js';
-import { readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive, textVarErrors, usesTextVars, varsList } from '../src/params.js';
+import { varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive, textVarErrors, usesTextVars, varsList } from '../src/params.js';
 import { runsOf, plainText } from '../src/tvars.js';
 import { cornerOf, filletCorner, chamferCorner, maxFillet } from '../src/corners.js';
 import { rigidShape, looseShape, isRigid } from '../src/rigid.js';
@@ -3126,6 +3126,19 @@ t('campos enteros de matrices y dividir: aceptan variables y formulas (se redond
   assert.match(readInt(d, 'nada', 'N', 2, 200).err, /^N:/);
   assert.deepEqual(splitTop('3, 5; round(z/2;0) 7'), ['3', '5', 'round(z/2;0)', '7']);
   assert.deepEqual(splitTop('  '), []);
+});
+
+t('varsInfo: lista las variables con su tipo (dimension, angulo, variable de texto) y excluye la cota indicada', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 4, 0), c = addPoint(d, 0, 3); d.pts[a].fixed = true;
+  const l1 = addLine(d, a, b, {}), l2 = addLine(d, a, c, {});
+  const kd = addCon(d, { t: 'DIST', refs: [a, b], v: 4 }), ka = addCon(d, { t: 'ANG', refs: [l1, l2], v: 90, s1: 1, s2: 1, sg: 1 });
+  nameDims(d);
+  addText(d, addPoint(d, 5, 5), 'z{=17}', {});
+  const all = varsInfo(d);
+  assert.deepEqual(all.map((x) => [x.name, x.kind]), [[d.cons[kd].name, 'dim'], [d.cons[ka].name, 'ang'], ['z', 'var']]);
+  assert.equal(all[2].text, 'z = 17');
+  assert.ok(!varsInfo(d, kd).some((x) => x.name === d.cons[kd].name));
 });
 
 console.log(`\n${passed} pruebas pasaron`);

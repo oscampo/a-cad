@@ -20,7 +20,7 @@ import { layoutDim, dragDim, dimValue, angSector, angTrue, initAngle, trackAngle
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { textFrame, textHit, textPose, shownText, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss } from './text.js';
 import * as gh from './github.js';
-import { varsOf, varsList, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors } from './params.js';
+import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg } from './icons.js';
 import { buildTree, kindOf, conLabel } from './tree.js';
@@ -1980,6 +1980,42 @@ function makeIntersections(items) {
 
 // ---------------------------------------------------------------- restricciones
 // Ultimo estado del interruptor "Solo lectura" del dialogo de cotas.
+// Menu de variables para los cuadros con formulas: un filtro (todas, dimensiones, angulos, variables de texto) y la lista; al elegir
+// una se inserta su nombre en el campo donde se estaba escribiendo (el ultimo que tuvo el foco, entre inputIds).
+function mountVarPicker(boxId, dlgId, inputIds, exceptId) {
+  const box = $(boxId), dlg = $(dlgId);
+  const items = varsInfo(doc, exceptId);
+  box.textContent = '';
+  box.style.display = items.length ? 'flex' : 'none';
+  if (!items.length) return;
+  const style = 'min-height:36px;padding:2px 6px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);font:inherit;min-width:0';
+  const mk = (opts, flex) => { const sl = document.createElement('select'); sl.style.cssText = style + (flex ? ';flex:1 1 140px' : ';flex:none'); for (const [v, t] of opts) { const o = document.createElement('option'); o.value = v; o.textContent = t; sl.appendChild(o); } return sl; };
+  const count = (k) => items.filter((x) => k === 'all' || x.kind === k).length;
+  const flt = mk([['all', `Todas (${count('all')})`], ['dim', `Dimensiones (${count('dim')})`], ['ang', `Ángulos (${count('ang')})`], ['var', `Variables (${count('var')})`]], false);
+  const lst = mk([], true);
+  const fill = () => {
+    lst.textContent = '';
+    const shown = items.filter((x) => flt.value === 'all' || x.kind === flt.value);
+    const o0 = document.createElement('option'); o0.value = ''; o0.textContent = shown.length ? 'Insertar variable…' : '(ninguna de este tipo)'; lst.appendChild(o0);
+    for (const x of shown) { const o = document.createElement('option'); o.value = x.name; o.textContent = x.text; lst.appendChild(o); }
+  };
+  fill();
+  flt.onchange = fill;
+  let last = $(inputIds[0]);
+  const track = (e) => { if (inputIds.includes(e.target.id)) last = e.target; };
+  if (dlg._vpTrack) dlg.removeEventListener('focusin', dlg._vpTrack);
+  dlg._vpTrack = track; dlg.addEventListener('focusin', track);
+  lst.onchange = () => {
+    const name = lst.value; lst.value = '';
+    if (!name || !last) return;
+    const s0 = last.selectionStart ?? last.value.length, s1 = last.selectionEnd ?? s0;
+    last.value = last.value.slice(0, s0) + name + last.value.slice(s1);
+    last.focus(); last.setSelectionRange(s0 + name.length, s0 + name.length);
+    last.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  box.append(flt, lst);
+}
+
 let dlgRef = false;
 let dlgUnit = null; // unidad elegida en la ultima cota angular ('deg' | 'rad')
 let dlgCtx = null, dlgName = null; // dlgCtx (lo fija quien llama): { vars, list, name?, check? } para formulas con nombres y el campo Nombre
@@ -1991,7 +2027,8 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
     const dlg = $('dlg'), inp = $('dlgInput'), chk = $('dlgRef'), prev = $('dlgPrev');
     const ctx = dlgCtx || { vars: varsOf(doc), list: varsList(doc) }; dlgCtx = null; dlgName = null;
     const nameRow = $('dlgNameRow'), nameInp = $('dlgName'), varsBox = $('dlgVars');
-    varsBox.style.display = ctx?.list ? 'block' : 'none'; varsBox.textContent = ctx?.list ? 'Cotas (úsalas en la fórmula): ' + ctx.list : '';
+    varsBox.style.display = 'none'; // la lista de variables es un menu que inserta en el campo (mountVarPicker)
+    mountVarPicker('dlgPick', 'dlg', ['dlgInput'], ctx?.except ?? null);
     nameRow.style.display = ctx && ctx.name !== undefined ? 'flex' : 'none';
     if (ctx && ctx.name !== undefined) nameInp.value = ctx.name;
     $('dlgLabel').textContent = labelText;
@@ -2346,7 +2383,7 @@ async function editDimension(id) {
   const u0 = k.t === 'ANG' && (k.unit === 'rad' || (!k.expr && !k.unit && false)) ? 'rad' : 'deg';
   let initial = u0 === 'rad' ? Math.round(((shown * Math.PI) / 180) * 1e10) / 1e10 : Math.round(shown * 1000) / 1000;
   if (k.expr && !k.ref) { try { if (Math.abs(parseValue(k.expr, { angle: k.t === 'ANG', radians: u0 === 'rad', vars: varsOf(doc, id) }) - shown) <= 1e-6 * Math.max(1, Math.abs(shown))) initial = k.expr; } catch { /* formula invalida: valor */ } }
-  dlgCtx = { vars: varsOf(doc, id), list: varsList(doc, id), ...(k.name ? { name: k.name, check: (n) => checkName(doc, n, id) } : {}) };
+  dlgCtx = { vars: varsOf(doc, id), list: varsList(doc, id), except: id, ...(k.name ? { name: k.name, check: (n) => checkName(doc, n, id) } : {}) };
   const val0 = await askNumber((k.name ? k.name + ' · ' : '') + (k.t === 'ANG' ? 'Ángulo (°)' : k.t === 'RAD' ? (isC ? `Diámetro (${DIAM})` : 'Radio (R)') : 'Distancia'), initial, !!k.ref, k.t === 'ANG' ? 'angle' : 'len', u0);
   if (val0 === null || (!dlgRef && k.t !== 'ANG' && val0 <= 0)) return;
   pushUndo();
@@ -3116,7 +3153,7 @@ function showArrayDialog(st, count) {
     $('arrS2').value = st.s2; $('arrN2').value = st.n2; $('arrF2').checked = st.f2;
     $('arrLink').checked = st.link; $('arrDims').checked = st.dims;
     $('arrErr').textContent = '';
-    $('arrVars').textContent = varsList(doc) ? 'Variables que puedes usar: ' + varsList(doc) : '';
+    mountVarPicker('arrVars', 'dlgA', ['arrS1', 'arrN1', 'arrS2', 'arrN2'], null);
     const read = () => { st.s1 = $('arrS1').value; st.n1 = $('arrN1').value; st.f1 = $('arrF1').checked; st.s2 = $('arrS2').value; st.n2 = $('arrN2').value; st.f2 = $('arrF2').checked; st.link = $('arrLink').checked; st.dims = $('arrDims').checked; };
     let done = false;
     const finish = (v) => { if (done) return; done = true; read(); dlg.close(); if (v === 'ok' || v === 'cancel') arrAxes = null; draw(); resolve(v); };
@@ -3190,7 +3227,7 @@ function showCircDialog(st, count) {
     $('cirInfo').textContent = `${count} elemento${count === 1 ? '' : 's'} a copiar`;
     $('cirC').textContent = st.c ? (st.c.id ? `Punto ${st.c.id} (${fmt(st.c.x)}, ${fmt(st.c.y)})` : `(${fmt(st.c.x)}, ${fmt(st.c.y)})`) : 'Origen (0, 0)';
     $('cirLink').checked = st.link; $('cirDims').checked = st.dims;
-    $('cirVars').textContent = varsList(doc) ? 'Variables que puedes usar: ' + varsList(doc) : '';
+    mountVarPicker('cirVars', 'dlgC', ['cirT', 'cirN', 'cirS', 'cirK'], null);
     $('cirT').value = st.t; $('cirN').value = st.n; $('cirEq').checked = st.eq; $('cirS').value = st.s; $('cirRev').checked = st.rev; $('cirK').value = st.k;
     circC = st.c || { x: 0, y: 0 }; draw();
     const read = () => { st.t = $('cirT').value; st.n = $('cirN').value; st.eq = $('cirEq').checked; st.s = $('cirS').value; st.rev = $('cirRev').checked; st.k = $('cirK').value; st.link = $('cirLink').checked; st.dims = $('cirDims').checked; };

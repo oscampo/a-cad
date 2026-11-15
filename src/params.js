@@ -44,6 +44,18 @@ export function varsList(doc, exceptId = null) {
   const tv = hasDefs(doc) ? textVars(doc, exceptId).vals : {};
   return dims.concat(Object.entries(tv).map(([n, x]) => `${n} = ${Math.round(x.v * 1000) / 1000} (texto)`)).join(', ');
 }
+// Las mismas variables como lista para elegirlas en un menu: [{ name, text, kind }]. kind: 'dim' (distancias, radios, diametros),
+// 'ang' (angulos) o 'var' (variables de los textos).
+export function varsInfo(doc, exceptId = null) {
+  const r3 = (x) => Math.round(x * 1000) / 1000;
+  const out = named(doc).filter(([id]) => id !== exceptId).map(([, k]) => {
+    const v = dimValue(doc, k), x = k.t === 'RAD' && k.refs[0] in doc.circles ? 2 * v : v, ang = k.t === 'ANG';
+    return { name: k.name, text: `${k.name} = ${r3(x)}${ang ? '°' : ''}${k.ref ? ' (lectura)' : ''}`, kind: ang ? 'ang' : 'dim' };
+  });
+  const tv = hasDefs(doc) ? textVars(doc, exceptId).vals : {};
+  for (const [n, x] of Object.entries(tv)) out.push({ name: n, text: `${n} = ${r3(x.v)}`, kind: 'var' });
+  return out;
+}
 // Nombres de las variables definidas en textos (las que alguna definicion valida usa).
 export const textVarNames = (doc) => (hasDefs(doc) ? textVars(doc).names : new Set());
 // Cotas (por nombre) de las que depende una formula, directamente o a traves de variables de texto.
