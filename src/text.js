@@ -3,27 +3,27 @@
 // de measureText; en las pruebas puede ser una aproximacion).
 import { evalExpr } from './expr.js';
 import { varsOf, textVars } from './params.js';
-import { IT0, IT1, DEF_SRC, runsOf } from './tvars.js';
+import { IT0, IT1, DEF_SRC, runsOf, hasDefMark } from './tvars.js';
 export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
 
 // Salidas en textos: [=expresion] se reemplaza por el valor de la expresion, que puede usar los nombres de las cotas
 // (D1, A1, O2...) y funciones: "El diametro es [=O1] cm", "vueltas: [=A1/(2π)]". Un ángulo vale su medida en radianes.
 // Si la expresion falla, queda ⚠ en su lugar.
-// Definiciones de variables: «x[:=valor]» se muestra como «x:=valor» en cursiva (entre marcas IT0 e IT1, ver runsOf); si la
+// Definiciones de variables: «x{=valor}» se muestra como «x:=valor» en cursiva (entre marcas IT0 e IT1, ver runsOf); si la
 // definicion no vale (repetida, choca con una cota, falla) lleva un ⚠ al final.
 const TEXT_RE = () => new RegExp(DEF_SRC + '|' + OUT_SRC, 'g');
 const OUT_SRC = /\[=([^\]]*)\]/.source;
 export function textValue(doc, t) {
   const s = String(t.text ?? '');
-  const hasDef = s.includes('[:='), hasOut = s.includes('[=');
+  const hasDef = hasDefMark(s), hasOut = s.includes('[=');
   if (!hasDef && !hasOut) return s;
   let vars = null, st = null, tid = null, idx = 0;
   if (hasDef) { tid = Object.keys(doc.texts || {}).find((k) => doc.texts[k] === t); st = textVars(doc); }
   return s.replace(TEXT_RE(), (m, name, ex, out) => {
-    if (name !== undefined) { // definicion
+    if (name !== undefined) { // definicion x{=valor}
       const bad = st.bad.has(tid + ':' + idx++);
-      return IT0 + name + ':=' + ex + (bad ? ' ⚠' : '') + IT1;
+      return IT0 + name + ':=' + ex +(bad ? ' ⚠' : '') + IT1;
     }
     try { vars ||= varsOf(doc); return fmtNum(evalExpr(out, { vars }).value); } catch (e) { return '⚠'; }
   });

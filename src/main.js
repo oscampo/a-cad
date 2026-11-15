@@ -1903,7 +1903,7 @@ function askText(labelText, initial) {
   });
 }
 
-// Tras cambiar un texto: las variables que define («x[:=valor]») no pueden chocar con una cota, repetirse ni fallar (un problema
+// Tras cambiar un texto: las variables que define («x{=valor}») no pueden chocar con una cota, repetirse ni fallar (un problema
 // que ya existia antes de la edicion no cuenta) y las cotas con formulas que las leen se recalculan. false: se deshizo todo.
 function textEditOk(before) {
   const bad = textVarErrors(doc).find((e) => !before.some((b) => b.key === e.key));

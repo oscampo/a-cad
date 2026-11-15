@@ -1,4 +1,4 @@
-// Variables definidas en los textos: «nombre[:=valor]» asigna a «nombre» el valor de una expresion (sin DOM).
+// Variables definidas en los textos: «nombre{=valor}» asigna a «nombre» el valor de una expresion (sin DOM).
 // Valen para todo el dibujo: las lee cualquier salida de texto ([=nombre]) y cualquier formula de una cota. El valor puede
 // usar cotas y otras variables de texto. El texto la muestra en cursiva como «nombre:=valor».
 import { evalExpr, exprRefs, isReservedName, reservedWhy, NAME_RE } from './expr.js';
@@ -19,15 +19,18 @@ export function runsOf(line) {
   return out;
 }
 
-export const DEF_SRC = '([A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*)\\[:=([^\\]]*)\\]';
+// Definicion: «x{=valor}» (asignar) frente a «[=expr]» (leer). Se teclea sin cambiar de pagina en el teclado del telefono.
+// Grupos: 1 nombre, 2 valor.
+export const DEF_SRC = '([A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*)\\{=([^}]*)\\}';
 const DEF_RE = () => new RegExp(DEF_SRC, 'g');
+export const hasDefMark = (s) => typeof s === 'string' && s.includes('{=');
 
 // Definiciones de todos los textos, en orden: [{ tid, idx, name, expr }]. idx: lugar dentro de su texto.
 export function textDefs(doc) {
   const out = [];
   for (const [tid, t] of Object.entries(doc.texts || {})) {
     const s = t.text;
-    if (typeof s !== 'string' || !s.includes('[:=')) continue;
+    if (!hasDefMark(s)) continue;
     let idx = 0;
     for (const m of s.matchAll(DEF_RE())) out.push({ tid, idx: idx++, name: m[1], expr: m[2] });
   }

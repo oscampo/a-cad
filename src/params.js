@@ -6,7 +6,7 @@
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
 import { dimValue, angTrue, initAngle, trackAngles } from './dims.js';
 import { parseValue, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE } from './expr.js';
-import { textVarState } from './tvars.js';
+import { textVarState, hasDefMark } from './tvars.js';
 
 const DEG = Math.PI / 180;
 const named = (doc) => Object.entries(doc.cons).filter(([, k]) => isNamedDim(k) && k.name);
@@ -19,13 +19,13 @@ export function varValue(doc, k) {
   if (k.t === 'RAD' && k.refs[0] in doc.circles) return { v: 2 * v, r: false };
   return { v, r: false };
 }
-// Estado de las variables de los textos («x[:=valor]») con los valores actuales de las cotas.
+// Estado de las variables de los textos («x{=valor}») con los valores actuales de las cotas.
 export function textVars(doc, exceptId = null) {
   const dimVars = {};
   for (const [id, k] of named(doc)) if (id !== exceptId) dimVars[k.name] = varValue(doc, k);
   return textVarState(doc, dimVars, new Set(named(doc).map(([, k]) => k.name)));
 }
-const hasDefs = (doc) => Object.values(doc.texts || {}).some((t) => typeof t.text === 'string' && t.text.includes('[:='));
+const hasDefs = (doc) => Object.values(doc.texts || {}).some((t) => hasDefMark(t.text));
 const NO_TV = { win: new Map(), names: new Set(), vals: {}, errs: new Map() };
 const tvOf = (doc) => (hasDefs(doc) ? textVars(doc) : NO_TV);
 // Variables disponibles (sin la cota exceptId, que no puede usarse a si misma): las de las cotas y las de los textos.
@@ -80,8 +80,8 @@ export function renameDim(doc, id, name) {
   if (!old || old === name) { k.name = name; return; }
   k.name = name;
   for (const o of Object.values(doc.cons)) if (o.expr) o.expr = renameInExpr(o.expr, old, name);
-  // las salidas de los textos ([=D1]) y los valores de sus variables (x[:=2*D1]) tambien siguen al nombre
-  for (const t of Object.values(doc.texts || {})) if (typeof t.text === 'string' && (t.text.includes('[=') || t.text.includes('[:='))) t.text = t.text.replace(/\[=([^\]]*)\]/g, (m, ex) => '[=' + renameInExpr(ex, old, name) + ']').replace(/\[:=([^\]]*)\]/g, (m, ex) => '[:=' + renameInExpr(ex, old, name) + ']');
+  // las salidas de los textos ([=D1]) y los valores de sus variables (x{=2*D1}) tambien siguen al nombre
+  for (const t of Object.values(doc.texts || {})) if (typeof t.text === 'string' && (t.text.includes('[=') || hasDefMark(t.text))) t.text = t.text.replace(/\[=([^\]]*)\]/g, (m, ex) => '[=' + renameInExpr(ex, old, name) + ']').replace(/\{=([^}]*)\}/g, (m, ex) => '{=' + renameInExpr(ex, old, name) + '}');
 }
 
 // Evalua en orden las cotas definidas con formula. { ok: true } o { ok: false, error } sin dejar nada a medias:

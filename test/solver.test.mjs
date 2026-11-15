@@ -2809,38 +2809,38 @@ t('formulas: redondeo, comparacion y trigonometria extra', () => {
   for (const n of ['j', 'ω', 'θ', 'α']) { assert.match(checkName(newDoc(), n, null), /uso futuro/); assert.throws(() => evalExpr('2*' + n), /uso futuro/); }
   for (const n of ['J', 'Ω', 'Θ', 'Α', 'β', 'i']) assert.equal(checkName(newDoc(), n, null), null, n); // solo esas minusculas exactas
   for (const n of ['π', 'pi', 'e']) assert.match(checkName(newDoc(), n, null), /constante/);
-  const dt = newDoc(); addText(dt, addPoint(dt, 0, 0), 't[:=5]  T[:=2]', {});
+  const dt = newDoc(); addText(dt, addPoint(dt, 0, 0), 't{=5}  T{=2}', {});
   assert.deepEqual(textVarErrors(dt).map((e) => e.msg), ['«t» está reservada para el tiempo']);
   assert.equal(varsOf(dt).T.v, 2); assert.ok(!('t' in varsOf(dt)));
 });
-t('variables de texto: x[:=valor] se lee en salidas, en cursiva, y no se puede repetir ni chocar con una cota', () => {
+t('variables de texto: x{=valor} se lee en salidas, en cursiva, y no se puede repetir ni chocar con una cota', () => {
   const d = newDoc();
   const a = addPoint(d, 0, 0), b = addPoint(d, 4, 0); d.pts[a].fixed = true;
   const l = addLine(d, a, b, {}); addCon(d, { t: 'H', refs: [l] });
   addCon(d, { t: 'DIST', refs: [a, b], v: 4 }); // D1
   const P = addPoint(d, 1, 1);
-  const def = addText(d, P, 'k[:=D1*2+1]', {}), out = addText(d, P, 'k vale [=k] y dos k [=2*k]', {});
+  const def = addText(d, P, 'k{=D1*2+1}', {}), out = addText(d, P, 'k vale [=k] y dos k [=2*k]', {});
   assert.deepEqual(runsOf(textValue(d, d.texts[def])), [{ s: 'k:=D1*2+1', it: true }]); // se ve «k:=valor» en cursiva
   assert.equal(plainText(textValue(d, d.texts[def])), 'k:=D1*2+1');
   assert.equal(textValue(d, d.texts[out]), 'k vale 9 y dos k 18');
   // mezclado con texto normal: solo la definicion va en cursiva
-  const mix = addText(d, P, 'Dato: n[:=3]  ok', {});
+  const mix = addText(d, P, 'Dato: n{=3}  ok', {});
   assert.deepEqual(runsOf(textValue(d, d.texts[mix])), [{ s: 'Dato: ', it: false }, { s: 'n:=3', it: true }, { s: '  ok', it: false }]);
   assert.equal(varsOf(d).n.v, 3); assert.equal(varsOf(d).k.v, 9);
   assert.ok(varsList(d).includes('k = 9 (texto)'));
   // una variable puede usar otras variables (en cualquier orden) y los angulos de π son radianes
-  addText(d, P, 'm[:=n+k]  q[:=π/2]', {});
+  addText(d, P, 'm{=n+k}  q{=π/2}', {});
   assert.equal(varsOf(d).m.v, 12); near(varsOf(d).q.v, Math.PI / 2); assert.equal(varsOf(d).q.r, true);
   assert.equal(textVarErrors(d).length, 0);
   // el valor sigue a la cota
   d.cons[Object.keys(d.cons).find((k) => d.cons[k].t === 'DIST')].v = 10;
   assert.equal(textValue(d, d.texts[out]), 'k vale 21 y dos k 42');
   // multiples lineas y varias definiciones en un texto
-  const multi = addText(d, P, 'r1[:=1]\nr2[:=2]', {});
+  const multi = addText(d, P, 'r1{=1}\nr2{=2}', {});
   assert.equal(varsOf(d).r1.v + varsOf(d).r2.v, 3);
   assert.equal(textValue(d, d.texts[multi]).split('\n').length, 2);
   // repetida: la segunda es la mala y el texto lo marca con ⚠; la primera sigue valiendo
-  const dup = addText(d, P, 'n[:=99]', {});
+  const dup = addText(d, P, 'n{=99}', {});
   assert.equal(varsOf(d).n.v, 3);
   assert.ok(textVarErrors(d).some((e) => /más de una vez/.test(e.msg)));
   assert.ok(plainText(textValue(d, d.texts[dup])).endsWith('⚠'));
@@ -2848,12 +2848,12 @@ t('variables de texto: x[:=valor] se lee en salidas, en cursiva, y no se puede r
   delete d.texts[dup];
   assert.equal(textVarErrors(d).length, 0);
   // choca con una cota: gana la cota
-  const clash = addText(d, P, 'D1[:=5]', {});
+  const clash = addText(d, P, 'D1{=5}', {});
   assert.ok(textVarErrors(d).some((e) => /nombre de una cota/.test(e.msg)));
   assert.equal(varsOf(d).D1.v, 10);
   delete d.texts[clash];
   // funcion o constante como nombre, y expresion invalida o desconocida
-  const f = addText(d, P, 'sin[:=5]  pi[:=3]  z[:=2+]  w[:=nada*2]', {});
+  const f = addText(d, P, 'sin{=5}  pi{=3}  z{=2+}  w{=nada*2}', {});
   const msgs = textVarErrors(d).map((e) => e.msg).join(' | ');
   assert.ok(/«sin» es una función/.test(msgs) && /«pi» es una función/.test(msgs) && /«z»/.test(msgs) && /«w»/.test(msgs), msgs);
   assert.ok((plainText(textValue(d, d.texts[f]))).split('⚠').length === 5);
@@ -2862,7 +2862,7 @@ t('variables de texto: x[:=valor] se lee en salidas, en cursiva, y no se puede r
   assert.match(checkName(d, 'k', null), /variable de texto/);
   assert.equal(checkName(d, 'Ancho', null), null);
   // en un ciclo todas fallan
-  const cyc = addText(d, P, 'c1[:=c2+1]  c2[:=c1+1]', {});
+  const cyc = addText(d, P, 'c1{=c2+1}  c2{=c1+1}', {});
   assert.ok(textVarErrors(d).length >= 2); assert.ok(!('c1' in varsOf(d)));
   delete d.texts[cyc];
   assert.equal(textVarErrors(d).length, 0);
@@ -2877,7 +2877,7 @@ t('variables de texto: las leen las cotas con formula, se recalculan en orden y 
   const k3 = addCon(d, { t: 'DIST', refs: [a, e], v: 3, expr: 'D2*2' }); // D3 = 2*D2
   nameDims(d);
   const P = addPoint(d, 5, 5);
-  addText(d, P, 'x[:=D1/2]', {}); // x depende de D1
+  addText(d, P, 'x{=D1/2}', {}); // x depende de D1
   assert.ok(usesTextVars(d));
   assert.ok(solve(d, []).ok);
   const rc = recompute(d); assert.ok(rc.ok, rc.error);
@@ -2888,7 +2888,7 @@ t('variables de texto: las leen las cotas con formula, se recalculan en orden y 
   assert.ok(solve(d, []).ok);
   near(Math.hypot(d.pts[c].x - d.pts[a].x, d.pts[c].y - d.pts[a].y), 11, 1e-4);
   // una variable que depende de una cota con formula tambien va despues de ella
-  addText(d, P, 'y[:=D3+1]', {});
+  addText(d, P, 'y{=D3+1}', {});
   d.cons[k2].expr = 'x+y'; // D2 = x + y, y = D3 + 1, D3 = 2*D2: en circulo
   const bad = recompute(d); assert.ok(!bad.ok); assert.match(bad.error, /círculo|propia fórmula/);
   d.cons[k2].expr = 'x+1';
@@ -2907,7 +2907,7 @@ t('variables de texto: las leen las cotas con formula, se recalculan en orden y 
   const kk = addCon(d2, { t: 'DIST', refs: [p0, p2], v: 5, expr: 'w' });
   nameDims(d2);
   assert.equal(hasReactive(d2), false);
-  addText(d2, addPoint(d2, 3, 3), 'w[:=D1/2]', {});
+  addText(d2, addPoint(d2, 3, 3), 'w{=D1/2}', {});
   assert.equal(hasReactive(d2), true);
   void kk;
 });
@@ -2917,9 +2917,9 @@ t('variables de texto: renombrar una cota las actualiza y el texto se mide por t
   const l = addLine(d, a, b, {}); addCon(d, { t: 'H', refs: [l] });
   const k = addCon(d, { t: 'DIST', refs: [a, b], v: 4 }); nameDims(d);
   const P = addPoint(d, 1, 1);
-  const tx = addText(d, P, 'w[:=D1*2]  [=w]', { h: 2 });
+  const tx = addText(d, P, 'w{=D1*2}  [=w]', { h: 2 });
   renameDim(d, k, 'Ancho');
-  assert.equal(d.texts[tx].text, 'w[:=Ancho*2]  [=w]');
+  assert.equal(d.texts[tx].text, 'w{=Ancho*2}  [=w]');
   assert.equal(plainText(textValue(d, d.texts[tx])), 'w:=Ancho*2  8');
   // el ancho suma los tramos: la cursiva se mide con su propia funcion
   const calls = [];
@@ -3049,6 +3049,24 @@ t('chaflan: una linea entre las dos, con una cota por tramo que se puede editar'
   assert.ok(!chamferCorner(g.d, g.p[1], 50).ok); assert.match(chamferCorner(g.d, g.p[1], 50).msg, /máximo/);
   assert.ok(!chamferCorner(g.d, g.p[1], -1).ok);
   void l;
+});
+
+t('variables de texto: x{=valor} se ve, se lee, se renombra y valida; la sintaxis vieja x[:=valor] ya no es una definicion', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 4, 0); d.pts[a].fixed = true;
+  const l = addLine(d, a, b, {}); addCon(d, { t: 'H', refs: [l] });
+  const k = addCon(d, { t: 'DIST', refs: [a, b], v: 4 }); nameDims(d);
+  const P = addPoint(d, 1, 1);
+  const tx = addText(d, P, 'w{=D1*2}  z{=w+1}  [=w] [=z]', { h: 2 });
+  assert.equal(plainText(textValue(d, d.texts[tx])), 'w:=D1*2  z:=w+1  8 9');
+  renameDim(d, k, 'Ancho');
+  assert.equal(d.texts[tx].text, 'w{=Ancho*2}  z{=w+1}  [=w] [=z]');
+  // mismos errores que la otra forma: repetida y choque con una cota
+  const dup = addText(d, P, 'w{=1}  Ancho{=2}', {});
+  assert.equal(plainText(textValue(d, d.texts[dup])), 'w:=1 ⚠  Ancho:=2 ⚠');
+  // llaves sin nombre delante o sin "=" son texto normal
+  assert.equal(textValue(d, d.texts[addText(d, P, '{=3} y {5} y x{4}', {})]), '{=3} y {5} y x{4}');
+  assert.equal(textValue(d, d.texts[addText(d, P, 'q[:=3]', {})]), 'q[:=3]');
 });
 
 console.log(`\n${passed} pruebas pasaron`);
