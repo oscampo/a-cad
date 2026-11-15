@@ -1,5 +1,5 @@
 import wasmUrl from '@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url';
-import { initSolver, solve, solveSteps, reparamSplines, addConsSolved, projectMarks, isMark, assignMark, setMarkRef, resetMarks, ensureMarkRefs, redundantCons, makeGear, makeRack, checkRack, FINITE_TYPES, beginSession, endSession, perfStats } from './solver.js';
+import { initSolver, solve, solveSteps, reparamSplines, addConsSolved, projectMarks, isMark, assignMark, setMarkRef, resetMarks, ensureMarkRefs, redundantCons, makeGear, makeRack, checkRack, FINITE_TYPES, dragToStops, beginSession, endSession, perfStats } from './solver.js';
 import {
   newDoc, addLayer, deleteLayer, layerCount, shownEntries, shownValues, layerHiddenPoints, consHidden, visibleDoc, isHidden, addPoint, addLine, addCircle, addArc, addText, addSpline, splinePolyline, addCon, cleanup, deleteItems, clone, hatchLoops,
   allLtypes, PALETTE, arcOf, conTag, ensureNumbers, addEllipse, ellipsePolyline, ellipseOf, ellipsePoint, ellipseParam, ellipseRange, isPartial, DIM_TYPES,
@@ -1540,7 +1540,8 @@ function toolMove(p) {
       const f = i / steps, dx = prev.dx + (cur2.dx - prev.dx) * f, dy = prev.dy + (cur2.dy - prev.dy) * f;
       const tg = Object.entries(drag.orig).map(([id, o]) => ({ id, x: o.x + dx, y: o.y + dy }));
       const ts0 = PERF ? performance.now() : 0;
-      const r = hasReactive(doc) ? settle(doc, solveSteps, tg, { maxIter: 20 }) : solve(doc, tg); // con cotas que leen medidas, se actualizan mientras arrastras
+      const reac = hasReactive(doc);
+      const r = dragToStops(doc, tg, (t2) => (reac ? settle(doc, solveSteps, t2, { maxIter: 20 }) : solve(doc, t2)), !reac); // con cotas que leen medidas, se actualizan mientras arrastras; con «tope en bordes» el elemento llega hasta el borde
       if (PERF) perfSolveMs += performance.now() - ts0;
       if (r.ok) trackAngles(doc);
       if (r.ok && tracing) recordTraces(doc, 1.5 / view.s);

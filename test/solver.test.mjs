@@ -18,7 +18,7 @@ import { trimAt, extendEnd, cutsOf, curveCuts, linearArray, mirrorCopy, circular
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from '../src/shapes.js';
 import { FONTS, fontCss } from '../src/text.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from '../src/lock.js';
-import { initSolver, solve, solveSteps, reparamSplines, addConsSolved, projectMarks, isMark, assignMark, setMarkRef, resetMarks, ensureMarkRefs, redundantCons, makeGear, makeRack, checkRack, beginSession, endSession, finiteInactive } from '../src/solver.js';
+import { initSolver, solve, solveSteps, reparamSplines, addConsSolved, projectMarks, isMark, assignMark, setMarkRef, resetMarks, ensureMarkRefs, redundantCons, makeGear, makeRack, checkRack, beginSession, endSession, finiteInactive, dragToStops } from '../src/solver.js';
 import { readFileSync } from 'node:fs';
 import { bsplineThrough, bsplinePoint } from '../src/bspline.js';
 import { boxSelect } from '../src/boxsel.js';
@@ -2144,6 +2144,26 @@ t('tope en bordes: si el tope no cabe con las demas restricciones la resolucion 
   d.cons[dist].v = 9; // pediria P en x ~ 12,5, mas alla del extremo
   assert.ok(!solve(d, []).ok, 'con el tope la distancia 9 no cabe');
   near(d.pts[P].x, 8, 1e-4, 'P no queda fuera del segmento'); near(d.pts[P].y, 0, 1e-6);
+});
+t('tope en bordes al arrastrar: lo que empuja con una distancia dura lleva el punto hasta el extremo, no se queda antes', () => {
+  const mk = () => {
+    const d = newDoc();
+    const A = addPoint(d, 0, 0, false), B = addPoint(d, 10, 0, false), R1 = addPoint(d, -20, 5, false), R2 = addPoint(d, 40, 5, false);
+    for (const p of [A, B, R1, R2]) d.pts[p].fixed = true;
+    const l = addLine(d, A, B, {}), rail = addLine(d, R1, R2, {}), P = addPoint(d, 5, 0, false), Q = addPoint(d, 8, 5, false);
+    addCon(d, { t: 'PONL', refs: [P, l], finite: true, stop: true }); addCon(d, { t: 'PONL', refs: [Q, rail] });
+    addCon(d, { t: 'DIST', refs: [Q, P], v: Math.hypot(3, 5) });
+    assert.ok(solve(d, []).ok);
+    return { d, P, Q };
+  };
+  for (const exact of [true, false]) { // exact: el tope engranado se resuelve directo; si no, por biseccion del paso
+    const { d, P, Q } = mk();
+    for (const x of [10, 12, 16, 22]) dragToStops(d, [{ id: Q, x, y: 5 }], (tg) => solveSteps(d, tg), exact); // Q solo puede llegar a x = 13
+    near(d.pts[P].x, 10, 2e-3, 'P llega al extremo (exact=' + exact + ')'); near(d.pts[P].y, 0, 1e-6);
+    near(d.pts[Q].x, 13, 2e-3, 'y Q hasta donde el tope lo deja');
+    for (const x of [12.5, 12, 11.5, 11, 10.5, 10, 9.5, 9]) assert.ok(dragToStops(d, [{ id: Q, x, y: 5 }], (tg) => solveSteps(d, tg), exact).ok, 'vuelta ' + x); // pasos cortos: de un salto la distancia admite la otra rama
+    near(d.pts[Q].x, 9, 1e-3, 'de vuelta se mueve libre'); near(d.pts[P].x, 6, 1e-3);
+  }
 });
 t('solo lo conectado al arrastre: con muchas relaciones sin relacion con el mecanismo el resultado es el mismo y lo demas no se toca', () => {
   const mk = () => {

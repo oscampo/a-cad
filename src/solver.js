@@ -761,6 +761,7 @@ function finiteOff(doc, prev, sticky) {
   out.stops = [];
   for (const id of finiteIds(doc)) {
     try {
+      if (noLimit && noLimit.has(id)) continue; // dragToStops: se resuelve como relacion infinita y se mide aparte si se salio
       const k = doc.cons[id], st = finiteState(doc, k, finEps(k)), pv = prev && prev.get(id);
       const kept = sticky && sticky.stops.find((s) => s.cid === id);
       if (kept) { out.add(id); out.stops.push(kept); continue; }
@@ -778,6 +779,37 @@ function finiteOff(doc, prev, sticky) {
   return out;
 }
 const finEps = (k) => (k.stop ? 1e-4 : 1e-6); // con tope se tolera un poco mas: el elemento detenido en el borde puede quedar a ~1e-5 de el
+// Arrastre con «tope en bordes». Un tope engranado es una restriccion dura: si lo que empuja al elemento tambien lo es (una cota con
+// formula que sigue al arrastre), el paso que se pasaria del borde no tiene solucion y se rechaza entero, y el elemento se queda donde lo
+// dejo el paso anterior, un poco antes del borde. Aqui el paso se resuelve con las relaciones con tope que estan valiendo tratadas como
+// infinitas (siempre tiene solucion) y se mira si el contacto se salio; si se salio se busca por biseccion la fraccion del paso que lo deja
+// justo en el borde. run(targets) resuelve un paso (solve o settle). exact: probar antes el paso normal (sin formulas reactivas el tope
+// engranado si tiene solucion y deja el elemento exactamente en el borde).
+let noLimit = null;
+export function dragToStops(doc, targets, run, exact = true) {
+  const ids = finiteIds(doc).filter((id) => { const k = doc.cons[id]; if (!k.stop) return false; try { const st = finiteState(doc, k, finEps(k)); return st.inside && Math.abs(st.gap) <= st.tol; } catch { return false; } });
+  const live = targets.filter((t) => doc.pts[t.id]);
+  if (!ids.length || !live.length || noLimit) return run(targets);
+  const inside = () => ids.every((id) => { try { return finiteState(doc, doc.cons[id], finEps(doc.cons[id])).inside; } catch { return true; } });
+  const restoreTo = (json) => { const o = JSON.parse(json); for (const k of Object.keys(doc)) delete doc[k]; Object.assign(doc, o); };
+  const from = live.map((t) => ({ x: doc.pts[t.id].x, y: doc.pts[t.id].y }));
+  const at = (f) => live.map((t, j) => ({ id: t.id, x: from[j].x + (t.x - from[j].x) * f, y: from[j].y + (t.y - from[j].y) * f }));
+  let best = JSON.stringify(doc), r;
+  const attempt = (tg) => { noLimit = new Set(ids); try { r = run(tg); } finally { noLimit = null; } if (r.ok && inside()) { best = JSON.stringify(doc); return true; } restoreTo(best); return false; };
+  if (attempt(targets)) return r; // el paso entero cabe dentro de los limites
+  if (exact) { const q = run(targets); if (q.ok) return q; restoreTo(best); }
+  // precision: una decima de la tolerancia de contacto (1e-4 del largo del segmento o del radio), medida en lo que recorre lo arrastrado
+  const span = Math.max(...live.map((t, j) => Math.hypot(t.x - from[j].x, t.y - from[j].y)));
+  const tolAbs = 0.1 * Math.min(...ids.map((id) => { try { return finiteState(doc, doc.cons[id]).tol; } catch { return 1e-3; } }));
+  if (!(span > tolAbs)) return { ok: false, conflicts: [], status: 0, stopped: true };
+  let lo = 0, hi = 1, got = attempt(at(tolAbs / span)); // si ni el paso minimo cabe, ya esta en el borde
+  if (got) lo = tolAbs / span;
+  for (let i = 0; got && i < 24 && (hi - lo) * span > tolAbs; i++) {
+    const f = (lo + hi) / 2;
+    if (attempt(at(f))) lo = f; else hi = f;
+  }
+  return got ? { ok: true, conflicts: [], status: 0, stopped: true } : { ok: false, conflicts: [], status: 0, stopped: true };
+}
 export const finiteInactive = (doc) => finiteOff(doc); // para dibujar atenuadas las que no valen
 const sameSet = (a, b) => a.size === b.size && [...a].every((x) => b.has(x));
 // F con las relaciones apagadas omitidas
