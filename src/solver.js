@@ -993,6 +993,18 @@ export function redundantCons(doc) {
   return out;
 }
 
+// Copia de lo que una resolucion puede cambiar (lo que escribe commit y lo que siguen las marcas y los engranajes) para deshacer una pasada.
+function takeSnap(doc) {
+  const o = (m, f) => Object.fromEntries(Object.entries(m || {}).map(([id, v]) => [id, f(v)]));
+  return { pts: o(doc.pts, (p) => [p.x, p.y]), circles: o(doc.circles, (c) => c.r), arcs: o(doc.arcs, (a) => a.r), splines: o(doc.splines, (s) => (s.ts ? s.ts.slice() : s.ts)), cons: o(doc.cons, (k) => ({ u: k.u, cur: Array.isArray(k.cur) ? k.cur.slice() : k.cur })) };
+}
+function restoreSnap(doc, s) {
+  for (const [id, [x, y]] of Object.entries(s.pts)) if (doc.pts[id]) { doc.pts[id].x = x; doc.pts[id].y = y; }
+  for (const [id, r] of Object.entries(s.circles)) if (doc.circles[id]) doc.circles[id].r = r;
+  for (const [id, r] of Object.entries(s.arcs)) if (doc.arcs[id]) doc.arcs[id].r = r;
+  for (const [id, ts] of Object.entries(s.splines)) if (doc.splines[id]) doc.splines[id].ts = ts;
+  for (const [id, v] of Object.entries(s.cons)) if (doc.cons[id]) { const k = doc.cons[id]; if (v.u === undefined) delete k.u; else k.u = v.u; if (v.cur === undefined) delete k.cur; else k.cur = v.cur; }
+}
 // Resuelve el documento. targets (opcional): [{id,x,y}] puntos que el usuario arrastra;
 // se atraen con una restriccion debil y luego se resuelve sin ella para que el
 // resultado sea siempre factible. No modifica doc si falla.
@@ -1004,10 +1016,11 @@ export function solve(doc, targets = []) {
   const G = gearPlan(doc, tg0);
   const S = scopeOf(doc, tg0);
   const gap0 = finiteIds(doc).length ? finiteGaps(doc) : null; // separaciones al empezar: sirven para detectar que se atraveso un contacto en este paso
+  const snap = gap0 ? takeSnap(doc) : null;
   let off = finiteOff(doc), r;
   for (let it = 0; it < 3; it++) { // si al resolver cambia que relaciones finitas valen, se resuelve de nuevo con el conjunto nuevo
     r = solveCore(doc, F0, G.targets, G, S, off, it > 0);
-    if (!r.ok) break;
+    if (!r.ok) { if (it > 0 && snap) restoreSnap(doc, snap); break; } // una repeticion que falla (p. ej. un tope que no cabe con las demas restricciones) deja el dibujo como estaba, no con la pasada anterior
     const off2 = finiteOff(doc, gap0, off);
     if (sameSet(off, off2)) break;
     off = off2;

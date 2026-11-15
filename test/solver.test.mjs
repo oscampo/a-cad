@@ -2132,6 +2132,19 @@ t('relacion finita con tope en bordes: el elemento se detiene en el borde en vez
   assert.ok(solve(f, [{ id: P2, x: -3, y: -9 }]).ok);
   near(f.pts[P2].x, f.pts[S].x, 1e-2); near(f.pts[P2].y, f.pts[S].y, 1e-2, 'queda en el extremo del arco mas cercano');
 });
+t('tope en bordes: si el tope no cabe con las demas restricciones la resolucion falla y el dibujo queda como estaba (no fuera del limite)', () => {
+  const d = newDoc();
+  const A = addPoint(d, 0, 0, false), B = addPoint(d, 10, 0, false), Qp = addPoint(d, 5, 5, false);
+  for (const p of [A, B, Qp]) d.pts[p].fixed = true;
+  const l = addLine(d, A, B, {}), P = addPoint(d, 8, 0, false);
+  addCon(d, { t: 'PONL', refs: [P, l], finite: true, stop: true });
+  const dist = addCon(d, { t: 'DIST', refs: [Qp, P], v: Math.hypot(3, 5) });
+  assert.ok(solve(d, []).ok);
+  near(d.pts[P].x, 8, 1e-4);
+  d.cons[dist].v = 9; // pediria P en x ~ 12,5, mas alla del extremo
+  assert.ok(!solve(d, []).ok, 'con el tope la distancia 9 no cabe');
+  near(d.pts[P].x, 8, 1e-4, 'P no queda fuera del segmento'); near(d.pts[P].y, 0, 1e-6);
+});
 t('solo lo conectado al arrastre: con muchas relaciones sin relacion con el mecanismo el resultado es el mismo y lo demas no se toca', () => {
   const mk = () => {
     const d = newDoc();
