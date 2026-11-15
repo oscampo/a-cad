@@ -2,7 +2,7 @@
 // y revierte si el solver falla.
 import { makeVector } from './vectors.js';
 import { shownEntries, addPoint, addLine, addArc, addCircle, addEllipse, addSpline, addText, addCon, nextId, arcOf, splinePolyline, deleteItems, arcSamples, ellipsePolyline, ellipseOf, ellipseRange, ellipsePoint, ellipseParam, isPartial, cleanup } from './model.js';
-import { dist, closestOnSeg, lineLine, lineCircle, circleCircle, polylineLine, polylineCircle, polylinePolyline, closestOnPolyline, inSweep, angleFrom, norm, TAU } from './geom.js';
+import { dist, closestOnSeg, lineLine, lineCircle, circleCircle, polylineLine, polylineCircle, polylinePolyline, closestOnPolyline, splineSamples, inSweep, angleFrom, norm, TAU } from './geom.js';
 import { splitElement } from './split.js';
 import { rawAngle } from './text.js';
 
@@ -209,9 +209,11 @@ function trimEllipse(doc, id, m) {
   return { ok: true, pieces, dropped: [] };
 }
 
-// Spline: lo que queda a cada lado del tramo quitado es un spline nuevo que pasa por el punto de corte, por los
-// puntos originales de ese lado y por unos puntos extra tomados de la curva original junto al corte, para que
-// conserve la forma (es una aproximacion: un trozo de un spline por puntos no es exactamente otro spline por puntos).
+// Spline: lo que queda a cada lado del tramo quitado es un spline nuevo que pasa por el punto de corte y conserva la
+// forma (es una aproximacion: un trozo de un spline por puntos no es exactamente otro spline por puntos). Si los puntos
+// del trozo estan libres, el spline conserva su numero de puntos y se reparten a distancias iguales sobre lo que queda;
+// si alguno esta sujeto (fijo, o usado por otro elemento o relacion), los originales se quedan y se agregan unos pocos
+// junto al corte, tomados de la curva original.
 function trimSpline(doc, id, m) {
   const sp = doc.splines[id], n = sp.pts.length;
   const { cuts, total, closed, tol, sOf, P, cum } = curveCuts(doc, 'sp', id);
@@ -237,10 +239,44 @@ function trimSpline(doc, id, m) {
   const step = total / ((closed ? n : n - 1) * SPL_FILL); // separacion de los puntos de cada trozo
   // Solo los dos tramos junto a un corte reciben puntos extra (ahi la curva original dependia del punto quitado); entre los
   // puntos que quedan no se agrega nada, para no multiplicar los puntos de control. cut0/cut1: ese extremo es un corte.
-  const piece = (s0, id0, s1, id1, cut0, cut1) => {
+  const free = !Object.values(doc.cons).some((k) => (k.refs || []).includes(id)); // un spline con relaciones conserva sus puntos
+  let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
+  for (const q of P) { bx0 = Math.min(bx0, q.x); bx1 = Math.max(bx1, q.x); by0 = Math.min(by0, q.y); by1 = Math.max(by1, q.y); }
+  const shapeTol = 1e-3 * Math.hypot(bx1 - bx0, by1 - by0); // desviacion admitida al repartir los puntos: 0,1 % del tamano
+  // Puntos del spline que no se pueden mover: fijos o usados por otro elemento o por una relacion.
+  const held = new Set();
+  for (const l of Object.values(doc.lines)) { held.add(l.a); held.add(l.b); }
+  for (const c of Object.values(doc.circles)) held.add(c.c);
+  for (const a of Object.values(doc.arcs)) { held.add(a.c); held.add(a.a); held.add(a.b); }
+  for (const e of Object.values(doc.ellipses || {})) for (const p of [e.c, e.a, e.b, e.p1, e.p2]) if (p) held.add(p);
+  for (const t of Object.values(doc.texts || {})) held.add(t.pt);
+  for (const [oid, o] of Object.entries(doc.splines)) if (oid !== id) for (const p of o.pts) held.add(p);
+  for (const k of Object.values(doc.cons)) for (const r of k.refs || []) held.add(r);
+  for (const pid of sp.pts) if (doc.pts[pid].fixed || doc.traces?.[pid]) held.add(pid);
+  // want: cuantos puntos debe tener el trozo. Si sus puntos intermedios estan libres, se reparten a distancias iguales
+  // sobre el trozo (el spline conserva su numero de puntos en vez de amontonar extras junto al corte); si alguno esta
+  // sujeto, se queda donde esta y solo se agregan unos pocos junto al corte.
+  const piece = (s0, id0, s1, id1, cut0, cut1, want) => {
     const mid = [];
     sp.pts.forEach((pid, j) => { for (const w of closed ? [0, total] : [0]) { const sv = sd[j] + w; if (sv > s0 + tol && sv < s1 - tol) mid.push({ s: sv, id: pid }); } });
     mid.sort((u, v) => u.s - v.s);
+    if (free && id0 !== id1 && mid.every((c) => !held.has(c.id)) && new Set(mid.map((c) => c.id)).size === mid.length) {
+      const spread = (k) => Array.from({ length: k }, (_, j) => at(s0 + ((j + 1) / (k + 1)) * (s1 - s0)));
+      const e0 = { x: doc.pts[id0].x, y: doc.pts[id0].y }, e1 = { x: doc.pts[id1].x, y: doc.pts[id1].y };
+      const devOf = (pos) => splineSamples([e0, ...pos, e1], false, 8).reduce((mx, q) => Math.max(mx, closestOnPolyline(P, q).d), 0);
+      // el mismo numero de puntos; solo si con ellos el trozo se aparta de la curva original (splines de pocos puntos) se agregan mas
+      let k = Math.max(mid.length, want - 2, 1), pos = spread(k);
+      for (const kMax = 2 * (k + 2); devOf(pos) > shapeTol && k < kMax;) { k += Math.max(1, Math.ceil(k / 4)); pos = spread(k); }
+      const ids = [id0];
+      const reuse = new Map(mid.map((c, i) => [Math.floor((i * k) / mid.length), c.id])); // los puntos que quedan se reutilizan, en orden
+      pos.forEach((q, j) => {
+        let pid = reuse.get(j);
+        if (pid) { doc.pts[pid].x = q.x; doc.pts[pid].y = q.y; } else { pid = addPoint(doc, q.x, q.y, true); doc.pts[pid].splOnly = true; }
+        ids.push(pid);
+      });
+      ids.push(id1);
+      return addSpline(doc, ids, st, false);
+    }
     const chain = [{ s: s0, id: id0 }, ...mid, { s: s1, id: id1 }], out = [];
     const ks = chain.slice(0, -1).map((c, i) => (((i <= 1 && cut0) || (i >= chain.length - 3 && cut1))
       ? Math.max(0, Math.ceil((chain[i + 1].s - c.s) / step - 0.25) - 1) : 0));
@@ -266,10 +302,13 @@ function trimSpline(doc, id, m) {
     return ids.length >= 2 && new Set(ids).size === ids.length ? addSpline(doc, ids, st, false) : null;
   };
   const pieces = [];
-  if (closed) pieces.push(piece(hi.s, pointAt(doc, hi, tol), lo.s > hi.s ? lo.s : lo.s + total, pointAt(doc, lo, tol), true, true));
+  const pLo = lo && pointAt(doc, lo, tol), pHi = hi && pointAt(doc, hi, tol); // antes de mover ningun punto
+  if (closed) pieces.push(piece(hi.s, pHi, lo.s > hi.s ? lo.s : lo.s + total, pLo, true, true, n));
   else {
-    if (lo) pieces.push(piece(0, sp.pts[0], lo.s, pointAt(doc, lo, tol), false, true));
-    if (hi) pieces.push(piece(hi.s, pointAt(doc, hi, tol), total, sp.pts[n - 1], true, false));
+    // el numero de puntos del spline se reparte entre los trozos segun su longitud
+    const L1 = lo ? lo.s : 0, L2 = hi ? total - hi.s : 0, n1 = lo && hi ? Math.round((n * L1) / (L1 + L2)) : n;
+    if (lo) pieces.push(piece(0, sp.pts[0], lo.s, pLo, false, true, n1));
+    if (hi) pieces.push(piece(hi.s, pHi, total, sp.pts[n - 1], true, false, lo ? n - n1 : n));
   }
   const made = pieces.filter(Boolean);
   if (!made.length) return { ok: false, msg: 'No se pudo recortar el spline en ese tramo' };

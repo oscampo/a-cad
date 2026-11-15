@@ -69,11 +69,45 @@ export function firstLap(pts) {
   return { pts: lap, closed: true };
 }
 
+// Quita de una trayectoria abierta los tramos repasados (ida y vuelta sobre el mismo camino): deja el camino
+// recorrido una sola vez, de un extremo al otro. Sin esto, si el punto llega a un tope y retrocede un poco, la
+// ultima muestra no es el extremo y el spline terminaria antes de donde termina la trayectoria dibujada.
+// Una muestra ya esta recorrida si cae sobre el camino (a menos de tol) y no mas alla de uno de sus extremos.
+export function unfoldPath(pts) {
+  if (pts.length < 3) return pts;
+  let rev = false;
+  for (let i = 2; i < pts.length && !rev; i++) {
+    rev = (pts[i].x - pts[i - 1].x) * (pts[i - 1].x - pts[i - 2].x) + (pts[i].y - pts[i - 1].y) * (pts[i - 1].y - pts[i - 2].y) < 0;
+  }
+  if (!rev) return pts;
+  const gaps = [];
+  for (let i = 1; i < pts.length; i++) gaps.push(Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+  gaps.sort((a, b) => a - b);
+  const tol = 0.35 * gaps[gaps.length >> 1], eps = tol * 1e-3;
+  const path = [pts[0], pts[1]], dd = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  for (let i = 2; i < pts.length; i++) {
+    const q = pts[i], f = { x: path[0].x, y: path[0].y, d: Infinity };
+    for (let j = 0; j < path.length - 1; j++) { // punto mas cercano del camino
+      const a = path[j], b = path[j + 1], vx = b.x - a.x, vy = b.y - a.y, L2 = vx * vx + vy * vy;
+      const u = L2 > 0 ? Math.max(0, Math.min(1, ((q.x - a.x) * vx + (q.y - a.y) * vy) / L2)) : 0;
+      const cx = a.x + u * vx, cy = a.y + u * vy, dq = Math.hypot(q.x - cx, q.y - cy);
+      if (dq < f.d) { f.x = cx; f.y = cy; f.d = dq; }
+    }
+    const head = path[0], tail = path[path.length - 1];
+    const atHead = dd(f, head) < eps, atTail = dd(f, tail) < eps;
+    if (f.d <= tol && !atHead && !atTail) continue; // repasa un tramo ya recorrido
+    if (f.d < eps) continue; // la misma posicion que un extremo
+    if (atHead || (!atTail && dd(q, head) < dd(q, tail))) path.unshift(q);
+    else path.push(q);
+  }
+  return path;
+}
+
 export function traceToSpline(doc, pid, n = 16) {
   const tr = doc.traces[pid];
   if (!tr || tr.pts.length < 3 || n < 3) return null;
   const lap = firstLap(tr.pts);
-  const src = lap ? lap.pts : tr.pts;
+  const src = lap ? lap.pts : unfoldPath(tr.pts);
   const L = polylineLength(src);
   const a = src[0], b = src[src.length - 1];
   const closed = lap ? lap.closed : L > 0 && Math.hypot(a.x - b.x, a.y - b.y) < L * 0.02;

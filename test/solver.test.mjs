@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { addLayer, deleteLayer, layerCount, isHidden, shownEntries, layerHiddenPoints, consHidden, visibleDoc, newDoc, addPoint, addLine, addCircle, addArc, addCon, addText, addSpline, deleteItems, hatchLoops, arcOf, cleanup, splinePolyline, conTag, ensureNumbers, addEllipse, ellipseOf, ellipsePolyline, ellipsePoint, ellipseParam, ellipseRange, isPartial } from '../src/model.js';
-import { startTrace, recordTraces, traceToSpline, offsetPolyline, firstLap } from '../src/curves.js';
+import { startTrace, recordTraces, traceToSpline, offsetPolyline, firstLap, unfoldPath } from '../src/curves.js';
 import { layoutDim, dragDim, dimValue, dimText, angSector, angTrue, initAngle, trackAngles } from '../src/dims.js';
 import { textFrame, textCorners, textHit, textPose, rawAngle, textValue, shownText, lineWidth } from '../src/text.js';
 import { exportSVG, exportSVGLaser, exportDXF, dimLayouts, extraExtents, laserClasses, styleKey } from '../src/export.js';
@@ -1822,12 +1822,56 @@ t('recortar spline: los trozos conservan la forma y las relaciones pasan al troz
   assert.ok(trimAt(d3, 'sp', s2, { x: 0, y: 10 }).deleted);
 });
 
-t('recortar spline: no multiplica los puntos de control (conserva los que quedan y agrega pocos junto al corte)', () => {
+t('recortar spline: conserva el numero de puntos y los reparte a distancias iguales sobre lo que queda', () => {
+  const mk = () => {
+    const d = newDoc();
+    const ids = Array.from({ length: 16 }, (_, i) => { const a = (i * Math.PI) / 30; return addPoint(d, 100 * Math.cos(a), 100 * Math.sin(a)); });
+    const s = addSpline(d, ids, ST, false);
+    const orig = splinePolyline(d, d.splines[s], 24).map((q) => ({ ...q }));
+    addLine(d, addPoint(d, -10, 60), addPoint(d, 110, 60), ST);
+    return { d, ids, s, orig };
+  };
+  const { d, ids, s, orig } = mk();
+  const r = trimAt(d, 'sp', s, { x: 50, y: 86 });
+  assert.ok(r.ok); const sp = d.splines[r.pieces[0]];
+  assert.equal(sp.pts.length, 16, 'los mismos 16 puntos');
+  assert.equal(sp.pts[0], ids[0]); near(d.pts[sp.pts[15]].y, 60, 1e-6, 'termina en el corte');
+  assert.ok(ids.filter((i) => sp.pts.includes(i)).length >= 6, 'reutiliza los puntos que quedaban');
+  const P = sp.pts.map((p) => d.pts[p]), g = P.slice(1).map((q, i) => Math.hypot(q.x - P[i].x, q.y - P[i].y));
+  assert.ok(Math.max(...g) / Math.min(...g) < 1.02, 'pasos parejos: ' + Math.min(...g) + ' a ' + Math.max(...g));
+  let dev = 0; for (const q of splinePolyline(d, sp, 24)) dev = Math.max(dev, closestOnPolyline(orig, q).d);
+  assert.ok(dev < 0.05, 'desviacion ' + dev);
+  // un punto sujeto (fijo) no se mueve: ese trozo conserva sus puntos y agrega pocos junto al corte
+  const b = mk(); b.d.pts[b.ids[3]].fixed = true;
+  const rb = trimAt(b.d, 'sp', b.s, { x: 50, y: 86 }), sb = b.d.splines[rb.pieces[0]];
+  assert.ok(sb.pts.includes(b.ids[3])); near(b.d.pts[b.ids[3]].x, 100 * Math.cos((3 * Math.PI) / 30), 1e-12);
+  const kb = b.ids.filter((i) => sb.pts.includes(i)).length;
+  assert.ok(kb >= 6 && sb.pts.length <= kb + 8, `${sb.pts.length} puntos, ${kb} originales`);
+});
+
+t('trazado a spline: el spline llega al extremo de la trayectoria aunque el punto retroceda despues', () => {
+  const d = newDoc(), p = addPoint(d, 0, 0);
+  startTrace(d, p);
+  const go = (x) => { d.pts[p].x = x; d.pts[p].y = (x * x) / 40; recordTraces(d, 0.3); };
+  for (let x = 0.25; x <= 20; x += 0.25) go(x);
+  for (let x = 19.75; x >= 15; x -= 0.25) go(x); // llega al extremo y retrocede por el mismo camino
+  const U = unfoldPath(d.traces[p].pts);
+  assert.ok(U.length < d.traces[p].pts.length);
+  const sp = d.splines[traceToSpline(d, p, 12)], e = d.pts[sp.pts[sp.pts.length - 1]];
+  assert.ok(Math.hypot(e.x - 20, e.y - 10) < 0.31, `termina en (${e.x}, ${e.y})`);
+  near(d.pts[sp.pts[0]].x, 0, 1e-9);
+  // sin retroceso la trayectoria no cambia
+  const P = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 1 }, { x: 3, y: 3 }];
+  assert.equal(unfoldPath(P), P);
+});
+
+t('recortar spline: con un punto sujeto conserva los que quedan y agrega pocos junto al corte', () => {
   const d = newDoc();
   const ids = Array.from({ length: 16 }, (_, i) => { const a = (i * Math.PI) / 30; return addPoint(d, 100 * Math.cos(a), 100 * Math.sin(a)); });
   const s = addSpline(d, ids, ST, false);
   const orig = splinePolyline(d, d.splines[s], 24).map((q) => ({ ...q }));
   addLine(d, addPoint(d, -10, 60), addPoint(d, 110, 60), ST);
+  d.pts[ids[2]].fixed = true;
   const r = trimAt(d, 'sp', s, { x: 50, y: 86 });
   assert.ok(r.ok); const sp = d.splines[r.pieces[0]];
   const kept = ids.filter((i) => sp.pts.includes(i)).length;

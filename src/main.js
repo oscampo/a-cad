@@ -1544,7 +1544,7 @@ function toolMove(p) {
       const r = dragToStops(doc, tg, (t2) => (reac ? settle(doc, solveSteps, t2, { maxIter: 20 }) : solve(doc, t2)), !reac); // con cotas que leen medidas, se actualizan mientras arrastras; con «tope en bordes» el elemento llega hasta el borde
       if (PERF) perfSolveMs += performance.now() - ts0;
       if (r.ok) trackAngles(doc);
-      if (r.ok && tracing) recordTraces(doc, 1.5 / view.s);
+      if (r.ok && tracing) recordTraces(doc, r.stopped ? 2e-4 : 1.5 / view.s); // al llegar a un tope se guarda la posicion exacta, por corto que sea el ultimo paso
     }
     drag.lastD = cur2;
   }
@@ -1554,7 +1554,7 @@ function toolUp(p, q) {
   const d = drag; drag = null;
   if (tool === 'select') {
     if (d?.box && d.boxOn) { finishBox(d, p); return; }
-    if (d?.started) { reparamSplines(doc); afterChange(); return; }
+    if (d?.started) { recordTraces(doc, 2e-4); reparamSplines(doc); afterChange(); return; } // la trayectoria termina donde quedo el punto al soltar
     selectAt(p);
     return;
   }
