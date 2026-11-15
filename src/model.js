@@ -284,7 +284,7 @@ export function cleanup(doc) {
   while (changed) {
     changed = false;
     for (const [id, k] of Object.entries(doc.cons)) {
-      if (!conRefs(k).every(exists) || (k.vec && !(k.vec in doc.lines))) { delete doc.cons[id]; changed = true; } // k.vec: magnitud de un vector que ya no existe
+      if (!conRefs(k).every(exists) || (k.vec && !(k.vec in doc.lines)) || (k.shape && !(k.shape in (doc.splines || {})))) { delete doc.cons[id]; changed = true; } // k.vec: magnitud de un vector que ya no existe
     }
     for (const [id, sp] of Object.entries(doc.splines || {})) {
       const keep = sp.pts.filter((p) => p in doc.pts);

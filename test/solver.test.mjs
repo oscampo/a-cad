@@ -12,6 +12,7 @@ import { makeVector, unmakeVector, syncVectors, isVector, vecArrow, vecEnds } fr
 import { recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive, textVarErrors, usesTextVars, varsList } from '../src/params.js';
 import { runsOf, plainText } from '../src/tvars.js';
 import { cornerOf, filletCorner, chamferCorner, maxFillet } from '../src/corners.js';
+import { rigidShape, looseShape, isRigid } from '../src/rigid.js';
 import { nameDims } from '../src/model.js';
 import { trimAt, extendEnd, cutsOf, curveCuts, linearArray, mirrorCopy, circularArray, clipOf, pasteClip, bboxOf } from '../src/edit.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from '../src/shapes.js';
@@ -3067,6 +3068,48 @@ t('variables de texto: x{=valor} se ve, se lee, se renombra y valida; la sintaxi
   // llaves sin nombre delante o sin "=" son texto normal
   assert.equal(textValue(d, d.texts[addText(d, P, '{=3} y {5} y x{4}', {})]), '{=3} y {5} y x{4}');
   assert.equal(textValue(d, d.texts[addText(d, P, 'q[:=3]', {})]), 'q[:=3]');
+});
+
+t('forma fija de un spline: sus puntos giran y se mueven como un cuerpo rigido; quitarla la libera; se borra con el spline', () => {
+  const mk = () => {
+    const d = newDoc();
+    const c = addPoint(d, 0, 0); d.pts[c].fixed = true;
+    const pts = [[10, 0], [9, 4], [7, 7], [4, 9], [0, 10], [5, 5.5]].map(([x, y]) => addPoint(d, x, y, true));
+    const sp = addSpline(d, pts, { color: 'auto', ltype: 'continua', w: 2 }, false);
+    return { d, c, pts, sp };
+  };
+  const spread = (d, pts) => pts.map((p) => ({ x: d.pts[p].x, y: d.pts[p].y }));
+  const dists = (a) => a.flatMap((p, i) => a.slice(i + 1).map((q) => Math.hypot(p.x - q.x, p.y - q.y)));
+  // sin forma fija: arrastrar un punto deforma la curva
+  const f = mk();
+  f.d.cons.kx = { t: 'DIST', refs: [f.c, f.pts[0]], v: 10 };
+  const d0 = dists(spread(f.d, f.pts));
+  assert.ok(solve(f.d, [{ id: f.pts[0], x: 8, y: 6 }]).ok);
+  assert.ok(Math.max(...dists(spread(f.d, f.pts)).map((v, i) => Math.abs(v - d0[i]))) > 0.5);
+  // con forma fija: se conservan todas las distancias entre sus puntos
+  const g = mk();
+  const r = rigidShape(g.d, g.sp);
+  assert.ok(r.ok && isRigid(g.d, g.sp));
+  assert.ok(Object.values(g.d.cons).every((k) => k.hidden && k.t === 'DIST' && k.shape === g.sp));
+  g.d.cons.kx = { t: 'DIST', refs: [g.c, g.pts[0]], v: 10 };
+  const e0 = dists(spread(g.d, g.pts));
+  assert.ok(solve(g.d, []).ok);
+  for (const tgt of [{ x: 8, y: 6 }, { x: 0, y: 10 }]) {
+    assert.ok(solve(g.d, [{ id: g.pts[0], ...tgt }]).ok);
+    const e1 = dists(spread(g.d, g.pts));
+    near(Math.max(...e1.map((v, i) => Math.abs(v - e0[i]))), 0, 1e-4);
+  }
+  // quitarla libera los puntos; borrar el spline borra sus restricciones
+  looseShape(g.d, g.sp); assert.ok(!isRigid(g.d, g.sp));
+  const h = mk(); rigidShape(h.d, h.sp); assert.ok(isRigid(h.d, h.sp));
+  deleteItems(h.d, [{ k: 'sp', id: h.sp }]);
+  assert.equal(Object.keys(h.d.cons).length, 0);
+  // casos que no valen
+  const z = newDoc(); const a1 = addPoint(z, 0, 0), a2 = addPoint(z, 1, 0); const s2 = addSpline(z, [a1, a2], { color: 'auto', ltype: 'continua', w: 2 }, false);
+  assert.ok(!rigidShape(z, s2).ok);
+  // puntos en una recta: bastan dos anclas
+  const q = newDoc(); const qp = [0, 1, 2, 3].map((x) => addPoint(q, x, 0, true)); const qs = addSpline(q, qp, { color: 'auto', ltype: 'continua', w: 2 }, false);
+  assert.ok(rigidShape(q, qs).ok); assert.ok(solve(q, []).ok);
 });
 
 console.log(`\n${passed} pruebas pasaron`);

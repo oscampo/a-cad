@@ -465,6 +465,7 @@ function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvA
   }
   for (const k of linked ? [] : cons.filter((k) => !k.vec && !k.refs.some((r) => vecMids.has(r)))) { // vinculadas: las restricciones internas las hereda la copia por estar atada al original
     const n = { ...jclone(k), refs: k.refs.map((r) => M[r]) };
+    if (n.shape) { n.shape = M[n.shape]; if (!n.shape) delete n.shape; } // la forma fija sigue al spline copiado
     if (hvAngle !== undefined && (n.t === 'H' || n.t === 'V')) {
       const m = ((hvAngle % 180) + 180) % 180;
       if (Math.abs(m - 90) < 1e-6) n.t = n.t === 'H' ? 'V' : 'H';

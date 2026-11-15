@@ -14,6 +14,7 @@ import { boxSelect } from './boxsel.js';
 import { crossPoints } from './snapx.js';
 import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, pasteClip } from './edit.js';
 import { cornerOf, filletCorner, chamferCorner, maxFillet } from './corners.js';
+import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, angSector, angTrue, initAngle, trackAngles, DIAM } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
@@ -2980,6 +2981,21 @@ function openProps(h) {
     rg.type = 'range'; rg.min = '0.2'; rg.max = '3'; rg.step = '0.1'; rg.value = String(o.ls ?? 1);
     rg.onchange = () => propSet((x) => { x.ls = Number(rg.value); });
     body.appendChild(propRow('Escala del patrón', rg));
+  }
+  if (k === 'sp') { // forma fija: los puntos de control quedan amarrados entre si (la curva no se deforma al arrastrar)
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = isRigid(doc, h.id); cb.style.cssText = 'width:22px;height:22px;min-height:22px;margin:0;flex:none';
+    cb.onchange = () => {
+      pushUndo();
+      if (cb.checked) {
+        const r = rigidShape(doc, h.id);
+        if (!r.ok) { rollback(); toast(r.msg); cb.checked = false; afterChange(); return; }
+        const s = settle(doc, solve, []);
+        if (!s.ok) { rollback(); toast('La forma fija contradice las restricciones del dibujo'); cb.checked = false; afterChange(); return; }
+      } else looseShape(doc, h.id);
+      afterChange();
+    };
+    body.appendChild(propRow('Forma fija (no se deforma al mover sus puntos)', cb));
   }
   if (k === 'tx') {
     body.appendChild(propRow('Color', propColors(o, 'color')));
