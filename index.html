@@ -84,6 +84,9 @@ dialog.help a { color: var(--accent); }
 #toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90%; z-index: 5; }
 #toast.show { opacity: .95; }
 #simBar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px; z-index: 6; max-width: 96%; }
+#simBar button.on { background: var(--accent, #2563eb); color: #fff; }
+#simBar select { min-height: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--btn); color: var(--fg); }
+#simBar { flex-wrap: wrap; justify-content: center; }
 #simBar[hidden] { display: none; }
 #simBar input[type=range] { width: 38vw; min-width: 100px; }
 #simBar input:not([type=range]) { width: 4.5em; }
@@ -166,7 +169,7 @@ body.nopanel #panel { display: none; }
 </header>
 <main>
   <div id="stage"><canvas id="cv"></canvas><div id="toast"></div>
-  <div id="simBar" hidden><button id="simPlay" title="Reproducir o pausar">▶</button><input id="simRange" type="range" min="0" max="10" step="0.01" value="0" aria-label="Tiempo"><label>t <input id="simT" inputmode="decimal" size="5" value="0"></label><label>hasta <input id="simTmax" inputmode="decimal" size="4" value="10"></label><button id="simStop" title="Detener la simulación y volver al dibujo">Detener</button></div>
+  <div id="simBar" hidden><button id="simBack" title="Paso atrás (1/100 del tiempo total)">◀|</button><button id="simPlay" title="Reproducir o pausar">▶</button><button id="simFwd" title="Paso adelante (1/100 del tiempo total)">|▶</button><input id="simRange" type="range" min="0" max="10" step="0.01" value="0" aria-label="Tiempo"><label>t <input id="simT" inputmode="decimal" size="5" value="0"></label><label>hasta <input id="simTmax" inputmode="decimal" size="4" value="10"></label><button id="simLoop" title="Repetir en ciclo (loop)">↻</button><button id="simPP" title="Vaivén (ping-pong)">⇄</button><select id="simSpeed" title="Velocidad de reproducción"><option value="0.5">0.5x</option><option value="1" selected>1.0x</option><option value="1.5">1.5x</option><option value="2">2.0x</option></select><button id="simStop" title="Detener la simulación y volver al dibujo">Detener</button></div>
   <button id="tLayers" data-icon="layers" title="Capas: crear, encender, apagar y borrar" aria-label="Capas"><i></i></button><div id="layerName" hidden></div><div id="relTag"></div><div id="fileTag"></div>
     <nav id="tree" aria-label="Árbol de elementos"><div class="thead"><b>Elementos</b><button id="treeClose" aria-label="Cerrar">✕</button></div><div id="treeBody"></div></nav>
   </div>

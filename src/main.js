@@ -58,6 +58,7 @@ let hover = null; // posicion del puntero en pantalla
 let drag = null;
 let labelHits = [];
 let graphData = {}, graphTimer = 0;
+let simMode = 'none', simSpeed = 1, simDir = 1; // reproduccion: none | loop | pp (vaiven), escala de velocidad y sentido
 let actHits = [], sim = null, simT = 0, simTmax = 10, simRaf = 0, simPlayFrom = 0; // actuadores: zonas tocables y simulacion en curso
 const pointers = new Map();
 let gesture = null;
@@ -2750,6 +2751,11 @@ function setTool(t) {
     else if (els.length === 2 && els.length === sel.length) roundTool(els[0], els[1]); // dos elementos ya seleccionados
   }
   if (t === 'dim') startDimTool();
+  if (t === 'ml') { // con dos puntos ya seleccionados (el primero es la cola), se crea el actuador entre ellos
+    const pts = sel.filter((x) => x.k === 'pt' && doc.pts[x.id]);
+    if (pts.length === 2 && pts.length === sel.length) { pushUndo(); const id = addLinear(doc, pts[0].id, pts[1].id); sel = []; afterChange(); editAct(id, true); return; }
+    if (pts.length === 1 && sel.length === 1) { pushUndo(); pending = { act1: pts[0].id }; toast('Cola elegida: toca el punto de la cabeza del actuador'); }
+  }
   if (t === 'mr') { // con una linea (y uno de sus extremos) ya seleccionados, se crea el actuador sobre ellos
     const lns = sel.filter((x) => x.k === 'ln' && doc.lines[x.id]), pts = sel.filter((x) => x.k === 'pt' && doc.pts[x.id]);
     if (lns.length === 1) {
@@ -2939,10 +2945,10 @@ function actTool(p) {
     return;
   }
   const s = snapAt(p.x, p.y, { press: true });
-  if (!pending?.act1) { pushUndo(); pending = { act1: pointFrom(s) }; draw(); toast('Toca el punto de la cabeza del actuador'); return; }
+  if (!pending?.act1) { pushUndo(); const a1 = pointFrom(s); pending = { act1: a1 }; sel = [{ k: 'pt', id: a1 }]; draw(); toast('Cola elegida: toca el punto de la cabeza del actuador'); return; }
   const first = pending.act1, second = pointFrom(s);
-  if (first === second) { rollback(); pending = null; draw(); return; }
-  pending = null;
+  if (first === second) { rollback(); pending = null; sel = []; draw(); return; }
+  pending = null; sel = [];
   const id = addLinear(doc, first, second);
   afterChange(); editAct(id, true);
 }
@@ -3002,8 +3008,10 @@ function editAct(id, nuevo) {
   dlg.showModal();
 }
 function simShow() {
-  $('simT').value = String(simT); $('simRange').max = String(simTmax); $('simRange').value = String(Math.min(simT, simTmax)); $('simTmax').value = String(simTmax);
+  $('simT').value = String(Math.round(simT * 1000) / 1000); $('simRange').max = String(simTmax); $('simRange').value = String(Math.min(simT, simTmax)); $('simTmax').value = String(simTmax);
   $('simPlay').textContent = simRaf ? '⏸' : '▶';
+  $('simLoop').classList.toggle('on', simMode === 'loop'); $('simPP').classList.toggle('on', simMode === 'pp');
+  $('simSpeed').value = String(simSpeed);
 }
 function simGoto(t) {
   const r = simStep(doc, sim, t, solve);
@@ -3012,17 +3020,30 @@ function simGoto(t) {
   return true;
 }
 function pauseSim() { if (simRaf) cancelAnimationFrame(simRaf); simRaf = 0; $('simPlay').textContent = '▶'; }
+// Reproduce a la velocidad elegida; al llegar al final: se detiene, vuelve a empezar (loop) o regresa (vaiven).
 function playSim() {
   if (simRaf) { pauseSim(); return; }
-  if (simT >= simTmax) { if (!simGoto(0)) return; }
-  simPlayFrom = performance.now() - (simT / 1) * 1000;
+  if (simT >= simTmax && simMode !== 'pp') { if (!simGoto(0)) return; }
+  simDir = simT >= simTmax ? -1 : 1;
+  let last = performance.now();
   const tick = (now) => {
-    const t = Math.min(simTmax, (now - simPlayFrom) / 1000);
+    const dt = Math.min(0.25, (now - last) / 1000) * simSpeed; last = now;
+    let t = simT + dt * simDir, stop = false;
+    if (t >= simTmax) { if (simMode === 'loop') t = t - simTmax; else if (simMode === 'pp') { t = 2 * simTmax - t; simDir = -1; } else { t = simTmax; stop = true; } }
+    else if (t <= 0 && simDir < 0) { if (simMode === 'pp') { t = -t; simDir = 1; } else { t = 0; stop = true; } }
+    t = Math.min(simTmax, Math.max(0, t));
     if (!simGoto(t)) return;
-    if (t >= simTmax) { pauseSim(); return; }
+    if (stop) { pauseSim(); return; }
     simRaf = requestAnimationFrame(tick);
   };
   simRaf = requestAnimationFrame(tick); $('simPlay').textContent = '⏸';
+}
+// Un paso de simulacion: 1/100 del tiempo total.
+function stepSim(dir) {
+  pauseSim();
+  if (!sim) return;
+  const h = simTmax / 100;
+  simGoto(Math.min(simTmax, Math.max(0, Math.round((simT + dir * h) * 1e6) / 1e6)));
 }
 function stopSim() {
   if (!sim) return;
@@ -3040,6 +3061,11 @@ function toggleSim() {
   toast('Simulación: mueve el tiempo con la barra. El dibujo vuelve a su estado al detenerla');
 }
 $('simPlay').onclick = playSim;
+$('simBack').onclick = () => stepSim(-1);
+$('simFwd').onclick = () => stepSim(1);
+$('simLoop').onclick = () => { simMode = simMode === 'loop' ? 'none' : 'loop'; simShow(); };
+$('simPP').onclick = () => { simMode = simMode === 'pp' ? 'none' : 'pp'; simShow(); };
+$('simSpeed').onchange = () => { simSpeed = Number($('simSpeed').value) || 1; simShow(); };
 $('simStop').onclick = stopSim;
 $('simRange').oninput = () => { pauseSim(); if (sim) simGoto(Number($('simRange').value)); };
 $('simT').onchange = () => { pauseSim(); const v = Number($('simT').value.replace(',', '.')); if (sim && Number.isFinite(v) && v >= 0) { simTmax = Math.max(simTmax, v); simGoto(v); } else simShow(); };
