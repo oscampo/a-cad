@@ -29,7 +29,7 @@ import { parseValue, isPlainNumber } from './expr.js';
 import { HELP_HTML } from './help.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
 
-const VERSION = '1.7.0';
+const VERSION = '1.7.1';
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev'; // commit de la compilacion: junto a la version, abajo a la izquierda del dibujo
 const STORE = 'ipad-cad-v1';
 const $ = (id) => document.getElementById(id);
@@ -2329,6 +2329,10 @@ async function applyCon(kind) {
     }
     case 'RAD': {
       if (!crv.length) return bad('Selecciona un círculo o arco');
+      // si el arco o el circulo ya tiene su cota de radio (por ejemplo la de un redondeo), el boton Radio cambia esa cota:
+      // una segunda cota con otro valor entraria en conflicto con la primera
+      const have = crv.length === 1 ? Object.entries(doc.cons).find(([, k]) => k.t === 'RAD' && !k.ref && k.refs[0] === crv[0]) : null;
+      if (have) { await editDimension(have[0]); return; }
       const allC = crv.every((id) => id in doc.circles), allA = crv.every((id) => id in doc.arcs);
       if (!allC && !allA) return bad('Selecciona solo círculos o solo arcos');
       const r0 = curveOf(crv[0]).r;
@@ -3155,7 +3159,8 @@ function openProps(h) {
   for (const [t, name] of ADD) {
     if ((t === 'H' || t === 'V') && has(t)) continue; // ya la tiene: se quita desde la lista
     const b = document.createElement('button');
-    b.type = 'button'; b.textContent = name; b.title = 'Agregar: ' + name;
+    const own = t === 'RAD' && Object.values(doc.cons).some((c) => c.t === 'RAD' && !c.ref && c.refs[0] === h.id);
+    b.type = 'button'; b.textContent = name; b.title = own ? 'Cambiar la cota de ' + name.toLowerCase() + ' que ya tiene' : 'Agregar: ' + name;
     b.onclick = () => { $('dlgR').close(); sel = [{ k, id: h.id }]; afterChange(); applyCon(t); };
     add.appendChild(b);
   }
