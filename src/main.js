@@ -13,7 +13,7 @@ import { splitElement } from './split.js';
 import { boxSelect } from './boxsel.js';
 import { crossPoints } from './snapx.js';
 import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, pasteClip } from './edit.js';
-import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, filletReach } from './corners.js';
+import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, angSector, angTrue, initAngle, trackAngles, DIAM } from './dims.js';
@@ -1563,8 +1563,8 @@ function toolUp(p, q) {
   if (tool === 'fillet' || tool === 'chamfer') {
     const h = hitTest(p.x, p.y);
     if (h?.k === 'pt') { pending = null; cornerTool([h.id]); }
-    else if (tool === 'fillet' && h && ['ln', 'ci', 'ar', 'el'].includes(h.k)) roundPick(h, toModel(p.x, p.y));
-    else toast(tool === 'fillet' ? 'Toca el punto de una esquina, o dos elementos (segmentos, arcos o arcos elípticos) en el lado que quieres conservar' : 'Toca el punto de una esquina, donde se juntan dos líneas');
+    else if (h && ['ln', 'ci', 'ar', 'el'].includes(h.k)) roundPick(h, toModel(p.x, p.y));
+    else toast('Toca el punto de una esquina, o dos elementos (segmentos, arcos o arcos elípticos) en el lado que quieres conservar');
     return;
   }
   const moved = d?.moved;
@@ -1849,30 +1849,33 @@ function extendAt(p) {
 
 // Redondeo entre dos elementos que no tienen que juntarse en una esquina: se tocan uno y luego el otro, del lado que se conserva.
 function roundPick(h, m) {
-  if (h.k === 'ci') { toast('Un círculo no se redondea: usa un arco'); return; }
+  if (h.k === 'ci') { toast('Un círculo no se redondea ni se achaflana: usa un arco'); return; }
   const first = pending?.fil;
   if (!first) { pending = { fil: { k: h.k, id: h.id, p: m } }; sel = [{ k: h.k, id: h.id }]; toast('Toca el segundo elemento, del lado que quieres conservar'); afterChange(); return; }
   if (first.k === h.k && first.id === h.id) { toast('Toca otro elemento'); return; }
   pending = null; sel = [];
   roundTool(first, { k: h.k, id: h.id, p: m });
 }
+// A y B: { k, id, p }; sin p (elementos ya seleccionados) se toma el medio de cada uno como el lado que se conserva.
 async function roundTool(A, B) {
+  const fillet = toolName === 'fillet';
   const reach = filletReach(doc, A, B);
   if (reach.msg) { toast(reach.msg); afterChange(); return; }
-  const initial = opts.cornerR > 0 ? opts.cornerR : Math.max(Math.round(reach.len * 25) / 100, 0.01); // un cuarto del tramo mas corto
-  const ask = askNumber('Radio del redondeo', initial);
+  const last = fillet ? opts.cornerR : opts.chamferD;
+  const initial = last > 0 ? last : Math.max(Math.round(reach.len * 25) / 100, 0.01); // un cuarto del tramo mas corto
+  const ask = askNumber(fillet ? 'Radio del redondeo' : 'Distancia del chaflán', initial);
   $('dlgRefRow').style.display = 'none';
   const v = await ask;
   if (v === null) { afterChange(); return; }
   const expr = dlgExpr;
   pushUndo();
-  const r = filletBetween(doc, A, B, v);
+  const r = fillet ? filletBetween(doc, A, B, v) : chamferBetween(doc, A, B, v);
   if (!r.ok) { rollback(); toast(r.msg); afterChange(); return; }
   if (expr) for (const k of r.dims) doc.cons[k].expr = expr;
   const st = settle(doc, solve, []);
   if (!st.ok) { rollback(); toast(st.error || 'No se pudo: entra en conflicto con las restricciones del dibujo'); afterChange(); return; }
-  opts.cornerR = v;
-  sel = [{ k: 'ar', id: r.arc }];
+  if (fillet) opts.cornerR = v; else opts.chamferD = v;
+  sel = [fillet ? { k: 'ar', id: r.arc } : { k: 'ln', id: r.line }];
   if (r.dropped) toast(`Se quitaron ${r.dropped} restricciones de longitud de los segmentos recortados`);
   afterChange();
 }
@@ -2576,8 +2579,8 @@ const HINTS = {
   ellipse: 'Elipse: toca el centro; luego toca (o arrastra hasta) el extremo del primer eje y, por último, un punto del segundo eje. Se puede arrastrar desde el centro.',
   trim: 'Recortar: mantén presionado y arrastra sobre los tramos que quieres quitar (entre cruces con otros elementos). Un toque recorta un solo tramo.',
   extend: 'Extender: toca un segmento o arco cerca del extremo que quieres alargar hasta el primer elemento que encuentre.',
-  fillet: 'Redondeo: toca el punto de una esquina (donde se juntan dos líneas) y teclea el radio. Con varias esquinas seleccionadas antes de elegir la herramienta, las redondea todas con el mismo radio. También redondea dos elementos que no se tocan en una esquina (segmentos, arcos o arcos elípticos): toca uno y luego el otro, del lado que quieres conservar. El radio queda como cota editable.',
-  chamfer: 'Chaflán: toca el punto de una esquina (donde se juntan dos líneas) y teclea la distancia desde la esquina. Con varias esquinas seleccionadas antes de elegir la herramienta, las achaflana todas. Cada tramo queda como cota editable.',
+  fillet: 'Redondeo: toca el punto de una esquina (donde se juntan dos líneas) y teclea el radio. Con varias esquinas seleccionadas antes de elegir la herramienta, las redondea todas con el mismo radio. Con dos elementos seleccionados antes de elegir la herramienta, los redondea (o achaflana) conservando la parte central de cada uno. También redondea dos elementos que no se tocan en una esquina (segmentos, arcos o arcos elípticos): toca uno y luego el otro, del lado que quieres conservar. El radio queda como cota editable.',
+  chamfer: 'Chaflán: toca el punto de una esquina (donde se juntan dos líneas) y teclea la distancia desde la esquina. Con varias esquinas seleccionadas antes de elegir la herramienta, las achaflana todas. También achaflana dos elementos que se cortan sin compartir esquina (segmentos, arcos o arcos elípticos): toca uno y luego el otro, del lado que quieres conservar, o selecciónalos antes de elegir la herramienta. Cada tramo queda como cota editable.',
 };
 function ltLabel(o) {
   const lt = allLtypes(doc)[o.ltype] || allLtypes(doc).continua;
@@ -2698,7 +2701,9 @@ function setTool(t) {
   if (t !== 'intersect') pending = null;
   if (t === 'fillet' || t === 'chamfer') { // con puntos ya seleccionados, se aplica a esas esquinas
     const pts = sel.filter((x) => x.k === 'pt' && doc.pts[x.id]).map((x) => x.id);
+    const els = sel.filter((x) => ['ln', 'ar', 'el', 'ci'].includes(x.k));
     if (pts.length) cornerTool(pts);
+    else if (els.length === 2 && els.length === sel.length) roundTool(els[0], els[1]); // dos elementos ya seleccionados
   }
   if (t === 'dim') startDimTool();
   updateStatus(); draw();

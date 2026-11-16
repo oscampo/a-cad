@@ -116,14 +116,14 @@ function curveOf(doc, k, id) {
     const A = doc.pts[l.a], B = doc.pts[l.b], L = Math.hypot(B.x - A.x, B.y - A.y);
     if (!(L > 1e-9)) return { msg: 'Líneas sin longitud' };
     const u = { x: (B.x - A.x) / L, y: (B.y - A.y) / L };
-    return { k, id, per: 0, t0: 0, sweep: L, len: L, fields: ['a', 'b'], P: (t) => ({ x: A.x + u.x * t, y: A.y + u.y * t }), T: () => u, tOf: (p) => (p.x - A.x) * u.x + (p.y - A.y) * u.y, dist: (p) => Math.abs((p.x - A.x) * u.y - (p.y - A.y) * u.x) };
+    return { k, id, per: 0, t0: 0, sweep: L, mid: { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 }, len: L, fields: ['a', 'b'], P: (t) => ({ x: A.x + u.x * t, y: A.y + u.y * t }), T: () => u, tOf: (p) => (p.x - A.x) * u.x + (p.y - A.y) * u.y, dist: (p) => Math.abs((p.x - A.x) * u.y - (p.y - A.y) * u.x) };
   }
   if (k === 'ar') {
     const a = doc.arcs[id];
     if (!a) return { msg: 'No hay arco' };
     const C = doc.pts[a.c], S = doc.pts[a.a], R = Math.hypot(S.x - C.x, S.y - C.y), g = arcOf(doc, a);
     if (!(R > 1e-9) || g.sweep >= TAU - 1e-7) return { msg: 'Un arco de 360° no se redondea' };
-    return { k, id, per: TAU, t0: g.a0, sweep: g.sweep, len: R * g.sweep, fields: ['a', 'b'], P: (t) => ({ x: C.x + R * Math.cos(t), y: C.y + R * Math.sin(t) }), T: (t) => ({ x: -Math.sin(t), y: Math.cos(t) }), tOf: (p) => Math.atan2(p.y - C.y, p.x - C.x), dist: (p) => Math.abs(Math.hypot(p.x - C.x, p.y - C.y) - R) };
+    return { k, id, per: TAU, t0: g.a0, sweep: g.sweep, mid: { x: C.x + R * Math.cos(g.a0 + g.sweep / 2), y: C.y + R * Math.sin(g.a0 + g.sweep / 2) }, len: R * g.sweep, fields: ['a', 'b'], P: (t) => ({ x: C.x + R * Math.cos(t), y: C.y + R * Math.sin(t) }), T: (t) => ({ x: -Math.sin(t), y: Math.cos(t) }), tOf: (p) => Math.atan2(p.y - C.y, p.x - C.x), dist: (p) => Math.abs(Math.hypot(p.x - C.x, p.y - C.y) - R) };
   }
   if (k === 'el') {
     const e = doc.ellipses?.[id];
@@ -133,7 +133,7 @@ function curveOf(doc, k, id) {
     const ring = Array.from({ length: N }, (_, i) => ellipsePoint(g, (TAU * i) / N));
     const segDist = (p, a, b) => { const vx = b.x - a.x, vy = b.y - a.y, L2 = vx * vx + vy * vy, u = L2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / L2)) : 0; return Math.hypot(p.x - a.x - u * vx, p.y - a.y - u * vy); };
     return {
-      k, id, per: TAU, t0, sweep, len: ((g.ra + g.rb) * sweep) / 2, fields: ['p1', 'p2'], approx: true,
+      k, id, per: TAU, t0, sweep, mid: ellipsePoint(g, t0 + sweep / 2), len: ((g.ra + g.rb) * sweep) / 2, fields: ['p1', 'p2'], approx: true,
       P: (t) => ellipsePoint(g, t),
       T: (t) => { const x = -g.ra * Math.sin(t), y = g.rb * Math.cos(t); return unit({ x: x * g.ux - y * g.uy, y: x * g.uy + y * g.ux }); },
       tOf: (p) => ellipseParam(g, p),
@@ -214,7 +214,7 @@ function anchorOf(c1, c2, O) {
     const V = c1.P(sol.a), T1 = c1.T(sol.a), T2 = c2.T(sol.b);
     if (Math.abs(T1.x * T2.y - T1.y * T2.x) < 0.05) continue;
     const d = Math.hypot(V.x - O.x, V.y - O.y);
-    if (!best || d < best.d) best = { x: V.x, y: V.y, d };
+    if (!best || d < best.d) best = { x: V.x, y: V.y, d, a: sol.a, b: sol.b };
   }
   return best;
 }
@@ -231,7 +231,7 @@ export function filletBetween(doc, A, B, r) {
   }
   const c1 = curveOf(doc, A.k, A.id), c2 = curveOf(doc, B.k, B.id);
   if (c1.msg || c2.msg) return { ok: false, msg: c1.msg || c2.msg };
-  const f = bestFillet(c1, c2, r, A.p, B.p);
+  const f = bestFillet(c1, c2, r, A.p || c1.mid, B.p || c2.mid);
   if (!f) return { ok: false, msg: 'No hay un redondeo de ese radio entre esos dos elementos: prueba otro radio o toca el otro lado de cada uno' };
   const own = (c) => (c.k === 'ln' ? doc.lines[c.id] : c.k === 'ar' ? doc.arcs[c.id] : doc.ellipses[c.id]);
   const style = styleOf(own(c1));
@@ -251,6 +251,48 @@ export function filletBetween(doc, A, B, r) {
   }
   for (const h of Object.values(doc.hatches || {})) if (h.ids.includes(c1.id) && h.ids.includes(c2.id)) h.ids.push(arc);
   return { ok: true, arc, pts: [q1, q2, cen], dims: [dim], dropped };
+}
+
+// Chaflan entre dos elementos que se cortan (sus prolongaciones): una linea entre un punto de cada uno, a d1 y d2 (distancia en
+// recta) del vertice donde se cortan, del lado de lo tocado. Cada elemento se recorta o se alarga hasta su punto; el vertice queda
+// como punto virtual sobre los dos, con una cota por tramo. Devuelve { ok, line, pts, dims, dropped } o { ok: false, msg }.
+export function chamferBetween(doc, A, B, d1, d2 = d1) {
+  if (!(d1 > 0) || !(d2 > 0) || !Number.isFinite(d1 + d2)) return { ok: false, msg: 'La distancia debe ser mayor que cero' };
+  if (A.k === B.k && A.id === B.id) return { ok: false, msg: 'Elige dos elementos distintos' };
+  if (A.k === 'ln' && B.k === 'ln') {
+    const la = doc.lines[A.id], lb = doc.lines[B.id], shared = la && lb && [la.a, la.b].find((q) => q === lb.a || q === lb.b);
+    if (shared && cornerOf(doc, shared).ok) return chamferCorner(doc, shared, d1, d2);
+  }
+  const c1 = curveOf(doc, A.k, A.id), c2 = curveOf(doc, B.k, B.id);
+  if (c1.msg || c2.msg) return { ok: false, msg: c1.msg || c2.msg };
+  const p1 = A.p || c1.mid, p2 = B.p || c2.mid;
+  const V = anchorOf(c1, c2, { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
+  if (!V) return { ok: false, msg: 'Esos dos elementos no se cortan (ni sus prolongaciones): no hay vértice para el chaflán' };
+  const side = (c, tV, p, d) => { // parametro del punto a distancia d (en recta) del vertice, hacia lo tocado
+    const dir = rel(c, c.tOf(p)) >= rel(c, tV) ? 1 : -1, Vp = { x: V.x, y: V.y };
+    const f = (s) => { const q = c.P(tV + dir * s); return Math.hypot(q.x - Vp.x, q.y - Vp.y) - d; };
+    const smax = c.per ? TAU : 4 * (d + c.len);
+    let lo = 0, hi = 0, step = (c.per ? 0.01 : d / 8);
+    while (hi < smax && f(hi) < 0) { lo = hi; hi += step; }
+    if (!(hi < smax) && f(hi) < 0) return null;
+    for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; if (f(m) < 0) lo = m; else hi = m; }
+    const t = tV + dir * ((lo + hi) / 2), keptEnd = rel(c, t) - (dir > 0 ? c.sweep : 0); // si pasa del otro extremo, no cabe
+    return { t, dir, ok: dir > 0 ? rel(c, t) < c.sweep - 1e-9 : rel(c, t) > 1e-9, keptEnd };
+  };
+  const s1 = side(c1, V.a, p1, d1), s2 = side(c2, V.b, p2, d2);
+  if (!s1 || !s2 || !s1.ok || !s2.ok) return { ok: false, msg: 'La distancia es demasiado grande para esos elementos' };
+  const Q1 = c1.P(s1.t), Q2 = c2.P(s2.t);
+  const own = (c) => (c.k === 'ln' ? doc.lines[c.id] : c.k === 'ar' ? doc.arcs[c.id] : doc.ellipses[c.id]);
+  const style = styleOf(own(c1));
+  const q1 = addPoint(doc, Q1.x, Q1.y, true), q2 = addPoint(doc, Q2.x, Q2.y, true), v = addPoint(doc, V.x, V.y, true);
+  addCon(doc, { t: PON[c1.k], refs: [v, c1.id], hidden: true });
+  addCon(doc, { t: PON[c2.k], refs: [v, c2.id], hidden: true });
+  // el extremo que se reemplaza es el que queda del lado del vertice: con dir > 0 lo tocado esta mas adelante, asi que es el primero
+  const dropped = cutEnd(doc, c1.k, c1.id, c1.fields[s1.dir > 0 ? 0 : 1], q1) + cutEnd(doc, c2.k, c2.id, c2.fields[s2.dir > 0 ? 0 : 1], q2);
+  const line = addLine(doc, q1, q2, style);
+  const dims = [addCon(doc, { t: 'DIST', refs: [v, q1], v: d1 }), addCon(doc, { t: 'DIST', refs: [v, q2], v: d2 })];
+  for (const h of Object.values(doc.hatches || {})) if (h.ids.includes(c1.id) && h.ids.includes(c2.id)) h.ids.push(line);
+  return { ok: true, line, pts: [q1, q2], dims, dropped };
 }
 
 // Largo del mas corto de los dos elementos (para sugerir un radio inicial), o { msg } si alguno no se puede redondear.

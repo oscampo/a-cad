@@ -11,7 +11,7 @@ import { parseValue, evalExpr, isPlainNumber, exprRefs, renameInExpr } from '../
 import { makeVector, unmakeVector, syncVectors, isVector, vecArrow, vecEnds } from '../src/vectors.js';
 import { varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive, textVarErrors, usesTextVars, varsList } from '../src/params.js';
 import { runsOf, plainText } from '../src/tvars.js';
-import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, filletReach } from '../src/corners.js';
+import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach } from '../src/corners.js';
 import { rigidShape, looseShape, isRigid } from '../src/rigid.js';
 import { nameDims } from '../src/model.js';
 import { trimAt, extendEnd, cutsOf, curveCuts, linearArray, mirrorCopy, circularArray, clipOf, pasteClip, bboxOf } from '../src/edit.js';
@@ -3386,6 +3386,31 @@ t('redondeo entre elementos: arco eliptico y segmento, tangentes tambien despues
   const full = addEllipse(e, addPoint(e, 0, 0), addPoint(e, 6, 0), addPoint(e, 0, 3), {});
   const ln = addLine(e, addPoint(e, 1, 5), addPoint(e, 12, 5), {});
   assert.match(filletBetween(e, { k: 'el', id: full, p: { x: 0, y: 3 } }, { k: 'ln', id: ln, p: { x: 9, y: 5 } }, 1).msg, /elipse completa/);
+});
+
+t('chaflan y redondeo entre elementos: sin puntos tocados usa el medio de cada uno; chaflan entre elementos que se cortan', () => {
+  const d = newDoc();
+  const l1 = addLine(d, addPoint(d, -5, 0), addPoint(d, 10, 0), {}), l2 = addLine(d, addPoint(d, 0, -5), addPoint(d, 0, 10), {});
+  const r = chamferBetween(d, { k: 'ln', id: l1 }, { k: 'ln', id: l2, p: { x: 0, y: 8 } }, 2);
+  assert.ok(r.ok, r.msg); assert.ok(solve(d, []).ok);
+  const q = r.pts.map((id) => d.pts[id]);
+  near(q[0].x, 2, 1e-6); near(q[0].y, 0, 1e-6); near(q[1].x, 0, 1e-6); near(q[1].y, 2, 1e-6); // el medio de l1 esta a la derecha del cruce
+  assert.equal(r.dims.length, 2);
+  const e = newDoc();
+  const ar = addArc(e, addPoint(e, 0, 0), addPoint(e, 6, 0), addPoint(e, 0, 6), 6, {});
+  const ln = addLine(e, addPoint(e, 3, -2), addPoint(e, 3, 8), {});
+  const r2 = chamferBetween(e, { k: 'ar', id: ar, p: { x: 0, y: 6 } }, { k: 'ln', id: ln, p: { x: 3, y: 7 } }, 1);
+  assert.ok(r2.ok, r2.msg); assert.ok(solve(e, []).ok);
+  const V = { x: 3, y: Math.sqrt(27) }, Q = r2.pts.map((id) => e.pts[id]);
+  for (const P of Q) near(Math.hypot(P.x - V.x, P.y - V.y), 1, 1e-4);
+  const f = newDoc();
+  const a = addLine(f, addPoint(f, 0, 0), addPoint(f, 10, 0), {}), b = addLine(f, addPoint(f, 0, 3), addPoint(f, 10, 3), {});
+  assert.match(chamferBetween(f, { k: 'ln', id: a }, { k: 'ln', id: b }, 1).msg, /no se cortan/);
+  // redondeo sin puntos: usa el medio
+  const g = newDoc();
+  const m1 = addLine(g, addPoint(g, -5, 0), addPoint(g, 10, 0), {}), m2 = addLine(g, addPoint(g, 0, -5), addPoint(g, 0, 10), {});
+  const r3 = filletBetween(g, { k: 'ln', id: m1 }, { k: 'ln', id: m2 }, 2);
+  assert.ok(r3.ok, r3.msg); near(g.pts[g.arcs[r3.arc].c].x, 2, 1e-6); near(g.pts[g.arcs[r3.arc].c].y, 2, 1e-6);
 });
 
 console.log(`\n${passed} pruebas pasaron`);
