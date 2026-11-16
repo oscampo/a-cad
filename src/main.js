@@ -186,6 +186,7 @@ function renderTree() {
     const nm = document.createElement('span');
     nm.className = 'nm'; nm.textContent = n.label; nm.title = n.label;
     head.appendChild(nm);
+    if (n.act) nm.onclick = (e) => { e.preventDefault(); e.stopPropagation(); treeEditAct(n.act); };
     if (n.sel) {
       nm.onclick = (e) => { e.preventDefault(); e.stopPropagation(); treeSelect(n); };
     }
@@ -199,6 +200,7 @@ function renderTree() {
       const k = doc.cons[n.con];
       if (k && ['DIST', 'DISTPL', 'ANG', 'RAD'].includes(k.t) && !k.ref) act(iconSvg('ruler'), 'Editar valor', () => editDimension(n.con));
     }
+    if (n.act) { act(iconSvg('props'), 'Editar', () => treeEditAct(n.act)); act(iconSvg('trash'), 'Borrar', () => { pushUndo(); delete doc.acts?.[n.act]; delete doc.graphs?.[n.act]; delete graphData[n.act]; afterChange(); }); }
     if (n.sel && !String(n.key).startsWith('ref:') && !String(n.key).startsWith('tr:')) act(iconSvg('trash'), 'Borrar', () => treeDelete(n.sel));
     if (!kids) return head;
     const d = document.createElement('details');
@@ -267,6 +269,12 @@ function treeSelect(n) {
 function treeToggleFix(id) {
   const p = doc.pts[id]; if (!p) return;
   pushUndo(); p.fixed = !p.fixed; afterChange();
+}
+// Actuador o grafica elegidos en el arbol: se resaltan sus elementos y se abre su cuadro.
+function treeEditAct(id) {
+  const a = doc.acts?.[id];
+  if (a) sel = (a.kind === 'MR' ? [{ k: 'ln', id: a.line }, { k: 'pt', id: a.c }] : [{ k: 'pt', id: a.p1 }, { k: 'pt', id: a.p2 }]).filter(exists);
+  draw(); editAct(id, false);
 }
 function treeDelete(s0) {
   pushUndo(); deleteItems(doc, [s0]); sel = sel.filter(exists);
@@ -1571,7 +1579,7 @@ function toolUp(p, q) {
   if (tool === 'select') {
     if (d?.box && d.boxOn) { finishBox(d, p); return; }
     if (d?.started) { recordTraces(doc, 2e-4); reparamSplines(doc); afterChange(); return; } // la trayectoria termina donde quedo el punto al soltar
-    const ah = actAt(p.x, p.y);
+    const ah = fkOn('ac') ? actAt(p.x, p.y) : null;
     if (ah) { editAct(ah, false); return; }
     selectAt(p);
     return;
@@ -3445,7 +3453,7 @@ $('dlgR').addEventListener('close', () => { if (!$('dlgR').open) propT = null; }
 $('dlgR').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); e.target.blur(); } });
 
 // ---- filtro de seleccion ----
-const FKINDS = [['pt', 'Puntos'], ['ln', 'Líneas'], ['ci', 'Círculos'], ['ar', 'Arcos'], ['el', 'Elipses'], ['sp', 'Splines'], ['tx', 'Textos'], ['ha', 'Rellenos'], ['co', 'Cotas y restricciones']];
+const FKINDS = [['pt', 'Puntos'], ['ln', 'Líneas'], ['ci', 'Círculos'], ['ar', 'Arcos'], ['el', 'Elipses'], ['sp', 'Splines'], ['tx', 'Textos'], ['ha', 'Rellenos'], ['co', 'Cotas y restricciones'], ['ac', 'Actuadores y gráficas']];
 function openFilter() {
   const kb = $('flKinds'), lb = $('flLt');
   kb.textContent = ''; lb.textContent = '';

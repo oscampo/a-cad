@@ -76,10 +76,15 @@ export function buildTree(doc) {
   }));
   const traces = Object.entries(doc.traces || {}).map(([id, t]) => ({ key: `tr:${id}`, label: `Trazado del punto ${id} · ${t.pts.length} muestras`, sel: doc.pts[id] ? { k: 'pt', id } : null }));
 
+  const acts = Object.entries(doc.acts || {}).map(([id, a]) => ({
+    key: `ac:${id}`, act: id, label: `${a.kind === 'MR' ? (a.cw ? '⟳' : '⟲') : ''}${a.kind}${a.n} · ${a.mode === 'vel' ? 'velocidad' : 'desplazamiento'} = ${a.src === 'table' ? `tabla (${(a.table || []).length} filas)` : a.expr}`,
+    children: a.kind === 'MR' ? compact([{ key: `acl:${id}`, label: `→ línea ${a.line}`, sel: { k: 'ln', id: a.line } }, ptNode(a.c, 'Centro:')]) : compact([ptNode(a.p1, 'Cola:'), ptNode(a.p2, 'Cabeza:')]),
+  }));
+  const graphs = Object.entries(doc.graphs || {}).map(([id, g]) => ({ key: `gr:${id}`, act: id, label: `Gráfica ${id} · ${(g.series || []).join(', ') || 'sin relaciones'}` }));
   const out = [
     group('g:ln', 'Líneas', lines), group('g:ci', 'Círculos', circles), group('g:ar', 'Arcos', arcs), group('g:el', 'Elipses', ellipses), group('g:sp', 'Splines', splines),
     group('g:tx', 'Textos', texts), group('g:ha', 'Rellenos', hatches), group('g:pt', 'Puntos', pts),
-    group('g:co', 'Relaciones y cotas', cons), group('g:tr', 'Trazados', traces),
+    group('g:ac', 'Actuadores', acts), group('g:gr', 'Gráficas', graphs), group('g:co', 'Relaciones y cotas', cons), group('g:tr', 'Trazados', traces),
   ];
   return out.filter((g) => g.children.length);
 }
