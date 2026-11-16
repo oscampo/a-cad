@@ -2596,7 +2596,7 @@ const HINTS = {
   circle: 'Toca el centro y luego un punto del borde.',
   mline: 'Línea de punto medio: toca el punto medio y luego un extremo (o arrastra); la línea crece igual hacia el otro lado. Hay bloqueo suave.',
   graph: 'Gráfica: toca donde va su esquina inferior izquierda. Escribe las relaciones como «variable1 vs variable2» (una por línea): t, actuadores (MR1, MR1_v), cotas, variables y vectores de rangos.',
-  mr: 'Actuador rotacional (MR): toca una línea cerca del extremo que será el centro de giro; define su desplazamiento o velocidad angular respecto al tiempo (t).',
+  mr: 'Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes); define su desplazamiento o velocidad angular respecto al tiempo (t).',
   ml: 'Actuador lineal (ML): toca el punto de la cola y el de la cabeza; define su desplazamiento o velocidad respecto al tiempo (t).',
   vector: 'Vector: como Línea, con cabeza de flecha en el punto final y su magnitud como texto en el punto medio. Con una línea (y uno de sus extremos, que será la cola) seleccionada, pulsar Vector la convierte en vector.',
   cline: 'Línea constructiva (gris, fina, con un punto en cada extremo): toca inicio y fin, o arrastra. No sale en el SVG de corte láser salvo que lo elijas.',
@@ -2742,6 +2742,14 @@ function setTool(t) {
     else if (els.length === 2 && els.length === sel.length) roundTool(els[0], els[1]); // dos elementos ya seleccionados
   }
   if (t === 'dim') startDimTool();
+  if (t === 'mr') { // con una linea (y uno de sus extremos) ya seleccionados, se crea el actuador sobre ellos
+    const lns = sel.filter((x) => x.k === 'ln' && doc.lines[x.id]), pts = sel.filter((x) => x.k === 'pt' && doc.pts[x.id]);
+    if (lns.length === 1) {
+      const l = doc.lines[lns[0].id], ends = pts.filter((x) => x.id === l.a || x.id === l.b);
+      if (ends.length === 1 && pts.length === 1) { mrMake(lns[0].id, ends[0].id); return; }
+      if (!pts.length) { pending = { mr: { line: lns[0].id } }; toast('Toca el extremo de la línea que será el centro de giro'); }
+    } else if (lns.length === 0 && pts.length === 1) { pending = { mr: { pt: pts[0].id } }; toast('Toca la línea que girará'); }
+  }
   updateStatus(); draw();
 }
 document.querySelectorAll('[data-tool]').forEach((b) => { b.onclick = () => setTool(b.dataset.tool); });
@@ -2757,7 +2765,7 @@ const GROUPS = {
   arc: [['arcc', 'arc-c', 'Arco por centro y extremos (R)'], ['arc3', 'arc-3', 'Arco por 3 puntos (A)'], ['carcc', 'carcc', 'Arco constructivo por centro y extremos'], ['carc3', 'carc3', 'Arco constructivo por 3 puntos']],
   ellipse: [['ellipse', 'ellipse', 'Elipse: centro y dos ejes (O)'], ['earc', 'earc', 'Elipse parcial (arco elíptico)']],
   rect: [['rect', 'rect', 'Rectángulo por diagonal (B)'], ['rectc', 'rect-c', 'Rectángulo de centro']],
-  act: [['mr', 'act-r', 'Actuador rotacional (MR): toca una línea cerca del extremo que será el centro de giro'], ['ml', 'act-l', 'Actuador lineal (ML): toca el punto de la cola y el de la cabeza'], ['graph', 'graph', 'Gráfica: toca donde va su esquina inferior izquierda; muestra «variable1 vs variable2»'], ['sim', 'play', 'Simulación: barra de tiempo para mover los actuadores']],
+  act: [['mr', 'act-r', 'Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes)'], ['ml', 'act-l', 'Actuador lineal (ML): toca el punto de la cola y el de la cabeza'], ['graph', 'graph', 'Gráfica: toca donde va su esquina inferior izquierda; muestra «variable1 vs variable2»'], ['sim', 'play', 'Simulación: barra de tiempo para mover los actuadores']],
   corner: [['fillet', 'fillet', 'Redondeo (F): toca una esquina, o dos elementos, y teclea el radio'], ['chamfer', 'chamfer', 'Chaflán: toca una esquina y teclea la distancia']],
   clip: [['copy', 'copy', 'Copiar la selección (Ctrl+C)'], ['paste', 'paste', 'Pegar: toca el punto donde va el centro de lo copiado (Ctrl+V)']],
 };
@@ -2917,12 +2925,9 @@ function actTool(p) {
   const ah = actAt(p.x, p.y);
   if (ah) { editAct(ah, false); return; }
   if (tool === 'mr') {
-    const h = hitCurves(p.x, p.y);
-    if (!h || h.k !== 'ln') { toast('Toca la línea que girará, cerca del extremo que será el centro de giro'); return; }
-    const l = doc.lines[h.id], m = toModel(p.x, p.y), da = Math.hypot(doc.pts[l.a].x - m.x, doc.pts[l.a].y - m.y), db = Math.hypot(doc.pts[l.b].x - m.x, doc.pts[l.b].y - m.y);
-    pushUndo();
-    const id = addRotary(doc, h.id, da <= db ? l.a : l.b);
-    afterChange(); editAct(id, true);
+    const h = hitTest(p.x, p.y);
+    if (!h || (h.k !== 'ln' && h.k !== 'pt')) { toast('Toca la línea que girará y su extremo que será el centro de giro (en cualquier orden)'); return; }
+    mrPick(h);
     return;
   }
   const s = snapAt(p.x, p.y, { press: true });
@@ -2931,6 +2936,28 @@ function actTool(p) {
   if (first === second) { rollback(); pending = null; draw(); return; }
   pending = null;
   const id = addLinear(doc, first, second);
+  afterChange(); editAct(id, true);
+}
+// MR: la linea y el punto de giro (uno de sus extremos) se eligen en cualquier orden, o vienen de la seleccion.
+function mrPick(h) {
+  const mr = { ...(pending?.mr || {}) };
+  if (h.k === 'ln') mr.line = h.id; else mr.pt = h.id;
+  const l = mr.line && doc.lines[mr.line];
+  if (l && mr.pt && mr.pt !== l.a && mr.pt !== l.b) {
+    if (h.k === 'pt') { toast('Ese punto no es un extremo de la línea: toca uno de sus extremos'); mr.pt = null; } // el punto nuevo no vale: se conserva la linea
+    else { mr.pt = null; toast('La línea no termina en ese punto: toca el extremo que será el centro de giro'); }
+  }
+  if (mr.line && mr.pt) { mrMake(mr.line, mr.pt); return; }
+  pending = { mr };
+  sel = [...(mr.line ? [{ k: 'ln', id: mr.line }] : []), ...(mr.pt ? [{ k: 'pt', id: mr.pt }] : [])];
+  toast(mr.line ? 'Toca el extremo de la línea que será el centro de giro' : 'Toca la línea que girará');
+  draw();
+}
+function mrMake(line, pt) {
+  pending = null; sel = [];
+  pushUndo();
+  const id = addRotary(doc, line, pt);
+  if (!id) { rollback(); toast('El punto de giro debe ser un extremo de la línea'); draw(); return; }
   afterChange(); editAct(id, true);
 }
 // Cuadro de definicion de un actuador. nuevo: si se cancela, se deshace su creacion.
