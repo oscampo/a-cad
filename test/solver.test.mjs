@@ -11,7 +11,7 @@ import { parseValue, evalExpr, isPlainNumber, exprRefs, renameInExpr } from '../
 import { makeVector, unmakeVector, syncVectors, isVector, vecArrow, vecEnds } from '../src/vectors.js';
 import { varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive, textVarErrors, usesTextVars, varsList } from '../src/params.js';
 import { runsOf, plainText } from '../src/tvars.js';
-import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach } from '../src/corners.js';
+import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair } from '../src/corners.js';
 import { rigidShape, looseShape, isRigid } from '../src/rigid.js';
 import { nameDims } from '../src/model.js';
 import { trimAt, extendEnd, cutsOf, curveCuts, linearArray, mirrorCopy, circularArray, clipOf, pasteClip, bboxOf } from '../src/edit.js';
@@ -3411,6 +3411,40 @@ t('chaflan y redondeo entre elementos: sin puntos tocados usa el medio de cada u
   const m1 = addLine(g, addPoint(g, -5, 0), addPoint(g, 10, 0), {}), m2 = addLine(g, addPoint(g, 0, -5), addPoint(g, 0, 10), {});
   const r3 = filletBetween(g, { k: 'ln', id: m1 }, { k: 'ln', id: m2 }, 2);
   assert.ok(r3.ok, r3.msg); near(g.pts[g.arcs[r3.arc].c].x, 2, 1e-6); near(g.pts[g.arcs[r3.arc].c].y, 2, 1e-6);
+});
+
+t('redondeo: esquina entre un segmento y un arco con una linea constructiva en el mismo punto (plantilla-engranes)', () => {
+  const d = newDoc();
+  const c = addPoint(d, 2.6310140816402012, -7.1535425526073375);
+  d.pts[c].fixed = true;
+  const p139 = addPoint(d, 7.801812639149062, 6.393148640361678), p162 = addPoint(d, 5.224571992842092, 7.1126222214740995), p51 = addPoint(d, 5.488359110778653, 8.563613723730201);
+  const arc = addArc(d, c, p139, p162, 14.5, { ltype: 'continua' });
+  const ln = addLine(d, p51, p162, { ltype: 'continua' });
+  const cons = addLine(d, c, p162, { ltype: 'constructiva' });
+  addCon(d, { t: 'PONC', refs: [p162, addCircle(d, c, 14.5, { ltype: 'constructiva' })], hidden: true });
+  assert.ok(solve(d, []).ok);
+  const pair = cornerPair(d, p162);
+  assert.deepEqual(pair.map((e) => e.k).sort(), ['ar', 'ln']);
+  assert.ok(!pair.some((e) => e.id === cons));
+  const r = filletBetween(d, pair[0], pair[1], 0.76);
+  assert.ok(r.ok, r.msg);
+  assert.ok(solve(d, []).ok);
+  const a = d.arcs[r.arc], C = d.pts[a.c];
+  near(a.r, 0.76, 1e-6);
+  assert.ok(arcOf(d, a).sweep < Math.PI / 2 + 0.2, 'el redondeo es un arco corto, no un lazo'); // 295894d daba un arco de unos 270 grados
+  near(Math.hypot(C.x - d.pts[c].x, C.y - d.pts[c].y), 14.5 + 0.76, 1e-4, 'tangente por fuera del arco (el lado del segmento)');
+  const L = d.lines[ln], A = d.pts[L.a], B = d.pts[L.b];
+  near(Math.abs(((C.x - A.x) * (B.y - A.y) - (C.y - A.y) * (B.x - A.x)) / Math.hypot(B.x - A.x, B.y - A.y)), 0.76, 1e-4);
+  // el segmento ya no llega a la esquina, el arco original tampoco
+  assert.ok(Math.hypot(d.pts[L.b].x - 5.2246, d.pts[L.b].y - 7.1126) > 0.1 && Math.hypot(d.pts[d.arcs[arc].b].x - 5.2246, d.pts[d.arcs[arc].b].y - 7.1126) > 0.1);
+  // chaflan en la misma esquina
+  const e = newDoc();
+  const c2 = addPoint(e, 2.631, -7.1535); e.pts[c2].fixed = true;
+  const q139 = addPoint(e, 7.8018, 6.3931), q162 = addPoint(e, 5.2246, 7.1126), q51 = addPoint(e, 5.4884, 8.5636);
+  addArc(e, c2, q139, q162, 14.5, {}); addLine(e, q51, q162, {}); addLine(e, c2, q162, { ltype: 'constructiva' });
+  const pr = cornerPair(e, q162), ch = chamferBetween(e, pr[0], pr[1], 0.5);
+  assert.ok(ch.ok, ch.msg); assert.ok(solve(e, []).ok);
+  for (const id of ch.pts) near(Math.hypot(e.pts[id].x - 5.2246, e.pts[id].y - 7.1126), 0.5, 1e-3);
 });
 
 console.log(`\n${passed} pruebas pasaron`);

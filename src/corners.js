@@ -11,11 +11,28 @@ import { cutEnd } from './edit.js';
 
 const fmt = (x) => String(Math.round(x * 1000) / 1000);
 
+// Elementos de trazo (no constructivos) que terminan en el punto pid: segmentos, arcos y arcos elipticos.
+export function cornerElements(doc, pid) {
+  const out = [], solid = (o) => o.ltype !== 'constructiva';
+  for (const [id, l] of Object.entries(doc.lines)) if ((l.a === pid || l.b === pid) && solid(l)) out.push({ k: 'ln', id });
+  for (const [id, a] of Object.entries(doc.arcs)) if ((a.a === pid || a.b === pid) && solid(a)) out.push({ k: 'ar', id });
+  for (const [id, e] of Object.entries(doc.ellipses || {})) if (isPartial(e) && (e.p1 === pid || e.p2 === pid) && solid(e)) out.push({ k: 'el', id });
+  return out;
+}
+// Si en pid se juntan exactamente dos elementos de trazo y alguno no es un segmento (un arco, un arco eliptico), el par
+// para redondear o achaflanar con filletBetween / chamferBetween; si no, null (esquina de dos segmentos: cornerOf).
+export function cornerPair(doc, pid) {
+  const els = cornerElements(doc, pid);
+  return els.length === 2 && els.some((e) => e.k !== 'ln') ? els : null;
+}
+
 // Las dos lineas que se juntan en el punto pid y la geometria de la esquina. { ok, ... } o { ok: false, msg }.
 export function cornerOf(doc, pid) {
   const P = doc.pts[pid];
   if (!P) return { ok: false, msg: 'No hay punto' };
-  const ls = Object.entries(doc.lines).filter(([, l]) => l.a === pid || l.b === pid);
+  let ls = Object.entries(doc.lines).filter(([, l]) => l.a === pid || l.b === pid);
+  const solid = ls.filter(([, l]) => l.ltype !== 'constructiva');
+  if (solid.length >= 2) ls = solid; // las constructivas que pasan por la esquina no cuentan
   if (ls.length < 2) return { ok: false, msg: 'Ese punto no es la esquina de dos líneas' };
   if (ls.length > 2) return { ok: false, msg: 'En ese punto se juntan más de dos líneas' };
   if (ls.some(([, l]) => l.vec)) return { ok: false, msg: 'Un vector no se redondea ni se achaflana' };
@@ -204,6 +221,21 @@ export function bestFillet(c1, c2, r, p1, p2) {
   return best;
 }
 
+// Punto que es extremo de los dos elementos, si lo hay (su posicion es el vertice).
+const ownOf = (doc, c) => (c.k === 'ln' ? doc.lines[c.id] : c.k === 'ar' ? doc.arcs[c.id] : doc.ellipses[c.id]);
+function sharedEnd(doc, c1, c2) {
+  const e2 = c2.fields.map((f) => ownOf(doc, c2)[f]);
+  const s = c1.fields.map((f) => ownOf(doc, c1)[f]).find((p) => e2.includes(p));
+  return s ? doc.pts[s] : null;
+}
+// Lado que se conserva cuando no se toco nada: el medio del elemento o, si se juntan en una esquina, su otro extremo (el redondeo
+// o el chaflan se come lo que esta junto a la esquina).
+function defaultPicks(doc, c1, c2) {
+  const e2 = c2.fields.map((f) => ownOf(doc, c2)[f]), s = c1.fields.map((f) => ownOf(doc, c1)[f]).find((p) => e2.includes(p));
+  const far = (c) => (s ? doc.pts[c.fields.map((f) => ownOf(doc, c)[f]).find((p) => p !== s)] : c.mid);
+  return [far(c1), far(c2)];
+}
+
 // Donde se cortan las dos curvas (completas) mas cerca de O: el vertice que tenian antes del redondeo. Null si no se cortan o
 // casi no se cruzan (tangentes o paralelas: el vertice no quedaria bien determinado).
 function anchorOf(c1, c2, O) {
@@ -231,7 +263,8 @@ export function filletBetween(doc, A, B, r) {
   }
   const c1 = curveOf(doc, A.k, A.id), c2 = curveOf(doc, B.k, B.id);
   if (c1.msg || c2.msg) return { ok: false, msg: c1.msg || c2.msg };
-  const f = bestFillet(c1, c2, r, A.p || c1.mid, B.p || c2.mid);
+  const dp = defaultPicks(doc, c1, c2);
+  const f = bestFillet(c1, c2, r, A.p || dp[0], B.p || dp[1]);
   if (!f) return { ok: false, msg: 'No hay un redondeo de ese radio entre esos dos elementos: prueba otro radio o toca el otro lado de cada uno' };
   const own = (c) => (c.k === 'ln' ? doc.lines[c.id] : c.k === 'ar' ? doc.arcs[c.id] : doc.ellipses[c.id]);
   const style = styleOf(own(c1));
@@ -243,7 +276,7 @@ export function filletBetween(doc, A, B, r) {
   const dim = addCon(doc, { t: 'RAD', refs: [arc], v: r });
   // el vertice de antes queda como punto virtual sobre los dos elementos (como en el redondeo de esquina): sin el, al cambiar
   // el radio el solver gira los elementos en vez de deslizar el arco por ellos
-  const V = anchorOf(c1, c2, f.O);
+  const V = anchorOf(c1, c2, sharedEnd(doc, c1, c2) || f.O);
   if (V) {
     const v = addPoint(doc, V.x, V.y, true);
     addCon(doc, { t: PON[c1.k], refs: [v, c1.id], hidden: true });
@@ -265,8 +298,8 @@ export function chamferBetween(doc, A, B, d1, d2 = d1) {
   }
   const c1 = curveOf(doc, A.k, A.id), c2 = curveOf(doc, B.k, B.id);
   if (c1.msg || c2.msg) return { ok: false, msg: c1.msg || c2.msg };
-  const p1 = A.p || c1.mid, p2 = B.p || c2.mid;
-  const V = anchorOf(c1, c2, { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
+  const dp = defaultPicks(doc, c1, c2), p1 = A.p || dp[0], p2 = B.p || dp[1];
+  const V = anchorOf(c1, c2, sharedEnd(doc, c1, c2) || { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
   if (!V) return { ok: false, msg: 'Esos dos elementos no se cortan (ni sus prolongaciones): no hay vértice para el chaflán' };
   const side = (c, tV, p, d) => { // parametro del punto a distancia d (en recta) del vertice, hacia lo tocado
     const dir = rel(c, c.tOf(p)) >= rel(c, tV) ? 1 : -1, Vp = { x: V.x, y: V.y };
