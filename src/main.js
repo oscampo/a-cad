@@ -1823,11 +1823,12 @@ function pasteAt(s) {
 }
 function pasteTool() { if (!clip) { toast('Primero copia algo (selecciona y usa Copiar)'); return; } setTool('paste'); }
 
-// Extender: toca un segmento o arco cerca del extremo que se alarga; llega hasta el primer elemento que encuentre.
+// Extender: toca un segmento, arco o spline cerca del extremo que se alarga; llega hasta el primer elemento que encuentre.
+// El spline se alarga en linea recta, en la direccion de su tangente en ese extremo.
 function extendAt(p) {
   const h = hitCurves(p.x, p.y);
-  if (!h) { toast('Toca el segmento o arco cerca del extremo que quieres alargar'); return; }
-  if (h.k === 'sp' || h.k === 'el') { toast(h.k === 'el' ? 'Las elipses no se extienden' : 'Los splines no se extienden'); return; }
+  if (!h) { toast('Toca el segmento, arco o spline cerca del extremo que quieres alargar'); return; }
+  if (h.k === 'el') { toast('Las elipses no se extienden'); return; }
   if (h.k === 'ci') { toast('Un círculo no se extiende'); return; }
   const near = toModel(p.x, p.y), bak = snapshot();
   pushUndo();

@@ -400,9 +400,47 @@ function relocateEnd(doc, elId, owner, field, t) {
   return pid;
 }
 
-// Alarga el extremo (el mas cercano a near) de un segmento o arco hasta el primer elemento que encuentre.
+// Spline abierto: el extremo mas cercano a near se alarga en linea recta, en la direccion de la tangente en ese
+// extremo, hasta el primer elemento que encuentre. El extremo anterior pasa a ser un punto intermedio y el nuevo
+// extremo queda sobre la tangente. Basta ese punto: el spline termina sin curvatura, asi que al prolongarlo en linea
+// recta la curva sigue la tangente (medido: la prolongacion se aparta de la recta menos de 1e-4 del alargue). Agregar
+// puntos intermedios sobre la recta (SPL_EXT > 0) no mejora la tangencia y deforma mas el tramo original.
+const SPL_EXT = 0;
+function extendSpline(doc, id, near, mids = SPL_EXT) {
+  const sp = doc.splines[id];
+  if (!sp) return { ok: false, msg: 'Spline no encontrado' };
+  if (sp.closed) return { ok: false, msg: 'Un spline cerrado no se extiende' };
+  if (Object.values(doc.cons).some((k) => (k.refs || []).includes(id))) return { ok: false, msg: 'Un spline con relaciones no se extiende: quítalas primero' };
+  const Q = splinePolyline(doc, sp, 4 * SP_PER), n = sp.pts.length;
+  const atEnd = dist(near, Q[Q.length - 1]) <= dist(near, Q[0]);
+  const E = atEnd ? Q[Q.length - 1] : Q[0], prev = atEnd ? Q[Q.length - 2] : Q[1], L = dist(E, prev);
+  if (!(L > 1e-12)) return { ok: false, msg: 'Spline sin longitud' };
+  const dir = { x: (E.x - prev.x) / L, y: (E.y - prev.y) / L }, B = { x: E.x + dir.x, y: E.y + dir.y };
+  let best = null;
+  for (const o of others(doc, id)) for (const p of lineHits(doc, E, B, o)) {
+    const u = (p.x - E.x) * dir.x + (p.y - E.y) * dir.y;
+    if (u > TOL && (!best || u < best.u)) best = { u, x: p.x, y: p.y, vias: [o] };
+  }
+  if (!best) return { ok: false, msg: 'No hay ningún elemento más allá de ese extremo, en la dirección de su tangente' };
+  const add = [];
+  for (let j = 1; j <= mids; j++) {
+    const f = j / (mids + 1), pid = addPoint(doc, E.x + dir.x * best.u * f, E.y + dir.y * best.u * f, true);
+    doc.pts[pid].splOnly = true;
+    add.push(pid);
+  }
+  const endId = pointAt(doc, best);
+  if (sp.pts.includes(endId)) return { ok: false, msg: 'El spline ya pasa por ese punto' };
+  add.push(endId);
+  sp.pts = atEnd ? [...sp.pts, ...add] : [...add.reverse(), ...sp.pts];
+  delete sp.ts;
+  return { ok: true, field: atEnd ? n - 1 : 0, end: endId };
+}
+
+// Alarga el extremo (el mas cercano a near) de un segmento o arco hasta el primer elemento que encuentre; un spline
+// abierto se alarga en la direccion de su tangente en el extremo.
 // dropLength: tambien quita las restricciones que fijan la longitud del segmento.
-export function extendEnd(doc, kind, id, near, { dropLength = false } = {}) {
+export function extendEnd(doc, kind, id, near, { dropLength = false, mids } = {}) {
+  if (kind === 'sp') return extendSpline(doc, id, near, mids);
   if (kind !== 'ln' && kind !== 'ar') return { ok: false, msg: kind === 'ci' ? 'Un círculo no se extiende' : 'Solo se extienden segmentos y arcos' };
   let best = null, owner, field;
   if (kind === 'ln') {

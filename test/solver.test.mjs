@@ -2336,6 +2336,36 @@ t('sesion de arrastre: el resultado es el mismo con y sin la cache estructural, 
   assert.ok(solve(a.d, []) !== undefined);
 });
 
+t('extender spline: se alarga por la tangente de su extremo hasta el primer elemento, con un solo punto nuevo', () => {
+  for (const [at, ln] of [[{ x: 50, y: 6 }, [58, -30, 58, 40]], [{ x: 0, y: 0 }, [-6, -30, -6, 40]]]) {
+    const d = newDoc();
+    const ids = [[0, 0], [10, 8], [20, 0], [30, -8], [40, 0], [50, 6]].map(([x, y]) => addPoint(d, x, y));
+    const s = addSpline(d, ids, ST, false);
+    const O = splinePolyline(d, d.splines[s], 96).map((q) => ({ ...q }));
+    const atEnd = at.x > 25, E = atEnd ? O[O.length - 1] : O[0], pv = atEnd ? O[O.length - 2] : O[1];
+    const L = Math.hypot(E.x - pv.x, E.y - pv.y), dx = (E.x - pv.x) / L, dy = (E.y - pv.y) / L;
+    const l = addLine(d, addPoint(d, ln[0], ln[1]), addPoint(d, ln[2], ln[3]), ST);
+    addLine(d, addPoint(d, atEnd ? 70 : -20, -30), addPoint(d, atEnd ? 70 : -20, 40), ST); // mas lejos: no llega hasta esta
+    const r = extendEnd(d, 'sp', s, at);
+    assert.ok(r.ok && solve(d, []).ok);
+    const sp = d.splines[s];
+    assert.equal(sp.pts.length, 7, 'un punto nuevo');
+    const e = d.pts[atEnd ? sp.pts[6] : sp.pts[0]];
+    near(e.x, ln[0], 1e-6); // sobre la primera linea
+    assert.ok(Math.abs((e.x - E.x) * dy - (e.y - E.y) * dx) < 1e-6, 'el punto nuevo esta sobre la tangente del extremo');
+    assert.ok(Object.values(d.cons).some((k) => k.t === 'PONL' && k.refs[0] === (atEnd ? sp.pts[6] : sp.pts[0]) && k.refs[1] === l && k.hidden));
+    // la prolongacion sigue la recta tangente
+    let off = 0;
+    for (const q of splinePolyline(d, sp, 96)) if ((q.x - E.x) * dx + (q.y - E.y) * dy > 0) off = Math.max(off, Math.abs((q.x - E.x) * dy - (q.y - E.y) * dx));
+    assert.ok(off < 1e-3, 'fuera de la tangente ' + off);
+  }
+  // cerrado, con relaciones o sin nada delante: no se extiende
+  const d = newDoc(), c = [[10, 0], [0, 10], [-10, 0], [0, -10]].map(([x, y]) => addPoint(d, x, y));
+  assert.equal(extendEnd(d, 'sp', addSpline(d, c, ST, true), { x: 10, y: 0 }).ok, false);
+  const o = addSpline(d, [[20, 0], [30, 5], [40, 0]].map(([x, y]) => addPoint(d, x, y)), ST, false);
+  assert.equal(extendEnd(d, 'sp', o, { x: 40, y: 0 }).ok, false, 'no hay nada en esa direccion');
+});
+
 t('extender hasta elipses y splines: la linea y el arco llegan a la curva y quedan sobre ella', () => {
   const d = newDoc(); const { e } = mkEll(d);
   const l = addLine(d, addPoint(d, -30, 2), addPoint(d, -20, 2), ST);
