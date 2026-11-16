@@ -13,7 +13,7 @@ import { splitElement } from './split.js';
 import { boxSelect } from './boxsel.js';
 import { crossPoints } from './snapx.js';
 import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, pasteClip } from './edit.js';
-import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair } from './corners.js';
+import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, angSector, angTrue, initAngle, trackAngles, DIAM } from './dims.js';
@@ -1883,13 +1883,22 @@ async function roundTool(A, B) {
 // Redondeo o chaflan (segun la herramienta) en las esquinas dadas (puntos donde se juntan dos lineas), con un solo valor.
 // El valor puede ser una formula: queda en la cota de cada esquina.
 async function cornerTool(pids) {
-  const pair = pids.length === 1 ? cornerPair(doc, pids[0]) : null; // arco o arco eliptico en la esquina
-  if (pair) { roundTool(pair[0], pair[1]); return; }
-  const fillet = toolName === 'fillet', cs = pids.map((id) => cornerOf(doc, id)), good = cs.filter((c) => c.ok);
-  if (!good.length) { toast(cs[0]?.msg || 'Toca el punto de una esquina'); return; }
-  const lim = Math.min(...good.map((c) => (fillet ? maxFillet(c) : Math.min(c.A.len, c.B.len))));
+  const fillet = toolName === 'fillet', seen = new Set(), items = [];
+  for (const pid of pids) { // una esquina puede tener varios puntos coincidentes: se toma una sola vez
+    if (seen.has(pid)) continue;
+    for (const q of coincidentIds(doc, pid)) seen.add(q);
+    const pair = cornerPair(doc, pid), c = pair ? null : cornerOf(doc, pid); // pair: esquina con un arco o un arco eliptico (o segmentos que no comparten punto)
+    items.push({ pid, pair, c, msg: pair || c.ok ? null : c.msg });
+  }
+  const good = items.filter((it) => it.pair || it.c.ok);
+  if (!good.length) { toast(items[0]?.msg || 'Toca el punto de una esquina'); return; }
+  const lim = Math.min(...good.map((it) => {
+    if (it.c) return fillet ? maxFillet(it.c) : Math.min(it.c.A.len, it.c.B.len);
+    const r = filletReach(doc, it.pair[0], it.pair[1]);
+    return r.msg ? Infinity : r.len;
+  }));
   const last = fillet ? opts.cornerR : opts.chamferD;
-  const initial = last > 0 && last < lim ? last : Math.max(Math.round(lim * 25) / 100, 0.01); // un cuarto del maximo
+  const initial = last > 0 && last < lim ? last : Math.max(Math.round((Number.isFinite(lim) ? lim : 4) * 25) / 100, 0.01); // un cuarto del maximo
   const ask = askNumber((fillet ? 'Radio del redondeo' : 'Distancia del chaflán') + (good.length > 1 ? ` (${good.length} esquinas)` : ''), initial);
   $('dlgRefRow').style.display = 'none'; // aqui no hay cota de solo lectura: el valor siempre manda
   const v = await ask;
@@ -1897,8 +1906,8 @@ async function cornerTool(pids) {
   const expr = dlgExpr;
   pushUndo();
   let done = 0; const fails = [], made = [];
-  for (const c of good) {
-    const r = fillet ? filletCorner(doc, c.pid, v) : chamferCorner(doc, c.pid, v);
+  for (const it of good) {
+    const r = it.pair ? (fillet ? filletBetween(doc, it.pair[0], it.pair[1], v) : chamferBetween(doc, it.pair[0], it.pair[1], v)) : (fillet ? filletCorner(doc, it.pid, v) : chamferCorner(doc, it.pid, v));
     if (!r.ok) { fails.push(r.msg); continue; }
     if (expr) for (const k of r.dims) doc.cons[k].expr = expr;
     made.push(fillet ? { k: 'ar', id: r.arc } : { k: 'ln', id: r.line });

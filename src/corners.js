@@ -11,19 +11,35 @@ import { cutEnd } from './edit.js';
 
 const fmt = (x) => String(Math.round(x * 1000) / 1000);
 
-// Elementos de trazo (no constructivos) que terminan en el punto pid: segmentos, arcos y arcos elipticos.
+// El punto y los que la restriccion de coincidencia (COI) pone en el mismo sitio: dos elementos dibujados por separado que se
+// juntan en una esquina terminan en puntos distintos.
+export function coincidentIds(doc, pid) {
+  const ids = new Set([pid]);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const k of Object.values(doc.cons)) {
+      if (k.t !== 'COI' || k.ref || k.refs.length !== 2 || !(k.refs[0] in doc.pts) || !(k.refs[1] in doc.pts)) continue;
+      const [a, b] = k.refs;
+      if (ids.has(a) !== ids.has(b)) { ids.add(a); ids.add(b); grew = true; }
+    }
+  }
+  return ids;
+}
+// Elementos de trazo (no constructivos) que terminan en el punto pid (o en uno coincidente): segmentos, arcos y arcos elipticos.
 export function cornerElements(doc, pid) {
-  const out = [], solid = (o) => o.ltype !== 'constructiva';
-  for (const [id, l] of Object.entries(doc.lines)) if ((l.a === pid || l.b === pid) && solid(l)) out.push({ k: 'ln', id });
-  for (const [id, a] of Object.entries(doc.arcs)) if ((a.a === pid || a.b === pid) && solid(a)) out.push({ k: 'ar', id });
-  for (const [id, e] of Object.entries(doc.ellipses || {})) if (isPartial(e) && (e.p1 === pid || e.p2 === pid) && solid(e)) out.push({ k: 'el', id });
+  const out = [], solid = (o) => o.ltype !== 'constructiva', ids = coincidentIds(doc, pid);
+  for (const [id, l] of Object.entries(doc.lines)) if ((ids.has(l.a) || ids.has(l.b)) && solid(l)) out.push({ k: 'ln', id });
+  for (const [id, a] of Object.entries(doc.arcs)) if ((ids.has(a.a) || ids.has(a.b)) && solid(a)) out.push({ k: 'ar', id });
+  for (const [id, e] of Object.entries(doc.ellipses || {})) if (isPartial(e) && (ids.has(e.p1) || ids.has(e.p2)) && solid(e)) out.push({ k: 'el', id });
   return out;
 }
 // Si en pid se juntan exactamente dos elementos de trazo y alguno no es un segmento (un arco, un arco eliptico), el par
 // para redondear o achaflanar con filletBetween / chamferBetween; si no, null (esquina de dos segmentos: cornerOf).
 export function cornerPair(doc, pid) {
   const els = cornerElements(doc, pid);
-  return els.length === 2 && els.some((e) => e.k !== 'ln') ? els : null;
+  if (els.length !== 2) return null;
+  if (els.every((e) => e.k === 'ln') && doc.lines[els[0].id] && [doc.lines[els[0].id].a, doc.lines[els[0].id].b].some((p) => p === doc.lines[els[1].id].a || p === doc.lines[els[1].id].b)) return null; // dos segmentos con un extremo comun: cornerOf
+  return els;
 }
 
 // Las dos lineas que se juntan en el punto pid y la geometria de la esquina. { ok, ... } o { ok: false, msg }.
@@ -232,13 +248,18 @@ export function bestFillet(c1, c2, r, p1, p2, V = null) {
   return best;
 }
 
-// Punto que es extremo de los dos elementos, si lo hay (su posicion es el vertice).
+// Extremos (campos) en que se juntan los dos elementos: el mismo punto o puntos coincidentes por restriccion. Null si no se juntan.
 const ownOf = (doc, c) => (c.k === 'ln' ? doc.lines[c.id] : c.k === 'ar' ? doc.arcs[c.id] : doc.ellipses[c.id]);
-function sharedEnd(doc, c1, c2) {
-  const e2 = c2.fields.map((f) => ownOf(doc, c2)[f]);
-  const s = c1.fields.map((f) => ownOf(doc, c1)[f]).find((p) => e2.includes(p));
-  return s ? doc.pts[s] : null;
+function joinOf(doc, c1, c2) {
+  const o1 = ownOf(doc, c1), o2 = ownOf(doc, c2);
+  for (const f1 of c1.fields) for (const f2 of c2.fields) {
+    const p = o1[f1], q = o2[f2];
+    if (p === q || coincidentIds(doc, p).has(q)) return { f1, f2, pos: doc.pts[p] };
+  }
+  return null;
 }
+const sharedEnd = (doc, c1, c2) => joinOf(doc, c1, c2)?.pos || null;
+
 // Vertice donde se juntan los dos elementos: su extremo comun o, si no lo hay, el corte de sus prolongaciones mas cerca del medio
 // de ambos. Null si no se cortan.
 function vertexOf(doc, c1, c2) {

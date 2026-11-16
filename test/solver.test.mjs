@@ -11,7 +11,7 @@ import { parseValue, evalExpr, isPlainNumber, exprRefs, renameInExpr } from '../
 import { makeVector, unmakeVector, syncVectors, isVector, vecArrow, vecEnds } from '../src/vectors.js';
 import { varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive, textVarErrors, usesTextVars, varsList } from '../src/params.js';
 import { runsOf, plainText } from '../src/tvars.js';
-import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair } from '../src/corners.js';
+import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, cornerElements, coincidentIds } from '../src/corners.js';
 import { rigidShape, looseShape, isRigid } from '../src/rigid.js';
 import { nameDims } from '../src/model.js';
 import { trimAt, extendEnd, cutsOf, curveCuts, linearArray, mirrorCopy, circularArray, clipOf, pasteClip, bboxOf } from '../src/edit.js';
@@ -3471,6 +3471,31 @@ t('redondeo: segmento casi tangente a un arco eliptico (pruebas-redondeo.json): 
     const C = e.pts[e.arcs[x.arc].c];
     assert.ok(Math.hypot(C.x - d.pts[p4].x, C.y - d.pts[p4].y) < 4 * r, 'cerca de la esquina');
     assert.ok(arcOf(e, e.arcs[x.arc]).sweep < Math.PI, 'arco menor');
+  }
+});
+
+t('redondeo: las 12 esquinas de pruebas-redondeo.json, por esquina y todas a la vez, sin depender del orden de los elementos', () => {
+  const base = JSON.parse(readFileSync(new URL('./fixtures/pruebas-redondeo.json', import.meta.url), 'utf8')).doc;
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const labels = Object.values(base.texts).map((x) => x.pt);
+  assert.equal(labels.length, 12);
+  const dispatch = (d, pid, r) => { const pair = cornerPair(d, pid); if (pair) return filletBetween(d, pair[0], pair[1], r); return filletCorner(d, pid, r); };
+  for (const r of [1.5, 4]) {
+    for (const pid of labels) {
+      const els = cornerElements(base, pid);
+      assert.equal(els.length, 2, 'dos elementos en la esquina ' + pid); // la esquina J une dos puntos coincidentes (COI)
+      const d = clone(base), d1 = clone(base), d2 = clone(base);
+      const res = dispatch(d, pid, r), x = filletBetween(d1, els[0], els[1], r), y = filletBetween(d2, els[1], els[0], r);
+      assert.ok(res.ok && x.ok && y.ok, res.msg);
+      assert.ok(solve(d, []).ok);
+      const C = d.pts[d.arcs[res.arc].c], Cx = d1.pts[d1.arcs[x.arc].c], Cy = d2.pts[d2.arcs[y.arc].c];
+      near(Cx.x, Cy.x, 1e-9); near(Cx.y, Cy.y, 1e-9); near(C.x, Cx.x, 1e-9); near(C.y, Cx.y, 1e-9);
+      assert.ok(arcOf(d, d.arcs[res.arc]).sweep < Math.PI, 'arco menor');
+      assert.ok(Math.hypot(C.x - base.pts[pid].x, C.y - base.pts[pid].y) < 4 * r, 'cerca de la esquina ' + pid);
+    }
+    const d = clone(base), seen = new Set();
+    for (const pid of labels) { if (seen.has(pid)) continue; for (const q of coincidentIds(d, pid)) seen.add(q); assert.ok(dispatch(d, pid, r).ok); }
+    assert.ok(solve(d, []).ok, 'todas a la vez');
   }
 });
 
