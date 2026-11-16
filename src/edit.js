@@ -400,6 +400,29 @@ function relocateEnd(doc, elId, owner, field, t) {
   return pid;
 }
 
+// Pone el punto pid como extremo 'field' (a o b de un segmento o arco, p1 o p2 de un arco eliptico) y suelta el anterior si nadie
+// mas lo usa. De un segmento quita antes las restricciones que fijan su longitud (con otro extremo ya no valen). Devuelve cuantas quito.
+export function cutEnd(doc, kind, id, field, pid) {
+  const owner = kind === 'ln' ? doc.lines[id] : kind === 'ar' ? doc.arcs[id] : doc.ellipses[id];
+  let dropped = 0;
+  if (kind === 'ln') {
+    for (const [kid, k] of Object.entries(doc.cons)) {
+      if ((k.t === 'DIST' && k.refs.length === 1 && k.refs[0] === id) || (k.t === 'EQL' && k.refs.includes(id))) { delete doc.cons[kid]; dropped++; }
+    }
+  }
+  const old = owner[field];
+  owner[field] = pid;
+  if (old !== pid && doc.pts[old]) {
+    const autoOn = (k) => (k.refs || []).includes(old) && k.hidden && ['PONL', 'PONC', 'PONS', 'PONE'].includes(k.t) && k.refs[0] === old;
+    const onlyAuto = Object.values(doc.cons).every((k) => !(k.refs || []).includes(old) || autoOn(k));
+    if (!pointUsedElsewhere(doc, old, id) && onlyAuto && !doc.pts[old].fixed) {
+      for (const [kid, k] of Object.entries(doc.cons)) if (autoOn(k)) delete doc.cons[kid];
+      delete doc.pts[old];
+    }
+  }
+  return dropped;
+}
+
 // Spline abierto: el extremo mas cercano a near se alarga en linea recta, en la direccion de la tangente en ese
 // extremo, hasta el primer elemento que encuentre. El extremo anterior pasa a ser un punto intermedio y el nuevo
 // extremo queda sobre la tangente. Basta ese punto: el spline termina sin curvatura, asi que al prolongarlo en linea

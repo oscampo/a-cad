@@ -11,7 +11,7 @@ import { parseValue, evalExpr, isPlainNumber, exprRefs, renameInExpr } from '../
 import { makeVector, unmakeVector, syncVectors, isVector, vecArrow, vecEnds } from '../src/vectors.js';
 import { varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive, textVarErrors, usesTextVars, varsList } from '../src/params.js';
 import { runsOf, plainText } from '../src/tvars.js';
-import { cornerOf, filletCorner, chamferCorner, maxFillet } from '../src/corners.js';
+import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, filletReach } from '../src/corners.js';
 import { rigidShape, looseShape, isRigid } from '../src/rigid.js';
 import { nameDims } from '../src/model.js';
 import { trimAt, extendEnd, cutsOf, curveCuts, linearArray, mirrorCopy, circularArray, clipOf, pasteClip, bboxOf } from '../src/edit.js';
@@ -3282,6 +3282,110 @@ t('varsInfo: lista las variables con su tipo (dimension, angulo, variable de tex
   assert.deepEqual(all.map((x) => [x.name, x.kind]), [[d.cons[kd].name, 'dim'], [d.cons[ka].name, 'ang'], ['z', 'var']]);
   assert.equal(all[2].text, 'z = 17');
   assert.ok(!varsInfo(d, kd).some((x) => x.name === d.cons[kd].name));
+});
+
+// ---- redondeo entre elementos que no se juntan en una esquina
+const dPL = (P, A, B) => Math.abs(((P.x - A.x) * (B.y - A.y) - (P.y - A.y) * (B.x - A.x)) / Math.hypot(B.x - A.x, B.y - A.y));
+const radKey = (d) => Object.keys(d.cons).find((k) => d.cons[k].t === 'RAD');
+const polyDist = (P, c) => { let m = Infinity; for (let i = 0; i + 1 < P.length; i++) { const a = P[i], b = P[i + 1], vx = b.x - a.x, vy = b.y - a.y, u = Math.max(0, Math.min(1, ((c.x - a.x) * vx + (c.y - a.y) * vy) / (vx * vx + vy * vy))); m = Math.min(m, Math.hypot(c.x - a.x - u * vx, c.y - a.y - u * vy)); } return m; };
+t('redondeo entre elementos: dos lineas que se cruzan sin compartir punto, del lado tocado', () => {
+  const d = newDoc();
+  const l1 = addLine(d, addPoint(d, -5, 0), addPoint(d, 10, 0), {}), l2 = addLine(d, addPoint(d, 0, -5), addPoint(d, 0, 10), {});
+  const r = filletBetween(d, { k: 'ln', id: l1, p: { x: 8, y: 0 } }, { k: 'ln', id: l2, p: { x: 0, y: 8 } }, 2);
+  assert.ok(r.ok, r.msg); assert.ok(solve(d, []).ok);
+  const C = d.pts[d.arcs[r.arc].c];
+  near(C.x, 2, 1e-6); near(C.y, 2, 1e-6);
+  near(d.pts[d.lines[l1].a].x, 2, 1e-6); near(d.pts[d.lines[l1].a].y, 0, 1e-6); near(d.pts[d.lines[l1].b].x, 10, 1e-6); // se conserva el lado tocado
+  near(d.pts[d.lines[l2].a].y, 2, 1e-6);
+  near(arcOf(d, d.arcs[r.arc]).sweep, Math.PI / 2, 1e-6);
+  // otro lado: el cuadrante contrario
+  const e = newDoc();
+  const m1 = addLine(e, addPoint(e, -5, 0), addPoint(e, 10, 0), {}), m2 = addLine(e, addPoint(e, 0, -5), addPoint(e, 0, 10), {});
+  const r2 = filletBetween(e, { k: 'ln', id: m1, p: { x: -8, y: 0 } }, { k: 'ln', id: m2, p: { x: 0, y: -3 } }, 2);
+  assert.ok(r2.ok, r2.msg); assert.ok(solve(e, []).ok);
+  near(e.pts[e.arcs[r2.arc].c].x, -2, 1e-6); near(e.pts[e.arcs[r2.arc].c].y, -2, 1e-6);
+  near(e.pts[e.lines[m1].b].x, -2, 1e-6); // el trozo de la derecha se descarta: el extremo pasa al contacto
+  // el radio es una cota: cambiarla desliza el arco por las lineas
+  d.cons[radKey(d)].v = 3;
+  assert.ok(solve(d, []).ok);
+  near(d.arcs[r.arc].r, 3, 1e-6); near(d.pts[d.arcs[r.arc].c].x, 3, 0.05); near(d.pts[d.arcs[r.arc].c].y, 3, 0.05);
+});
+t('redondeo entre elementos: lineas que no se tocan se alargan hasta la tangencia', () => {
+  const d = newDoc();
+  const l1 = addLine(d, addPoint(d, 5, 0), addPoint(d, 12, 0), {}), l2 = addLine(d, addPoint(d, 0, 6), addPoint(d, 0, 12), {});
+  assert.deepEqual(filletReach(d, { k: 'ln', id: l1 }, { k: 'ln', id: l2 }), { len: 6 }); // el menor de los dos
+  const r = filletBetween(d, { k: 'ln', id: l1, p: { x: 10, y: 0 } }, { k: 'ln', id: l2, p: { x: 0, y: 10 } }, 2);
+  assert.ok(r.ok, r.msg); assert.ok(solve(d, []).ok);
+  near(d.pts[d.lines[l1].a].x, 2, 1e-6); near(d.pts[d.lines[l2].a].y, 2, 1e-6);
+});
+t('redondeo entre elementos: quita las cotas de longitud de los segmentos recortados y rechaza lo imposible', () => {
+  const d = newDoc();
+  const l1 = addLine(d, addPoint(d, -5, 0), addPoint(d, 10, 0), {}), l2 = addLine(d, addPoint(d, 0, -5), addPoint(d, 0, 10), {});
+  addCon(d, { t: 'DIST', refs: [l1], v: 15 });
+  const r = filletBetween(d, { k: 'ln', id: l1, p: { x: 8, y: 0 } }, { k: 'ln', id: l2, p: { x: 0, y: 8 } }, 2);
+  assert.ok(r.ok && r.dropped === 1, r.msg);
+  assert.ok(!Object.values(d.cons).some((k) => k.t === 'DIST'));
+  // paralelas: no hay redondeo de un radio cualquiera
+  const e = newDoc();
+  const a = addLine(e, addPoint(e, 0, 0), addPoint(e, 10, 0), {}), b = addLine(e, addPoint(e, 0, 3), addPoint(e, 10, 3), {});
+  assert.ok(!filletBetween(e, { k: 'ln', id: a, p: { x: 5, y: 0 } }, { k: 'ln', id: b, p: { x: 5, y: 3 } }, 1).ok);
+  assert.ok(!filletBetween(e, { k: 'ln', id: a, p: { x: 5, y: 0 } }, { k: 'ln', id: a, p: { x: 6, y: 0 } }, 1).ok);
+  const ci = addCircle(e, addPoint(e, 20, 20), 2, {});
+  assert.match(filletBetween(e, { k: 'ln', id: a, p: { x: 5, y: 0 } }, { k: 'ci', id: ci, p: { x: 22, y: 20 } }, 1).msg, /círculo/);
+});
+t('redondeo entre elementos: dos segmentos con un extremo comun usan el redondeo de esquina', () => {
+  const d = newDoc();
+  const o = addPoint(d, 0, 0), a = addPoint(d, 10, 0), b = addPoint(d, 0, 10);
+  const l1 = addLine(d, o, a, {}), l2 = addLine(d, o, b, {});
+  const r = filletBetween(d, { k: 'ln', id: l1, p: { x: 7, y: 0 } }, { k: 'ln', id: l2, p: { x: 0, y: 7 } }, 2);
+  assert.ok(r.ok, r.msg); assert.ok(solve(d, []).ok);
+  near(d.pts[o].x, 0, 1e-6); // el vertice virtual de siempre
+  assert.equal(Object.values(d.cons).filter((k) => k.t === 'PONL').length, 2);
+});
+t('redondeo entre elementos: arco y segmento, y arco con arco (tangencia en el extremo comun)', () => {
+  const d = newDoc();
+  const ar = addArc(d, addPoint(d, 0, 0), addPoint(d, 6, 0), addPoint(d, 0, 6), 6, {});
+  const l = addLine(d, addPoint(d, 1, 8), addPoint(d, 10, 8), {});
+  const r = filletBetween(d, { k: 'ar', id: ar, p: { x: 4.2, y: 4.2 } }, { k: 'ln', id: l, p: { x: 8, y: 8 } }, 1.5);
+  assert.ok(r.ok, r.msg); assert.ok(solve(d, []).ok);
+  let C = d.pts[d.arcs[r.arc].c];
+  near(Math.hypot(C.x, C.y), 6 + 1.5, 1e-5, 'tangente por fuera del arco');
+  near(dPL(C, d.pts[d.lines[l].a], d.pts[d.lines[l].b]), 1.5, 1e-5);
+  const e = newDoc();
+  const a1 = addArc(e, addPoint(e, 0, 0), addPoint(e, 5, 0), addPoint(e, 0, 5), 5, {}), a2 = addArc(e, addPoint(e, 12, 0), addPoint(e, 12, 5), addPoint(e, 7, 0), 5, {});
+  const r2 = filletBetween(e, { k: 'ar', id: a1, p: { x: 3.5, y: 3.5 } }, { k: 'ar', id: a2, p: { x: 8.5, y: 3.5 } }, 1.5);
+  assert.ok(r2.ok, r2.msg); assert.ok(solve(e, []).ok);
+  C = e.pts[e.arcs[r2.arc].c];
+  near(Math.hypot(C.x, C.y), 5 + 1.5, 1e-5); near(Math.hypot(C.x - 12, C.y), 5 + 1.5, 1e-5);
+  e.cons[radKey(e)].v = 2;
+  assert.ok(solve(e, []).ok);
+  C = e.pts[e.arcs[r2.arc].c];
+  near(e.arcs[r2.arc].r, 2, 1e-6);
+  const c1 = e.pts[e.arcs[a1].c], s1 = e.pts[e.arcs[a1].a];
+  near(Math.hypot(C.x - c1.x, C.y - c1.y), Math.hypot(s1.x - c1.x, s1.y - c1.y) + 2, 1e-5, 'sigue tangente al cambiar el radio');
+});
+t('redondeo entre elementos: arco eliptico y segmento, tangentes tambien despues de cambiar el radio', () => {
+  for (const variant of [0, 1]) {
+    const d = newDoc();
+    const c = addPoint(d, 0, 0), a = addPoint(d, 6, 0), b = addPoint(d, 0, 3);
+    const el = addEllipse(d, c, a, b, {}, addPoint(d, 6, 0), addPoint(d, variant ? -6 : 0, variant ? 0 : 3));
+    addCon(d, { t: 'ANG4', refs: [c, a, c, b], v: 90, hidden: true });
+    const l = variant ? addLine(d, addPoint(d, 3, -2), addPoint(d, 3, 6), {}) : addLine(d, addPoint(d, 1, 5), addPoint(d, 12, 5), {});
+    assert.ok(solve(d, []).ok);
+    const r = variant ? filletBetween(d, { k: 'el', id: el, p: { x: 1, y: 2.9 } }, { k: 'ln', id: l, p: { x: 3, y: 5 } }, 0.8) : filletBetween(d, { k: 'el', id: el, p: { x: 4, y: 2.2 } }, { k: 'ln', id: l, p: { x: 9, y: 5 } }, 1.2);
+    assert.ok(r.ok, r.msg);
+    for (const rr of [d.cons[radKey(d)].v, 1.5, 0.6]) {
+      d.cons[radKey(d)].v = rr;
+      assert.ok(solve(d, []).ok, 'resuelve con r=' + rr);
+      const C = d.pts[d.arcs[r.arc].c];
+      near(polyDist(ellipsePolyline(d, d.ellipses[el], 720), C), rr, 2e-4, 'tangente al arco eliptico');
+      near(dPL(C, d.pts[d.lines[l].a], d.pts[d.lines[l].b]), rr, 1e-5, 'tangente al segmento');
+    }
+  }
+  const e = newDoc();
+  const full = addEllipse(e, addPoint(e, 0, 0), addPoint(e, 6, 0), addPoint(e, 0, 3), {});
+  const ln = addLine(e, addPoint(e, 1, 5), addPoint(e, 12, 5), {});
+  assert.match(filletBetween(e, { k: 'el', id: full, p: { x: 0, y: 3 } }, { k: 'ln', id: ln, p: { x: 9, y: 5 } }, 1).msg, /elipse completa/);
 });
 
 console.log(`\n${passed} pruebas pasaron`);

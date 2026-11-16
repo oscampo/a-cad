@@ -83,7 +83,10 @@ function conPrims(doc, id, k) {
     case 'TANEP': { // linea tangente a un arco en un punto que es extremo de los dos: la linea es perpendicular al radio que llega al punto.
       // Es lo que usa el redondeo. La tangencia comun (distancia del centro a la recta = radio) es singular cuando el punto de
       // contacto es extremo de la linea y del arco (el solver la daria por conflicto al cambiar el radio); esta no lo es.
+      // Redondeo entre un arco y el arco del redondeo: el punto de contacto esta en la recta de los dos centros. Con un arco
+      // eliptico, el angulo entre las curvas en el contacto (ver nativeEllipsePrims).
       const [lid, aid, q] = r, l = doc.lines[lid], a = doc.arcs[aid];
+      if (!l) { const o = doc.arcs[lid]; return o ? [{ ...base, type: 'point_on_line_ppp', p_id: q, lp1_id: o.c, lp2_id: a.c }] : []; }
       return [{ ...base, type: 'perpendicular_pppp', l1p1_id: l.a === q ? l.b : l.a, l1p2_id: q, l2p1_id: a.c, l2p2_id: q }];
     }
     case 'TANLC': return kd[1] === 'a'
@@ -126,8 +129,8 @@ function conPrims(doc, id, k) {
 //  - PONE (punto sobre elipse): point_on_ellipse.
 //  - TANLE / TANCE / TANEE (recta, circulo/arco u otra elipse tangente): el punto de contacto T va sobre las dos
 //    curvas y el angulo entre ambas en T es 0 o 180 grados (angle_via_point).
-const ELL = new Set(['PONE', 'TANLE', 'TANCE', 'TANEE']);
-const ellRefs = (k) => (k.t === 'TANEE' ? [k.refs[0], k.refs[1]] : [k.refs[1]]);
+const ELL = new Set(['PONE', 'TANLE', 'TANCE', 'TANEE', 'TANEP']);
+const ellRefs = (k) => (k.t === 'TANEE' ? [k.refs[0], k.refs[1]] : k.t === 'TANEP' ? [k.refs[0]] : [k.refs[1]]);
 const nativeEllipses = (doc) => structural(doc, 'ell', () => nativeEllipsesRaw(doc));
 function nativeEllipsesRaw(doc) {
   const out = new Set();
@@ -168,6 +171,11 @@ function nativeEllipsePrims(doc, pos, ids) {
   for (const [id, k] of Object.entries(doc.cons)) {
     if (!ELL.has(k.t) || k.ref || !ellRefs(k).every((r) => ids.has(r))) continue;
     if (k.t === 'PONE') { out.push({ id, type: 'point_on_ellipse', p_id: k.refs[0], e_id: k.refs[1] }); continue; }
+    if (k.t === 'TANEP') { // extremo comun de un arco eliptico y del arco de un redondeo: basta el angulo entre ambos en ese punto
+      const [ee, aid, tq] = k.refs, Q = P(tq), C = P(doc.arcs[aid].c), te = etan(ee, Q);
+      out.push({ id, type: 'angle_via_point', crv1_id: ee, crv2_id: aid, p_id: tq, angle: te.x * -(Q.y - C.y) + te.y * (Q.x - C.x) >= 0 ? 0 : Math.PI });
+      continue;
+    }
     const [o, eid, tp] = k.refs, T = P(tp), t1 = etan(eid, T);
     out.push({ id: `${id}_s`, type: 'point_on_ellipse', p_id: tp, e_id: eid });
     let dir;
