@@ -190,8 +190,9 @@ function newton(c1, c2, s1, s2, r, a, b) {
 const startsOf = (c, tp, r) => (c.per ? [tp, ...Array.from({ length: 16 }, (_, i) => c.t0 + ((i + 0.5) * TAU) / 16)] : [tp, ...[-30, -10, -3, -1, 1, 3, 10, 30].map((m) => tp + m * (r + 0.1 * c.len))]);
 
 // Los redondeos de radio r entre las curvas que unen las partes tocadas en p1 y p2; el mejor o null.
-// De las soluciones que unen las partes que se conservan sin cuspide, gana la de menor arco y, a igual arco, la mas cerca del
-// vertice V (donde se cortan los elementos; sin vertice, de lo tocado). No depende del orden de los elementos.
+// De las soluciones que unen las partes que se conservan sin cuspide: primero las de arco menor que media vuelta; entre ellas gana la
+// mas cerca del vertice V (donde se cortan los elementos; sin vertice, de lo tocado) y, a igual distancia, la de menor arco; si
+// todas pasan de media vuelta, la de menor arco. No depende del orden de los elementos.
 export function bestFillet(c1, c2, r, p1, p2, V = null) {
   const tp1 = c1.tOf(p1), tp2 = c2.tOf(p2), seen = [];
   let best = null;
@@ -218,7 +219,14 @@ export function bestFillet(c1, c2, r, p1, p2, V = null) {
       if (sigma * k2 * (away2.x * rot2.x + away2.y * rot2.y) <= 1e-9) continue; // cuspide en T2: no sirve
       const a1 = Math.atan2(T1.y - O.y, T1.x - O.x), a2 = Math.atan2(T2.y - O.y, T2.x - O.x), sweep = norm(sigma > 0 ? a2 - a1 : a1 - a2);
       const near = V ? Math.hypot(O.x - V.x, O.y - V.y) : Math.hypot(T1.x - p1.x, T1.y - p1.y) + Math.hypot(T2.x - p2.x, T2.y - p2.y);
-      if (!best || sweep < best.sweep - 1e-6 || (Math.abs(sweep - best.sweep) <= 1e-6 && near < best.near)) best = { sweep, near, O, T1, T2, start1: st1, start2: st2, ccw: sigma > 0 };
+      const minor = sweep < Math.PI - 1e-6, eps = 1e-6 * (1 + r);
+      let win = !best;
+      if (best) {
+        if (minor !== best.minor) win = minor; // un arco menor que media vuelta antes que uno mayor
+        else if (!minor) win = sweep < best.sweep - 1e-6 || (Math.abs(sweep - best.sweep) <= 1e-6 && near < best.near); // sin arcos menores: el menor
+        else win = near < best.near - eps || (Math.abs(near - best.near) <= eps && sweep < best.sweep); // el mas cerca del vertice y, a igual distancia, el menor
+      }
+      if (win) best = { sweep, near, minor, O, T1, T2, start1: st1, start2: st2, ccw: sigma > 0 };
     }
   }
   return best;

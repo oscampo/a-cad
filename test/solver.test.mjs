@@ -3456,4 +3456,22 @@ t('redondeo: esquina entre un segmento y un arco con una linea constructiva en e
   for (const id of ch.pts) near(Math.hypot(e.pts[id].x - 5.2246, e.pts[id].y - 7.1126), 0.5, 1e-3);
 });
 
+t('redondeo: segmento casi tangente a un arco eliptico (pruebas-redondeo.json): el arco menor mas cerca de la esquina, no uno lejano', () => {
+  const d = newDoc();
+  const c = addPoint(d, -27.7, 13.28125), a = addPoint(d, 1.6, 21.78125), b = addPoint(d, -31.69027118207018, 27.035949486430155);
+  const p4 = addPoint(d, -2.4293719594597025, 26.565809404710908), p5 = addPoint(d, -30.458487127618294, 27.380184207826805), p10 = addPoint(d, -2.429, 1.823);
+  const el = addEllipse(d, c, a, b, {}, p4, p5);
+  addCon(d, { t: 'ANG4', refs: [c, a, c, b], v: 90, hidden: true });
+  const ln = addLine(d, p4, p10, {});
+  assert.ok(solve(d, []).ok);
+  for (const r of [1.5, 3, 6]) {
+    const e = JSON.parse(JSON.stringify(d));
+    const x = filletBetween(e, { k: 'ln', id: ln }, { k: 'el', id: el }, r), y = filletBetween(JSON.parse(JSON.stringify(d)), { k: 'el', id: el }, { k: 'ln', id: ln }, r);
+    assert.ok(x.ok && y.ok, x.msg);
+    const C = e.pts[e.arcs[x.arc].c];
+    assert.ok(Math.hypot(C.x - d.pts[p4].x, C.y - d.pts[p4].y) < 4 * r, 'cerca de la esquina');
+    assert.ok(arcOf(e, e.arcs[x.arc]).sweep < Math.PI, 'arco menor');
+  }
+});
+
 console.log(`\n${passed} pruebas pasaron`);
