@@ -190,7 +190,9 @@ function newton(c1, c2, s1, s2, r, a, b) {
 const startsOf = (c, tp, r) => (c.per ? [tp, ...Array.from({ length: 16 }, (_, i) => c.t0 + ((i + 0.5) * TAU) / 16)] : [tp, ...[-30, -10, -3, -1, 1, 3, 10, 30].map((m) => tp + m * (r + 0.1 * c.len))]);
 
 // Los redondeos de radio r entre las curvas que unen las partes tocadas en p1 y p2; el mejor o null.
-export function bestFillet(c1, c2, r, p1, p2) {
+// De las soluciones que unen las partes que se conservan sin cuspide, gana la de menor arco y, a igual arco, la mas cerca del
+// vertice V (donde se cortan los elementos; sin vertice, de lo tocado). No depende del orden de los elementos.
+export function bestFillet(c1, c2, r, p1, p2, V = null) {
   const tp1 = c1.tOf(p1), tp2 = c2.tOf(p2), seen = [];
   let best = null;
   for (const s1 of [1, -1]) for (const s2 of [1, -1]) {
@@ -214,8 +216,9 @@ export function bestFillet(c1, c2, r, p1, p2) {
       const rot1 = left({ x: (T1.x - O.x) / r, y: (T1.y - O.y) / r }), rot2 = left({ x: (T2.x - O.x) / r, y: (T2.y - O.y) / r });
       const sigma = -(k1 * (away1.x * rot1.x + away1.y * rot1.y)) >= 0 ? 1 : -1;
       if (sigma * k2 * (away2.x * rot2.x + away2.y * rot2.y) <= 1e-9) continue; // cuspide en T2: no sirve
-      const cost = Math.hypot(T1.x - p1.x, T1.y - p1.y) + Math.hypot(T2.x - p2.x, T2.y - p2.y);
-      if (!best || cost < best.cost) best = { cost, O, T1, T2, start1: st1, start2: st2, ccw: sigma > 0 };
+      const a1 = Math.atan2(T1.y - O.y, T1.x - O.x), a2 = Math.atan2(T2.y - O.y, T2.x - O.x), sweep = norm(sigma > 0 ? a2 - a1 : a1 - a2);
+      const near = V ? Math.hypot(O.x - V.x, O.y - V.y) : Math.hypot(T1.x - p1.x, T1.y - p1.y) + Math.hypot(T2.x - p2.x, T2.y - p2.y);
+      if (!best || sweep < best.sweep - 1e-6 || (Math.abs(sweep - best.sweep) <= 1e-6 && near < best.near)) best = { sweep, near, O, T1, T2, start1: st1, start2: st2, ccw: sigma > 0 };
     }
   }
   return best;
@@ -228,11 +231,22 @@ function sharedEnd(doc, c1, c2) {
   const s = c1.fields.map((f) => ownOf(doc, c1)[f]).find((p) => e2.includes(p));
   return s ? doc.pts[s] : null;
 }
-// Lado que se conserva cuando no se toco nada: el medio del elemento o, si se juntan en una esquina, su otro extremo (el redondeo
-// o el chaflan se come lo que esta junto a la esquina).
-function defaultPicks(doc, c1, c2) {
-  const e2 = c2.fields.map((f) => ownOf(doc, c2)[f]), s = c1.fields.map((f) => ownOf(doc, c1)[f]).find((p) => e2.includes(p));
-  const far = (c) => (s ? doc.pts[c.fields.map((f) => ownOf(doc, c)[f]).find((p) => p !== s)] : c.mid);
+// Vertice donde se juntan los dos elementos: su extremo comun o, si no lo hay, el corte de sus prolongaciones mas cerca del medio
+// de ambos. Null si no se cortan.
+function vertexOf(doc, c1, c2) {
+  const s = sharedEnd(doc, c1, c2);
+  if (s) return { x: s.x, y: s.y };
+  const mid = { x: (c1.mid.x + c2.mid.x) / 2, y: (c1.mid.y + c2.mid.y) / 2 };
+  return anchorOf(c1, c2, mid);
+}
+// Lado que se conserva cuando no se toco nada: el extremo de cada elemento mas lejos del vertice (el redondeo o el chaflan se
+// come lo que esta junto al vertice) o, sin vertice, el medio del elemento.
+function defaultPicks(doc, c1, c2, V) {
+  const far = (c) => {
+    if (!V) return c.mid;
+    const ends = c.fields.map((f) => doc.pts[ownOf(doc, c)[f]]);
+    return Math.hypot(ends[0].x - V.x, ends[0].y - V.y) >= Math.hypot(ends[1].x - V.x, ends[1].y - V.y) ? ends[0] : ends[1];
+  };
   return [far(c1), far(c2)];
 }
 
@@ -263,8 +277,8 @@ export function filletBetween(doc, A, B, r) {
   }
   const c1 = curveOf(doc, A.k, A.id), c2 = curveOf(doc, B.k, B.id);
   if (c1.msg || c2.msg) return { ok: false, msg: c1.msg || c2.msg };
-  const dp = defaultPicks(doc, c1, c2);
-  const f = bestFillet(c1, c2, r, A.p || dp[0], B.p || dp[1]);
+  const V0 = vertexOf(doc, c1, c2), dp = defaultPicks(doc, c1, c2, V0);
+  const f = bestFillet(c1, c2, r, A.p || dp[0], B.p || dp[1], V0);
   if (!f) return { ok: false, msg: 'No hay un redondeo de ese radio entre esos dos elementos: prueba otro radio o toca el otro lado de cada uno' };
   const own = (c) => (c.k === 'ln' ? doc.lines[c.id] : c.k === 'ar' ? doc.arcs[c.id] : doc.ellipses[c.id]);
   const style = styleOf(own(c1));
@@ -276,7 +290,7 @@ export function filletBetween(doc, A, B, r) {
   const dim = addCon(doc, { t: 'RAD', refs: [arc], v: r });
   // el vertice de antes queda como punto virtual sobre los dos elementos (como en el redondeo de esquina): sin el, al cambiar
   // el radio el solver gira los elementos en vez de deslizar el arco por ellos
-  const V = anchorOf(c1, c2, sharedEnd(doc, c1, c2) || f.O);
+  const V = anchorOf(c1, c2, V0 || f.O);
   if (V) {
     const v = addPoint(doc, V.x, V.y, true);
     addCon(doc, { t: PON[c1.k], refs: [v, c1.id], hidden: true });
@@ -298,8 +312,8 @@ export function chamferBetween(doc, A, B, d1, d2 = d1) {
   }
   const c1 = curveOf(doc, A.k, A.id), c2 = curveOf(doc, B.k, B.id);
   if (c1.msg || c2.msg) return { ok: false, msg: c1.msg || c2.msg };
-  const dp = defaultPicks(doc, c1, c2), p1 = A.p || dp[0], p2 = B.p || dp[1];
-  const V = anchorOf(c1, c2, sharedEnd(doc, c1, c2) || { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
+  const V0 = vertexOf(doc, c1, c2), dp = defaultPicks(doc, c1, c2, V0), p1 = A.p || dp[0], p2 = B.p || dp[1];
+  const V = anchorOf(c1, c2, V0 || { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
   if (!V) return { ok: false, msg: 'Esos dos elementos no se cortan (ni sus prolongaciones): no hay vértice para el chaflán' };
   const side = (c, tV, p, d) => { // parametro del punto a distancia d (en recta) del vertice, hacia lo tocado
     const dir = rel(c, c.tOf(p)) >= rel(c, tV) ? 1 : -1, Vp = { x: V.x, y: V.y };

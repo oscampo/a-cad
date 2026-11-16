@@ -3437,6 +3437,15 @@ t('redondeo: esquina entre un segmento y un arco con una linea constructiva en e
   near(Math.abs(((C.x - A.x) * (B.y - A.y) - (C.y - A.y) * (B.x - A.x)) / Math.hypot(B.x - A.x, B.y - A.y)), 0.76, 1e-4);
   // el segmento ya no llega a la esquina, el arco original tampoco
   assert.ok(Math.hypot(d.pts[L.b].x - 5.2246, d.pts[L.b].y - 7.1126) > 0.1 && Math.hypot(d.pts[d.arcs[arc].b].x - 5.2246, d.pts[d.arcs[arc].b].y - 7.1126) > 0.1);
+  // el resultado no depende del orden en que se eligen los elementos
+  const d3 = JSON.parse(JSON.stringify(d)); void d3;
+  const sw = newDoc(), s0 = addPoint(sw, 2.6310140816402012, -7.1535425526073375);
+  const s139 = addPoint(sw, 7.801812639149062, 6.393148640361678), s162 = addPoint(sw, 5.224571992842092, 7.1126222214740995), s51 = addPoint(sw, 5.488359110778653, 8.563613723730201);
+  const sa = addArc(sw, s0, s139, s162, 14.5, {}), sl = addLine(sw, s51, s162, {});
+  const sw2 = JSON.parse(JSON.stringify(sw));
+  const o1 = filletBetween(sw, { k: 'ar', id: sa }, { k: 'ln', id: sl }, 0.76), o2 = filletBetween(sw2, { k: 'ln', id: sl }, { k: 'ar', id: sa }, 0.76);
+  assert.ok(o1.ok && o2.ok);
+  near(sw.pts[sw.arcs[o1.arc].c].x, sw2.pts[sw2.arcs[o2.arc].c].x, 1e-9); near(sw.pts[sw.arcs[o1.arc].c].y, sw2.pts[sw2.arcs[o2.arc].c].y, 1e-9);
   // chaflan en la misma esquina
   const e = newDoc();
   const c2 = addPoint(e, 2.631, -7.1535); e.pts[c2].fixed = true;
