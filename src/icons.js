@@ -90,6 +90,10 @@ const custom = {
   // concentricos: dos circunferencias con el mismo centro
   'con-conc': S('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/>'),
   // linea de punto medio: crece igual a ambos lados del punto inicial
+  'act-r': S('<path d="M19 12a7 7 0 1 1-2.1-5"/><path d="M19 3v4h-4"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/>'),
+  'act-l': S('<path d="M4 18 19 6"/><path d="M10 6h9v9"/><path d="M3 21h6"/>'),
+  graph: S('<path d="M3 3v18h18"/><path d="m7 15 4-5 3 3 5-7"/>'),
+  play: S('<path d="M7 4v16l13-8z"/>'),
   mline: S('<path d="M3 19 21 5"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/><path d="M3 15v8M21 1v8" opacity=".45"/>'),
   // vector: linea con cabeza de flecha
   vector: S('<path d="M4 20 19 5"/><path d="M9 5h10v10"/>'),

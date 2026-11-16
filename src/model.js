@@ -272,6 +272,7 @@ function pointsUsed(doc) {
   for (const e of Object.values(doc.ellipses || {})) { used.add(e.c); used.add(e.a); used.add(e.b); if (e.p1) used.add(e.p1); if (e.p2) used.add(e.p2); }
   for (const t of Object.values(doc.texts || {})) used.add(t.pt);
   for (const sp of Object.values(doc.splines || {})) for (const p of sp.pts) used.add(p);
+  for (const a of Object.values(doc.acts || {})) for (const p of a.kind === 'MR' ? [a.c] : [a.p1, a.p2]) used.add(p); // actuadores
   for (const k of Object.values(doc.cons)) for (const r of conRefs(k)) used.add(r);
   return used;
 }
@@ -285,6 +286,10 @@ export function cleanup(doc) {
     changed = false;
     for (const [id, k] of Object.entries(doc.cons)) {
       if (!conRefs(k).every(exists) || (k.vec && !(k.vec in doc.lines)) || (k.shape && !(k.shape in (doc.splines || {})))) { delete doc.cons[id]; changed = true; } // k.vec: magnitud de un vector que ya no existe
+    }
+    for (const [id, a] of Object.entries(doc.acts || {})) { // un actuador cuya linea o puntos ya no existen
+      const ok = a.kind === 'MR' ? doc.lines[a.line] && (a.c === doc.lines[a.line].a || a.c === doc.lines[a.line].b) : doc.pts[a.p1] && doc.pts[a.p2];
+      if (!ok) { delete doc.acts[id]; changed = true; }
     }
     for (const [id, sp] of Object.entries(doc.splines || {})) {
       const keep = sp.pts.filter((p) => p in doc.pts);

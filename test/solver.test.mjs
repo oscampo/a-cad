@@ -12,6 +12,8 @@ import { makeVector, unmakeVector, syncVectors, isVector, vecArrow, vecEnds } fr
 import { varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, varsOf, settle, hasReactive, textVarErrors, usesTextVars, varsList } from '../src/params.js';
 import { runsOf, plainText } from '../src/tvars.js';
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, cornerElements, coincidentIds } from '../src/corners.js';
+import { addRotary, addLinear, actName, actDisp, simBegin, simStep, simEnd, parseTable, actError } from '../src/actuators.js';
+import { addGraph, computeGraph, niceTicks, parseSeries } from '../src/graphs.js';
 import { rigidShape, looseShape, isRigid } from '../src/rigid.js';
 import { nameDims } from '../src/model.js';
 import { trimAt, extendEnd, cutsOf, curveCuts, linearArray, mirrorCopy, circularArray, clipOf, pasteClip, bboxOf } from '../src/edit.js';
@@ -3497,6 +3499,89 @@ t('redondeo: las 12 esquinas de pruebas-redondeo.json, por esquina y todas a la 
     for (const pid of labels) { if (seen.has(pid)) continue; for (const q of coincidentIds(d, pid)) seen.add(q); assert.ok(dispatch(d, pid, r).ok); }
     assert.ok(solve(d, []).ok, 'todas a la vez');
   }
+});
+
+t('rangos: x{=a..b;n} y x{=a..paso..b} son vectores', () => {
+  const d = newDoc(), P = addPoint(d, 0, 0);
+  addText(d, P, 'v{=0..1;5}  w{=1..2..10}  u{=10..-3..0}  s{=2*2..3*3;2}', {});
+  const vs = varsOf(d);
+  assert.deepEqual(vs.v.vec, [0, 0.25, 0.5, 0.75, 1]);
+  assert.deepEqual(vs.w.vec, [1, 3, 5, 7, 9]);
+  assert.deepEqual(vs.u.vec, [10, 7, 4, 1]);
+  assert.deepEqual(vs.s.vec, [4, 9]);
+  const o = addText(d, P, 'a [=v] b [=w+1]', {});
+  assert.equal(textValue(d, d.texts[o]), 'a [0, 0.25, 0.5, 0.75, 1] b ⚠');
+  const e = newDoc(), Q = addPoint(e, 0, 0);
+  addText(e, Q, 'a{=1..2..0}  b{=1..0;3.5}  c{=1..2..3..4}  d{=1..0..5}', {});
+  assert.equal(Object.keys(varsOf(e)).length, 0);
+  assert.equal(textVarErrors(e).length, 4);
+});
+
+t('actuadores: MR gira una linea, ML estira entre dos puntos, la simulacion no toca el dibujo', () => {
+  const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 10, 0), l = addLine(d, a, b);
+  d.pts[a].fixed = true; addCon(d, { t: 'DIST', refs: [a, b], v: 10 });
+  const m = addRotary(d, l, a, { mode: 'disp', expr: '90*t' });
+  assert.equal(actName(d.acts[m]), '⟲MR1');
+  const before = JSON.stringify(d);
+  const sim = simBegin(d);
+  assert.ok(simStep(d, sim, 1, solve).ok);
+  assert.ok(Math.abs(d.pts[b].x) < 1e-3 && Math.abs(d.pts[b].y - 10) < 1e-3, 'a 90 grados');
+  assert.ok(simStep(d, sim, 2, solve).ok);
+  assert.ok(Math.abs(d.pts[b].x + 10) < 1e-3, 'a 180 grados (pasa por varios subpasos)');
+  simEnd(d, sim);
+  assert.equal(JSON.stringify(d), before, 'el dibujo queda igual');
+  // velocidad constante y tabla dan el mismo giro; en sentido horario va al reves
+  d.acts[m].mode = 'vel'; d.acts[m].expr = '90'; d.acts[m].cw = true;
+  assert.equal(actName(d.acts[m]), '⟳MR1');
+  assert.ok(Math.abs(actDisp(d, d.acts[m], 2) - 180) < 1e-6);
+  d.acts[m].src = 'table'; d.acts[m].table = parseTable('0; 90\n4; 90');
+  assert.ok(Math.abs(actDisp(d, d.acts[m], 2) - 180) < 1e-6);
+  d.acts[m].mode = 'disp'; d.acts[m].table = parseTable('0; 0\n2; 180');
+  assert.ok(Math.abs(actDisp(d, d.acts[m], 1) - 90) < 1e-9);
+  const s2 = simBegin(d);
+  assert.ok(simStep(d, s2, 1, solve).ok);
+  assert.ok(Math.abs(d.pts[b].y + 10) < 1e-3, 'horario: hacia abajo');
+  simEnd(d, s2);
+  // lineal
+  const e = newDoc(), p = addPoint(e, 0, 0), q = addPoint(e, 10, 0); e.pts[p].fixed = true;
+  addLine(e, p, q); addCon(e, { t: 'AZ', refs: [p, q], v: 0, hidden: true });
+  const ml = addLinear(e, p, q, { mode: 'vel', expr: '2' });
+  const s3 = simBegin(e);
+  assert.ok(simStep(e, s3, 3, solve).ok);
+  assert.ok(Math.abs(Math.hypot(e.pts[q].x, e.pts[q].y) - 16) < 1e-3, 'longitud 10 + 2*3');
+  simEnd(e, s3);
+  assert.equal(actError(e, e.acts[ml]), null);
+  e.acts[ml].expr = 'zz+1';
+  assert.ok(actError(e, e.acts[ml]));
+  deleteItems(d, [{ k: 'ln', id: l }]); // borrar la linea elimina el actuador
+  assert.equal(Object.keys(d.acts).length, 0);
+});
+
+t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', () => {
+  const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 10, 0), l = addLine(d, a, b);
+  d.pts[a].fixed = true; addCon(d, { t: 'DIST', refs: [a, b], v: 10 });
+  addRotary(d, l, a, { mode: 'vel', expr: '30' });
+  const g = addGraph(d, 0, 0, 100, 60, ['MR1 vs t', 'MR1_v vs t']);
+  d.graphs[g].t1 = 4; d.graphs[g].n = 5;
+  const r = computeGraph(d, d.graphs[g], solve);
+  assert.equal(r.error, null);
+  assert.equal(r.series.length, 2);
+  assert.deepEqual(r.series[0].pts.map((p) => Math.round(p[1])), [0, 30, 60, 90, 120]);
+  assert.ok(r.series[1].pts.every((p) => Math.abs(p[1] - 30) < 1e-3), 'velocidad constante');
+  assert.equal(JSON.stringify(d.acts).includes('"x"'), false);
+  d.graphs[g].series = ['zz vs t'];
+  assert.match(computeGraph(d, d.graphs[g], solve).error, /zz/);
+  d.graphs[g].series = ['mala'];
+  assert.match(computeGraph(d, d.graphs[g], solve).error, /vs/);
+  const e = newDoc(), P = addPoint(e, 0, 0);
+  addText(e, P, 'x{=0..1;3}  y{=0..2..4}  z{=1..2;4}', {});
+  const h = addGraph(e, 0, 0, 100, 60, ['y vs x']);
+  assert.deepEqual(computeGraph(e, e.graphs[h], solve).series[0].pts, [[0, 0], [0.5, 2], [1, 4]]);
+  e.graphs[h].series = ['z vs x'];
+  assert.match(computeGraph(e, e.graphs[h], solve).error, /distinto/);
+  assert.deepEqual(parseSeries('A1  vs  t'), { y: 'A1', x: 't' });
+  const tk = niceTicks(0, 97);
+  assert.ok(tk.lo <= 0 && tk.hi >= 97 && tk.ticks.length >= 3);
 });
 
 console.log(`\n${passed} pruebas pasaron`);

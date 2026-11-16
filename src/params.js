@@ -42,7 +42,7 @@ export function varsList(doc, exceptId = null) {
     return `${k.name} = ${Math.round(x * 1000) / 1000}${k.t === 'ANG' ? '°' : ''}${k.ref ? ' (lectura)' : ''}`;
   });
   const tv = hasDefs(doc) ? textVars(doc, exceptId).vals : {};
-  return dims.concat(Object.entries(tv).map(([n, x]) => `${n} = ${Math.round(x.v * 1000) / 1000} (texto)`)).join(', ');
+  return dims.concat(Object.entries(tv).map(([n, x]) => `${n} = ${x.vec ? `vector de ${x.vec.length}` : Math.round(x.v * 1000) / 1000} (texto)`)).join(', ');
 }
 // Las mismas variables como lista para elegirlas en un menu: [{ name, text, kind }]. kind: 'dim' (distancias, radios, diametros),
 // 'ang' (angulos) o 'var' (variables de los textos).
@@ -53,7 +53,7 @@ export function varsInfo(doc, exceptId = null) {
     return { name: k.name, text: `${k.name} = ${r3(x)}${ang ? '°' : ''}${k.ref ? ' (lectura)' : ''}`, kind: ang ? 'ang' : 'dim' };
   });
   const tv = hasDefs(doc) ? textVars(doc, exceptId).vals : {};
-  for (const [n, x] of Object.entries(tv)) out.push({ name: n, text: `${n} = ${r3(x.v)}`, kind: 'var' });
+  for (const [n, x] of Object.entries(tv)) out.push({ name: n, text: x.vec ? `${n} = vector de ${x.vec.length}` : `${n} = ${r3(x.v)}`, kind: 'var' });
   return out;
 }
 // Nombres de las variables definidas en textos (las que alguna definicion valida usa).

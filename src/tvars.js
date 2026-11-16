@@ -25,6 +25,38 @@ export const DEF_SRC = '([A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*)\\{=([^}]*)\
 const DEF_RE = () => new RegExp(DEF_SRC, 'g');
 export const hasDefMark = (s) => typeof s === 'string' && s.includes('{=');
 
+// Rangos (vectores de numeros igualmente espaciados): «x{=inicio..fin;n}» (n elementos entre inicio y fin, ambos incluidos) y
+// «x{=inicio..paso..fin}» (inicio, inicio+paso, ... sin pasar de fin). Cada parte puede ser una formula.
+// Devuelve { kind: 'n'|'step', parts } o null si la definicion no es un rango. Un decimal «1.5» no cuenta como «..».
+export function parseRange(src) {
+  const s = String(src ?? '');
+  if (!s.includes('..')) return null;
+  const p = s.split('..');
+  if (p.length === 2) { const q = p[1].split(';'); return q.length === 2 ? { kind: 'n', parts: [p[0], q[0], q[1]] } : { kind: 'bad', parts: [] }; }
+  if (p.length === 3) return { kind: 'step', parts: p };
+  return { kind: 'bad', parts: [] };
+}
+export const MAX_RANGE = 10000;
+// Elementos del rango; ev evalua cada parte a un numero.
+export function rangeValues(rg, ev) {
+  if (rg.kind === 'bad') throw new Error('un rango se escribe inicio..fin;n o inicio..paso..fin');
+  const [a, b, c] = rg.parts.map(ev);
+  const out = [];
+  if (rg.kind === 'n') { // a..b;c  ->  c elementos
+    if (!Number.isInteger(c) || c < 1) throw new Error('n debe ser un entero de 1 o más');
+    if (c > MAX_RANGE) throw new Error(`un rango admite hasta ${MAX_RANGE} elementos`);
+    for (let i = 0; i < c; i++) out.push(c === 1 ? a : a + ((b - a) * i) / (c - 1));
+    return out;
+  }
+  const step = b, span = c - a; // a..paso..c
+  if (step === 0) { if (span === 0) return [a]; throw new Error('el paso no puede ser 0'); }
+  if (span !== 0 && Math.sign(span) !== Math.sign(step)) throw new Error('el paso lleva el sentido contrario al de inicio a fin');
+  const n = Math.floor(span / step + 1e-9) + 1;
+  if (n > MAX_RANGE) throw new Error(`un rango admite hasta ${MAX_RANGE} elementos`);
+  for (let i = 0; i < n; i++) out.push(a + step * i);
+  return out;
+}
+
 // Definiciones de todos los textos, en orden: [{ tid, idx, name, expr }]. idx: lugar dentro de su texto.
 export function textDefs(doc) {
   const out = [];
@@ -64,13 +96,16 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set()) {
     if (s === 2) return false;
     if (s === 1) return false; // ciclo: quien lo cierra queda con error
     state.set(name, 1);
-    const d = win.get(name), vars = { ...dimVars };
+    const d = win.get(name), vars = { ...dimVars }, rg = parseRange(d.expr);
     let ok = true;
-    for (const n of exprRefs(d.expr)) {
+    for (const n of new Set((rg ? rg.parts : [d.expr]).flatMap(exprRefs))) {
       if (win.has(n)) { if (ev(n)) vars[n] = st.vals[n]; else { ok = false; st.errs.set(name, `«${name}» depende de «${n}», que no se puede calcular`); } }
     }
     if (ok) {
-      try { const r = evalExpr(d.expr, { vars }); st.vals[name] = { v: r.value, r: r.rad }; } catch (e) { ok = false; st.errs.set(name, `«${name}»: ${e.message}`); }
+      try {
+        if (rg) st.vals[name] = { vec: rangeValues(rg, (s) => evalExpr(s, { vars }).value), r: false };
+        else { const r = evalExpr(d.expr, { vars }); st.vals[name] = { v: r.value, r: r.rad }; }
+      } catch (e) { ok = false; st.errs.set(name, `«${name}»: ${e.message}`); }
     }
     state.set(name, 2);
     if (!ok) st.bad.add(d.key);

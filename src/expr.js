@@ -172,7 +172,10 @@ export function evalExpr(src, { radians = false, vars = null } = {}) {
     const k = toks[p++];
     if (!k) throw new Error('Expresión incompleta');
     if (k.t === 'num') return { v: k.v, r: false };
-    if (k.t === 'var') return { v: vars[k.v].v, r: !!vars[k.v].r };
+    if (k.t === 'var') {
+      if (vars[k.v].vec) throw new Error(`«${k.v}» es un vector de ${vars[k.v].vec.length} elementos, no un número`);
+      return { v: vars[k.v].v, r: !!vars[k.v].r };
+    }
     if (k.t === 'sqrt') { const a = primary(); if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r }; }
     if (k.t === 'op' && k.v === '(') {
       const a = cmp();

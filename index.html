@@ -83,6 +83,19 @@ dialog.help a { color: var(--accent); }
 #status { padding: 5px 10px; border-top: 1px solid var(--line); background: var(--panel); color: var(--muted); font-variant-numeric: tabular-nums; min-height: 28px; }
 #toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90%; z-index: 5; }
 #toast.show { opacity: .95; }
+#simBar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px; z-index: 6; max-width: 96%; }
+#simBar[hidden] { display: none; }
+#simBar input[type=range] { width: 38vw; min-width: 100px; }
+#simBar input:not([type=range]) { width: 4.5em; }
+#dlgAct label { display: block; margin: 8px 0 2px; color: var(--muted); font-size: 13px; }
+#dlgAct select, #dlgAct textarea { width: 100%; min-height: 40px; font-size: 16px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--btn); color: var(--fg); }
+#dlgAct input[type=checkbox] { width: 22px; min-height: 0; height: 22px; vertical-align: middle; margin-right: 6px; }
+#dlgGraph label { display: block; margin: 8px 0 2px; color: var(--muted); font-size: 13px; }
+#dlgGraph textarea { width: 100%; font-size: 16px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--btn); color: var(--fg); }
+#dlgGraph input { min-height: 38px; font-size: 16px; }
+#dlgGraph { width: min(460px, calc(100vw - 16px)); }
+#dlgAct { width: min(420px, calc(100vw - 16px)); }
+#simBar label { color: var(--muted); font-size: 13px; white-space: nowrap; }
 #tLayers { position: absolute; left: 8px; top: 8px; z-index: 4; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
 #tLayers.on { border-color: var(--accent); }
 #relTag { position: absolute; left: 8px; bottom: 6px; z-index: 3; font-style: italic; color: var(--muted); font-variant-numeric: tabular-nums; pointer-events: none; user-select: none; } /* mismo tamano que el texto de ayuda de abajo (hereda el del cuerpo) */
@@ -136,6 +149,7 @@ body.nopanel #panel { display: none; }
   <button class="grp" data-group="rect" data-icon="rect"><i></i><b class="chev"></b></button>
   <button data-tool="polygon" data-icon="polygon" title="Polígono regular: centro, radio y número de lados (G)" aria-label="Polígono"><i></i></button>
   <button class="grp" data-group="corner" data-icon="fillet"><i></i><b class="chev"></b></button>
+  <button class="grp" data-group="act" data-icon="act-r"><i></i><b class="chev"></b></button>
   <button data-tool="text" data-icon="text" title="Texto (T)" aria-label="Texto"><i></i></button>
   <button data-tool="dim" data-icon="dim-dist" title="Acotar: elige la cota según lo que toques o tengas seleccionado (D)" aria-label="Acotar"><i></i></button>
   <button data-tool="trim" data-icon="trim" title="Recortar: arrastra sobre los tramos a quitar (X)" aria-label="Recortar"><i></i></button>
@@ -152,6 +166,7 @@ body.nopanel #panel { display: none; }
 </header>
 <main>
   <div id="stage"><canvas id="cv"></canvas><div id="toast"></div>
+  <div id="simBar" hidden><button id="simPlay" title="Reproducir o pausar">▶</button><input id="simRange" type="range" min="0" max="10" step="0.01" value="0" aria-label="Tiempo"><label>t <input id="simT" inputmode="decimal" size="5" value="0"></label><label>hasta <input id="simTmax" inputmode="decimal" size="4" value="10"></label><button id="simStop" title="Detener la simulación y volver al dibujo">Detener</button></div>
   <button id="tLayers" data-icon="layers" title="Capas: crear, encender, apagar y borrar" aria-label="Capas"><i></i></button><div id="layerName" hidden></div><div id="relTag"></div><div id="fileTag"></div>
     <nav id="tree" aria-label="Árbol de elementos"><div class="thead"><b>Elementos</b><button id="treeClose" aria-label="Cerrar">✕</button></div><div id="treeBody"></div></nav>
   </div>
@@ -345,6 +360,24 @@ body.nopanel #panel { display: none; }
   <p style="margin:8px 0 2px;font-size:13px"><b>Tipos de línea</b> <span style="color:var(--muted)">(líneas, círculos, arcos, splines y elipses)</span></p>
   <div id="flLt"></div>
   <div class="actions"><button type="button" id="flAll">Todo</button><button type="button" id="flNone">Nada</button><button type="button" id="flCancel">Cancelar</button><button id="flOk" class="on">Aplicar</button></div>
+</form></dialog>
+<dialog id="dlgAct"><form method="dialog">
+  <b id="actTitle">Actuador</b>
+  <label>Qué se define <select id="actMode"><option value="disp">Desplazamiento respecto al tiempo</option><option value="vel">Velocidad</option></select></label>
+  <label>Cómo <select id="actSrc"><option value="expr">Expresión o función de t</option><option value="table">Tabla contra el tiempo</option></select></label>
+  <div id="actExprRow"><label><span id="actExprLbl"></span><input id="actExpr" autocomplete="off" placeholder="p. ej. 90*t, 30*sin(2π*t)"></label></div>
+  <div id="actTableRow"><label><span id="actTableLbl"></span><textarea id="actTable" rows="6" placeholder="0; 0&#10;1; 45&#10;2; 90"></textarea></label></div>
+  <div id="actCwRow"><label><input type="checkbox" id="actCw"> Sentido horario (por defecto, antihorario)</label></div>
+  <div class="actions"><button id="actDel" type="button">Eliminar</button><button id="actCancel" type="button">Cancelar</button><button id="actOk" class="on">Aceptar</button></div>
+</form></dialog>
+<dialog id="dlgGraph"><form method="dialog">
+  <b>Gráfica</b>
+  <label>Título (opcional) <input id="grTitle" autocomplete="off"></label>
+  <label>Relaciones, una por línea: «variable1 vs variable2» (la 1.ª va en el eje vertical)<textarea id="grSeries" rows="4" placeholder="MR1 vs t&#10;A1 vs t"></textarea></label>
+  <div id="grVars" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+  <div style="display:flex;gap:8px"><label style="flex:1">Tiempo final<input id="grT1" inputmode="decimal"></label><label style="flex:1">Muestras<input id="grN" inputmode="numeric"></label></div>
+  <div style="display:flex;gap:8px"><label style="flex:1">x<input id="grX" inputmode="decimal"></label><label style="flex:1">y<input id="grY" inputmode="decimal"></label><label style="flex:1">Ancho<input id="grW" inputmode="decimal"></label><label style="flex:1">Alto<input id="grH" inputmode="decimal"></label></div>
+  <div class="actions"><button id="grDel" type="button">Eliminar</button><button id="grCancel" type="button">Cancelar</button><button id="grOk" class="on">Aceptar</button></div>
 </form></dialog>
 <dialog id="dlgH" class="help"><div class="hhead"><b>Ayuda</b><button id="helpClose" aria-label="Cerrar">✕</button></div><div id="helpBody"></div></dialog>
 <dialog id="dlgT"><form method="dialog"><label id="dlgTLabel" for="dlgTInput"></label><textarea id="dlgTInput" rows="2" style="width:100%;font-size:18px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);font-family:inherit"></textarea><div class="row" id="dlgTFontRow" style="margin-top:6px"><label for="dlgTFont">Fuente</label><select id="dlgTFont"></select></div><div class="actions"><button value="cancel" type="button" id="dlgTCancel">Cancelar</button><button value="ok" id="dlgTOk" class="on">Aceptar</button></div></form></dialog>

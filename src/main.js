@@ -18,6 +18,9 @@ import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, angSector, angTrue, initAngle, trackAngles, DIAM } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
+import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
+import { TRACE_STYLE } from './curves.js';
+import { addGraph, computeGraph, graphVarNames, niceTicks, dataBounds } from './graphs.js';
 import { textFrame, textHit, textPose, shownText, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss } from './text.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors } from './params.js';
@@ -54,6 +57,8 @@ let clip = null; // lo copiado (Copiar / Pegar)
 let hover = null; // posicion del puntero en pantalla
 let drag = null;
 let labelHits = [];
+let graphData = {}, graphTimer = 0;
+let actHits = [], sim = null, simT = 0, simTmax = 10, simRaf = 0, simPlayFrom = 0; // actuadores: zonas tocables y simulacion en curso
 const pointers = new Map();
 let gesture = null;
 let spaceDown = false, shiftDown = false;
@@ -80,17 +85,19 @@ function readTheme() {
 }
 const colorOf = (c, o) => (!c || c === 'auto' ? o.fg : c);
 
-function snapshot() { return JSON.stringify(doc); }
+function snapshot() { return sim ? sim.snap : JSON.stringify(doc); } // durante la simulacion el dibujo es el guardado, sin las restricciones conductoras
 function pushUndo() { undoStack.push(snapshot()); if (undoStack.length > 150) undoStack.shift(); redoStack = []; updateButtons(); }
 function rollback() { if (undoStack.length) { doc = JSON.parse(undoStack.pop()); } updateButtons(); }
 // la capa actual no se deshace: sigue siendo la que elegiste (si todavia existe y esta encendida)
 function keepLayer(cl) { doc.curLayer = cl && doc.layers?.[cl]?.on ? cl : null; }
 function undo() {
+  if (sim) stopSim();
   if (!undoStack.length) return;
   const cl = doc.curLayer; redoStack.push(snapshot()); doc = JSON.parse(undoStack.pop()); keepLayer(cl);
   pending = null; sel = sel.filter(exists); afterChange();
 }
 function redo() {
+  if (sim) stopSim();
   if (!redoStack.length) return;
   const cl = doc.curLayer; undoStack.push(snapshot()); doc = JSON.parse(redoStack.pop()); keepLayer(cl);
   pending = null; sel = sel.filter(exists); afterChange();
@@ -101,6 +108,7 @@ function exists(s) {
 let saveTimer = 0;
 function persist() {
   clearTimeout(saveTimer);
+  if (sim) return; // no se guarda el dibujo movido por la simulacion
   saveTimer = setTimeout(() => {
     try { localStorage.setItem(STORE, JSON.stringify({ doc, view, cur, opts })); } catch { /* sin almacenamiento */ }
   }, 300);
@@ -111,7 +119,7 @@ function updateFileTag() {
   const el = $('fileTag'), t = opts.fileBase ? opts.fileBase + '.json' : 'sin nombre';
   if (el && el.textContent !== t) el.textContent = t;
 }
-function afterChange() { updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = JSON.parse(bak); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); persist(); draw(); renderTree(); }
+function afterChange() { scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = JSON.parse(bak); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); persist(); draw(); renderTree(); }
 
 // Un boton de restriccion solo se activa si la seleccion actual le sirve (mismas reglas que applyCon).
 function updateEnabled() {
@@ -566,6 +574,7 @@ function strokePolyline(c, P, dash) {
   for (let i = 1; i < P.length; i++) total += Math.hypot(P[i].x - P[i - 1].x, P[i].y - P[i - 1].y);
   const period = dash.reduce((t, v) => t + v, 0);
   if (!dash.length || !(period > 0) || !(total > 0) || total / period > 20000) {
+    c.lineCap = 'round';
     P.forEach((q, i) => (i ? c.lineTo(q.x, q.y) : c.moveTo(q.x, q.y)));
     c.stroke();
     return;
@@ -615,6 +624,7 @@ function strokeLine(c, x1, y1, x2, y2, dash) {
   const L = Math.hypot(x2 - x1, y2 - y1), period = dash.reduce((t, v) => t + v, 0);
   c.beginPath();
   if (!dash.length || !(period > 0) || !(L > 0) || L / period > 20000) {
+    c.lineCap = 'round'; // trazo continuo: el remate redondo rellena la esquina donde se juntan dos lineas
     c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
     return;
   }
@@ -637,6 +647,7 @@ function strokeArc(c, cx, cy, r, a0, sweep, dash) {
   const L = r * sweep, period = dash.reduce((t, v) => t + v, 0);
   c.beginPath();
   if (!dash.length || !(period > 0) || L / period > 20000) {
+    c.lineCap = 'round';
     c.arc(cx, cy, r, -a0, -(a0 + sweep), true);
     c.stroke();
     return;
@@ -735,6 +746,8 @@ export function render(c, W, H, v, o) {
       c.closePath(); c.fill();
     }
   }
+  drawActs(c, o);
+  drawGraphs(c, o);
   for (const [id, sp] of shownEntries(doc, 'splines')) {
     const P = splinePolyline(doc, sp, 16).map((q) => { const s = toScreen(q); return { x: s.x * dpr, y: s.y * dpr }; });
     if (o.ui && isSel('sp', id)) {
@@ -1552,9 +1565,14 @@ function toolMove(p) {
 
 function toolUp(p, q) {
   const d = drag; drag = null;
+  if (sim) { if (tool === 'select' && !d?.started) selectAt(p); else if (tool !== 'select') toast('Detén la simulación para dibujar o editar'); return; }
+  if (tool === 'mr' || tool === 'ml') { actTool(p); return; }
+  if (tool === 'graph') { graphTool(p); return; }
   if (tool === 'select') {
     if (d?.box && d.boxOn) { finishBox(d, p); return; }
     if (d?.started) { recordTraces(doc, 2e-4); reparamSplines(doc); afterChange(); return; } // la trayectoria termina donde quedo el punto al soltar
+    const ah = actAt(p.x, p.y);
+    if (ah) { editAct(ah, false); return; }
     selectAt(p);
     return;
   }
@@ -2577,6 +2595,9 @@ const HINTS = {
   line: 'Toca inicio y fin (encadena); o arrastra un segmento. Esc/Seleccionar termina.',
   circle: 'Toca el centro y luego un punto del borde.',
   mline: 'Línea de punto medio: toca el punto medio y luego un extremo (o arrastra); la línea crece igual hacia el otro lado. Hay bloqueo suave.',
+  graph: 'Gráfica: toca donde va su esquina inferior izquierda. Escribe las relaciones como «variable1 vs variable2» (una por línea): t, actuadores (MR1, MR1_v), cotas, variables y vectores de rangos.',
+  mr: 'Actuador rotacional (MR): toca una línea cerca del extremo que será el centro de giro; define su desplazamiento o velocidad angular respecto al tiempo (t).',
+  ml: 'Actuador lineal (ML): toca el punto de la cola y el de la cabeza; define su desplazamiento o velocidad respecto al tiempo (t).',
   vector: 'Vector: como Línea, con cabeza de flecha en el punto final y su magnitud como texto en el punto medio. Con una línea (y uno de sus extremos, que será la cola) seleccionada, pulsar Vector la convierte en vector.',
   cline: 'Línea constructiva (gris, fina, con un punto en cada extremo): toca inicio y fin, o arrastra. No sale en el SVG de corte láser salvo que lo elijas.',
   circle3: 'Círculo perimetral: toca 3 puntos no colineales por donde pasa la circunferencia.',
@@ -2736,6 +2757,7 @@ const GROUPS = {
   arc: [['arcc', 'arc-c', 'Arco por centro y extremos (R)'], ['arc3', 'arc-3', 'Arco por 3 puntos (A)'], ['carcc', 'carcc', 'Arco constructivo por centro y extremos'], ['carc3', 'carc3', 'Arco constructivo por 3 puntos']],
   ellipse: [['ellipse', 'ellipse', 'Elipse: centro y dos ejes (O)'], ['earc', 'earc', 'Elipse parcial (arco elíptico)']],
   rect: [['rect', 'rect', 'Rectángulo por diagonal (B)'], ['rectc', 'rect-c', 'Rectángulo de centro']],
+  act: [['mr', 'act-r', 'Actuador rotacional (MR): toca una línea cerca del extremo que será el centro de giro'], ['ml', 'act-l', 'Actuador lineal (ML): toca el punto de la cola y el de la cabeza'], ['graph', 'graph', 'Gráfica: toca donde va su esquina inferior izquierda; muestra «variable1 vs variable2»'], ['sim', 'play', 'Simulación: barra de tiempo para mover los actuadores']],
   corner: [['fillet', 'fillet', 'Redondeo (F): toca una esquina, o dos elementos, y teclea el radio'], ['chamfer', 'chamfer', 'Chaflán: toca una esquina y teclea la distancia']],
   clip: [['copy', 'copy', 'Copiar la selección (Ctrl+C)'], ['paste', 'paste', 'Pegar: toca el punto donde va el centro de lo copiado (Ctrl+V)']],
 };
@@ -2743,7 +2765,7 @@ const GROUPS = {
 // Archivo y Spline: sus acciones viven en botones ocultos (#acts) que conservan su logica y su estado habilitado.
 const ACT_IDS = new Set(['ghSave', 'ghOpen', 'ghCfg', 'fNew', 'fSave', 'fLoad', 'fPng', 'fSvg', 'fLaser', 'fDxf', 'trTrace', 'trClear', 'mkReset', 'trSpline', 'spClose', 'spOffset']);
 const MENU_ONLY = new Set(['file']); // el boton solo abre el desplegable (nunca ejecuta algo, p. ej. "Nuevo")
-const isAct = (id) => id === 'filter' || ACT_IDS.has(id);
+const isAct = (id) => id === 'filter' || id === 'sim' || ACT_IDS.has(id);
 // Vector <-> linea con lo seleccionado: con una linea (y uno de sus extremos, la cola) seleccionada, «Vector» la convierte;
 // con un vector seleccionado, «Línea» lo convierte en linea. Sin eso, el boton elige la herramienta.
 function selectedLines(wantVec) { return sel.filter((x) => x.k === 'ln' && doc.lines[x.id] && !!doc.lines[x.id].vec === wantVec).map((x) => x.id); }
@@ -2764,10 +2786,235 @@ function convertToLine() {
   afterChange(); toast(ids.length === 1 ? 'Convertido en línea' : `${ids.length} vectores convertidos en líneas`);
   return true;
 }
+// ---- actuadores (motores) y simulacion
+const ACT_COLOR = TRACE_STYLE.color;
+function drawActs(c, o) {
+  actHits = [];
+  for (const [id, a] of Object.entries(doc.acts || {})) {
+    const label = actName(a);
+    c.save(); c.fillStyle = ACT_COLOR; c.strokeStyle = ACT_COLOR; c.setLineDash([]); c.lineCap = 'round'; c.lineJoin = 'round';
+    c.font = 'bold ' + 13 * dpr + 'px -apple-system, system-ui, sans-serif'; c.textBaseline = 'middle';
+    if (a.kind === 'MR') {
+      const C = doc.pts[a.c];
+      if (C) {
+        const s = toScreen(C), x = s.x * dpr, y = s.y * dpr, r = 20 * dpr, S0 = Math.PI / 4, e = a.cw ? S0 + 1.5 * Math.PI : S0 - 1.5 * Math.PI; // en pantalla el eje y baja: antihorario = angulo decreciente
+        c.lineWidth = 2 * dpr; c.beginPath(); c.arc(x, y, r, S0, e, !a.cw); c.stroke();
+        const ex = x + r * Math.cos(e), ey = y + r * Math.sin(e), k = a.cw ? 1 : -1, tx = -Math.sin(e) * k, ty = Math.cos(e) * k, B = 8 * dpr; // tangente en el extremo, en el sentido del giro
+        c.beginPath(); c.moveTo(ex - tx * B - ty * B * 0.5, ey - ty * B + tx * B * 0.5); c.lineTo(ex, ey); c.lineTo(ex - tx * B + ty * B * 0.5, ey - ty * B - tx * B * 0.5); c.stroke();
+        c.textAlign = 'left'; c.fillText(label, x + 24 * dpr, y - 20 * dpr);
+        actHits.push({ id, x: s.x + 24 + 24, y: s.y - 20, r: 26 });
+      }
+    } else {
+      const P = doc.pts[a.p1], Q = doc.pts[a.p2];
+      if (P && Q) {
+        const A = toScreen(P), B = toScreen(Q), L = Math.hypot(B.x - A.x, B.y - A.y);
+        if (L > 1) {
+          const ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, h = Math.min(12, L * 0.4) * dpr;
+          c.lineWidth = 2.5 * dpr; c.beginPath(); c.moveTo(A.x * dpr, A.y * dpr); c.lineTo(B.x * dpr, B.y * dpr); c.stroke();
+          c.beginPath(); c.moveTo(B.x * dpr, B.y * dpr); c.lineTo(B.x * dpr - ux * h - uy * h * 0.4, B.y * dpr - uy * h + ux * h * 0.4); c.lineTo(B.x * dpr - ux * h + uy * h * 0.4, B.y * dpr - uy * h - ux * h * 0.4); c.closePath(); c.fill();
+          let ang = Math.atan2(uy, ux); if (ang > Math.PI / 2 || ang < -Math.PI / 2) ang += Math.PI; // legible, de izquierda a derecha
+          const mx = ((A.x + B.x) / 2) * dpr, my = ((A.y + B.y) / 2) * dpr;
+          c.translate(mx, my); c.rotate(ang); c.textAlign = 'center'; c.fillText(label, 0, -10 * dpr);
+          actHits.push({ id, x: (A.x + B.x) / 2, y: (A.y + B.y) / 2, r: 20 });
+        }
+      }
+    }
+    c.restore();
+  }
+}
+function actAt(sx, sy) {
+  for (const h of actHits) if (!h.g && Math.hypot(h.x - sx, h.y - sy) <= h.r) return h.id;
+  for (const h of actHits) if (h.g && sx >= h.x && sx <= h.x + h.w && sy >= h.y && sy <= h.y + h.h) return h.id;
+  return null;
+}
+// ---- graficas
+const fmtG = (v) => String(Math.round(v * 1000) / 1000);
+function drawGraphs(c, o) {
+  let need = false;
+  for (const [id, g] of Object.entries(doc.graphs || {})) {
+    const A = toScreen({ x: g.x, y: g.y + g.h }), B = toScreen({ x: g.x + g.w, y: g.y });
+    const x0 = A.x * dpr, y0 = A.y * dpr, W = (B.x - A.x) * dpr, H = (B.y - A.y) * dpr;
+    if (!(W > 20 * dpr && H > 20 * dpr)) continue;
+    const D = graphData[id];
+    if (!D) need = true;
+    c.save(); c.setLineDash([]); c.lineJoin = 'round'; c.lineCap = 'round';
+    c.fillStyle = o.bg; c.fillRect(x0, y0, W, H); c.strokeStyle = o.fg; c.lineWidth = dpr; c.strokeRect(x0, y0, W, H);
+    const fs = 10 * dpr, nser = Math.max(1, D?.series.length || 1), L = 44 * dpr, R = 10 * dpr, Bm = 20 * dpr, T = (g.title ? 18 : 6) * dpr + nser * 13 * dpr;
+    c.font = fs + 'px -apple-system, system-ui, sans-serif'; c.textBaseline = 'middle'; c.fillStyle = o.fg;
+    if (g.title) { c.textAlign = 'left'; c.font = 'bold ' + 12 * dpr + 'px -apple-system, system-ui, sans-serif'; c.fillText(g.title, x0 + 8 * dpr, y0 + 10 * dpr); c.font = fs + 'px -apple-system, system-ui, sans-serif'; }
+    const px = x0 + L, py = y0 + T, pw = W - L - R, ph = H - T - Bm;
+    const bnd = D && dataBounds(D.series);
+    if (!D) { c.textAlign = 'center'; c.fillText('Calculando…', x0 + W / 2, y0 + H / 2); }
+    else if (D.error && !bnd) { c.textAlign = 'center'; c.fillStyle = '#dc2626'; c.fillText('⚠ ' + D.error.slice(0, 80), x0 + W / 2, y0 + H / 2); }
+    else if (bnd && pw > 10 && ph > 10) {
+      const tx = niceTicks(bnd.x0, bnd.x1), ty = niceTicks(bnd.y0, bnd.y1);
+      const mx = (v) => px + ((v - tx.lo) / (tx.hi - tx.lo)) * pw, my = (v) => py + ph - ((v - ty.lo) / (ty.hi - ty.lo)) * ph;
+      c.lineWidth = 0.6 * dpr; c.strokeStyle = o.fg + '33'; c.textAlign = 'center';
+      for (const v of tx.ticks) { c.beginPath(); c.moveTo(mx(v), py); c.lineTo(mx(v), py + ph); c.stroke(); c.fillStyle = o.fg; c.fillText(fmtG(v), mx(v), py + ph + 9 * dpr); }
+      c.textAlign = 'right';
+      for (const v of ty.ticks) { c.beginPath(); c.moveTo(px, my(v)); c.lineTo(px + pw, my(v)); c.stroke(); c.fillStyle = o.fg; c.fillText(fmtG(v), px - 4 * dpr, my(v)); }
+      c.strokeStyle = o.fg; c.lineWidth = dpr; c.strokeRect(px, py, pw, ph);
+      c.save(); c.beginPath(); c.rect(px, py, pw, ph); c.clip();
+      D.series.forEach((s) => {
+        c.strokeStyle = s.color; c.lineWidth = 1.8 * dpr; c.beginPath();
+        s.pts.forEach(([x, y], i) => (i ? c.lineTo(mx(x), my(y)) : c.moveTo(mx(x), my(y)))); c.stroke();
+      });
+      if (sim && D.series.some((s) => /vs t$/.test(s.label)) && simT >= tx.lo && simT <= tx.hi) { c.setLineDash([4 * dpr, 3 * dpr]); c.strokeStyle = ACT_COLOR; c.beginPath(); c.moveTo(mx(simT), py); c.lineTo(mx(simT), py + ph); c.stroke(); }
+      c.restore();
+      if (D.error) { c.textAlign = 'right'; c.fillStyle = '#dc2626'; c.fillText('⚠ ' + D.error.slice(0, 70), x0 + W - 6 * dpr, y0 + H - 7 * dpr); }
+    }
+    if (D) { c.textAlign = 'left'; D.series.forEach((s, i) => { const ly = y0 + (g.title ? 24 : 10) * dpr + i * 13 * dpr; c.fillStyle = s.color; c.fillRect(x0 + 8 * dpr, ly - 1.5 * dpr, 14 * dpr, 3 * dpr); c.fillStyle = o.fg; c.fillText(s.label, x0 + 28 * dpr, ly); }); }
+    c.restore();
+    actHits.push({ id, g: true, x: A.x, y: A.y, w: B.x - A.x, h: B.y - A.y });
+  }
+  if (need) scheduleGraphs();
+}
+function scheduleGraphs() {
+  if (sim || !Object.keys(doc.graphs || {}).length) return;
+  clearTimeout(graphTimer);
+  graphTimer = setTimeout(() => {
+    if (sim) return;
+    graphData = {};
+    for (const [id, g] of Object.entries(doc.graphs || {})) graphData[id] = computeGraph(doc, g, solve);
+    draw();
+  }, 250);
+}
+function graphTool(p) {
+  const ah = actAt(p.x, p.y);
+  if (ah) { editAct(ah, false); return; }
+  const q = toModel(p.x, p.y), a0 = Object.values(doc.acts || {})[0];
+  pushUndo();
+  const id = addGraph(doc, q.x, q.y, 320 / view.s, 200 / view.s, a0 ? [actName(a0).replace(/^[⟲⟳]/, '') + ' vs t'] : []);
+  afterChange(); editGraph(id, true);
+}
+function editGraph(id, nuevo) {
+  const g = doc.graphs?.[id];
+  if (!g) return;
+  const dlg = $('dlgGraph');
+  $('grTitle').value = g.title || ''; $('grSeries').value = g.series.join('\n'); $('grT1').value = g.t1; $('grN').value = g.n;
+  $('grX').value = fmtG(g.x); $('grY').value = fmtG(g.y); $('grW').value = fmtG(g.w); $('grH').value = fmtG(g.h);
+  $('grVars').textContent = 'Variables: ' + graphVarNames(doc).join(', ');
+  let done = false;
+  $('grOk').onclick = (ev) => {
+    ev.preventDefault();
+    const series = $('grSeries').value.split('\n').map((s) => s.trim()).filter(Boolean);
+    const num = (e) => Number(String($(e).value).replace(',', '.'));
+    const nv = { x: num('grX'), y: num('grY'), w: num('grW'), h: num('grH'), t1: num('grT1'), n: Math.round(num('grN')) };
+    if (!series.length) { toast('Escribe al menos una relación, por ejemplo «MR1 vs t»'); return; }
+    if (![nv.x, nv.y, nv.w, nv.h, nv.t1, nv.n].every(Number.isFinite) || nv.w <= 0 || nv.h <= 0 || nv.t1 <= 0 || nv.n < 2) { toast('Revisa la posición, el tamaño, el tiempo final y las muestras'); return; }
+    if (!nuevo) pushUndo();
+    Object.assign(doc.graphs[id], nv, { title: $('grTitle').value.trim(), series });
+    delete graphData[id];
+    done = true; dlg.close(); afterChange();
+  };
+  $('grDel').onclick = (ev) => { ev.preventDefault(); if (!nuevo) pushUndo(); delete doc.graphs[id]; delete graphData[id]; done = true; dlg.close(); afterChange(); };
+  const cancel = (ev) => { ev?.preventDefault?.(); if (done) return; done = true; dlg.close(); if (nuevo) { rollback(); afterChange(); } };
+  $('grCancel').onclick = cancel; dlg.oncancel = cancel;
+  dlg.showModal();
+}
+// Herramientas MR y ML: MR toca una linea (el extremo mas cercano al toque es el centro); ML toca la cola y luego la cabeza.
+function actTool(p) {
+  const ah = actAt(p.x, p.y);
+  if (ah) { editAct(ah, false); return; }
+  if (tool === 'mr') {
+    const h = hitCurves(p.x, p.y);
+    if (!h || h.k !== 'ln') { toast('Toca la línea que girará, cerca del extremo que será el centro de giro'); return; }
+    const l = doc.lines[h.id], m = toModel(p.x, p.y), da = Math.hypot(doc.pts[l.a].x - m.x, doc.pts[l.a].y - m.y), db = Math.hypot(doc.pts[l.b].x - m.x, doc.pts[l.b].y - m.y);
+    pushUndo();
+    const id = addRotary(doc, h.id, da <= db ? l.a : l.b);
+    afterChange(); editAct(id, true);
+    return;
+  }
+  const s = snapAt(p.x, p.y, { press: true });
+  if (!pending?.act1) { pushUndo(); pending = { act1: pointFrom(s) }; draw(); toast('Toca el punto de la cabeza del actuador'); return; }
+  const first = pending.act1, second = pointFrom(s);
+  if (first === second) { rollback(); pending = null; draw(); return; }
+  pending = null;
+  const id = addLinear(doc, first, second);
+  afterChange(); editAct(id, true);
+}
+// Cuadro de definicion de un actuador. nuevo: si se cancela, se deshace su creacion.
+function editAct(id, nuevo) {
+  if (doc.graphs?.[id]) { editGraph(id, nuevo); return; }
+  const a = doc.acts?.[id];
+  if (!a) return;
+  const dlg = $('dlgAct'), unitD = a.kind === 'MR' ? '°' : '', unitV = a.kind === 'MR' ? '°/s' : 'unidades/s';
+  $('actTitle').textContent = 'Actuador ' + actName(a) + (a.kind === 'MR' ? ' (rotacional)' : ' (lineal)');
+  $('actMode').value = a.mode; $('actSrc').value = a.src; $('actExpr').value = a.expr ?? ''; $('actTable').value = tableText(a.table);
+  $('actCw').checked = !!a.cw; $('actCwRow').style.display = a.kind === 'MR' ? '' : 'none';
+  const sync = () => {
+    const vel = $('actMode').value === 'vel', tab = $('actSrc').value === 'table';
+    $('actExprRow').style.display = tab ? 'none' : ''; $('actTableRow').style.display = tab ? '' : 'none';
+    $('actExprLbl').textContent = (vel ? 'Velocidad' : 'Desplazamiento') + ' en función de t (' + (vel ? unitV : unitD || 'unidades') + ')';
+    $('actTableLbl').textContent = 'Tabla: una fila por línea, «tiempo; ' + (vel ? 'velocidad' : 'desplazamiento') + '»';
+  };
+  $('actMode').onchange = sync; $('actSrc').onchange = sync; sync();
+  let done = false;
+  const finish = (act) => { if (done) return; done = true; dlg.close(); if (act === 'cancel' && nuevo) { rollback(); afterChange(); } };
+  $('actOk').onclick = (ev) => {
+    ev.preventDefault();
+    const b = { ...a, mode: $('actMode').value, src: $('actSrc').value, expr: $('actExpr').value, cw: a.kind === 'MR' && $('actCw').checked };
+    try { if (b.src === 'table') b.table = parseTable($('actTable').value); } catch (e) { toast(e.message); return; }
+    const err = actError(doc, b);
+    if (err) { toast(err); return; }
+    if (!nuevo) pushUndo();
+    Object.assign(doc.acts[id], b);
+    done = true; dlg.close(); afterChange();
+  };
+  $('actDel').onclick = (ev) => { ev.preventDefault(); if (!nuevo) pushUndo(); delete doc.acts[id]; done = true; dlg.close(); afterChange(); };
+  $('actCancel').onclick = (ev) => { ev.preventDefault(); finish('cancel'); };
+  dlg.oncancel = () => finish('cancel');
+  dlg.showModal();
+}
+function simShow() {
+  $('simT').value = String(simT); $('simRange').max = String(simTmax); $('simRange').value = String(Math.min(simT, simTmax)); $('simTmax').value = String(simTmax);
+  $('simPlay').textContent = simRaf ? '⏸' : '▶';
+}
+function simGoto(t) {
+  const r = simStep(doc, sim, t, solve);
+  if (!r.ok) { pauseSim(); toast(r.error || 'No se pudo mover'); simShow(); draw(); return false; }
+  simT = t; simShow(); draw();
+  return true;
+}
+function pauseSim() { if (simRaf) cancelAnimationFrame(simRaf); simRaf = 0; $('simPlay').textContent = '▶'; }
+function playSim() {
+  if (simRaf) { pauseSim(); return; }
+  if (simT >= simTmax) { if (!simGoto(0)) return; }
+  simPlayFrom = performance.now() - (simT / 1) * 1000;
+  const tick = (now) => {
+    const t = Math.min(simTmax, (now - simPlayFrom) / 1000);
+    if (!simGoto(t)) return;
+    if (t >= simTmax) { pauseSim(); return; }
+    simRaf = requestAnimationFrame(tick);
+  };
+  simRaf = requestAnimationFrame(tick); $('simPlay').textContent = '⏸';
+}
+function stopSim() {
+  if (!sim) return;
+  pauseSim(); simEnd(doc, sim); sim = null; simT = 0;
+  $('simBar').hidden = true; pending = null; sel = sel.filter(exists);
+  afterChange();
+}
+function toggleSim() {
+  if (sim) { stopSim(); return; }
+  if (!Object.keys(doc.acts || {}).length) { toast('Crea antes un actuador (MR o ML)'); return; }
+  for (const a of Object.values(doc.acts)) { const e = actError(doc, a); if (e) { toast(actName(a) + ': ' + e); return; } }
+  pending = null; sel = [];
+  sim = simBegin(doc); simT = 0;
+  $('simBar').hidden = false; simShow(); draw();
+  toast('Simulación: mueve el tiempo con la barra. El dibujo vuelve a su estado al detenerla');
+}
+$('simPlay').onclick = playSim;
+$('simStop').onclick = stopSim;
+$('simRange').oninput = () => { pauseSim(); if (sim) simGoto(Number($('simRange').value)); };
+$('simT').onchange = () => { pauseSim(); const v = Number($('simT').value.replace(',', '.')); if (sim && Number.isFinite(v) && v >= 0) { simTmax = Math.max(simTmax, v); simGoto(v); } else simShow(); };
+$('simTmax').onchange = () => { const v = Number($('simTmax').value.replace(',', '.')); if (Number.isFinite(v) && v > 0) { simTmax = v; if (simT > v && sim) simGoto(v); } simShow(); };
+
 function runGroupItem(id) {
   if (id === 'vector' && convertToVector()) return;
   if (id === 'line' && convertToLine()) return;
   if (ACT_IDS.has(id)) { if (!$(id).disabled) $(id).click(); }
+  else if (id === 'sim') toggleSim();
   else if (id === 'filter') openFilter();
   else if (id === 'copy') copySel();
   else if (id === 'paste') pasteTool();

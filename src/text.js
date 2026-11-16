@@ -12,6 +12,8 @@ import { fmtNum } from './dims.js';
 // Si la expresion falla, queda ⚠ en su lugar.
 // Definiciones de variables: «x{=valor}» se muestra como «x:=valor» en cursiva (entre marcas IT0 e IT1, ver runsOf); si la
 // definicion no vale (repetida, choca con una cota, falla) lleva un ⚠ al final.
+// Un vector en un texto: «[1, 2, 3]»; si tiene mas de 8 elementos, los 4 primeros y los 2 ultimos.
+const vecText = (v) => '[' + (v.length > 8 ? [...v.slice(0, 4).map(fmtNum), '…', ...v.slice(-2).map(fmtNum)] : v.map(fmtNum)).join(', ') + ']';
 const TEXT_RE = () => new RegExp(DEF_SRC + '|' + OUT_SRC, 'g');
 const OUT_SRC = /\[=([^\]]*)\]/.source;
 export function textValue(doc, t) {
@@ -25,7 +27,12 @@ export function textValue(doc, t) {
       const bad = st.bad.has(tid + ':' + idx++);
       return IT0 + name + ':=' + ex +(bad ? ' ⚠' : '') + IT1;
     }
-    try { vars ||= varsOf(doc); return fmtNum(evalExpr(out, { vars }).value); } catch (e) { return '⚠'; }
+    try {
+      vars ||= varsOf(doc);
+      const nm = out.trim();
+      if (vars[nm]?.vec) return vecText(vars[nm].vec); // [=x] con x vector: sus elementos
+      return fmtNum(evalExpr(out, { vars }).value);
+    } catch (e) { return '⚠'; }
   });
 }
 // El texto tal como se ve (con sus salidas calculadas): el mismo objeto si no hay ninguna.
