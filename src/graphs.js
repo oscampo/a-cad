@@ -77,7 +77,7 @@ export function computeGraph(doc, g, solveFn) {
   if (needSim) {
     let sim = null;
     if (Object.keys(clone.acts || {}).length) sim = simBegin(clone);
-    const dt = t1 / (n - 1), h = Math.max(dt / 20, 1e-5);
+    const dt = t1 / (n - 1), h = Math.max(dt / 20, 1e-5), cch = sim ? sim.cache : new Map();
     let lastT = 0;
     for (let i = 0; i < n; i++) {
       const t = i * dt;
@@ -86,9 +86,9 @@ export function computeGraph(doc, g, solveFn) {
       for (const [nm, x] of Object.entries(varsOf(clone))) if (!x.vec) env[nm] = x;
       try {
         for (const [k, a] of Object.entries(acts)) {
-          const d = actDisp(clone, a, t);
+          const d = actDisp(clone, a, t, cch);
           env[k] = { v: d, r: false }; env[k + '.d'] = { v: d, r: false };
-          env[k + '.v'] = { v: (actDisp(clone, a, t + h) - actDisp(clone, a, Math.max(0, t - h))) / (t + h - Math.max(0, t - h)), r: false };
+          env[k + '.v'] = { v: (actDisp(clone, a, t + h, cch) - actDisp(clone, a, Math.max(0, t - h), cch)) / (t + h - Math.max(0, t - h)), r: false };
         }
       } catch (e) { out.error = e.message; break; }
       specs.forEach((sp, j) => {

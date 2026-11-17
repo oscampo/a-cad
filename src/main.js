@@ -57,7 +57,7 @@ let clip = null; // lo copiado (Copiar / Pegar)
 let hover = null; // posicion del puntero en pantalla
 let drag = null;
 let labelHits = [];
-let graphData = {}, graphTimer = 0;
+let graphData = {}, graphSig = {}, graphTimer = 0;
 let simMode = 'none', simSpeed = 1, simDir = 1; // reproduccion: none | loop | pp (vaiven), escala de velocidad y sentido
 let actHits = [], sim = null, simT = 0, graphStale = false, simRaf = 0, simPlayFrom = 0; // actuadores: zonas tocables y simulacion en curso
 const pointers = new Map();
@@ -2997,8 +2997,14 @@ function scheduleGraphs() {
   clearTimeout(graphTimer);
   graphTimer = setTimeout(() => {
     if (sim) return;
-    graphData = {};
-    for (const [id, g] of Object.entries(doc.graphs || {})) graphData[id] = computeGraph(doc, g, solve);
+    // solo se recalcula la grafica cuyo resultado puede haber cambiado: mover o redimensionar una grafica, su titulo o sus ejes no cambian los datos
+    const base = JSON.stringify({ ...doc, graphs: undefined, traces: undefined, layers: undefined });
+    const nd = {}, ns = {};
+    for (const [id, g] of Object.entries(doc.graphs || {})) {
+      ns[id] = base + '|' + JSON.stringify([g.series, g.n, g.t1]);
+      nd[id] = graphData[id] && graphSig[id] === ns[id] ? graphData[id] : computeGraph(doc, g, solve);
+    }
+    graphData = nd; graphSig = ns;
     draw();
   }, 250);
 }

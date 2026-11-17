@@ -8,7 +8,7 @@
 // La simulacion no toca el dibujo: simBegin guarda una copia, anade restricciones conductoras ocultas (angulo de la linea / distancia
 // entre los dos puntos), simStep las mueve a su valor en el tiempo t y simEnd restaura el dibujo tal como estaba.
 import { addCon } from './model.js';
-import { evalExpr } from './expr.js';
+import { evalExpr, exprRefs } from './expr.js';
 import { varsOf, settle } from './params.js';
 
 export const actName = (a) => a.kind + a.n;
@@ -69,13 +69,24 @@ function funcOf(doc, a) {
     if (T.length < 2) throw new Error('La tabla necesita al menos 2 filas');
     return { f: (t) => { if (t <= T[0][0]) return T[0][1]; for (let i = 1; i < T.length; i++) if (t <= T[i][0]) return T[i - 1][1] + ((T[i][1] - T[i - 1][1]) * (t - T[i - 1][0])) / (T[i][0] - T[i - 1][0]); return T[T.length - 1][1]; }, T };
   }
-  const vars = { ...varsOf(doc) };
-  return { f: (t) => evalExpr(a.expr, { vars: { ...vars, t: { v: t, r: false } } }).value };
+  const env = { ...varsOf(doc), t: { v: 0, r: false } }; // un solo entorno que se reutiliza: copiarlo en cada evaluacion era el mayor costo
+  return { f: (t) => { env.t.v = t; return evalExpr(a.expr, { vars: env }).value; } };
 }
+const PANEL = 0.01; // la integral de una velocidad en expresion se acumula por paneles de Simpson de 0.01 s y se reutiliza
+// Una expresion que solo depende de t se puede guardar en cache (si lee cotas o medidas, cambia con el dibujo y no).
+const pureT = (a) => a.src !== 'table' && exprRefs(a.expr).every((r) => r === 't');
 // Desplazamiento (° o unidades) en el tiempo t. En modo velocidad es la integral de 0 a t.
-export function actDisp(doc, a, t) {
-  const { f, T } = funcOf(doc, a);
+export function actDisp(doc, a, t, cache) {
+  let c = cache && pureT(a) ? cache.get(a) : null;
+  if (!c) { c = funcOf(doc, a); if (cache && pureT(a)) { c.I = [0]; cache.set(a, c); } }
+  const { f, T } = c;
   if (a.mode !== 'vel') return f(t);
+  if (c.I && t > 0 && t / PANEL < 50000) { // integral acumulada: cada tramo se calcula una sola vez
+    const k = Math.floor(t / PANEL + 1e-9), I = c.I;
+    while (I.length <= k) { const x0 = (I.length - 1) * PANEL; I.push(I[I.length - 1] + (PANEL / 6) * (f(x0) + 4 * f(x0 + PANEL / 2) + f(x0 + PANEL))); }
+    const x0 = k * PANEL, r = t - x0;
+    return I[k] + (r > 1e-12 ? (r / 6) * (f(x0) + 4 * f(x0 + r / 2) + f(t)) : 0);
+  }
   if (!(t > 0)) return 0;
   if (T) { // integral exacta de la tabla: trapecios por tramos, con el valor final constante
     let s = 0;
@@ -107,12 +118,12 @@ export function simBegin(doc) {
       items[id] = { cid: addCon(doc, { t: 'DIST', refs: [a.p1, a.p2], v: base, hidden: true }), base, sign: 1 };
     }
   }
-  return { snap, items, t: 0 };
+  return { snap, items, t: 0, cache: new Map() };
 }
 // Lleva el dibujo al tiempo t (subpasos para no saltar de rama al mover mucho). { ok, error }.
 export function simStep(doc, sim, t, solveFn) {
   const goal = {};
-  try { for (const [id, it] of Object.entries(sim.items)) goal[id] = it.base + it.sign * actDisp(doc, doc.acts[id], t); } catch (e) { return { ok: false, error: e.message }; }
+  try { for (const [id, it] of Object.entries(sim.items)) goal[id] = it.base + it.sign * actDisp(doc, doc.acts[id], t, sim.cache); } catch (e) { return { ok: false, error: e.message }; }
   const from = {};
   for (const [id, it] of Object.entries(sim.items)) from[id] = doc.cons[it.cid].v;
   let n = 1;
