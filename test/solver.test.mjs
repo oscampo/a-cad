@@ -2747,7 +2747,7 @@ t('vector: linea con flecha, magnitud como cota de referencia y texto en el punt
   const A = vecArrow(d, d.lines[l]);
   near(A.tip.x, 16); near(Math.hypot(A.dir.x, A.dir.y), 1);
   // la magnitud se puede usar en formulas de otras cotas
-  assert.deepEqual(Object.keys(varsOf(d)), ['D1']);
+  assert.deepEqual(Object.keys(varsOf(d)).filter((k) => !k.includes('.')), ['D1']);
   // cola en b: la cabeza queda en a
   const l2 = addLine(d, a, b, {});
   makeVector(d, l2, { rev: true });
@@ -3513,7 +3513,7 @@ t('rangos: x{=a..b;n} y x{=a..paso..b} son vectores', () => {
   assert.equal(textValue(d, d.texts[o]), 'a [0, 0.25, 0.5, 0.75, 1] b ⚠');
   const e = newDoc(), Q = addPoint(e, 0, 0);
   addText(e, Q, 'a{=1..2..0}  b{=1..0;3.5}  c{=1..2..3..4}  d{=1..0..5}', {});
-  assert.equal(Object.keys(varsOf(e)).length, 0);
+  assert.equal(Object.keys(varsOf(e)).filter((k) => !k.includes('.')).length, 0);
   assert.equal(textVarErrors(e).length, 4);
 });
 
@@ -3582,6 +3582,45 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   assert.deepEqual(parseSeries('A1  vs  t'), { y: 'A1', x: 't' });
   const tk = niceTicks(0, 97);
   assert.ok(tk.lo <= 0 && tk.hi >= 97 && tk.ticks.length >= 3);
+});
+
+t('notacion punto: p12.x, l1.len, c1.r en formulas, textos, cotas, actuadores y graficas', () => {
+  const d = newDoc(), a = addPoint(d, 1, 2), b = addPoint(d, 4, 6), l = addLine(d, a, b), cc = addCircle(d, a, 3);
+  const v = varsOf(d);
+  assert.equal(v[a + '.x'].v, 1); assert.equal(v[b + '.y'].v, 6);
+  assert.equal(v[l + '.len'].v, 5); assert.equal(v[l + '.L'].v, 5);
+  assert.ok(v[l + '.ang'].r && Math.abs(v[l + '.ang'].v - Math.atan2(4, 3)) < 1e-12);
+  assert.equal(v[cc + '.r'].v, 3); assert.equal(v[cc + '.d'].v, 6); assert.equal(v[cc + '.x'].v, 1);
+  assert.equal(evalExpr(`${a}.x + ${b}.x*2`, { vars: v }).value, 9);
+  assert.equal(evalExpr(`${l}.len/${cc}.r`, { vars: v }).value, 5 / 3);
+  assert.throws(() => evalExpr('p99.x', { vars: v }), /No reconozco/);
+  assert.throws(() => evalExpr(`${a}.zz`, { vars: v }), /No reconozco/);
+  assert.deepEqual(exprRefs(`${a}.x+1`), [a + '.x']);
+  // texto
+  const T = addText(d, a, 'x=[=' + b + '.x] L=[=' + l + '.len]', {});
+  assert.equal(textValue(d, d.texts[T]), 'x=4 L=5');
+  // variable de texto que usa una propiedad
+  const T2 = addText(d, a, 'k{=' + b + '.y*2} [=k]', {});
+  assert.match(textValue(d, d.texts[T2]), /12/);
+  // cota con formula que lee la geometria: D1 = q.x*2
+  const e = newDoc(), o = addPoint(e, 0, 0), q = addPoint(e, 3, 0), r = addPoint(e, 3, 5);
+  e.pts[o].fixed = true; e.pts[q].fixed = true;
+  const h = addCon(e, { t: 'DIST', refs: [o, r], v: 5 });
+  e.cons[h].name = 'D1'; e.cons[h].expr = `${q}.x*2`;
+  assert.equal(hasReactive(e), true);
+  assert.equal(pruneFormulas(e).length, 0);
+  const st = settle(e, solve, []);
+  assert.ok(st.ok, st.error);
+  assert.ok(Math.abs(dimValue(e, e.cons[h]) - 6) < 1e-3);
+  // actuador y grafica de una coordenada contra el tiempo
+  const f = newDoc(), A = addPoint(f, 0, 0), B = addPoint(f, 10, 0), L = addLine(f, A, B);
+  f.pts[A].fixed = true; addCon(f, { t: 'DIST', refs: [A, B], v: 10 });
+  addRotary(f, L, A, { mode: 'disp', expr: '9*t' });
+  const g = addGraph(f, 0, 0, 100, 60, [B + '.y vs t']);
+  f.graphs[g].t1 = 10; f.graphs[g].n = 3;
+  const rr = computeGraph(f, f.graphs[g], solve);
+  assert.equal(rr.error, null);
+  assert.ok(Math.abs(rr.series[0].pts[2][1] - 10 * Math.sin((90 * Math.PI) / 180)) < 1e-3);
 });
 
 console.log(`\n${passed} pruebas pasaron`);

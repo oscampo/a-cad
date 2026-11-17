@@ -29,7 +29,7 @@ const actKey = (a) => a.kind + a.n;
 export function graphVarNames(doc) {
   const names = ['t'];
   for (const a of Object.values(doc.acts || {})) names.push(actKey(a), actKey(a) + '_v');
-  for (const [n, x] of Object.entries(varsOf(doc))) names.push(x.vec ? n + ' (vector)' : n);
+  for (const [n, x] of Object.entries(varsOf(doc))) if (!n.includes('.')) names.push(x.vec ? n + ' (vector)' : n);
   return names;
 }
 
@@ -49,6 +49,7 @@ export function computeGraph(doc, g, solveFn) {
   const timeVar = (nm) => nm === 't' || nm in acts || (nm.endsWith('_v') && nm.slice(0, -2) in acts);
   const names = [...new Set(specs.flatMap((s) => [s.x, s.y]))];
   for (const nm of names) if (!timeVar(nm) && !(nm in base)) { out.error = `No reconozco «${nm}»`; return out; }
+  const used = new Set(names);
   const needSim = names.some((nm) => !isVec(nm));
   const samples = []; // por muestra: { nombre: valor }
   if (needSim) {
@@ -65,7 +66,7 @@ export function computeGraph(doc, g, solveFn) {
           vals[k + '_v'] = (actDisp(clone, a, t + h) - actDisp(clone, a, Math.max(0, t - h))) / (t + h - Math.max(0, t - h));
         }
       } catch (e) { out.error = e.message; break; }
-      for (const [nm, x] of Object.entries(vs)) if (!x.vec) vals[nm] = x.r ? x.v * DEG : x.v;
+      for (const [nm, x] of Object.entries(vs)) if (!x.vec && (!nm.includes('.') || used.has(nm))) vals[nm] = x.r ? x.v * DEG : x.v;
       samples.push(vals);
     }
     out.tEnd = samples.length ? samples[samples.length - 1].t : 0;

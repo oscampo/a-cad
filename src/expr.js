@@ -67,7 +67,14 @@ function tokenize(src, vars = null, loose = false) {
     if (c === 'π') { toks.push({ t: 'id', v: 'π', i, j: i + 1 }); i++; continue; }
     m = ID_RE.exec(src.slice(i));
     if (m) {
-      const raw = m[0], name = raw.toLowerCase();
+      let raw = m[0], name = raw.toLowerCase();
+      // propiedad de un elemento: p12.x, l3.len (nombre + «.» + propiedad)
+      const dm = /^[A-Za-z]+\d+$/.test(raw) ? /^\.([A-Za-zα-ωΑ-Ω]\w*)/.exec(src.slice(i + raw.length)) : null; // solo nombres como p12, l3, c1
+      if (dm) {
+        const full = raw + '.' + dm[1];
+        if (loose || (vars && Object.prototype.hasOwnProperty.call(vars, full))) { toks.push({ t: 'var', v: full, i, j: i + full.length }); i += full.length; continue; }
+        if (!(vars && Object.prototype.hasOwnProperty.call(vars, raw))) throw new Error(`No reconozco «${full}» (propiedades: p1.x, p1.y, l1.len, l1.ang, c1.r, c1.d)`);
+      }
       if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: 'var', v: raw, i, j: i + raw.length });
       else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name)) toks.push({ t: 'id', v: name, i, j: i + raw.length });
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + raw.length });

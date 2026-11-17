@@ -7,6 +7,7 @@ import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
 import { dimValue, angTrue, initAngle, trackAngles } from './dims.js';
 import { parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE } from './expr.js';
 import { textVarState, hasDefMark } from './tvars.js';
+import { geoVars, isGeoName, geoPoints } from './geo.js';
 
 const DEG = Math.PI / 180;
 const named = (doc) => Object.entries(doc.cons).filter(([, k]) => isNamedDim(k) && k.name);
@@ -21,7 +22,7 @@ export function varValue(doc, k) {
 }
 // Estado de las variables de los textos («x{=valor}») con los valores actuales de las cotas.
 export function textVars(doc, exceptId = null) {
-  const dimVars = {};
+  const dimVars = geoVars(doc);
   for (const [id, k] of named(doc)) if (id !== exceptId) dimVars[k.name] = varValue(doc, k);
   return textVarState(doc, dimVars, new Set(named(doc).map(([, k]) => k.name)));
 }
@@ -30,7 +31,7 @@ const NO_TV = { win: new Map(), names: new Set(), vals: {}, errs: new Map() };
 const tvOf = (doc) => (hasDefs(doc) ? textVars(doc) : NO_TV);
 // Variables disponibles (sin la cota exceptId, que no puede usarse a si misma): las de las cotas y las de los textos.
 export function varsOf(doc, exceptId = null) {
-  const out = {};
+  const out = geoVars(doc);
   for (const [id, k] of named(doc)) if (id !== exceptId) out[k.name] = varValue(doc, k);
   if (!hasDefs(doc)) return out;
   return Object.assign(out, textVarState(doc, out, new Set(named(doc).map(([, k]) => k.name))).vals);
@@ -109,7 +110,7 @@ export function recompute(doc, omega = 1, hook = null) {
     const ids = [];
     for (const n of exprRefs(k.expr)) {
       if (n === k.name) return { ok: false, error: `${k.name} no puede usarse en su propia fórmula` };
-      if (!byName.has(n) && !tv.names.has(n)) return { ok: false, error: `En la fórmula de ${k.name}: «${n}» no es una cota ni una variable` };
+      if (!byName.has(n) && !tv.names.has(n) && !isGeoName(doc, n)) return { ok: false, error: `En la fórmula de ${k.name}: «${n}» no es una cota ni una variable` };
     }
     for (const n of dimRefs(doc, k.expr, tv)) { // tambien las cotas de las que dependen las variables de texto que lee
       if (n === k.name) return { ok: false, error: `${k.name} no puede usarse en su propia fórmula (la lee a través de una variable de texto)` };
@@ -157,7 +158,7 @@ export function pruneFormulas(doc) {
   const names = new Set([...named(doc).map(([, k]) => k.name), ...textVarNames(doc)]), out = [];
   for (const k of Object.values(doc.cons)) {
     if (!k.expr) continue;
-    if (!isNamedDim(k) || k.ref || exprRefs(k.expr).some((n) => !names.has(n) || n === k.name)) { delete k.expr; if (k.name) out.push(k.name); }
+    if (!isNamedDim(k) || k.ref || exprRefs(k.expr).some((n) => !(names.has(n) || isGeoName(doc, n)) || n === k.name)) { delete k.expr; if (k.name) out.push(k.name); }
   }
   return out;
 }
@@ -165,16 +166,17 @@ export function pruneFormulas(doc) {
 // ¿Alguna cota con formula lee una cota de solo lectura? Entonces cada cambio de la geometria puede mover esas cotas.
 export function hasReactive(doc) {
   const refs = new Set(named(doc).filter(([, k]) => k.ref).map(([, k]) => k.name));
-  if (!refs.size) return false;
   const st = tvOf(doc);
-  return drivers(doc).some(([, k]) => k.expr && [...dimRefs(doc, k.expr, st)].some((n) => refs.has(n)));
+  return drivers(doc).some(([, k]) => k.expr && [...dimRefs(doc, k.expr, st)].some((n) => refs.has(n) || isGeoName(doc, n))); // una propiedad de la geometria (p1.x) tambien se lee del dibujo
 }
 
 // Puntos que miden las cotas de solo lectura que leen las formulas (las entradas del sistema).
 function measuredPoints(doc) {
   const want = new Set(), st = tvOf(doc);
   for (const [, k] of drivers(doc)) if (k.expr) for (const n of dimRefs(doc, k.expr, st)) want.add(n);
-  const pts = new Set(), endsOf = (lid) => { const l = doc.lines[lid]; if (l) { pts.add(l.a); pts.add(l.b); } };
+  const pts = new Set();
+  for (const n of want) for (const q of geoPoints(doc, n)) pts.add(q);
+  const endsOf = (lid) => { const l = doc.lines[lid]; if (l) { pts.add(l.a); pts.add(l.b); } };
   for (const [, k] of named(doc)) {
     if (!k.ref || !want.has(k.name)) continue;
     if (k.t === 'DIST') k.refs.forEach((p) => pts.add(p));
