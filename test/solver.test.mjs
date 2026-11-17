@@ -3561,13 +3561,14 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 10, 0), l = addLine(d, a, b);
   d.pts[a].fixed = true; addCon(d, { t: 'DIST', refs: [a, b], v: 10 });
   addRotary(d, l, a, { mode: 'vel', expr: '30' });
-  const g = addGraph(d, 0, 0, 100, 60, ['MR1 vs t', 'MR1_v vs t']);
+  const g = addGraph(d, 0, 0, 100, 60, ['MR1 vs t', 'MR1.v vs t', 'MR1.d vs t']);
   d.graphs[g].t1 = 4; d.graphs[g].n = 5;
   const r = computeGraph(d, d.graphs[g], solve);
   assert.equal(r.error, null);
-  assert.equal(r.series.length, 2);
+  assert.equal(r.series.length, 3);
   assert.deepEqual(r.series[0].pts.map((p) => Math.round(p[1])), [0, 30, 60, 90, 120]);
   assert.ok(r.series[1].pts.every((p) => Math.abs(p[1] - 30) < 1e-3), 'velocidad constante');
+  assert.deepEqual(r.series[2].pts, r.series[0].pts);
   assert.equal(JSON.stringify(d.acts).includes('"x"'), false);
   d.graphs[g].series = ['zz vs t'];
   assert.match(computeGraph(d, d.graphs[g], solve).error, /zz/);

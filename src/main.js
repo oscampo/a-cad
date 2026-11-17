@@ -2604,7 +2604,7 @@ const HINTS = {
   line: 'Toca inicio y fin (encadena); o arrastra un segmento. Esc/Seleccionar termina.',
   circle: 'Toca el centro y luego un punto del borde.',
   mline: 'Línea de punto medio: toca el punto medio y luego un extremo (o arrastra); la línea crece igual hacia el otro lado. Hay bloqueo suave.',
-  graph: 'Gráfica: toca donde va su esquina inferior izquierda. Escribe las relaciones como «variable1 vs variable2» (una por línea): t, actuadores (MR1, MR1_v), cotas, variables y vectores de rangos.',
+  graph: 'Gráfica: toca donde va su esquina inferior izquierda. Escribe las relaciones como «variable1 vs variable2» (una por línea): t, actuadores (MR1, MR1.v), cotas, variables y vectores de rangos.',
   mr: 'Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes); define su desplazamiento o velocidad angular respecto al tiempo (t).',
   ml: 'Actuador lineal (ML): toca el punto de la cola y el de la cabeza; define su desplazamiento o velocidad respecto al tiempo (t).',
   vector: 'Vector: como Línea, con cabeza de flecha en el punto final y su magnitud como texto en el punto medio. Con una línea (y uno de sus extremos, que será la cola) seleccionada, pulsar Vector la convierte en vector.',

@@ -1,7 +1,7 @@
 // Graficas: objetos del dibujo que muestran «variable1 vs variable2» (la 1.a en el eje vertical, la 2.a en el horizontal), una o
 // varias relaciones por grafica. Sin DOM.
 // doc.graphs[id] = { x, y (esquina inferior izquierda en el modelo), w, h, title, series: ['D1 vs t', ...], t1 (tiempo final), n (muestras) }
-// Variables: «t» (tiempo), el desplazamiento de cada actuador por su nombre («MR1», «ML2»), su velocidad («MR1_v»), las cotas con nombre
+// Variables: «t» (tiempo), el desplazamiento de cada actuador por su nombre («MR1», «ML2»), su velocidad («MR1.v»; «MR1.d» es su desplazamiento, igual que «MR1»), las cotas con nombre
 // (D1, A1...), las variables de los textos y los vectores de rangos (x{=0..1;5}). Si una grafica usa variables que cambian con el tiempo,
 // se simula el dibujo (en una copia) de t = 0 a t1; si solo usa vectores, se grafican tal cual.
 import { varsOf } from './params.js';
@@ -28,7 +28,7 @@ const actKey = (a) => a.kind + a.n;
 
 export function graphVarNames(doc) {
   const names = ['t'];
-  for (const a of Object.values(doc.acts || {})) names.push(actKey(a), actKey(a) + '_v');
+  for (const a of Object.values(doc.acts || {})) names.push(actKey(a), actKey(a) + '.d', actKey(a) + '.v');
   for (const [n, x] of Object.entries(varsOf(doc))) if (!n.includes('.')) names.push(x.vec ? n + ' (vector)' : n);
   return names;
 }
@@ -46,7 +46,7 @@ export function computeGraph(doc, g, solveFn) {
   for (const [id, a] of Object.entries(clone.acts || {})) acts[actKey(a)] = a;
   const base = varsOf(clone);
   const isVec = (nm) => !!base[nm]?.vec;
-  const timeVar = (nm) => nm === 't' || nm in acts || (nm.endsWith('_v') && nm.slice(0, -2) in acts);
+  const timeVar = (nm) => nm === 't' || nm in acts || (/.[vd]$/.test(nm) && nm.slice(0, -2) in acts);
   const names = [...new Set(specs.flatMap((s) => [s.x, s.y]))];
   for (const nm of names) if (!timeVar(nm) && !(nm in base)) { out.error = `No reconozco «${nm}»`; return out; }
   const used = new Set(names);
@@ -63,7 +63,8 @@ export function computeGraph(doc, g, solveFn) {
       try {
         for (const [k, a] of Object.entries(acts)) {
           vals[k] = actDisp(clone, a, t);
-          vals[k + '_v'] = (actDisp(clone, a, t + h) - actDisp(clone, a, Math.max(0, t - h))) / (t + h - Math.max(0, t - h));
+          vals[k + '.v'] = (actDisp(clone, a, t + h) - actDisp(clone, a, Math.max(0, t - h))) / (t + h - Math.max(0, t - h));
+          vals[k + '.d'] = vals[k];
         }
       } catch (e) { out.error = e.message; break; }
       for (const [nm, x] of Object.entries(vs)) if (!x.vec && (!nm.includes('.') || used.has(nm))) vals[nm] = x.r ? x.v * DEG : x.v;
