@@ -11,7 +11,7 @@ import { addCon } from './model.js';
 import { evalExpr } from './expr.js';
 import { varsOf, settle } from './params.js';
 
-export const actName = (a) => (a.kind === 'MR' ? (a.cw ? '⟳' : '⟲') : '') + a.kind + a.n;
+export const actName = (a) => a.kind + a.n;
 export const actUnit = (a) => (a.kind === 'MR' ? (a.mode === 'vel' ? '°/s' : '°') : a.mode === 'vel' ? '/s' : '');
 
 function addAct(doc, a) {

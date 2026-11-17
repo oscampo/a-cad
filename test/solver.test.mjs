@@ -3521,7 +3521,7 @@ t('actuadores: MR gira una linea, ML estira entre dos puntos, la simulacion no t
   const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 10, 0), l = addLine(d, a, b);
   d.pts[a].fixed = true; addCon(d, { t: 'DIST', refs: [a, b], v: 10 });
   const m = addRotary(d, l, a, { mode: 'disp', expr: '90*t' });
-  assert.equal(actName(d.acts[m]), '⟲MR1');
+  assert.equal(actName(d.acts[m]), 'MR1');
   const before = JSON.stringify(d);
   const sim = simBegin(d);
   assert.ok(simStep(d, sim, 1, solve).ok);
@@ -3532,7 +3532,7 @@ t('actuadores: MR gira una linea, ML estira entre dos puntos, la simulacion no t
   assert.equal(JSON.stringify(d), before, 'el dibujo queda igual');
   // velocidad constante y tabla dan el mismo giro; en sentido horario va al reves
   d.acts[m].mode = 'vel'; d.acts[m].expr = '90'; d.acts[m].cw = true;
-  assert.equal(actName(d.acts[m]), '⟳MR1');
+  assert.equal(actName(d.acts[m]), 'MR1');
   assert.ok(Math.abs(actDisp(d, d.acts[m], 2) - 180) < 1e-6);
   d.acts[m].src = 'table'; d.acts[m].table = parseTable('0; 90\n4; 90');
   assert.ok(Math.abs(actDisp(d, d.acts[m], 2) - 180) < 1e-6);

@@ -2684,9 +2684,11 @@ function download(name, blob) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
-function contentBounds() {
+function contentBounds(withGraphs = false) {
+  const gr = withGraphs ? Object.values(globalDoc().graphs || {}) : [];
   const doc = visibleDoc(globalDoc());
   const xs = [], ys = [];
+  for (const g of gr) { xs.push(g.x, g.x + g.w); ys.push(g.y, g.y + g.h); }
   for (const p of Object.values(doc.pts)) { xs.push(p.x); ys.push(p.y); }
   for (const c of Object.values(doc.circles)) { const p = doc.pts[c.c]; xs.push(p.x - c.r, p.x + c.r); ys.push(p.y - c.r, p.y + c.r); }
   for (const a of Object.values(doc.arcs)) { const p = doc.pts[a.c]; xs.push(p.x - a.r, p.x + a.r); ys.push(p.y - a.r, p.y + a.r); }
@@ -2697,7 +2699,7 @@ function contentBounds() {
   return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
 }
 function fitView() {
-  const b = contentBounds();
+  const b = contentBounds(true);
   const r = cv.getBoundingClientRect();
   if (!b) { view = { ox: r.width / 2, oy: r.height / 2, s: 5 }; draw(); return; }
   const w = Math.max(b.x1 - b.x0, 1e-6), h = Math.max(b.y1 - b.y0, 1e-6);
@@ -2906,7 +2908,7 @@ function graphTool(p) {
   if (ah) { editAct(ah, false); return; }
   const q = toModel(p.x, p.y), a0 = Object.values(doc.acts || {})[0];
   pushUndo();
-  const id = addGraph(doc, q.x, q.y, 320 / view.s, 200 / view.s, a0 ? [actName(a0).replace(/^[⟲⟳]/, '') + ' vs t'] : []);
+  const id = addGraph(doc, q.x, q.y, 320 / view.s, 200 / view.s, a0 ? [actName(a0) + ' vs t'] : []);
   afterChange(); editGraph(id, true);
 }
 function editGraph(id, nuevo) {
