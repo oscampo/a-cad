@@ -2909,7 +2909,8 @@ function drawGraphs(c, o) {
     c.fillStyle = o.bg; c.fillRect(x0, y0, W, H); c.strokeStyle = o.fg; c.lineWidth = dpr; c.strokeRect(x0, y0, W, H);
     const fs = 10, nser = Math.max(1, D?.series.length || 1);
     const useAx = (k) => !!D && D.series.some((s) => (k[0] === 'x' ? s.ax : s.ay) === k);
-    const nm = (k) => String(axisCfg(g, k).name || '').trim(), hasX2 = useAx('x2'), hasY2 = useAx('y2');
+    const nm = (k) => String(axisCfg(g, k).name || '').trim(), cset = (k) => !!nm(k) || axisCfg(g, k).min != null || axisCfg(g, k).max != null; // un eje secundario se dibuja si lo usa una relacion o si tiene nombre o limites
+    const hasX2 = useAx('x2') || (!!D && cset('x2')), hasY2 = useAx('y2') || (!!D && cset('y2'));
     const L = (44 + (nm('y1') ? 14 : 0)) * dpr, R = (10 + (hasY2 ? 36 : 0) + (hasY2 && nm('y2') ? 14 : 0)) * dpr, Bm = (20 + (nm('x1') ? 14 : 0)) * dpr;
     const T = ((g.title ? 18 : 6) + nser * 13 + (hasX2 ? 14 : 0) + (hasX2 && nm('x2') ? 14 : 0)) * dpr;
     c.font = F(fs); c.textBaseline = 'middle'; c.fillStyle = o.fg;
