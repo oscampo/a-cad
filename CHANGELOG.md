@@ -2,6 +2,12 @@
 
 ## Sin publicar
 
+- Gráficas: un toque la selecciona (resaltada), se arrastra para moverla y sus bordes o esquinas cambian su tamaño; doble toque abre sus propiedades.
+- Gráficas: ejes x1, x2, y1 e y2 (los secundarios con «@x2» o «@y2» al final de la relación), cada uno con nombre libre, escala lineal o logarítmica, límites y divisiones mayores y menores.
+- Gráficas: las relaciones admiten operaciones y funciones («p1.x/p1.y vs t», «ML1.d-p1.x vs t»).
+- Simulación: los puntos con «Trazar punto» dibujan su trayectoria y la conservan al detener la simulación.
+- Menú de actuadores, gráfica y simulación: se quitan los textos descriptivos de los botones (siguen en la ayuda emergente).
+
 - La velocidad de un actuador en las gráficas se escribe con la notación «.»: `ML1.v` (reemplaza a `ML1_v`; el «_» queda reservado para subíndices); `ML1.d` es su desplazamiento, igual que `ML1`.
 - **Tiempo final único**: el «hasta» del reproductor y el «Tiempo final» de las gráficas son el mismo valor (se guarda con el dibujo); si cambia uno, cambia el otro y todas las gráficas se recalculan.
 - **Notación «.» para propiedades de elementos**: `p12.x` y `p12.y` son las coordenadas del punto p12; `l3.len` (o `l3.L`) y `l3.ang` la longitud y el ángulo de la línea l3; `c1.r`, `c1.d`, `c1.x`, `c1.y` el radio, diámetro y centro del círculo c1; `a2.r`, `a2.x`, `a2.y` lo propio del arco a2. Sirven en cualquier fórmula: cotas, textos (`[=p12.x]`), variables de texto, actuadores y gráficas (`p12.y vs t`). Siempre valen lo que tiene el dibujo en ese momento, también durante la simulación.

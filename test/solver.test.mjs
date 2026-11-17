@@ -13,7 +13,7 @@ import { varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, check
 import { runsOf, plainText } from '../src/tvars.js';
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, cornerElements, coincidentIds } from '../src/corners.js';
 import { addRotary, addLinear, actName, actDisp, simBegin, simStep, simEnd, parseTable, actError } from '../src/actuators.js';
-import { addGraph, computeGraph, niceTicks, parseSeries } from '../src/graphs.js';
+import { addGraph, computeGraph, niceTicks, parseSeries, axisLayout } from '../src/graphs.js';
 import { rigidShape, looseShape, isRigid } from '../src/rigid.js';
 import { nameDims } from '../src/model.js';
 import { trimAt, extendEnd, cutsOf, curveCuts, linearArray, mirrorCopy, circularArray, clipOf, pasteClip, bboxOf } from '../src/edit.js';
@@ -3580,7 +3580,7 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   assert.deepEqual(computeGraph(e, e.graphs[h], solve).series[0].pts, [[0, 0], [0.5, 2], [1, 4]]);
   e.graphs[h].series = ['z vs x'];
   assert.match(computeGraph(e, e.graphs[h], solve).error, /distinto/);
-  assert.deepEqual(parseSeries('A1  vs  t'), { y: 'A1', x: 't' });
+  assert.deepEqual(parseSeries('A1  vs  t'), { y: 'A1', x: 't', ax: 'x1', ay: 'y1' });
   const tk = niceTicks(0, 97);
   assert.ok(tk.lo <= 0 && tk.hi >= 97 && tk.ticks.length >= 3);
 });
@@ -3636,5 +3636,31 @@ t('graficas: el tiempo final es el del documento (doc.tEnd), el mismo del reprod
   const r = computeGraph(d, d.graphs[g], solve);
   assert.equal(r.tEnd, 8); assert.equal(Math.round(r.series[0].pts[2][1]), 80);
 });
+
+
+t('graficas: expresiones, ejes secundarios y escalas', () => {
+  assert.deepEqual(parseSeries('MR1.v vs t @y2'), { y: 'MR1.v', x: 't', ax: 'x1', ay: 'y2' });
+  assert.deepEqual(parseSeries('a/b vs t @ x2, y2'), { y: 'a/b', x: 't', ax: 'x2', ay: 'y2' });
+  assert.throws(() => parseSeries('a vs t @z9'), /ejes son/);
+  const f = newDoc(), A = addPoint(f, 0, 0), B = addPoint(f, 10, 0), L = addLine(f, A, B);
+  f.pts[A].fixed = true; addCon(f, { t: 'DIST', refs: [A, B], v: 10 });
+  const m = addRotary(f, L, A, { mode: 'disp', expr: '9*t' });
+  const g = addGraph(f, 0, 0, 100, 60, [`${B}.x*2+1 vs t`, `MR1.d-${B}.y vs t @y2`, `${B}.y/${B}.x vs t`, 'q vs t']);
+  f.graphs[g].t1 = 10; f.graphs[g].n = 3;
+  assert.match(computeGraph(f, f.graphs[g], solve).error, /No reconozco «q»/);
+  f.graphs[g].series.pop();
+  const rr = computeGraph(f, f.graphs[g], solve);
+  assert.equal(rr.error, null);
+  assert.ok(Math.abs(rr.series[0].pts[0][1] - 21) < 1e-6);        // x*2+1 en t=0
+  assert.equal(rr.series[1].ay, 'y2');
+  assert.ok(Math.abs(rr.series[1].pts[2][1] - (90 - 10)) < 1e-3);  // 90° - y(90°)
+  // ejes
+  const lg = axisLayout({ scale: 'log', minor: 1 }, 0.5, 700);
+  assert.deepEqual(lg.ticks, [0.1, 1, 10, 100, 1000]); assert.ok(lg.minors.includes(20) && lg.f(10) > lg.f(1) && Number.isNaN(lg.f(-1)));
+  const fx = axisLayout({ min: 0, max: 10, major: 5, minor: 2 }, 3, 4);
+  assert.deepEqual(fx.ticks, [0, 2, 4, 6, 8, 10]); assert.equal(fx.minors.length, 5); assert.equal(fx.f(5), 0.5);
+  assert.ok(axisLayout({}, 0, 97).hi >= 97);
+});
+
 
 console.log(`\n${passed} pruebas pasaron`);

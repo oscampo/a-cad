@@ -95,7 +95,12 @@ dialog.help a { color: var(--accent); }
 #dlgAct input[type=checkbox] { width: 22px; min-height: 0; height: 22px; vertical-align: middle; margin-right: 6px; }
 #dlgGraph label { display: block; margin: 8px 0 2px; color: var(--muted); font-size: 13px; }
 #dlgGraph textarea { width: 100%; font-size: 16px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--btn); color: var(--fg); }
-#dlgGraph input { min-height: 38px; font-size: 16px; }
+#dlgGraph input, #dlgGraph select { min-height: 38px; font-size: 16px; }
+#dlgGraph details { border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; padding: 2px 8px 6px; }
+#dlgGraph summary { cursor: pointer; min-height: 34px; display: flex; align-items: center; font-size: 13px; color: var(--muted); }
+#dlgGraph .axg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+#dlgGraph .axg label { margin: 4px 0 0; font-size: 12px; }
+#dlgGraph select { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--btn); color: var(--fg); }
 #dlgGraph { width: min(460px, calc(100vw - 16px)); }
 #dlgAct { width: min(420px, calc(100vw - 16px)); }
 #simBar label { color: var(--muted); font-size: 13px; white-space: nowrap; }
@@ -376,8 +381,9 @@ body.nopanel #panel { display: none; }
 <dialog id="dlgGraph"><form method="dialog">
   <b>Gráfica</b>
   <label>Título (opcional) <input id="grTitle" autocomplete="off"></label>
-  <label>Relaciones, una por línea: «variable1 vs variable2» (la 1.ª va en el eje vertical)<textarea id="grSeries" rows="4" placeholder="MR1 vs t&#10;A1 vs t"></textarea></label>
+  <label>Relaciones, una por línea: «variable1 vs variable2» (la 1.ª va en el eje vertical). Admiten operaciones, p. ej. «p1.x/p1.y vs t»; al final, «@y2», «@x2» o «@x2 y2» las lleva a los ejes secundarios<textarea id="grSeries" rows="4" placeholder="MR1 vs t&#10;ML1.d-p1.x vs t @y2"></textarea></label>
   <div id="grVars" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+  <div id="grAxes"></div>
   <div style="display:flex;gap:8px"><label style="flex:1">Tiempo final<input id="grT1" inputmode="decimal"></label><label style="flex:1">Muestras<input id="grN" inputmode="numeric"></label></div>
   <div style="display:flex;gap:8px"><label style="flex:1">x<input id="grX" inputmode="decimal"></label><label style="flex:1">y<input id="grY" inputmode="decimal"></label><label style="flex:1">Ancho<input id="grW" inputmode="decimal"></label><label style="flex:1">Alto<input id="grH" inputmode="decimal"></label></div>
   <div class="actions"><button id="grDel" type="button">Eliminar</button><button id="grCancel" type="button">Cancelar</button><button id="grOk" class="on">Aceptar</button></div>

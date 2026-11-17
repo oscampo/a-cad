@@ -20,7 +20,7 @@ import { layoutDim, dragDim, dimValue, angSector, angTrue, initAngle, trackAngle
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
-import { addGraph, computeGraph, graphVarNames, niceTicks, dataBounds } from './graphs.js';
+import { addGraph, computeGraph, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, AXES } from './graphs.js';
 import { textFrame, textHit, textPose, shownText, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss } from './text.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors } from './params.js';
@@ -159,7 +159,7 @@ function updateEnabled() {
   $('trSpline').disabled = !(selPts.length === 1 && doc.traces[selPts[0]]?.pts.length >= 3);
   $('spClose').disabled = !n.sp;
   $('spOffset').disabled = !n.sp;
-  $('del').disabled = !sel.length;
+  $('del').disabled = !sel.length && !(selGraph && doc.graphs?.[selGraph]);
   $('txAlign').disabled = !(sel.some((x) => x.k === 'tx') && ln === 1);
   $('txFree').disabled = !sel.some((x) => x.k === 'tx' && doc.texts[x.id]?.ref);
 }
@@ -1379,7 +1379,8 @@ function pickLine(msg, kind = 'ln') {
   return new Promise((res) => { pickResolve = res; });
 }
 
-let lastCoTap = null, lastTap = null;
+let lastCoTap = null, lastTap = null, lastGraphTap = null;
+let selGraph = null; // grafica seleccionada (resaltada; se mueve y se redimensiona)
 
 // ---- herramienta Acotar: una sola herramienta que elige la cota segun lo seleccionado
 const DIMMABLE = ['pt', 'ln', 'ci', 'ar', 'el', 'sp', 'tx'];
@@ -1441,6 +1442,7 @@ function selectAt(p) {
     r(h && h.k === 'ln' ? h : null);
     return;
   }
+  selGraph = null;
   const h = hitTest(p.x, p.y);
   if (!h) { sel = []; afterChange(); return; }
   if (h.k === 'co') { // un toque selecciona la cota (para borrarla, por ejemplo); doble toque la edita
@@ -1466,6 +1468,8 @@ function selectAt(p) {
 function toolDown(p) {
   hover = p;
   if (tool === 'select') {
+    const gh = !sim && fkOn('ac') ? graphAt(p.x, p.y) : null;
+    if (gh) { const g = doc.graphs[gh.id]; drag = { p0: p, graph: gh.id, mode: gh.mode, orig: { x: g.x, y: g.y, w: g.w, h: g.h }, m0: toModel(p.x, p.y), started: false }; return; }
     const h = hitTest(p.x, p.y);
     drag = { p0: p, hit: h, started: false };
     if (!h || h.k === 'ha') drag.box = true; // arrastrar desde un lugar vacio: cuadro de seleccion
@@ -1501,7 +1505,7 @@ function finishBox(d, p) {
   const a = toModel(d.p0.x, d.p0.y), b = toModel(p.x, p.y);
   const found = boxSelect(doc, { x0: a.x, y0: a.y, x1: b.x, y1: b.y }, { cross: p.x < d.p0.x, shown: shownPoints() }).filter(selOk);
   const keep = shiftDown ? sel.filter((x) => !found.some((f) => same(f, x))) : [];
-  sel = [...keep, ...found];
+  sel = [...keep, ...found]; selGraph = null;
   toast(found.length ? `${found.length} elemento${found.length === 1 ? '' : 's'} seleccionado${found.length === 1 ? '' : 's'}` : 'No hay elementos en el cuadro');
   afterChange();
 }
@@ -1531,6 +1535,18 @@ function toolMove(p) {
     return;
   }
   if (tool !== 'select') { if (dist(p, drag.p0) > 8) drag.moved = true; return; }
+  if (drag.graph) { // mover o redimensionar la grafica
+    if (!drag.started) { if (dist(p, drag.p0) < 6) return; drag.started = true; pushUndo(); selGraph = drag.graph; sel = []; }
+    const g = doc.graphs[drag.graph], m = toModel(p.x, p.y), dx = m.x - drag.m0.x, dy = m.y - drag.m0.y, o = drag.orig, mn = 60 / view.s, M = drag.mode;
+    if (M.move) { g.x = o.x + dx; g.y = o.y + dy; return; }
+    let x = o.x, y = o.y, w = o.w, h = o.h;
+    if (M.l) { w = Math.max(mn, o.w - dx); x = o.x + o.w - w; }
+    if (M.r) w = Math.max(mn, o.w + dx);
+    if (M.t) h = Math.max(mn, o.h + dy);
+    if (M.b) { h = Math.max(mn, o.h - dy); y = o.y + o.h - h; }
+    Object.assign(g, { x, y, w, h });
+    return;
+  }
   if (drag.box) { // cuadro de seleccion
     drag.p1 = p;
     if (dist(p, drag.p0) > 6) drag.boxOn = true;
@@ -1578,6 +1594,14 @@ function toolUp(p, q) {
   if (tool === 'mr' || tool === 'ml') { actTool(p); return; }
   if (tool === 'graph') { graphTool(p); return; }
   if (tool === 'select') {
+    if (d?.graph) {
+      if (d.started) { afterChange(); return; }
+      const id = d.graph, now = performance.now(), dbl = lastGraphTap && lastGraphTap.id === id && now - lastGraphTap.t < 450 && dist(lastGraphTap, p) < 24;
+      lastGraphTap = dbl ? null : { id, t: now, x: p.x, y: p.y };
+      selGraph = id; sel = [];
+      if (dbl) { afterChange(); editGraph(id, false); return; }
+      afterChange(); return;
+    }
     if (d?.box && d.boxOn) { finishBox(d, p); return; }
     if (d?.started) { recordTraces(doc, 2e-4); reparamSplines(doc); afterChange(); return; } // la trayectoria termina donde quedo el punto al soltar
     const ah = fkOn('ac') ? actAt(p.x, p.y) : null;
@@ -2743,7 +2767,7 @@ async function exportPNG() {
 // ---------------------------------------------------------------- cableado de la interfaz
 function setTool(t) {
   if (pending) { if (tool === 'spline' && pending.ids?.length >= 2) finishSpline(false); else { pending = null; cleanup(doc); } }
-  toolName = t; consMode = t in CONS_TOOLS; tool = BASE_TOOL[t] || t;
+  toolName = t; consMode = t in CONS_TOOLS; tool = BASE_TOOL[t] || t; if (t !== 'select') selGraph = null;
   document.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === t));
   closeFly(); syncGroups(t);
   if (t !== 'intersect') pending = null;
@@ -2782,7 +2806,7 @@ const GROUPS = {
   arc: [['arcc', 'arc-c', 'Arco por centro y extremos (R)'], ['arc3', 'arc-3', 'Arco por 3 puntos (A)'], ['carcc', 'carcc', 'Arco constructivo por centro y extremos'], ['carc3', 'carc3', 'Arco constructivo por 3 puntos']],
   ellipse: [['ellipse', 'ellipse', 'Elipse: centro y dos ejes (O)'], ['earc', 'earc', 'Elipse parcial (arco elíptico)']],
   rect: [['rect', 'rect', 'Rectángulo por diagonal (B)'], ['rectc', 'rect-c', 'Rectángulo de centro']],
-  act: [['mr', 'act-r', 'Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes)'], ['ml', 'act-l', 'Actuador lineal (ML): toca el punto de la cola y el de la cabeza'], ['graph', 'graph', 'Gráfica: toca donde va su esquina inferior izquierda; muestra «variable1 vs variable2»'], ['sim', 'play', 'Simulación: barra de tiempo para mover los actuadores']],
+  act: [['mr', 'act-r', 'Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes)', 'Actuador MR'], ['ml', 'act-l', 'Actuador lineal (ML): toca el punto de la cola y el de la cabeza', 'Actuador ML'], ['graph', 'graph', 'Gráfica: toca donde va su esquina inferior izquierda; muestra «variable1 vs variable2»', 'Gráfica'], ['sim', 'play', 'Simulación: barra de tiempo para mover los actuadores', 'Simulación']],
   corner: [['fillet', 'fillet', 'Redondeo (F): toca una esquina, o dos elementos, y teclea el radio'], ['chamfer', 'chamfer', 'Chaflán: toca una esquina y teclea la distancia']],
   clip: [['copy', 'copy', 'Copiar la selección (Ctrl+C)'], ['paste', 'paste', 'Pegar: toca el punto donde va el centro de lo copiado (Ctrl+V)']],
 };
@@ -2854,8 +2878,27 @@ function actAt(sx, sy) {
 }
 // ---- graficas
 const fmtG = (v) => String(Math.round(v * 1000) / 1000);
+const fmtT = (v) => { const a = Math.abs(v); return a >= 1e6 || (a > 0 && a < 1e-3) ? v.toExponential(1).replace('.0e', 'e').replace('e+', 'e') : fmtG(v); };
+// Grafica bajo un toque (la de encima si hay varias): { id, mode }. Con la grafica seleccionada, sus bordes y esquinas redimensionan; el resto la mueve.
+function graphAt(sx, sy) {
+  for (const h of actHits) if (!h.g && Math.hypot(h.x - sx, h.y - sy) <= h.r) return null; // un boton de actuador encima de la grafica
+  for (let i = actHits.length - 1; i >= 0; i--) {
+    const h = actHits[i];
+    if (!h.g) continue;
+    const m = selGraph === h.id ? 12 : 0;
+    if (sx < h.x - m || sx > h.x + h.w + m || sy < h.y - m || sy > h.y + h.h + m) continue;
+    if (selGraph === h.id) {
+      const T = Math.min(14, Math.min(h.w, h.h) / 4), l = sx - h.x < T, r = h.x + h.w - sx < T, t = sy - h.y < T, b = h.y + h.h - sy < T;
+      if (l || r || t || b) return { id: h.id, mode: { l, r, t, b } };
+    }
+    return { id: h.id, mode: { move: true } };
+  }
+  return null;
+}
 function drawGraphs(c, o) {
   let need = false;
+  if (selGraph && !doc.graphs?.[selGraph]) selGraph = null;
+  const F = (px, st = '') => st + px * dpr + 'px -apple-system, system-ui, sans-serif';
   for (const [id, g] of Object.entries(doc.graphs || {})) {
     const A = toScreen({ x: g.x, y: g.y + g.h }), B = toScreen({ x: g.x + g.w, y: g.y });
     const x0 = A.x * dpr, y0 = A.y * dpr, W = (B.x - A.x) * dpr, H = (B.y - A.y) * dpr;
@@ -2864,31 +2907,85 @@ function drawGraphs(c, o) {
     if (!D) need = true;
     c.save(); c.setLineDash([]); c.lineJoin = 'round'; c.lineCap = 'round';
     c.fillStyle = o.bg; c.fillRect(x0, y0, W, H); c.strokeStyle = o.fg; c.lineWidth = dpr; c.strokeRect(x0, y0, W, H);
-    const fs = 10 * dpr, nser = Math.max(1, D?.series.length || 1), L = 44 * dpr, R = 10 * dpr, Bm = 20 * dpr, T = (g.title ? 18 : 6) * dpr + nser * 13 * dpr;
-    c.font = fs + 'px -apple-system, system-ui, sans-serif'; c.textBaseline = 'middle'; c.fillStyle = o.fg;
-    if (g.title) { c.textAlign = 'left'; c.font = 'bold ' + 12 * dpr + 'px -apple-system, system-ui, sans-serif'; c.fillText(g.title, x0 + 8 * dpr, y0 + 10 * dpr); c.font = fs + 'px -apple-system, system-ui, sans-serif'; }
+    const fs = 10, nser = Math.max(1, D?.series.length || 1);
+    const useAx = (k) => !!D && D.series.some((s) => (k[0] === 'x' ? s.ax : s.ay) === k);
+    const nm = (k) => String(axisCfg(g, k).name || '').trim(), hasX2 = useAx('x2'), hasY2 = useAx('y2');
+    const L = (44 + (nm('y1') ? 14 : 0)) * dpr, R = (10 + (hasY2 ? 36 : 0) + (hasY2 && nm('y2') ? 14 : 0)) * dpr, Bm = (20 + (nm('x1') ? 14 : 0)) * dpr;
+    const T = ((g.title ? 18 : 6) + nser * 13 + (hasX2 ? 14 : 0) + (hasX2 && nm('x2') ? 14 : 0)) * dpr;
+    c.font = F(fs); c.textBaseline = 'middle'; c.fillStyle = o.fg;
+    if (g.title) { c.textAlign = 'left'; c.font = F(12, 'bold '); c.fillText(g.title, x0 + 8 * dpr, y0 + 10 * dpr); c.font = F(fs); }
     const px = x0 + L, py = y0 + T, pw = W - L - R, ph = H - T - Bm;
     const bnd = D && dataBounds(D.series);
     if (!D) { c.textAlign = 'center'; c.fillText('Calculando…', x0 + W / 2, y0 + H / 2); }
     else if (D.error && !bnd) { c.textAlign = 'center'; c.fillStyle = '#dc2626'; c.fillText('⚠ ' + D.error.slice(0, 80), x0 + W / 2, y0 + H / 2); }
     else if (bnd && pw > 10 && ph > 10) {
-      const tx = niceTicks(bnd.x0, bnd.x1), ty = niceTicks(bnd.y0, bnd.y1);
-      const mx = (v) => px + ((v - tx.lo) / (tx.hi - tx.lo)) * pw, my = (v) => py + ph - ((v - ty.lo) / (ty.hi - ty.lo)) * ph;
-      c.lineWidth = 0.6 * dpr; c.strokeStyle = o.fg + '33'; c.textAlign = 'center';
-      for (const v of tx.ticks) { c.beginPath(); c.moveTo(mx(v), py); c.lineTo(mx(v), py + ph); c.stroke(); c.fillStyle = o.fg; c.fillText(fmtG(v), mx(v), py + ph + 9 * dpr); }
-      c.textAlign = 'right';
-      for (const v of ty.ticks) { c.beginPath(); c.moveTo(px, my(v)); c.lineTo(px + pw, my(v)); c.stroke(); c.fillStyle = o.fg; c.fillText(fmtG(v), px - 4 * dpr, my(v)); }
-      c.strokeStyle = o.fg; c.lineWidth = dpr; c.strokeRect(px, py, pw, ph);
+      const lay = {};
+      for (const k of AXES) {
+        if ((k === 'x2' && !hasX2) || (k === 'y2' && !hasY2)) continue;
+        const cf = axisCfg(g, k), r = axisRange(D.series, k, cf.scale === 'log') || { lo: 0, hi: 1 };
+        lay[k] = axisLayout(cf, r.lo, r.hi);
+      }
+      const posX = (k) => (v) => px + lay[k].f(v) * pw, posY = (k) => (v) => py + ph - lay[k].f(v) * ph;
+      const gx = posX('x1'), gy = posY('y1');
+      c.lineWidth = 0.6 * dpr; c.textAlign = 'center';
+      c.strokeStyle = o.fg + '1a';
+      for (const v of lay.x1.minors) { c.beginPath(); c.moveTo(gx(v), py); c.lineTo(gx(v), py + ph); c.stroke(); }
+      for (const v of lay.y1.minors) { c.beginPath(); c.moveTo(px, gy(v)); c.lineTo(px + pw, gy(v)); c.stroke(); }
+      c.strokeStyle = o.fg + '33';
+      for (const v of lay.x1.ticks) { c.beginPath(); c.moveTo(gx(v), py); c.lineTo(gx(v), py + ph); c.stroke(); }
+      for (const v of lay.y1.ticks) { c.beginPath(); c.moveTo(px, gy(v)); c.lineTo(px + pw, gy(v)); c.stroke(); }
+      c.strokeStyle = o.fg; c.fillStyle = o.fg; c.lineWidth = dpr;
+      const tick = (k) => { // marcas y numeros de un eje
+        const a = lay[k], hor = k[0] === 'x', pos = hor ? posX(k) : posY(k), first = k[1] === '1', sgn = first ? 1 : -1;
+        for (const [list, len] of [[a.minors, 2], [a.ticks, 4]]) for (const v of list) {
+          const u = pos(v); if (!Number.isFinite(u)) continue;
+          c.beginPath();
+          if (hor) { const e = first ? py + ph : py; c.moveTo(u, e); c.lineTo(u, e - sgn * len * dpr); } else { const e = first ? px : px + pw; c.moveTo(e, u); c.lineTo(e + sgn * len * dpr, u); }
+          c.stroke();
+        }
+        for (const v of a.ticks) {
+          const u = pos(v); if (!Number.isFinite(u)) continue;
+          if (hor) { c.textAlign = 'center'; c.fillText(fmtT(v), u, first ? py + ph + 9 * dpr : py - 8 * dpr); }
+          else { c.textAlign = first ? 'right' : 'left'; c.fillText(fmtT(v), first ? px - 5 * dpr : px + pw + 5 * dpr, u); }
+        }
+      };
+      for (const k of Object.keys(lay)) tick(k);
+      c.strokeRect(px, py, pw, ph);
+      // nombres de los ejes
+      c.fillStyle = o.fg; c.font = F(fs, 'italic ');
+      if (nm('x1')) { c.textAlign = 'center'; c.fillText(nm('x1'), px + pw / 2, y0 + H - 8 * dpr); }
+      if (hasX2 && nm('x2')) { c.textAlign = 'center'; c.fillText(nm('x2'), px + pw / 2, py - 21 * dpr); }
+      for (const [k, cx, ang] of [['y1', x0 + 9 * dpr, -Math.PI / 2], ['y2', x0 + W - 9 * dpr, Math.PI / 2]]) {
+        if (!nm(k) || (k === 'y2' && !hasY2)) continue;
+        c.save(); c.translate(cx, py + ph / 2); c.rotate(ang); c.textAlign = 'center'; c.fillText(nm(k), 0, 0); c.restore();
+      }
+      c.font = F(fs);
       c.save(); c.beginPath(); c.rect(px, py, pw, ph); c.clip();
       D.series.forEach((s) => {
+        const X = posX(s.ax), Y = posY(s.ay);
         c.strokeStyle = s.color; c.lineWidth = 1.8 * dpr; c.beginPath();
-        s.pts.forEach(([x, y], i) => (i ? c.lineTo(mx(x), my(y)) : c.moveTo(mx(x), my(y)))); c.stroke();
+        let pen = false;
+        for (const [x, y] of s.pts) {
+          const u = X(x), w = Y(y);
+          if (!Number.isFinite(u) || !Number.isFinite(w)) { pen = false; continue; }
+          if (pen) c.lineTo(u, w); else c.moveTo(u, w);
+          pen = true;
+        }
+        c.stroke();
       });
-      if (sim && D.series.some((s) => /vs t$/.test(s.label)) && simT >= tx.lo && simT <= tx.hi) { c.setLineDash([4 * dpr, 3 * dpr]); c.strokeStyle = ACT_COLOR; c.beginPath(); c.moveTo(mx(simT), py); c.lineTo(mx(simT), py + ph); c.stroke(); }
+      if (sim) { // linea del tiempo actual en cada eje horizontal que grafica contra t
+        c.setLineDash([4 * dpr, 3 * dpr]); c.strokeStyle = ACT_COLOR;
+        for (const k of ['x1', 'x2']) if (lay[k] && D.series.some((s) => s.tx && s.ax === k)) { const f = lay[k].f(simT); if (f >= 0 && f <= 1) { c.beginPath(); c.moveTo(px + f * pw, py); c.lineTo(px + f * pw, py + ph); c.stroke(); } }
+      }
       c.restore();
       if (D.error) { c.textAlign = 'right'; c.fillStyle = '#dc2626'; c.fillText('⚠ ' + D.error.slice(0, 70), x0 + W - 6 * dpr, y0 + H - 7 * dpr); }
     }
-    if (D) { c.textAlign = 'left'; D.series.forEach((s, i) => { const ly = y0 + (g.title ? 24 : 10) * dpr + i * 13 * dpr; c.fillStyle = s.color; c.fillRect(x0 + 8 * dpr, ly - 1.5 * dpr, 14 * dpr, 3 * dpr); c.fillStyle = o.fg; c.fillText(s.label, x0 + 28 * dpr, ly); }); }
+    if (D) { c.textAlign = 'left'; D.series.forEach((s, i) => { const ly = y0 + (g.title ? 24 : 10) * dpr + i * 13 * dpr; c.fillStyle = s.color; c.fillRect(x0 + 8 * dpr, ly - 1.5 * dpr, 14 * dpr, 3 * dpr); c.fillStyle = o.fg; c.fillText(s.label + (s.ax === 'x2' || s.ay === 'y2' ? ' (' + (s.ax === 'x2' ? 'x2' : '') + (s.ax === 'x2' && s.ay === 'y2' ? ', ' : '') + (s.ay === 'y2' ? 'y2' : '') + ')' : ''), x0 + 28 * dpr, ly); }); }
+    if (o.ui && selGraph === id && tool === 'select') { // resaltada: borde grueso y manijas en esquinas y centros de lados
+      c.strokeStyle = theme.sel; c.lineWidth = 2.5 * dpr; c.strokeRect(x0, y0, W, H);
+      c.fillStyle = o.bg; c.lineWidth = 1.5 * dpr;
+      for (const [hx, hy] of [[0, 0], [.5, 0], [1, 0], [0, .5], [1, .5], [0, 1], [.5, 1], [1, 1]]) { const r = 5 * dpr; c.beginPath(); c.rect(x0 + hx * W - r, y0 + hy * H - r, 2 * r, 2 * r); c.fill(); c.stroke(); }
+    }
     c.restore();
     actHits.push({ id, g: true, x: A.x, y: A.y, w: B.x - A.x, h: B.y - A.y });
   }
@@ -2912,13 +3009,26 @@ function graphTool(p) {
   const id = addGraph(doc, q.x, q.y, 320 / view.s, 200 / view.s, a0 ? [actName(a0) + ' vs t'] : []);
   afterChange(); editGraph(id, true);
 }
+// Ejes x1 (horizontal inferior), x2 (superior), y1 (vertical izquierdo) y y2 (derecho): se arman una vez dentro del cuadro de la grafica.
+const AXIS_TXT = { x1: 'x1 · horizontal inferior', x2: 'x2 · horizontal superior', y1: 'y1 · vertical izquierdo', y2: 'y2 · vertical derecho' };
+function buildAxesUI() {
+  const box = $('grAxes');
+  if (box.childElementCount) return;
+  for (const k of AXES) {
+    const d = document.createElement('details');
+    d.innerHTML = `<summary>Eje ${AXIS_TXT[k]}</summary><label>Nombre (con unidades, p. ej. «p12.x [cm]»)<input id="ax_${k}_name" autocomplete="off"></label><div class="axg"><label>Escala<select id="ax_${k}_scale"><option value="lin">Lineal</option><option value="log">Log</option></select></label><label>Mín.<input id="ax_${k}_min" inputmode="decimal" placeholder="auto"></label><label>Máx.<input id="ax_${k}_max" inputmode="decimal" placeholder="auto"></label><label>Mayores<input id="ax_${k}_major" inputmode="numeric" placeholder="auto"></label><label>Menores<input id="ax_${k}_minor" inputmode="numeric" placeholder="0"></label></div>`;
+    box.appendChild(d);
+  }
+}
 function editGraph(id, nuevo) {
   const g = doc.graphs?.[id];
   if (!g) return;
   const dlg = $('dlgGraph');
   $('grTitle').value = g.title || ''; $('grSeries').value = g.series.join('\n'); $('grT1').value = TE(); $('grN').value = g.n;
   $('grX').value = fmtG(g.x); $('grY').value = fmtG(g.y); $('grW').value = fmtG(g.w); $('grH').value = fmtG(g.h);
-  $('grVars').textContent = 'Variables: ' + graphVarNames(doc).join(', ');
+  $('grVars').textContent = 'Variables: ' + graphVarNames(doc).join(', ') + '. También p1.x, l1.len, c1.r… y funciones (sin, sqrt…)';
+  buildAxesUI();
+  for (const k of AXES) { const a = axisCfg(g, k); $('ax_' + k + '_name').value = a.name; $('ax_' + k + '_scale').value = a.scale; for (const f of ['min', 'max', 'major', 'minor']) $('ax_' + k + '_' + f).value = a[f] ?? ''; }
   let done = false;
   $('grOk').onclick = (ev) => {
     ev.preventDefault();
@@ -2928,8 +3038,17 @@ function editGraph(id, nuevo) {
     const T1 = nv.t1; delete nv.t1;
     if (!series.length) { toast('Escribe al menos una relación, por ejemplo «MR1 vs t»'); return; }
     if (![nv.x, nv.y, nv.w, nv.h, T1, nv.n].every(Number.isFinite) || nv.w <= 0 || nv.h <= 0 || T1 <= 0 || nv.n < 2) { toast('Revisa la posición, el tamaño, el tiempo final y las muestras'); return; }
+    const axes = {};
+    for (const k of AXES) {
+      const v = (f) => String($('ax_' + k + '_' + f).value).trim().replace(',', '.'), a = { name: $('ax_' + k + '_name').value.trim(), scale: $('ax_' + k + '_scale').value };
+      for (const f of ['min', 'max', 'major', 'minor']) { a[f] = v(f) === '' ? null : Number(v(f)); if (a[f] !== null && !Number.isFinite(a[f])) { toast(`Eje ${k}: «${f}» no es un número`); return; } }
+      if (a.min !== null && a.max !== null && !(a.max > a.min)) { toast(`Eje ${k}: el máximo debe ser mayor que el mínimo`); return; }
+      if (a.scale === 'log' && ((a.min !== null && a.min <= 0) || (a.max !== null && a.max <= 0))) { toast(`Eje ${k}: en escala logarítmica los límites deben ser positivos`); return; }
+      if ((a.major !== null && (a.major < 1 || a.major > 50)) || (a.minor !== null && (a.minor < 0 || a.minor > 20))) { toast(`Eje ${k}: divisiones mayores de 1 a 50 y menores de 0 a 20`); return; }
+      axes[k] = a;
+    }
     if (!nuevo) pushUndo();
-    Object.assign(doc.graphs[id], nv, { title: $('grTitle').value.trim(), series });
+    Object.assign(doc.graphs[id], nv, { title: $('grTitle').value.trim(), series, axes });
     delete graphData[id];
     if (T1 !== TE()) { doc.tEnd = T1; graphData = {}; }
     done = true; dlg.close(); afterChange();
@@ -3026,8 +3145,14 @@ function simShow() {
   $('simSpeed').value = String(simSpeed);
 }
 function simGoto(t) {
+  const trc = Object.keys(doc.traces || {}).length > 0, fwd = trc && t > (sim.tmax ?? 0); // los puntos con «Trazar punto» dibujan su trayectoria al avanzar el tiempo
+  if (fwd && t - (sim.tmax ?? 0) > TE() / 150) { // salto grande (la barra): se recorre el tramo en pasos para que la trayectoria salga continua
+    const from = sim.tmax ?? 0, n = Math.min(200, Math.ceil(((t - from) / TE()) * 200));
+    for (let i = 1; i < n; i++) { if (!simStep(doc, sim, from + ((t - from) * i) / n, solve).ok) break; recordTraces(doc, 1 / view.s); }
+  }
   const r = simStep(doc, sim, t, solve);
   if (!r.ok) { pauseSim(); toast(r.error || 'No se pudo mover'); simShow(); draw(); return false; }
+  if (fwd) { recordTraces(doc, t >= TE() ? 2e-4 : 1 / view.s); sim.tmax = t; }
   simT = t; simShow(); draw();
   return true;
 }
@@ -3059,7 +3184,10 @@ function stepSim(dir) {
 }
 function stopSim() {
   if (!sim) return;
-  pauseSim(); simEnd(doc, sim); sim = null; simT = 0;
+  pauseSim();
+  const trazas = doc.traces; // el dibujo vuelve a su estado, pero las trayectorias de la simulacion se conservan
+  simEnd(doc, sim); sim = null; simT = 0;
+  if (trazas) doc.traces = trazas;
   if (graphStale) { graphData = {}; graphStale = false; }
   $('simBar').hidden = true; pending = null; sel = sel.filter(exists);
   afterChange();
@@ -3069,7 +3197,8 @@ function toggleSim() {
   if (!Object.keys(doc.acts || {}).length) { toast('Crea antes un actuador (MR o ML)'); return; }
   for (const a of Object.values(doc.acts)) { const e = actError(doc, a); if (e) { toast(actName(a) + ': ' + e); return; } }
   pending = null; sel = [];
-  sim = simBegin(doc); simT = 0;
+  sim = simBegin(doc); simT = 0; sim.tmax = 0;
+  for (const [pid, tr] of Object.entries(doc.traces || {})) if (doc.pts[pid]) tr.pts = [{ x: doc.pts[pid].x, y: doc.pts[pid].y }]; // la trayectoria parte de la posicion inicial
   $('simBar').hidden = false; simShow(); draw();
   toast('Simulación: mueve el tiempo con la barra. El dibujo vuelve a su estado al detenerla');
 }
@@ -3117,8 +3246,9 @@ function openFly(b) {
   closeFly();
   const g = b.dataset.group, el = document.createElement('div');
   el.id = 'fly';
-  for (const [id, icon, label] of GROUPS[g]) {
-    const x = document.createElement('button');
+  for (const [id, icon, tip, short] of GROUPS[g]) {
+    const label = short || tip, x = document.createElement('button');
+    x.title = tip;
     x.innerHTML = `<i>${iconSvg(icon)}</i><span>${label}</span>`;
     if (id === grpTool(g) && !isAct(id)) x.classList.add('on');
     if (ACT_IDS.has(id) && $(id).disabled) x.disabled = true;
@@ -3692,6 +3822,7 @@ $('mkint').onclick = () => {
 $('undo').onclick = undo; $('redo').onclick = redo;
 $('fit').onclick = fitView;
 $('del').onclick = () => {
+  if (selGraph && doc.graphs?.[selGraph] && !sel.length) { pushUndo(); delete doc.graphs[selGraph]; delete graphData[selGraph]; selGraph = null; afterChange(); return; }
   if (!sel.length) return;
   pushUndo(); deleteItems(doc, sel); sel = [];
   const r = solve(doc, []); if (!r.ok) { /* las restricciones restantes siguen siendo validas */ }
@@ -4021,7 +4152,7 @@ window.addEventListener('keydown', (e) => {
   else if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); }
   else if ((e.ctrlKey || e.metaKey) && k === 'c') { e.preventDefault(); copySel(); }
   else if ((e.ctrlKey || e.metaKey) && k === 'v') { e.preventDefault(); pasteTool(); }
-  else if (k === 'escape') { if (pickResolve) { const r = pickResolve; pickResolve = null; r(null); } else if (pending) { if (tool === 'spline' && pending.ids?.length >= 2) finishSpline(false); else cancelPending(); } else { sel = []; afterChange(); } }
+  else if (k === 'escape') { if (pickResolve) { const r = pickResolve; pickResolve = null; r(null); } else if (pending) { if (tool === 'spline' && pending.ids?.length >= 2) finishSpline(false); else cancelPending(); } else { sel = []; selGraph = null; afterChange(); } }
   else if (k === 'delete' || k === 'backspace') $('del').click();
   else if (!e.ctrlKey && !e.metaKey) { const m = { v: 'select', p: 'point', l: 'line', c: 'circle', i: 'intersect', d: 'dim', a: 'arc3', r: 'arcc', t: 'text', s: 'spline', x: 'trim', e: 'extend', o: 'ellipse', b: 'rect', g: 'polygon', k: 'cline', m: 'mline', w: 'vector', f: 'fillet' }[k]; if (m) { e.preventDefault(); setTool(m); } } // preventDefault: si la herramienta abre un cuadro de texto, la letra no se escribe en el
 });
