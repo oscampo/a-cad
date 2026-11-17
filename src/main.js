@@ -59,7 +59,7 @@ let drag = null;
 let labelHits = [];
 let graphData = {}, graphTimer = 0;
 let simMode = 'none', simSpeed = 1, simDir = 1; // reproduccion: none | loop | pp (vaiven), escala de velocidad y sentido
-let actHits = [], sim = null, simT = 0, simTmax = 10, simRaf = 0, simPlayFrom = 0; // actuadores: zonas tocables y simulacion en curso
+let actHits = [], sim = null, simT = 0, graphStale = false, simRaf = 0, simPlayFrom = 0; // actuadores: zonas tocables y simulacion en curso
 const pointers = new Map();
 let gesture = null;
 let spaceDown = false, shiftDown = false;
@@ -2711,6 +2711,7 @@ function loadDoc(d) {
   if (!d || typeof d !== 'object' || !d.pts || !d.lines || !d.circles) throw new Error('Archivo no válido');
   doc = { n: 0, cons: {}, hatches: {}, ltypes: {}, arcs: {}, ellipses: {}, texts: {}, splines: {}, traces: {}, cn: {}, layers: {}, curLayer: null, ...d };
   ensureNumbers(doc); ensureMarkRefs(doc);
+  if (!(doc.tEnd > 0)) { const m = Math.max(0, ...Object.values(doc.graphs || {}).map((g) => Number(g.t1) || 0)); if (m > 0) doc.tEnd = m; } // dibujos anteriores: el tiempo final de sus graficas
   undoStack = []; redoStack = []; sel = []; pending = null;
 }
 async function exportPNG() {
@@ -2915,7 +2916,7 @@ function editGraph(id, nuevo) {
   const g = doc.graphs?.[id];
   if (!g) return;
   const dlg = $('dlgGraph');
-  $('grTitle').value = g.title || ''; $('grSeries').value = g.series.join('\n'); $('grT1').value = g.t1; $('grN').value = g.n;
+  $('grTitle').value = g.title || ''; $('grSeries').value = g.series.join('\n'); $('grT1').value = TE(); $('grN').value = g.n;
   $('grX').value = fmtG(g.x); $('grY').value = fmtG(g.y); $('grW').value = fmtG(g.w); $('grH').value = fmtG(g.h);
   $('grVars').textContent = 'Variables: ' + graphVarNames(doc).join(', ');
   let done = false;
@@ -2924,11 +2925,13 @@ function editGraph(id, nuevo) {
     const series = $('grSeries').value.split('\n').map((s) => s.trim()).filter(Boolean);
     const num = (e) => Number(String($(e).value).replace(',', '.'));
     const nv = { x: num('grX'), y: num('grY'), w: num('grW'), h: num('grH'), t1: num('grT1'), n: Math.round(num('grN')) };
+    const T1 = nv.t1; delete nv.t1;
     if (!series.length) { toast('Escribe al menos una relación, por ejemplo «MR1 vs t»'); return; }
-    if (![nv.x, nv.y, nv.w, nv.h, nv.t1, nv.n].every(Number.isFinite) || nv.w <= 0 || nv.h <= 0 || nv.t1 <= 0 || nv.n < 2) { toast('Revisa la posición, el tamaño, el tiempo final y las muestras'); return; }
+    if (![nv.x, nv.y, nv.w, nv.h, T1, nv.n].every(Number.isFinite) || nv.w <= 0 || nv.h <= 0 || T1 <= 0 || nv.n < 2) { toast('Revisa la posición, el tamaño, el tiempo final y las muestras'); return; }
     if (!nuevo) pushUndo();
     Object.assign(doc.graphs[id], nv, { title: $('grTitle').value.trim(), series });
     delete graphData[id];
+    if (T1 !== TE()) { doc.tEnd = T1; graphData = {}; }
     done = true; dlg.close(); afterChange();
   };
   $('grDel').onclick = (ev) => { ev.preventDefault(); if (!nuevo) pushUndo(); delete doc.graphs[id]; delete graphData[id]; done = true; dlg.close(); afterChange(); };
@@ -3009,8 +3012,15 @@ function editAct(id, nuevo) {
   dlg.oncancel = () => finish('cancel');
   dlg.showModal();
 }
+// Tiempo final: uno solo para el reproductor («hasta») y para todas las graficas (doc.tEnd); si cambia uno, cambia el otro.
+const TE = () => (Number(doc.tEnd) > 0 ? Number(doc.tEnd) : 10);
+function setTEnd(v) {
+  doc.tEnd = v;
+  if (sim) { const o = JSON.parse(sim.snap); o.tEnd = v; sim.snap = JSON.stringify(o); graphStale = true; } // al detener, el dibujo vuelve de la copia
+  else { graphData = {}; scheduleGraphs(); }
+}
 function simShow() {
-  $('simT').value = String(Math.round(simT * 1000) / 1000); $('simRange').max = String(simTmax); $('simRange').value = String(Math.min(simT, simTmax)); $('simTmax').value = String(simTmax);
+  $('simT').value = String(Math.round(simT * 1000) / 1000); $('simRange').max = String(TE()); $('simRange').value = String(Math.min(simT, TE())); $('simTmax').value = String(TE());
   $('simPlay').textContent = simRaf ? '⏸' : '▶';
   $('simLoop').classList.toggle('on', simMode === 'loop'); $('simPP').classList.toggle('on', simMode === 'pp');
   $('simSpeed').value = String(simSpeed);
@@ -3025,15 +3035,15 @@ function pauseSim() { if (simRaf) cancelAnimationFrame(simRaf); simRaf = 0; $('s
 // Reproduce a la velocidad elegida; al llegar al final: se detiene, vuelve a empezar (loop) o regresa (vaiven).
 function playSim() {
   if (simRaf) { pauseSim(); return; }
-  if (simT >= simTmax && simMode !== 'pp') { if (!simGoto(0)) return; }
-  simDir = simT >= simTmax ? -1 : 1;
+  if (simT >= TE() && simMode !== 'pp') { if (!simGoto(0)) return; }
+  simDir = simT >= TE() ? -1 : 1;
   let last = performance.now();
   const tick = (now) => {
     const dt = Math.min(0.25, (now - last) / 1000) * simSpeed; last = now;
     let t = simT + dt * simDir, stop = false;
-    if (t >= simTmax) { if (simMode === 'loop') t = t - simTmax; else if (simMode === 'pp') { t = 2 * simTmax - t; simDir = -1; } else { t = simTmax; stop = true; } }
+    if (t >= TE()) { if (simMode === 'loop') t = t - TE(); else if (simMode === 'pp') { t = 2 * TE() - t; simDir = -1; } else { t = TE(); stop = true; } }
     else if (t <= 0 && simDir < 0) { if (simMode === 'pp') { t = -t; simDir = 1; } else { t = 0; stop = true; } }
-    t = Math.min(simTmax, Math.max(0, t));
+    t = Math.min(TE(), Math.max(0, t));
     if (!simGoto(t)) return;
     if (stop) { pauseSim(); return; }
     simRaf = requestAnimationFrame(tick);
@@ -3044,12 +3054,13 @@ function playSim() {
 function stepSim(dir) {
   pauseSim();
   if (!sim) return;
-  const h = simTmax / 100;
-  simGoto(Math.min(simTmax, Math.max(0, Math.round((simT + dir * h) * 1e6) / 1e6)));
+  const h = TE() / 100;
+  simGoto(Math.min(TE(), Math.max(0, Math.round((simT + dir * h) * 1e6) / 1e6)));
 }
 function stopSim() {
   if (!sim) return;
   pauseSim(); simEnd(doc, sim); sim = null; simT = 0;
+  if (graphStale) { graphData = {}; graphStale = false; }
   $('simBar').hidden = true; pending = null; sel = sel.filter(exists);
   afterChange();
 }
@@ -3070,8 +3081,8 @@ $('simPP').onclick = () => { simMode = simMode === 'pp' ? 'none' : 'pp'; simShow
 $('simSpeed').onchange = () => { simSpeed = Number($('simSpeed').value) || 1; simShow(); };
 $('simStop').onclick = stopSim;
 $('simRange').oninput = () => { pauseSim(); if (sim) simGoto(Number($('simRange').value)); };
-$('simT').onchange = () => { pauseSim(); const v = Number($('simT').value.replace(',', '.')); if (sim && Number.isFinite(v) && v >= 0) { simTmax = Math.max(simTmax, v); simGoto(v); } else simShow(); };
-$('simTmax').onchange = () => { const v = Number($('simTmax').value.replace(',', '.')); if (Number.isFinite(v) && v > 0) { simTmax = v; if (simT > v && sim) simGoto(v); } simShow(); };
+$('simT').onchange = () => { pauseSim(); const v = Number($('simT').value.replace(',', '.')); if (sim && Number.isFinite(v) && v >= 0) { setTEnd(Math.max(TE(), v)); simGoto(v); } else simShow(); };
+$('simTmax').onchange = () => { const v = Number($('simTmax').value.replace(',', '.')); if (Number.isFinite(v) && v > 0) { setTEnd(v); if (simT > v && sim) simGoto(v); } simShow(); };
 
 function runGroupItem(id) {
   if (id === 'vector' && convertToVector()) return;

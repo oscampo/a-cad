@@ -39,7 +39,7 @@ export function computeGraph(doc, g, solveFn) {
   let specs;
   try { specs = g.series.map(parseSeries); } catch (e) { out.error = e.message; return out; }
   if (!specs.length) { out.error = 'La gráfica no tiene relaciones'; return out; }
-  const t1 = Number(g.t1) > 0 ? Number(g.t1) : 10, n = Math.min(2000, Math.max(2, Math.round(Number(g.n) || 100)));
+  const t1 = Number(doc.tEnd) > 0 ? Number(doc.tEnd) : Number(g.t1) > 0 ? Number(g.t1) : 10, n = Math.min(2000, Math.max(2, Math.round(Number(g.n) || 100)));
   const clone = JSON.parse(JSON.stringify(doc));
   delete clone.graphs;
   const acts = {};

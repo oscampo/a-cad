@@ -3623,4 +3623,17 @@ t('notacion punto: p12.x, l1.len, c1.r en formulas, textos, cotas, actuadores y 
   assert.ok(Math.abs(rr.series[0].pts[2][1] - 10 * Math.sin((90 * Math.PI) / 180)) < 1e-3);
 });
 
+t('graficas: el tiempo final es el del documento (doc.tEnd), el mismo del reproductor', () => {
+  const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 10, 0), l = addLine(d, a, b);
+  d.pts[a].fixed = true; addCon(d, { t: 'DIST', refs: [a, b], v: 10 });
+  addRotary(d, l, a, { mode: 'disp', expr: '10*t' });
+  const g = addGraph(d, 0, 0, 100, 60, ['MR1 vs t']);
+  d.graphs[g].n = 3;
+  d.tEnd = 4;
+  assert.equal(computeGraph(d, d.graphs[g], solve).tEnd, 4);
+  d.tEnd = 8;
+  const r = computeGraph(d, d.graphs[g], solve);
+  assert.equal(r.tEnd, 8); assert.equal(Math.round(r.series[0].pts[2][1]), 80);
+});
+
 console.log(`\n${passed} pruebas pasaron`);
