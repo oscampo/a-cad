@@ -1,6 +1,6 @@
 import { visibleDoc, hatchLoops, allLtypes, arcOf, arcSamples, splinePolyline, ellipsePolyline } from './model.js';
 import { dashFromPattern, norm, splineBezier } from './geom.js';
-import { textFrame, textCorners, textPose, shownText, runsOf, plainText, LINE_SPACING, fontCss } from './text.js';
+import { textFrame, textCorners, textPose, shownText, runsOf, plainText, framePrims, LINE_SPACING, fontCss } from './text.js';
 import { vecArrow } from './vectors.js';
 import { layoutDim } from './dims.js';
 
@@ -155,6 +155,13 @@ export function exportSVG(doc, ltScale = 1, vis = {}) {
     if (!P) continue;
     const pose = textPose(doc, t);
     const f = textFrame(t, approx, pose.anchor);
+    if (f.math) { // formulas: cada primitiva con su posicion (texto en su linea base, trazos como rutas)
+      const els = framePrims(f, t).map((p) => (p.k === 't'
+        ? `<text x="${n(p.x * K)}" y="${n(-p.y * K)}" font-size="${n(p.size * K)}" font-family="${fontCss(p.font).replace(/"/g, "'")}"${p.it ? ' font-style="italic"' : ''}>${esc(p.s)}</text>`
+        : `<path d="M${p.pts.map(([x, y]) => `${n(x * K)} ${n(-y * K)}`).join(' L')}" fill="none" stroke="${col(t.color)}" stroke-width="${n(Math.max(p.lw * K, 0.5))}" stroke-linecap="round" stroke-linejoin="round"/>`));
+      out.push(`<g transform="translate(${X(P.x)} ${Y(P.y)}) rotate(${n(-pose.ang)})" fill="${col(t.color)}">${els.join('')}</g>`);
+      continue;
+    }
     const anchor = { l: 'start', c: 'middle', r: 'end' }[pose.anchor[1]];
     const lines = f.lines.map((ln, i) => `<tspan x="${n((anchor === 'start' ? f.xmin : anchor === 'middle' ? f.xmin + f.w / 2 : f.xmin + f.w) * K)}" y="${n((-f.ymax + (i * LINE_SPACING + 0.95) * t.h) * K)}">${runsOf(ln).map((r) => (r.it ? `<tspan font-style="italic">${esc(r.s)}</tspan>` : esc(r.s))).join('')}</tspan>`).join('');
     out.push(`<text transform="translate(${X(P.x)} ${Y(P.y)}) rotate(${n(-pose.ang)})" font-family="${t.font ? fontCss(t.font).replace(/"/g, "'") : 'sans-serif'}" font-size="${n(t.h * K)}" text-anchor="${anchor}" fill="${col(t.color)}">${lines}</text>`);
@@ -221,6 +228,14 @@ export function exportDXF(doc, viewScale = 5, vis = {}) {
     const pose = textPose(doc, t);
     const f = textFrame(t, approx, pose.anchor);
     const a = (pose.ang * Math.PI) / 180, c0 = Math.cos(a), s0 = Math.sin(a);
+    if (f.math) { // formulas: textos en su linea base y trazos como polilineas
+      const W = (x, y) => ({ x: P.x + x * c0 - y * s0, y: P.y + x * s0 + y * c0 });
+      for (const p of framePrims(f, t)) {
+        if (p.k === 't') { const q = W(p.x, p.y); g(0, 'TEXT'); g(8, '0'); g(10, q.x); g(20, q.y); g(30, 0); g(40, p.size); g(1, p.s.replace(/\s+/g, ' ')); g(50, pose.ang); }
+        else poly(p.pts.map(([x, y]) => W(x, y)), false);
+      }
+      continue;
+    }
     const h72 = { l: 0, c: 1, r: 2 }[pose.anchor[1]];
     f.lines.forEach((ln, i) => {
       const x = h72 === 0 ? f.xmin : h72 === 1 ? f.xmin + f.w / 2 : f.xmin + f.w;

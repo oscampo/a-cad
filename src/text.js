@@ -6,6 +6,8 @@ import { varsOf, textVars } from './params.js';
 import { IT0, IT1, DEF_SRC, runsOf, hasDefMark } from './tvars.js';
 export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
+import { hasMath, layoutText } from './mathlayout.js';
+export { hasMath } from './mathlayout.js';
 
 // Salidas en textos: [=expresion] se reemplaza por el valor de la expresion, que puede usar los nombres de las cotas
 // (D1, A1, O2...) y funciones: "El diametro es [=O1] cm", "vueltas: [=A1/(2π)]". Un ángulo vale su medida en radianes.
@@ -96,13 +98,29 @@ export const lineWidth = (measure, line, font) => runsOf(line).reduce((w, r) => 
 
 // Caja en el sistema local del texto (x a la derecha, y arriba, origen en el punto de insercion).
 export function textFrame(t, measure, anchor = t.anchor) {
-  const lines = String(t.text ?? '').split('\n');
+  const src = String(t.text ?? '');
+  const lines = src.split('\n');
+  if (hasMath(src)) { // con formulas ($...$, $$...$$): las lineas tienen alturas propias
+    const m = layoutText(src, measure, t.font);
+    const w = Math.max(0.0001, m.w * t.h), hh = Math.max(LINE_SPACING * t.h, m.hh * t.h);
+    const ax = { l: 0, c: 0.5, r: 1 }[anchor?.[1] ?? 'l'], ay = { t: 0, m: 0.5, b: 1 }[anchor?.[0] ?? 'b'];
+    const xmin = -ax * w, ymax = ay * hh;
+    return { lines, w, hh, xmin, ymax, ymin: ymax - hh, math: m };
+  }
   const w = Math.max(0.0001, ...lines.map((l) => lineWidth(measure, l, t.font) * t.h));
   const hh = lines.length * LINE_SPACING * t.h;
   const ax = { l: 0, c: 0.5, r: 1 }[anchor?.[1] ?? 'l'];
   const ay = { t: 0, m: 0.5, b: 1 }[anchor?.[0] ?? 'b'];
   const xmin = -ax * w, ymax = ay * hh;
   return { lines, w, hh, xmin, ymax, ymin: ymax - hh };
+}
+
+// Primitivas de un texto con formulas en el sistema local del texto (x a la derecha, y arriba, unidades del modelo):
+// { k:'t', s, x, y (linea base), size, it, font } y { k:'p', pts, lw }. Vacio si el texto no lleva formulas.
+export function framePrims(f, t) {
+  if (!f.math) return [];
+  const h = t.h, X = (x) => f.xmin + x * h, Y = (y) => f.ymax - y * h;
+  return f.math.prims.map((p) => (p.k === 't' ? { k: 't', s: p.s, x: X(p.x), y: Y(p.y), size: p.sz * h, it: p.it, font: p.font } : { k: 'p', pts: p.pts.map(([x, y]) => [X(x), Y(y)]), lw: p.lw * h }));
 }
 
 // Esquinas de la caja en coordenadas del modelo (antihorario).

@@ -21,7 +21,7 @@ import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
 import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, AXES } from './graphs.js';
-import { textFrame, textHit, textPose, shownText, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss } from './text.js';
+import { textFrame, textHit, textPose, shownText, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss } from './text.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
@@ -1021,7 +1021,16 @@ function drawTexts(c, o) {
     c.rotate(-(pose.ang * Math.PI) / 180);
     c.font = `${t.h * sc * dpr}px ${fontCss(t.font)}`;
     c.fillStyle = colorOf(t.color, o); c.textBaseline = 'top'; c.textAlign = 'left';
-    f.lines.forEach((ln, i) => {
+    if (f.math) { // con formulas ($...$, $$...$$): textos en su linea base y trazos (barras, raices, parentesis grandes)
+      c.textBaseline = 'alphabetic'; c.strokeStyle = c.fillStyle; c.lineCap = 'round'; c.lineJoin = 'round'; c.setLineDash([]);
+      for (const p of framePrims(f, t)) {
+        if (p.k === 't') { c.font = `${p.it ? 'italic ' : ''}${p.size * sc * dpr}px ${fontCss(p.font)}`; c.fillText(p.s, p.x * sc * dpr, -p.y * sc * dpr); } else {
+          c.lineWidth = Math.max(p.lw * sc * dpr, dpr); c.beginPath();
+          p.pts.forEach(([x, y], k) => (k ? c.lineTo(x * sc * dpr, -y * sc * dpr) : c.moveTo(x * sc * dpr, -y * sc * dpr)));
+          c.stroke();
+        }
+      }
+    } else f.lines.forEach((ln, i) => {
       let x = f.xmin; // las definiciones de variables («x:=valor») van en cursiva: cada tramo con su fuente
       for (const r of runsOf(ln)) {
         c.font = `${r.it ? 'italic ' : ''}${t.h * sc * dpr}px ${fontCss(t.font)}`;
