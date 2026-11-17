@@ -67,6 +67,13 @@ t('layout: una fraccion es mas alta que una letra y mas ancha que sus partes', (
   assert.ok(nums[0].y < 0 && nums[1].y > 0); // numerador arriba, denominador abajo
 });
 
+t('layout: la linea base del denominador no depende de si es «x» o una cifra', () => {
+  const base = (s) => layoutMath(s, true, measure).ops.filter((o) => o.k === 't').at(-1).y;
+  assert.equal(base('3/x'), base('3/5'));
+  const top = (s) => layoutMath(s, true, measure).ops.filter((o) => o.k === 't')[0].y;
+  assert.equal(top('x/3'), top('y/3')); // el puntal del numerador tampoco depende de los descendentes
+});
+
 t('layout: superindice sube, subindice baja; raiz y parentesis grandes se dibujan con trazos', () => {
   const s = layoutMath('x^2_1', false, measure).ops.filter((o) => o.k === 't');
   assert.ok(s[1].y < 0 && s[2].y > 0);

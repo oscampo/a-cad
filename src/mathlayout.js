@@ -75,9 +75,11 @@ function frac(n, ctx) {
   const N = lay(n.a, cs), D = lay(n.b, cs);
   const bar = 0.045 * sz, gap = 0.1 * sz, edge = 0.06 * sz;
   const w = Math.max(N.w, D.w) + 2 * edge, ax = AXIS * sz;
-  const yn = -ax - bar / 2 - gap - N.d, yd = -ax + bar / 2 + gap + D.a;
+  // Puntal fijo (como TeX): la posicion de numerador y denominador no depende de si llevan solo letras bajas («x») o cifras y mayusculas.
+  const nd = Math.max(N.d, 0.22 * cs.sz), da = Math.max(D.a, 0.7 * cs.sz);
+  const yn = -ax - bar / 2 - gap - nd, yd = -ax + bar / 2 + gap + da;
   return {
-    w, a: ax + bar / 2 + gap + N.d + N.a, d: -ax + bar / 2 + gap + D.a + D.d,
+    w, a: ax + bar / 2 + gap + nd + N.a, d: -ax + bar / 2 + gap + da + D.d,
     ops: [...shift(N.ops, (w - N.w) / 2, yn), stroke([[0, -ax], [w, -ax]], bar), ...shift(D.ops, (w - D.w) / 2, yd)],
   };
 }
