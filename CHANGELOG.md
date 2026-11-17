@@ -7,6 +7,7 @@
 - Gráficas: las relaciones admiten operaciones y funciones («p1.x/p1.y vs t», «ML1.d-p1.x vs t»).
 - Simulación: los puntos con «Trazar punto» dibujan su trayectoria y la conservan al detener la simulación.
 - Menú de actuadores, gráfica y simulación: se quitan los textos descriptivos de los botones (siguen en la ayuda emergente).
+- Gráficas: el cálculo cede el hilo cada ~25 ms (antes bloqueaba la página de una vez) y se pausa mientras se arrastra algo. Si la página se cierra a mitad de un cálculo (Chrome en iPad), al reabrir las gráficas quedan en pausa con un aviso del avance alcanzado, en vez de repetir el fallo; un toque sobre la gráfica la calcula.
 
 - La velocidad de un actuador en las gráficas se escribe con la notación «.»: `ML1.v` (reemplaza a `ML1_v`; el «_» queda reservado para subíndices); `ML1.d` es su desplazamiento, igual que `ML1`.
 - **Tiempo final único**: el «hasta» del reproductor y el «Tiempo final» de las gráficas son el mismo valor (se guarda con el dibujo); si cambia uno, cambia el otro y todas las gráficas se recalculan.

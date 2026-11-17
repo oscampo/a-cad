@@ -47,7 +47,7 @@ export function graphVarNames(doc) {
 
 // Calcula los datos: { series: [{ label, pts: [[x, y]...], color, ax, ay, tx }], error, tEnd }. solveFn: el solver del dibujo.
 const bareRe = /^[A-Za-zα-ωΑ-Ω_][\wα-ωΑ-Ω]*(\.[A-Za-zα-ωΑ-Ω]\w*)?$/;
-export function computeGraph(doc, g, solveFn) {
+function* graphGen(doc, g, solveFn) {
   const out = { series: [], error: null };
   let specs;
   try { specs = g.series.map(parseSeries); } catch (e) { out.error = e.message; return out; }
@@ -95,6 +95,7 @@ export function computeGraph(doc, g, solveFn) {
         try { const X = value(sp.x, env), Y = value(sp.y, env); if (Number.isFinite(X) && Number.isFinite(Y)) bufs[j].push([X, Y]); } catch (e) { errs[j] ||= e.message; }
       });
       lastT = t;
+      yield (i + 1) / n; // punto de cesion: computeGraphAsync devuelve aqui el control al navegador
     }
     out.tEnd = lastT;
   }
@@ -110,6 +111,33 @@ export function computeGraph(doc, g, solveFn) {
     out.series.push({ label, pts, color: GRAPH_COLORS[i % GRAPH_COLORS.length], ax: sp.ax, ay: sp.ay, tx: sp.x === 't' });
   });
   return out;
+}
+
+export function computeGraph(doc, g, solveFn) {
+  const it = graphGen(doc, g, solveFn);
+  for (;;) { const s = it.next(); if (s.done) return s.value; }
+}
+// Mismo calculo, pero cede el hilo cada ~25 ms para que la pagina no quede congelada (en un iPad el solver puede tardar segundos).
+// stale(): true si el resultado ya no sirve (devuelve null); busy(): true mientras algo mas usa el solver (p. ej. un arrastre), se espera;
+// onStep(fraccion): progreso. La copia del dibujo se toma de forma sincrona al llamar, asi que editar despues no la afecta.
+export function computeGraphAsync(doc, g, solveFn, { stale = () => false, busy = () => false, onStep = () => {} } = {}) {
+  return new Promise((resolve) => {
+    const it = graphGen(doc, g, solveFn);
+    const run = () => {
+      try {
+        const t0 = performance.now();
+        for (;;) {
+          if (stale()) return resolve(null);
+          if (busy()) return void setTimeout(run, 100);
+          const s = it.next();
+          if (s.done) return resolve(s.value);
+          onStep(s.value);
+          if (performance.now() - t0 > 25) return void setTimeout(run, 0);
+        }
+      } catch (e) { resolve({ series: [], error: e.message }); }
+    };
+    run();
+  });
 }
 
 // Configuracion de un eje (x1, x2, y1, y2): nombre libre, escala lineal o logaritmica, limites (vacios = automaticos) y divisiones.

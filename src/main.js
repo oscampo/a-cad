@@ -20,7 +20,7 @@ import { layoutDim, dragDim, dimValue, angSector, angTrue, initAngle, trackAngle
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
-import { addGraph, computeGraph, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, AXES } from './graphs.js';
+import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, AXES } from './graphs.js';
 import { textFrame, textHit, textPose, shownText, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss } from './text.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors } from './params.js';
@@ -57,7 +57,13 @@ let clip = null; // lo copiado (Copiar / Pegar)
 let hover = null; // posicion del puntero en pantalla
 let drag = null;
 let labelHits = [];
-let graphData = {}, graphSig = {}, graphTimer = 0;
+let graphData = {}, graphSig = {}, graphTimer = 0, graphRun = 0, graphKey = '', graphProg = {};
+// Si la pagina murio mientras calculaba una grafica (Chrome en iPad la cierra), queda una marca en localStorage: al abrir de nuevo no se calcula solo, para no entrar en un bucle de fallos.
+const GCALC = 'ipadcad.gcalc';
+let graphHold = null;
+try { graphHold = JSON.parse(localStorage.getItem(GCALC) || 'null'); } catch { /* sin almacenamiento */ }
+const gcalcMark = (v) => { try { if (v) localStorage.setItem(GCALC, JSON.stringify(v)); else localStorage.removeItem(GCALC); } catch { /* sin almacenamiento */ } };
+addEventListener('pagehide', () => gcalcMark(null)); // cerrar o recargar a proposito no es un fallo; un cierre forzado por el sistema no dispara este evento
 let simMode = 'none', simSpeed = 1, simDir = 1; // reproduccion: none | loop | pp (vaiven), escala de velocidad y sentido
 let actHits = [], sim = null, simT = 0, graphStale = false, simRaf = 0, simPlayFrom = 0; // actuadores: zonas tocables y simulacion en curso
 const pointers = new Map();
@@ -1469,6 +1475,7 @@ function toolDown(p) {
   hover = p;
   if (tool === 'select') {
     const gh = !sim && fkOn('ac') ? graphAt(p.x, p.y) : null;
+    if (gh && graphHold) { graphHold = null; gcalcMark(null); scheduleGraphs(); draw(); return; }
     if (gh) { const g = doc.graphs[gh.id]; drag = { p0: p, graph: gh.id, mode: gh.mode, orig: { x: g.x, y: g.y, w: g.w, h: g.h }, m0: toModel(p.x, p.y), started: false }; return; }
     const h = hitTest(p.x, p.y);
     drag = { p0: p, hit: h, started: false };
@@ -2917,7 +2924,8 @@ function drawGraphs(c, o) {
     if (g.title) { c.textAlign = 'left'; c.font = F(12, 'bold '); c.fillText(g.title, x0 + 8 * dpr, y0 + 10 * dpr); c.font = F(fs); }
     const px = x0 + L, py = y0 + T, pw = W - L - R, ph = H - T - Bm;
     const bnd = D && dataBounds(D.series);
-    if (!D) { c.textAlign = 'center'; c.fillText('Calculando…', x0 + W / 2, y0 + H / 2); }
+    if (!D && graphHold) { c.textAlign = 'center'; c.fillText('⏸ Cálculo en pausa: la página se cerró al calcular', x0 + W / 2, y0 + H / 2 - 8 * dpr); c.fillText('Toca la gráfica para calcular', x0 + W / 2, y0 + H / 2 + 8 * dpr); }
+    else if (!D) { c.textAlign = 'center'; c.fillText('Calculando… ' + Math.round((graphProg[id] || 0) * 100) + ' %', x0 + W / 2, y0 + H / 2); }
     else if (D.error && !bnd) { c.textAlign = 'center'; c.fillStyle = '#dc2626'; c.fillText('⚠ ' + D.error.slice(0, 80), x0 + W / 2, y0 + H / 2); }
     else if (bnd && pw > 10 && ph > 10) {
       const lay = {};
@@ -2993,20 +3001,52 @@ function drawGraphs(c, o) {
   if (need) scheduleGraphs();
 }
 function scheduleGraphs() {
-  if (sim || !Object.keys(doc.graphs || {}).length) return;
+  if (sim || graphHold || !Object.keys(doc.graphs || {}).length) return;
   clearTimeout(graphTimer);
   graphTimer = setTimeout(() => {
-    if (sim) return;
+    if (sim || graphHold) return;
     // solo se recalcula la grafica cuyo resultado puede haber cambiado: mover o redimensionar una grafica, su titulo o sus ejes no cambian los datos
     const base = JSON.stringify({ ...doc, graphs: undefined, traces: undefined, layers: undefined });
-    const nd = {}, ns = {};
+    const ns = {}, todo = [];
     for (const [id, g] of Object.entries(doc.graphs || {})) {
       ns[id] = base + '|' + JSON.stringify([g.series, g.n, g.t1]);
-      nd[id] = graphData[id] && graphSig[id] === ns[id] ? graphData[id] : computeGraph(doc, g, solve);
+      if (!(graphData[id] && graphSig[id] === ns[id])) todo.push(id);
     }
-    graphData = nd; graphSig = ns;
-    draw();
+    for (const id of Object.keys(graphData)) if (!doc.graphs?.[id]) delete graphData[id];
+    const key = JSON.stringify(todo.map((id) => ns[id]));
+    if (!todo.length || key === graphKey) return; // nada que calcular, o ya se esta calculando justo eso
+    graphKey = key;
+    runGraphs(++graphRun, todo, ns, key);
   }, 250);
+}
+// Calcula las graficas pendientes de una en una, cediendo el hilo al navegador (el solver en un iPad puede tardar segundos); un cambio posterior cancela la corrida.
+async function runGraphs(run, todo, ns, key) {
+  const t0 = performance.now();
+  let lastDraw = 0;
+  const stale = () => run !== graphRun || !!sim;
+  const busy = () => !!drag; // un arrastre usa el solver con su propia sesion: se espera a que termine
+  try {
+    for (const id of todo) {
+      const g = doc.graphs?.[id];
+      if (!g) continue;
+      graphProg[id] = 0;
+      gcalcMark({ id, p: 0, ms: 0, t: Date.now() });
+      const r = await computeGraphAsync(doc, g, solve, {
+        stale, busy,
+        onStep: (f) => {
+          graphProg[id] = f;
+          const now = performance.now();
+          if (now - lastDraw > 200) { lastDraw = now; gcalcMark({ id, p: Math.round(f * 100) / 100, ms: Math.round(now - t0), t: Date.now() }); if (!graphData[id]) draw(); }
+        },
+      });
+      if (!r) return;
+      graphData[id] = r; graphSig[id] = ns[id];
+      draw();
+    }
+  } finally {
+    if (graphKey === key) graphKey = '';
+    if (run === graphRun) gcalcMark(null); // terminada o cancelada sin relevo: ya no hay un calculo en vuelo
+  }
 }
 function graphTool(p) {
   const ah = actAt(p.x, p.y);
@@ -4196,6 +4236,7 @@ async function boot() {
   setTool('select');
   try { await initSolver(wasmUrl); } catch (err) { toast('No cargó el solver: ' + err.message); }
   syncPanel(); updateButtons(); resize();
+  if (graphHold) toast(`La página se cerró al calcular una gráfica (avance ${Math.round((graphHold.p || 0) * 100)} %, ${Math.round((graphHold.ms || 0) / 100) / 10} s). Las gráficas quedan en pausa: toca una para calcularla.`);
   if (!Object.keys(doc.pts).length) fitView();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   window.__cad = { hitTest, get doc() { return doc; }, get view() { return view; }, solve, setTool, toScreen, toModel, applyCon, get sel() { return sel; }, set sel(v) { sel = v; afterChange(); } };

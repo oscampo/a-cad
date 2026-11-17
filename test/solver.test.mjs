@@ -13,7 +13,7 @@ import { varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, check
 import { runsOf, plainText } from '../src/tvars.js';
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, cornerElements, coincidentIds } from '../src/corners.js';
 import { addRotary, addLinear, actName, actDisp, simBegin, simStep, simEnd, parseTable, actError } from '../src/actuators.js';
-import { addGraph, computeGraph, niceTicks, parseSeries, axisLayout } from '../src/graphs.js';
+import { addGraph, computeGraph, computeGraphAsync, niceTicks, parseSeries, axisLayout } from '../src/graphs.js';
 import { rigidShape, looseShape, isRigid } from '../src/rigid.js';
 import { nameDims } from '../src/model.js';
 import { trimAt, extendEnd, cutsOf, curveCuts, linearArray, mirrorCopy, circularArray, clipOf, pasteClip, bboxOf } from '../src/edit.js';
@@ -3662,5 +3662,23 @@ t('graficas: expresiones, ejes secundarios y escalas', () => {
   assert.ok(axisLayout({}, 0, 97).hi >= 97);
 });
 
+// computeGraphAsync: mismo resultado que computeGraph, cede el hilo, y se puede cancelar o pausar
+{
+  const f = newDoc(), A = addPoint(f, 0, 0), B = addPoint(f, 10, 0), L = addLine(f, A, B);
+  f.pts[A].fixed = true; addCon(f, { t: 'DIST', refs: [A, B], v: 10 });
+  addRotary(f, L, A, { mode: 'disp', expr: '9*t' });
+  const g = addGraph(f, 0, 0, 100, 60, [B + '.y vs t']);
+  f.graphs[g].t1 = 10; f.graphs[g].n = 40;
+  const sync = computeGraph(f, f.graphs[g], solve);
+  let steps = 0, last = 0;
+  const asy = await computeGraphAsync(f, f.graphs[g], solve, { onStep: (x) => { steps++; last = x; } });
+  assert.deepEqual(asy.series[0].pts, sync.series[0].pts);
+  assert.equal(steps, 40); assert.equal(last, 1);
+  assert.equal(await computeGraphAsync(f, f.graphs[g], solve, { stale: () => true }), null);
+  let waits = 0;
+  const rr = await computeGraphAsync(f, f.graphs[g], solve, { busy: () => waits++ < 1 });
+  assert.equal(rr.series[0].pts.length, 40);
+  passed++; console.log('ok  computeGraphAsync');
+}
 
 console.log(`\n${passed} pruebas pasaron`);
