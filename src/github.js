@@ -53,15 +53,20 @@ async function call(c, method, url, body, accept = 'application/vnd.github+json'
   throw new GhError(`GitHub respondió ${r.status}` + (msg ? ': ' + msg : ''), r.status);
 }
 
-// Lista los .json de la carpeta configurada ([] si la carpeta aun no existe).
-export async function list(c, f = fetch) {
-  const dir = cleanDir(c.dir);
+// Papelera y archivo de metadatos (protegidos) viven dentro de la carpeta configurada; el segundo no se lista como dibujo.
+export const TRASH = '_papelera', META = '_ipad-cad.json';
+const join = (...p) => p.filter(Boolean).join('/');
+export const dirPath = (c, sub = '') => join(cleanDir(c.dir), sub);
+
+// Lista los .json de la carpeta configurada, o de su subcarpeta sub ('' o TRASH) ([] si la carpeta aun no existe).
+export async function list(c, sub = '', f = fetch) {
+  const dir = dirPath(c, sub);
   const url = `${API}/repos/${c.repo}/contents${dir ? '/' + enc(dir) : ''}?ref=${encodeURIComponent(c.branch)}`;
   let r;
   try { r = await call(c, 'GET', url, null, undefined, f); } catch (e) { if (e.status === 404) { await call(c, 'GET', `${API}/repos/${c.repo}`, null, undefined, f); return []; } throw e; }
   const j = await r.json();
   if (!Array.isArray(j)) return [];
-  return j.filter((x) => x.type === 'file' && /\.json$/i.test(x.name)).map((x) => ({ name: x.name, sha: x.sha, size: x.size })).sort((a, b) => a.name.localeCompare(b.name));
+  return j.filter((x) => x.type === 'file' && /\.json$/i.test(x.name) && x.name !== META).map((x) => ({ name: x.name, sha: x.sha, size: x.size })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // sha actual del archivo en la rama, o null si no existe.
@@ -83,4 +88,51 @@ export async function write(c, path, text, message, sha, f = fetch) {
   const r = await call(c, 'PUT', `${API}/repos/${c.repo}/contents/${enc(path)}`, { message, content: toBase64(text), branch: c.branch, ...(sha ? { sha } : {}) }, undefined, f);
   const j = await r.json();
   return j.content?.sha || null;
+}
+
+// Borra un archivo (queda en el historial de git, pero no se puede recuperar desde la app).
+export async function remove(c, path, sha, message, f = fetch) {
+  await call(c, 'DELETE', `${API}/repos/${c.repo}/contents/${enc(path)}`, { message, sha, branch: c.branch }, undefined, f);
+}
+
+// Nombre que no choca con los de taken: «a.json» -> «a (2).json»; con tag («copia»): «a copia.json», «a copia (2).json».
+export function uniqueName(name, taken, tag = '') {
+  const set = new Set(taken), m = /^(.*?)(\.json)$/i.exec(name), base = m ? m[1] : name, ext = m ? m[2] : '';
+  const first = tag ? `${base} ${tag}${ext}` : name;
+  if (!set.has(first)) return first;
+  for (let i = 2; ; i++) { const n = `${tag ? base + ' ' + tag : base} (${i})${ext}`; if (!set.has(n)) return n; }
+}
+
+// Copia un archivo a otra ruta (falla si el destino ya existe); devuelve el sha del nuevo.
+export async function copyFile(c, from, to, f = fetch) {
+  if (await currentSha(c, to, f)) throw new GhError('Ya existe un archivo con ese nombre', 409);
+  const text = await read(c, from, f);
+  return write(c, to, text, `ipad-cad: copia ${from} -> ${to}`, null, f);
+}
+
+// Mueve (o renombra) un archivo: primero crea el destino y luego borra el original, asi un fallo a medias deja una copia de mas, nunca una perdida.
+export async function moveFile(c, from, to, f = fetch) {
+  const fromSha = await currentSha(c, from, f);
+  if (!fromSha) throw new GhError('El archivo ya no está en GitHub', 404);
+  const sha = await copyFile(c, from, to, f);
+  try { await remove(c, from, fromSha, `ipad-cad: mover ${from} -> ${to}`, f); }
+  catch (e) { throw new GhError(`Se creó «${to}» pero no se pudo borrar el original «${from}»: ${e.message}`, e.status); }
+  return sha;
+}
+
+// Metadatos compartidos por todos los dispositivos: { protected: [rutas relativas a la carpeta] }.
+export async function loadMeta(c, f = fetch) {
+  const path = dirPath(c, META), sha = await currentSha(c, path, f);
+  if (!sha) return { meta: { protected: [] }, sha: null };
+  let j = {}; try { j = JSON.parse(await read(c, path, f)); } catch (e) { /* archivo danado: se rehace */ }
+  return { meta: { ...j, protected: Array.isArray(j.protected) ? j.protected : [] }, sha };
+}
+// Lee, aplica fn(meta) y escribe; si otro dispositivo lo cambio en medio, reintenta con lo nuevo.
+export async function updateMeta(c, fn, f = fetch) {
+  for (let i = 0; ; i++) {
+    const { meta, sha } = await loadMeta(c, f);
+    const next = fn(meta) || meta;
+    try { await write(c, dirPath(c, META), JSON.stringify(next, null, 1), 'ipad-cad: metadatos', sha, f); return next; }
+    catch (e) { if (i >= 2 || (e.status !== 409 && e.status !== 422)) throw e; }
+  }
 }

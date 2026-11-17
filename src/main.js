@@ -112,12 +112,13 @@ function redo() {
 function exists(s) {
   return s.k === 'pt' ? s.id in doc.pts : s.k === 'ln' ? s.id in doc.lines : s.k === 'ci' ? s.id in doc.circles : s.k === 'ar' ? s.id in doc.arcs : s.k === 'tx' ? s.id in doc.texts : s.k === 'sp' ? s.id in doc.splines : s.k === 'el' ? s.id in doc.ellipses : s.k === 'ha' ? s.id in doc.hatches : s.id in doc.cons;
 }
-let saveTimer = 0;
+let saveTimer = 0, autosaveAt = 0;
 function persist() {
   clearTimeout(saveTimer);
   if (sim) return; // no se guarda el dibujo movido por la simulacion
   saveTimer = setTimeout(() => {
-    try { localStorage.setItem(STORE, JSON.stringify({ doc, view, cur, opts })); } catch { /* sin almacenamiento */ }
+    autosaveAt = Date.now();
+    try { localStorage.setItem(STORE, JSON.stringify({ doc, view, cur, opts, at: autosaveAt })); } catch { /* sin almacenamiento */ }
   }, 300);
 }
 // afterChange tambien mantiene al dia las cotas que leen medidas (si no se estabilizan, se deja como estaba)
@@ -4152,37 +4153,143 @@ async function ghSaveCmd() {
     toast(`Guardado en GitHub: ${path}`);
   } catch (e) { toast('No se pudo guardar en GitHub: ' + e.message + (e.status === 409 || e.status === 422 ? '. Ábrelo de nuevo y reintenta.' : '')); }
 }
+// Gestor de archivos de GitHub: abrir, seleccion multiple, papelera (restaurar / eliminar definitivamente), renombrar, duplicar y proteger.
+// «Protegido» vive en el repositorio (carpeta/_ipad-cad.json), asi vale en todos los dispositivos; borrarlo pide una confirmacion extra.
 async function ghOpenCmd() {
   const c = gh.loadCfg();
   if (!gh.isReady(c)) { toast('Primero configura GitHub'); openGhCfg(); return; }
-  const dlg = $('dlgGo'), box = $('goList');
+  const dlg = $('dlgGo'), box = $('goList'), bar = $('goBar'), auto = $('goAuto'), msgEl = $('goMsg');
   $('goWhere').textContent = `${c.repo}/${c.dir || ''}`;
-  box.textContent = 'Cargando…';
   $('goCfg').onclick = () => { dlg.close(); openGhCfg(); };
-  dlg.showModal();
-  let files;
-  try { files = await gh.list(c); } catch (e) { box.textContent = 'No se pudo leer GitHub: ' + e.message; return; }
-  box.textContent = '';
-  if (!files.length) { box.textContent = 'No hay dibujos .json en esa carpeta todavía. Guarda uno con «Guardar en GitHub».'; return; }
-  for (const f of files) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.style.cssText = 'display:flex;width:100%;justify-content:space-between;margin:2px 0';
-    b.innerHTML = '<span></span><small style="color:var(--muted)"></small>';
-    b.firstChild.textContent = f.name; b.lastChild.textContent = f.size >= 1024 ? Math.round(f.size / 1024) + ' KB' : f.size + ' B';
-    b.onclick = async () => {
-      dlg.close();
-      const path = gh.filePath(c, f.name);
-      try {
-        toast('Abriendo de GitHub…');
-        const j = JSON.parse(await gh.read(c, path));
-        loadDoc(j.doc || j);
-        gh.rememberSha(c, path, f.sha);
-        const base = cleanFileBase(f.name, 'json'); if (base) opts.fileBase = base;
-        fitView(); afterChange(); toast('Abierto de GitHub: ' + f.name); setTimeout(warnRedundant, 2800);
-      } catch (e) { toast('No se pudo abrir: ' + e.message); }
-    };
-    box.appendChild(b);
+  let tab = 'files', lists = { files: [], trash: [] }, meta = { protected: [] }, sel = new Set(), busy = false;
+  const key = (name, t = tab) => (t === 'trash' ? gh.TRASH + '/' + name : name);
+  const isProt = (name, t = tab) => meta.protected.includes(key(name, t));
+  const path = (name, t = tab) => gh.filePath(c, key(name, t));
+  const say = (t, bad) => { msgEl.style.color = bad ? 'var(--warn)' : 'var(--muted)'; msgEl.textContent = t; };
+  const btn = (label, onclick, { on, disabled, title } = {}) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (on) b.classList.add('on'); b.disabled = !!disabled || busy; if (title) b.title = title; b.onclick = onclick; return b; };
+  const list = (names) => names.slice(0, 6).map((n) => '• ' + n).join('\n') + (names.length > 6 ? `\n… y ${names.length - 6} más` : '');
+
+  async function openFile(f) {
+    dlg.close();
+    const p = path(f.name);
+    try {
+      toast('Abriendo de GitHub…');
+      const j = JSON.parse(await gh.read(c, p));
+      loadDoc(j.doc || j);
+      gh.rememberSha(c, p, f.sha);
+      const base = cleanFileBase(f.name, 'json'); if (base) opts.fileBase = base;
+      fitView(); afterChange(); toast('Abierto de GitHub: ' + f.name); setTimeout(warnRedundant, 2800);
+    } catch (e) { toast('No se pudo abrir: ' + e.message); }
   }
+  // Ejecuta op(nombre) sobre cada seleccionado, uno tras otro (GitHub limita las escrituras seguidas); junta los errores y recarga al final.
+  async function run(label, names, op, after) {
+    if (busy) return;
+    busy = true; render();
+    const errs = []; let ok = 0;
+    for (const n of names) {
+      say(`${label} ${ok + errs.length + 1} de ${names.length}: ${n}…`);
+      try { await op(n); ok++; } catch (e) { errs.push(`${n}: ${e.message}`); }
+    }
+    try { if (after) await after(); } catch (e) { errs.push('metadatos: ' + e.message); }
+    busy = false; sel = new Set();
+    await reload();
+    say(`${ok} de ${names.length} listo${names.length === 1 ? '' : 's'}.` + (errs.length ? ' Con errores: ' + errs.join(' · ') : ''), errs.length > 0);
+  }
+  // Mueve las marcas de proteccion de unas rutas a otras (una sola escritura de metadatos, y solo si hace falta).
+  const moveKeys = (pairs) => async () => {
+    const hit = pairs.filter(([a]) => meta.protected.includes(a));
+    if (hit.length) await gh.updateMeta(c, (m) => { for (const [a, b] of hit) { m.protected = m.protected.filter((x) => x !== a); if (b) m.protected.push(b); } });
+  };
+
+  const toTrash = () => {
+    const names = [...sel], pr = names.filter((n) => isProt(n));
+    if (!confirm(`¿Mover ${names.length === 1 ? 'este archivo' : names.length + ' archivos'} a la papelera?\n\n${list(names)}\n\nPodrás restaurarlos desde la pestaña Papelera.`)) return;
+    if (pr.length && !confirm(`PROTEGIDO${pr.length === 1 ? '' : 'S'}: ${pr.join(', ')}.\n\n¿Seguro que quieres moverlo${pr.length === 1 ? '' : 's'} a la papelera?`)) return;
+    const taken = lists.trash.map((f) => f.name), pairs = [];
+    run('Moviendo a la papelera', names, async (n) => { const to = gh.uniqueName(n, taken); taken.push(to); await gh.moveFile(c, path(n, 'files'), path(to, 'trash')); pairs.push([key(n, 'files'), key(to, 'trash')]); }, () => moveKeys(pairs)());
+  };
+  const restore = () => {
+    const names = [...sel], taken = lists.files.map((f) => f.name), pairs = [];
+    run('Restaurando', names, async (n) => { const to = gh.uniqueName(n, taken); taken.push(to); await gh.moveFile(c, path(n, 'trash'), path(to, 'files')); pairs.push([key(n, 'trash'), key(to, 'files')]); }, () => moveKeys(pairs)());
+  };
+  const purge = () => {
+    const names = [...sel], pr = names.filter((n) => isProt(n));
+    if (!confirm(`¿Eliminar DEFINITIVAMENTE ${names.length === 1 ? 'este archivo' : names.length + ' archivos'}?\n\n${list(names)}\n\nNo se puede deshacer desde la app (solo desde el historial de git en GitHub).`)) return;
+    if (pr.length && !confirm(`PROTEGIDO${pr.length === 1 ? '' : 'S'}: ${pr.join(', ')}.\n\n¿Seguro que quieres eliminarlo${pr.length === 1 ? '' : 's'} para siempre?`)) return;
+    const pairs = [];
+    run('Eliminando', names, async (n) => { const sha = lists.trash.find((f) => f.name === n)?.sha || await gh.currentSha(c, path(n)); await gh.remove(c, path(n), sha, `ipad-cad: eliminar ${key(n)}`); pairs.push([key(n), null]); }, () => moveKeys(pairs)());
+  };
+  const rename = () => {
+    const [n] = [...sel], v = prompt('Nuevo nombre (sin «.json»)', n.replace(/\.json$/i, ''));
+    if (v === null) return;
+    const base = cleanFileBase(v, 'json');
+    if (!base) { say('Escribe un nombre válido', true); return; }
+    const to = base + '.json';
+    if (to === n) return;
+    if (lists.files.some((f) => f.name === to)) { say(`Ya existe «${to}»`, true); return; }
+    run('Renombrando', [n], (x) => gh.moveFile(c, path(x), path(to)), moveKeys([[key(n), key(to)]]));
+  };
+  const duplicate = () => {
+    const names = [...sel], taken = lists.files.map((f) => f.name);
+    run('Duplicando', names, async (n) => { const to = gh.uniqueName(n, taken, 'copia'); taken.push(to); await gh.copyFile(c, path(n), path(to)); });
+  };
+  const protect = (on) => {
+    const keys = [...sel].map((n) => key(n));
+    run(on ? 'Protegiendo' : 'Quitando protección', [...sel], async () => {}, () => gh.updateMeta(c, (m) => { m.protected = on ? [...new Set([...m.protected, ...keys])] : m.protected.filter((x) => !keys.includes(x)); }));
+  };
+
+  function render() {
+    const files = lists[tab];
+    $('goTabD').classList.toggle('on', tab === 'files'); $('goTabT').classList.toggle('on', tab === 'trash');
+    $('goTabD').textContent = `Dibujos (${lists.files.length})`; $('goTabT').textContent = `Papelera (${lists.trash.length})`;
+    $('goTabD').disabled = $('goTabT').disabled = busy;
+    // guardado automatico: el dibujo actual, que esta app guarda sola en este dispositivo y reabre al iniciar
+    auto.textContent = ''; auto.hidden = tab !== 'files';
+    const n = (d) => Object.keys(d || {}).length, elems = n(doc.lines) + n(doc.circles) + n(doc.arcs) + n(doc.ellipses) + n(doc.splines);
+    const t = autosaveAt ? new Date(autosaveAt).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : null;
+    const h = document.createElement('div'); h.innerHTML = '<b>Dibujo actual</b> <span style="color:var(--muted)">· guardado automático en este dispositivo</span>'; auto.appendChild(h);
+    const sm = document.createElement('small'); sm.textContent = `«${opts.fileBase || 'sin nombre'}» · ${n(doc.pts)} puntos, ${elems} elementos${t ? ' · guardado a las ' + t : ''}. Solo existe en este dispositivo y se reabre solo al iniciar la app; no está en GitHub hasta que lo guardes.`; auto.appendChild(sm);
+    const ab = document.createElement('div'); ab.className = 'gm-btns';
+    ab.append(btn('Guardar en GitHub…', () => { dlg.close(); ghSaveCmd(); }), btn('Descartar y empezar nuevo', () => { dlg.close(); $('fNew').onclick(); }, { title: 'Borra el guardado automático de este dispositivo y empieza un dibujo en blanco' }));
+    auto.appendChild(ab);
+    // barra de acciones sobre la seleccion
+    bar.textContent = '';
+    const all = files.length && files.every((f) => sel.has(f.name));
+    const cnt = sel.size, none = !cnt;
+    bar.append(btn(all ? 'Ninguno' : 'Todos', () => { sel = all ? new Set() : new Set(files.map((f) => f.name)); render(); }, { disabled: !files.length }));
+    if (tab === 'files') {
+      const allProt = cnt && [...sel].every((x) => isProt(x));
+      bar.append(btn('Papelera', toTrash, { disabled: none }), btn('Renombrar', rename, { disabled: cnt !== 1 }), btn('Duplicar', duplicate, { disabled: none }), btn(allProt ? 'Quitar protección' : 'Proteger', () => protect(!allProt), { disabled: none }));
+    } else bar.append(btn('Restaurar', restore, { disabled: none }), btn('Eliminar definitivamente', purge, { disabled: none }));
+    if (cnt) { const s = document.createElement('small'); s.style.color = 'var(--muted)'; s.textContent = cnt + (cnt === 1 ? ' seleccionado' : ' seleccionados'); bar.appendChild(s); }
+    // lista
+    box.textContent = '';
+    if (!files.length) { box.textContent = tab === 'files' ? 'No hay dibujos .json en esa carpeta todavía. Guarda uno con «Guardar en GitHub».' : 'La papelera está vacía.'; return; }
+    for (const f of files) {
+      const row = document.createElement('div'); row.className = 'gm-row';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = sel.has(f.name); cb.disabled = busy; cb.setAttribute('aria-label', 'Seleccionar ' + f.name);
+      cb.onchange = () => { if (cb.checked) sel.add(f.name); else sel.delete(f.name); render(); };
+      const nm = document.createElement('button'); nm.type = 'button'; nm.className = 'gm-name'; nm.disabled = busy;
+      nm.innerHTML = '<span></span><small></small>';
+      nm.firstChild.textContent = (isProt(f.name) ? '🔒 ' : '') + f.name; nm.lastChild.textContent = f.size >= 1024 ? Math.round(f.size / 1024) + ' KB' : f.size + ' B';
+      if (tab === 'files') nm.onclick = () => openFile(f); else nm.onclick = () => { cb.checked = !cb.checked; cb.onchange(); };
+      row.append(cb, nm); box.appendChild(row);
+    }
+  }
+  async function reload() {
+    say('Cargando…');
+    try {
+      const [fl, tr, m] = await Promise.all([gh.list(c), gh.list(c, gh.TRASH), gh.loadMeta(c)]);
+      lists = { files: fl, trash: tr }; meta = m.meta;
+    } catch (e) { box.textContent = 'No se pudo leer GitHub: ' + e.message; say(''); return; }
+    sel = new Set([...sel].filter((x) => lists[tab].some((f) => f.name === x)));
+    say(''); render();
+  }
+  $('goTabD').onclick = () => { tab = 'files'; sel = new Set(); render(); };
+  $('goTabT').onclick = () => { tab = 'trash'; sel = new Set(); render(); };
+  box.textContent = 'Cargando…'; render();
+  dlg.showModal();
+  await reload();
 }
 $('ghSave').onclick = ghSaveCmd;
 $('ghOpen').onclick = ghOpenCmd;
@@ -4227,7 +4334,7 @@ async function boot() {
   for (const id of ['txFont', 'dlgTFont']) for (const [k, n] of FONTS) { const o = document.createElement('option'); o.value = k; o.textContent = n; o.style.fontFamily = fontCss(k); $(id).appendChild(o); }
   try {
     const s = JSON.parse(localStorage.getItem(STORE) || 'null');
-    if (s?.doc) { loadDoc(s.doc); if (s.view) view = s.view; if (s.cur) cur = { ...cur, ...s.cur }; if (s.opts) Object.assign(opts, s.opts); }
+    if (s?.doc) { autosaveAt = Number(s.at) || 0; loadDoc(s.doc); if (s.view) view = s.view; if (s.cur) cur = { ...cur, ...s.cur }; if (s.opts) Object.assign(opts, s.opts); }
   } catch { /* sin estado previo */ }
   $('intMs').value = String(opts.intMs); $('lockDeg').value = String(opts.lockDeg);
   for (const [id, key] of [['tGrid', 'grid'], ['tSnap', 'snap'], ['tCons', 'cons'], ['tTouch', 'touch'], ['tPts', 'pts'], ['tDims', 'dims'], ['tTexts', 'texts'], ['tLock', 'lock']]) $(id).setAttribute('aria-pressed', String(opts[key]));
