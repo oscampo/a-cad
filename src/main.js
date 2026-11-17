@@ -28,6 +28,7 @@ import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from
 import { iconSvg } from './icons.js';
 import { buildTree, kindOf, conLabel } from './tree.js';
 import { cleanFileBase } from './files.js';
+import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
 import { parseValue, isPlainNumber } from './expr.js';
 import { HELP_HTML } from './help.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
@@ -720,6 +721,96 @@ function drawHud() {
 }
 function loupeCancel() { clearTimeout(loupeTimer); loupeTimer = null; if (loupe) { loupe = null; draw(); } }
 
+// ---- elementos superpuestos: al tocar y sostener sobre varios elementos que comparten lugar (o quedan casi encima), una ventana
+// flotante (movible) los lista; los marcados se resaltan en el dibujo y «Confirmar» los deja seleccionados.
+const OV_MS = 650;
+let ovTimer = null, ovList = [], ovHi = new Set(), ovPos = null;
+const ovKey = (k, id) => k + ':' + id;
+const ovCancelTimer = () => { clearTimeout(ovTimer); ovTimer = null; };
+function drawOv(c) {
+  if (!ovHi.size) return;
+  c.save(); c.setLineDash([]); c.lineJoin = 'round'; c.lineCap = 'round';
+  c.strokeStyle = '#ff8a00cc'; c.fillStyle = '#ff8a0033';
+  const poly = (P) => { c.beginPath(); P.forEach((q, i) => { const s = toScreen(q); if (i) c.lineTo(s.x * dpr, s.y * dpr); else c.moveTo(s.x * dpr, s.y * dpr); }); c.stroke(); };
+  for (const key of ovHi) {
+    const i = key.indexOf(':'), k = key.slice(0, i), id = key.slice(i + 1), o = doc[OV_COLL[k]]?.[id];
+    if (!o) continue;
+    c.lineWidth = ((o.w || 2) + 8) * dpr;
+    if (k === 'pt') { const s = toScreen(o); c.lineWidth = 3 * dpr; c.beginPath(); c.arc(s.x * dpr, s.y * dpr, 11 * dpr, 0, 7); c.fill(); c.stroke(); }
+    else if (k === 'ln') poly([doc.pts[o.a], doc.pts[o.b]]);
+    else if (k === 'ci') { const s = toScreen(doc.pts[o.c]); c.beginPath(); c.arc(s.x * dpr, s.y * dpr, o.r * view.s * dpr, 0, 7); c.stroke(); }
+    else if (k === 'ar') { const s = toScreen(doc.pts[o.c]), g = arcOf(doc, o); c.beginPath(); c.arc(s.x * dpr, s.y * dpr, o.r * view.s * dpr, -g.a0, -(g.a0 + g.sweep), true); c.stroke(); }
+    else if (k === 'sp') poly(splinePolyline(doc, o, 16));
+    else if (k === 'el') poly(ellipsePolyline(doc, o, 96));
+  }
+  c.restore();
+}
+function closeOverlap() { $('ovDlg').hidden = true; ovList = []; ovHi = new Set(); draw(); }
+function openOverlap(cands, at) {
+  const box = $('ovDlg'), list = $('ovList');
+  ovList = cands.map(({ k, id }) => ({ k, id }));
+  ovHi = new Set(ovList.filter((x) => isSel(x.k, x.id)).map((x) => ovKey(x.k, x.id)));
+  list.textContent = '';
+  ovList.forEach((x, i) => {
+    const row = document.createElement('div'); row.className = 'ov-row';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = 'ovc' + i; cb.checked = ovHi.has(ovKey(x.k, x.id));
+    cb.onchange = () => { const key = ovKey(x.k, x.id); if (cb.checked) ovHi.add(key); else ovHi.delete(key); draw(); };
+    const lb = document.createElement('label'); lb.htmlFor = cb.id; lb.textContent = ovDescribe(doc, x.k, x.id);
+    row.append(cb, lb); list.appendChild(row);
+  });
+  $('ovCount').textContent = ovList.length + ' cerca';
+  $('ovAll').textContent = ovList.every((x) => ovHi.has(ovKey(x.k, x.id))) ? 'Ninguno' : 'Todos';
+  box.hidden = false;
+  if (!ovPos) { // al lado opuesto del toque, para no taparlo; el usuario la puede mover
+    const r = cv.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
+    const left = Math.min(Math.max(8, r.left + at.x - w / 2), innerWidth - w - 8);
+    const top = at.y > r.height / 2 ? r.top + 8 : Math.max(8, Math.min(r.bottom - h - 8, innerHeight - h - 8));
+    box.style.left = left + 'px'; box.style.top = top + 'px';
+  } else { // donde la dejo el usuario, sin salirse de la pantalla (puede haber girado el iPad)
+    box.style.left = Math.min(Math.max(0, ovPos.left), Math.max(0, innerWidth - box.offsetWidth)) + 'px';
+    box.style.top = Math.min(Math.max(0, ovPos.top), Math.max(0, innerHeight - 60)) + 'px';
+  }
+}
+function ovHold(id) {
+  const q = pointers.get(id);
+  if (!q || pointers.size !== 1 || dist(q, q.down) > 10 || (gesture && gesture.mode !== 'loupe' && !(gesture.mode === 'pan' && !gesture.moved))) return;
+  if (drag?.started || drag?.graph || drag?.dim) return;
+  const c = nearAll(doc, view, q.down.x, q.down.y, { pts: shownPoints(), entries: (k) => shownEntries(doc, k), ok: (k, o) => fkOn(k) && (k === 'pt' || fltOk(o)) });
+  if (c.length < 2) return; // con uno solo no hay nada que elegir: sigue la lupa
+  clearTimeout(loupeTimer); loupeTimer = null; loupe = null;
+  drag = null; gesture = { mode: 'held', moved: true, last: q.down };
+  openOverlap(c, q.down); draw();
+}
+function ovConfirm() {
+  const chosen = ovList.filter((x) => ovHi.has(ovKey(x.k, x.id)) && doc[OV_COLL[x.k]]?.[x.id]);
+  sel = [...sel.filter((s) => !ovList.some((x) => same(x, s))), ...chosen];
+  selGraph = null;
+  closeOverlap(); afterChange();
+  toast(chosen.length ? `${chosen.length} elemento${chosen.length === 1 ? '' : 's'} seleccionado${chosen.length === 1 ? '' : 's'}` : 'Selección sin los elementos de la lista');
+}
+{
+  const box = $('ovDlg'), head = $('ovHead');
+  let mv = null;
+  head.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; head.setPointerCapture(e.pointerId); const r = box.getBoundingClientRect(); mv = { dx: e.clientX - r.left, dy: e.clientY - r.top }; head.style.cursor = 'grabbing'; });
+  head.addEventListener('pointermove', (e) => {
+    if (!mv) return;
+    const w = box.offsetWidth;
+    const left = Math.min(Math.max(0, e.clientX - mv.dx), innerWidth - w), top = Math.min(Math.max(0, e.clientY - mv.dy), innerHeight - 40);
+    box.style.left = left + 'px'; box.style.top = top + 'px'; ovPos = { left, top };
+  });
+  const end = () => { mv = null; head.style.cursor = ''; };
+  head.addEventListener('pointerup', end); head.addEventListener('pointercancel', end);
+  $('ovOk').onclick = ovConfirm;
+  $('ovNo').onclick = closeOverlap; $('ovX').onclick = closeOverlap;
+  $('ovAll').onclick = () => {
+    const all = ovList.every((x) => ovHi.has(ovKey(x.k, x.id)));
+    ovHi = new Set(all ? [] : ovList.map((x) => ovKey(x.k, x.id)));
+    ovList.forEach((x, i) => { const cb = $('ovc' + i); if (cb) cb.checked = ovHi.has(ovKey(x.k, x.id)); });
+    $('ovAll').textContent = all ? 'Todos' : 'Ninguno'; draw();
+  };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); closeOverlap(); } });
+}
+
 // ctx en pixeles de dispositivo. o: {fg,bg,grid,cons,ui}
 export function render(c, W, H, v, o) {
   const saveView = view;
@@ -809,6 +900,7 @@ export function render(c, W, H, v, o) {
       } else if (p.fixed) c.fillRect((s.x - 4) * dpr, (s.y - 4) * dpr, 8 * dpr, 8 * dpr);
       else { c.beginPath(); c.arc(s.x * dpr, s.y * dpr, (selp ? 5 : 3.2) * dpr, 0, 7); c.fill(); }
     }
+    drawOv(c);
     drawPreview(c);
   }
   c.restore();
@@ -1270,6 +1362,8 @@ cv.addEventListener('pointerdown', (e) => {
       loupe = { x: q.x, y: q.y }; draw();
     }, LOUPE_MS);
   }
+  ovCancelTimer();
+  if (tool === 'select' && !sim && !pickResolve && (e.pointerType !== 'mouse' || e.button === 0) && !spaceDown) { const id = e.pointerId; ovTimer = setTimeout(() => { ovTimer = null; ovHold(id); }, OV_MS); }
   if (e.pointerType === 'touch' && !opts.touch) { gesture = { mode: 'pan', last: p, moved: false }; return; }
   if (e.pointerType === 'mouse' && (e.button === 1 || e.button === 2 || spaceDown)) { gesture = { mode: 'pan', last: p, moved: true }; return; }
   trackIntersections(p);
@@ -1295,6 +1389,7 @@ cv.addEventListener('pointermove', (e) => {
   const q = pointers.get(e.pointerId);
   if (q) { q.x = p.x; q.y = p.y; }
   if (loupeTimer && q?.down && dist(p, q.down) > 10) { clearTimeout(loupeTimer); loupeTimer = null; } // se movio antes de tiempo: no es sostener
+  if (ovTimer && q?.down && dist(p, q.down) > 10) ovCancelTimer();
   if (loupe && q) loupe = { x: p.x, y: p.y };
   if (gesture) { gestureMove(); return; }
   hover = p;
@@ -1310,7 +1405,7 @@ cv.addEventListener('pointermove', (e) => {
   if (PERF) perfShow(tp1 - tp0, tp2 - tp1, performance.now() - tp2, !!q, perfSolveMs);
 });
 function endPointer(e) {
-  endSession();
+  endSession(); ovCancelTimer();
   const q = pointers.get(e.pointerId);
   pointers.delete(e.pointerId);
   const hadLoupe = !!loupe;
@@ -1347,7 +1442,7 @@ function zoomAt(p, f) {
 }
 
 function startGesture() {
-  drag = null; endSession();
+  drag = null; endSession(); ovCancelTimer();
   const t = [...pointers.values()].filter((q) => q.type === 'touch').slice(0, 2);
   gesture = { mode: 'pinch', d0: dist(t[0], t[1]) || 1, s0: view.s, c0: { x: (t[0].x + t[1].x) / 2, y: (t[0].y + t[1].y) / 2 }, o0: { x: view.ox, y: view.oy } };
 }
@@ -4161,13 +4256,44 @@ async function ghOpenCmd() {
   const dlg = $('dlgGo'), box = $('goList'), bar = $('goBar'), auto = $('goAuto'), msgEl = $('goMsg');
   $('goWhere').textContent = `${c.repo}/${c.dir || ''}`;
   $('goCfg').onclick = () => { dlg.close(); openGhCfg(); };
-  let tab = 'files', lists = { files: [], trash: [] }, meta = { protected: [] }, sel = new Set(), busy = false;
+  let tab = 'files', lists = { files: [], trash: [] }, meta = { protected: [] }, sel = new Set(), busy = false, query = '', order = 'name', dates = {}, dateRun = 0;
   const key = (name, t = tab) => (t === 'trash' ? gh.TRASH + '/' + name : name);
   const isProt = (name, t = tab) => meta.protected.includes(key(name, t));
   const path = (name, t = tab) => gh.filePath(c, key(name, t));
   const say = (t, bad) => { msgEl.style.color = bad ? 'var(--warn)' : 'var(--muted)'; msgEl.textContent = t; };
   const btn = (label, onclick, { on, disabled, title } = {}) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (on) b.classList.add('on'); b.disabled = !!disabled || busy; if (title) b.title = title; b.onclick = onclick; return b; };
   const list = (names) => names.slice(0, 6).map((n) => '• ' + n).join('\n') + (names.length > 6 ? `\n… y ${names.length - 6} más` : '');
+
+  // Busqueda por nombre (sin mayusculas ni acentos) y orden por nombre o por fecha del ultimo cambio.
+  const fold = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const dkey = (f, t = tab) => (t === 'trash' ? gh.TRASH + '/' : '') + f.name + ':' + f.sha;
+  const dateOf = (f) => dates[dkey(f)] || null;
+  const fmtDate = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }); };
+  const visible = () => {
+    const q = fold(query.trim()), a = lists[tab].filter((f) => !q || fold(f.name).includes(q));
+    return order === 'date' ? a.sort((x, y) => (dateOf(y) ? Date.parse(dateOf(y)) : -1) - (dateOf(x) ? Date.parse(dateOf(x)) : -1) || x.name.localeCompare(y.name)) : a;
+  };
+  // Las fechas no vienen en la lista: se piden en segundo plano, una por archivo (se recuerdan por sha), y la lista se refresca al llegar.
+  async function loadDates() {
+    const run = ++dateRun, t = tab;
+    for (const f of lists[t]) {
+      if (run !== dateRun || !dlg.open) return;
+      const k = dkey(f, t);
+      if (dates[k]) continue;
+      const p = gh.filePath(c, (t === 'trash' ? gh.TRASH + '/' : '') + f.name);
+      dates[k] = gh.cachedDate(c, p, f.sha);
+      if (dates[k]) continue;
+      try { dates[k] = await gh.fileDate(c, p, f.sha); } catch (e) { return; } // sin red o limite de uso: se deja sin fecha
+      if (run === dateRun && tab === t && !busy) render();
+    }
+  }
+  const fd = $('goFind'); fd.textContent = '';
+  const qIn = document.createElement('input'); qIn.type = 'search'; qIn.placeholder = 'Buscar por nombre…'; qIn.autocomplete = 'off'; qIn.setAttribute('aria-label', 'Buscar por nombre');
+  const ordBtn = document.createElement('button'); ordBtn.type = 'button';
+  const ordTxt = () => { ordBtn.textContent = order === 'date' ? 'Orden: fecha ↓' : 'Orden: nombre'; };
+  ordTxt(); fd.append(qIn, ordBtn);
+  qIn.oninput = () => { query = qIn.value; const v = new Set(visible().map((f) => f.name)); sel = new Set([...sel].filter((x) => v.has(x))); render(); }; // no se actua sobre lo que el filtro oculta
+  ordBtn.onclick = () => { order = order === 'name' ? 'date' : 'name'; ordTxt(); render(); };
 
   async function openFile(f) {
     dlg.close();
@@ -4239,7 +4365,7 @@ async function ghOpenCmd() {
   };
 
   function render() {
-    const files = lists[tab];
+    const files = visible();
     $('goTabD').classList.toggle('on', tab === 'files'); $('goTabT').classList.toggle('on', tab === 'trash');
     $('goTabD').textContent = `Dibujos (${lists.files.length})`; $('goTabT').textContent = `Papelera (${lists.trash.length})`;
     $('goTabD').disabled = $('goTabT').disabled = busy;
@@ -4263,18 +4389,20 @@ async function ghOpenCmd() {
     } else bar.append(btn('Restaurar', restore, { disabled: none }), btn('Eliminar definitivamente', purge, { disabled: none }));
     if (cnt) { const s = document.createElement('small'); s.style.color = 'var(--muted)'; s.textContent = cnt + (cnt === 1 ? ' seleccionado' : ' seleccionados'); bar.appendChild(s); }
     // lista
+    const st = box.scrollTop;
     box.textContent = '';
-    if (!files.length) { box.textContent = tab === 'files' ? 'No hay dibujos .json en esa carpeta todavía. Guarda uno con «Guardar en GitHub».' : 'La papelera está vacía.'; return; }
+    if (!files.length) { box.textContent = query.trim() && lists[tab].length ? 'Ningún nombre coincide con «' + query.trim() + '».' : tab === 'files' ? 'No hay dibujos .json en esa carpeta todavía. Guarda uno con «Guardar en GitHub».' : 'La papelera está vacía.'; return; }
     for (const f of files) {
       const row = document.createElement('div'); row.className = 'gm-row';
       const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = sel.has(f.name); cb.disabled = busy; cb.setAttribute('aria-label', 'Seleccionar ' + f.name);
       cb.onchange = () => { if (cb.checked) sel.add(f.name); else sel.delete(f.name); render(); };
       const nm = document.createElement('button'); nm.type = 'button'; nm.className = 'gm-name'; nm.disabled = busy;
       nm.innerHTML = '<span></span><small></small>';
-      nm.firstChild.textContent = (isProt(f.name) ? '🔒 ' : '') + f.name; nm.lastChild.textContent = f.size >= 1024 ? Math.round(f.size / 1024) + ' KB' : f.size + ' B';
+      nm.firstChild.textContent = (isProt(f.name) ? '🔒 ' : '') + f.name; nm.lastChild.textContent = (dateOf(f) ? fmtDate(dateOf(f)) + ' · ' : '') + (f.size >= 1024 ? Math.round(f.size / 1024) + ' KB' : f.size + ' B');
       if (tab === 'files') nm.onclick = () => openFile(f); else nm.onclick = () => { cb.checked = !cb.checked; cb.onchange(); };
       row.append(cb, nm); box.appendChild(row);
     }
+    box.scrollTop = st;
   }
   async function reload() {
     say('Cargando…');
@@ -4283,10 +4411,10 @@ async function ghOpenCmd() {
       lists = { files: fl, trash: tr }; meta = m.meta;
     } catch (e) { box.textContent = 'No se pudo leer GitHub: ' + e.message; say(''); return; }
     sel = new Set([...sel].filter((x) => lists[tab].some((f) => f.name === x)));
-    say(''); render();
+    say(''); render(); loadDates();
   }
-  $('goTabD').onclick = () => { tab = 'files'; sel = new Set(); render(); };
-  $('goTabT').onclick = () => { tab = 'trash'; sel = new Set(); render(); };
+  $('goTabD').onclick = () => { tab = 'files'; sel = new Set(); render(); loadDates(); };
+  $('goTabT').onclick = () => { tab = 'trash'; sel = new Set(); render(); loadDates(); };
   box.textContent = 'Cargando…'; render();
   dlg.showModal();
   await reload();

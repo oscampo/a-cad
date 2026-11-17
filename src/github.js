@@ -103,6 +103,20 @@ export function uniqueName(name, taken, tag = '') {
   for (let i = 2; ; i++) { const n = `${tag ? base + ' ' + tag : base} (${i})${ext}`; if (!set.has(n)) return n; }
 }
 
+// Fecha del ultimo cambio de un archivo (la lista de contenidos no la trae: se pide el ultimo commit que lo toco). Se recuerda por sha,
+// asi solo se vuelve a pedir si el archivo cambia. Un archivo movido o renombrado cuenta desde el movimiento (es un archivo nuevo en git).
+const DATE_KEY = 'ipad-cad-gh-dates', DATE_MAX = 400;
+export async function fileDate(c, path, sha, f = fetch) {
+  const k = `${c.repo}@${c.branch}:${path}:${sha}`, m = jget(DATE_KEY, {});
+  if (m[k]) return m[k];
+  const r = await call(c, 'GET', `${API}/repos/${c.repo}/commits?sha=${encodeURIComponent(c.branch)}&path=${encodeURIComponent(path)}&per_page=1`, null, undefined, f);
+  const j = await r.json(), cm = Array.isArray(j) ? j[0]?.commit : null;
+  const d = cm?.committer?.date || cm?.author?.date || null;
+  if (d) { m[k] = d; const ks = Object.keys(m); for (const x of ks.slice(0, Math.max(0, ks.length - DATE_MAX))) delete m[x]; jset(DATE_KEY, m); }
+  return d;
+}
+export const cachedDate = (c, path, sha) => jget(DATE_KEY, {})[`${c.repo}@${c.branch}:${path}:${sha}`] || null;
+
 // Copia un archivo a otra ruta (falla si el destino ya existe); devuelve el sha del nuevo.
 export async function copyFile(c, from, to, f = fetch) {
   if (await currentSha(c, to, f)) throw new GhError('Ya existe un archivo con ese nombre', 409);

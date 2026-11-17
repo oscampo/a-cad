@@ -119,6 +119,21 @@ dialog.help a { color: var(--accent); }
 .gm-row input[type=checkbox] { width: 22px; height: 22px; flex: none; }
 .gm-row .gm-name { flex: 1 1 auto; display: flex; justify-content: space-between; gap: 8px; text-align: left; min-height: 40px; }
 .gm-row .gm-name small { color: var(--muted); }
+.gm-find { display: flex; gap: 6px; margin: 6px 0 2px; align-items: center; }
+.gm-find input { flex: 1 1 auto; min-height: 36px; }
+.gm-find button { min-height: 36px; }
+#ovDlg { position: fixed; z-index: 40; width: min(340px, calc(100vw - 16px)); max-height: 60vh; display: flex; flex-direction: column; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+#ovDlg[hidden] { display: none; }
+#ovHead { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; border-bottom: 1px solid var(--line); }
+#ovHead b { flex: 1 1 auto; font-size: 14px; }
+#ovHead small { color: var(--muted); }
+#ovList { overflow: auto; padding: 4px 8px; }
+.ov-row { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: 13px; }
+.ov-row input { width: 22px; height: 22px; flex: none; }
+.ov-row label { flex: 1 1 auto; padding: 6px 0; }
+#ovBtns { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
+#ovBtns button { min-height: 38px; }
+#ovBtns .sp { flex: 1 1 auto; }
 dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--fg); padding: 16px; min-width: 260px; max-width: calc(100vw - 16px);
   /* arriba del todo y con la altura del area visible: el teclado (acoplado o flotante) no tapa el campo ni los botones */
   top: var(--vvt, 0px); margin: 8px auto auto; max-height: calc(var(--vvh, 100dvh) - 16px); overflow-y: auto; }
@@ -350,10 +365,16 @@ body.nopanel #panel { display: none; }
   <p id="ghMsg" style="margin:6px 0 0;font-size:13px;color:var(--warn);min-height:1em"></p>
   <div class="actions"><button type="button" id="ghForget">Olvidar</button><button type="button" id="ghCancel">Cancelar</button><button id="ghOk" class="on">Probar y guardar</button></div>
 </form></dialog>
+<div id="ovDlg" hidden role="dialog" aria-label="Elementos en este lugar">
+  <div id="ovHead"><b>Elementos en este lugar</b><small id="ovCount"></small><button type="button" id="ovX" aria-label="Cancelar" style="min-height:32px">✕</button></div>
+  <div id="ovList"></div>
+  <div id="ovBtns"><button type="button" id="ovAll">Todos</button><span class="sp"></span><button type="button" id="ovNo">Cancelar</button><button type="button" id="ovOk" class="on">Confirmar</button></div>
+</div>
 <dialog id="dlgGo"><form method="dialog" style="width:min(560px,calc(100vw - 48px))">
   <p style="margin:0 0 6px"><b>Archivos de GitHub</b> <span id="goWhere" style="color:var(--muted);font-size:13px"></span></p>
   <div class="gm-tabs"><button type="button" id="goTabD" class="on">Dibujos</button><button type="button" id="goTabT">Papelera</button></div>
   <div id="goAuto" class="gm-auto"></div>
+  <div id="goFind" class="gm-find"></div>
   <div id="goBar" class="gm-bar"></div>
   <div id="goList" style="margin:6px 0;max-height:40vh;overflow:auto"></div>
   <p id="goMsg" style="margin:4px 0 0;font-size:13px;color:var(--muted);min-height:1.2em"></p>

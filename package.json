@@ -7,7 +7,7 @@
     "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview --host",
-    "test": "node test/solver.test.mjs && node test/github.test.mjs"
+    "test": "node test/solver.test.mjs && node test/github.test.mjs && node test/overlap.test.mjs"
   },
   "dependencies": {
     "@salusoft89/planegcs": "^1.3.0"

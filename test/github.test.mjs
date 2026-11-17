@@ -110,4 +110,18 @@ await t('metadatos: protegidos, con reintento si otro dispositivo escribio en me
   assert.deepEqual((await gh.loadMeta(C, g.f)).meta.protected, []);
 });
 
+await t('fecha del ultimo cambio: pide el ultimo commit del archivo y recuerda por sha', async () => {
+  globalThis.localStorage = { d: {}, getItem(k) { return this.d[k] ?? null; }, setItem(k, v) { this.d[k] = String(v); }, removeItem(k) { delete this.d[k]; } };
+  let calls = 0, url = '';
+  const f = async (u) => { calls++; url = u; return { ok: true, status: 200, json: async () => [{ commit: { committer: { date: '2026-11-17T10:00:00Z' } } }] }; };
+  assert.equal(await gh.fileDate(C, 'dibujos/a.json', 's1', f), '2026-11-17T10:00:00Z');
+  assert.match(url, /\/commits\?sha=main&path=dibujos%2Fa\.json&per_page=1/);
+  assert.equal(await gh.fileDate(C, 'dibujos/a.json', 's1', f), '2026-11-17T10:00:00Z');
+  assert.equal(calls, 1); // la segunda salio de la memoria
+  assert.equal(gh.cachedDate(C, 'dibujos/a.json', 's1'), '2026-11-17T10:00:00Z');
+  assert.equal(gh.cachedDate(C, 'dibujos/a.json', 's2'), null); // otro sha: el archivo cambio
+  const vacio = async () => ({ ok: true, status: 200, json: async () => [] });
+  assert.equal(await gh.fileDate(C, 'dibujos/b.json', 's9', vacio), null);
+});
+
 console.log(`\n${passed} pruebas de GitHub pasaron`);
