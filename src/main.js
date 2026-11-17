@@ -726,6 +726,7 @@ function loupeCancel() { clearTimeout(loupeTimer); loupeTimer = null; if (loupe)
 const OV_MS = 650;
 let ovTimer = null, ovList = [], ovHi = new Set(), ovPos = null;
 const ovKey = (k, id) => k + ':' + id;
+const ovSync = () => { $('ovProp').disabled = ovHi.size !== 1 || !ovList.some((x) => ovHi.has(ovKey(x.k, x.id)) && doc[OV_COLL[x.k]]?.[x.id] && PROP_NAMES[x.k]); };
 const ovCancelTimer = () => { clearTimeout(ovTimer); ovTimer = null; };
 function drawOv(c) {
   if (!ovHi.size) return;
@@ -754,12 +755,13 @@ function openOverlap(cands, at) {
   ovList.forEach((x, i) => {
     const row = document.createElement('div'); row.className = 'ov-row';
     const cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = 'ovc' + i; cb.checked = ovHi.has(ovKey(x.k, x.id));
-    cb.onchange = () => { const key = ovKey(x.k, x.id); if (cb.checked) ovHi.add(key); else ovHi.delete(key); draw(); };
+    cb.onchange = () => { const key = ovKey(x.k, x.id); if (cb.checked) ovHi.add(key); else ovHi.delete(key); ovSync(); draw(); };
     const lb = document.createElement('label'); lb.htmlFor = cb.id; lb.textContent = ovDescribe(doc, x.k, x.id);
     row.append(cb, lb); list.appendChild(row);
   });
   $('ovCount').textContent = ovList.length + ' cerca';
   $('ovAll').textContent = ovList.every((x) => ovHi.has(ovKey(x.k, x.id))) ? 'Ninguno' : 'Todos';
+  ovSync();
   box.hidden = false;
   if (!ovPos) { // al lado opuesto del toque, para no taparlo; el usuario la puede mover
     const r = cv.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
@@ -806,7 +808,14 @@ function ovConfirm() {
     const all = ovList.every((x) => ovHi.has(ovKey(x.k, x.id)));
     ovHi = new Set(all ? [] : ovList.map((x) => ovKey(x.k, x.id)));
     ovList.forEach((x, i) => { const cb = $('ovc' + i); if (cb) cb.checked = ovHi.has(ovKey(x.k, x.id)); });
-    $('ovAll').textContent = all ? 'Todos' : 'Ninguno'; draw();
+    $('ovAll').textContent = all ? 'Todos' : 'Ninguno'; ovSync(); draw();
+  };
+  // Propiedades del elemento marcado: lo deja seleccionado (sin tocar el resto) y abre su ventana; esta lista sigue abierta al volver.
+  $('ovProp').onclick = () => {
+    const x = ovList.find((y) => ovHi.has(ovKey(y.k, y.id)) && doc[OV_COLL[y.k]]?.[y.id]);
+    if (!x || ovHi.size !== 1) return;
+    if (!isSel(x.k, x.id)) sel.push({ k: x.k, id: x.id });
+    selGraph = null; afterChange(); openProps({ k: x.k, id: x.id });
   };
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); closeOverlap(); } });
 }
