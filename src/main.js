@@ -184,7 +184,11 @@ const selMatch = (n) => n.sel && sel.some((s) => s.k === n.sel.k && s.id === n.s
 function renderTree() {
   if (!document.body.classList.contains('treeopen')) return;
   const body = $('treeBody');
-  const tree = buildTree(doc);
+  // agrupar por capa solo tiene sentido si hay capas: sin ellas el boton se oculta y el arbol va por tipo
+  const hasLayers = Object.keys(doc.layers || {}).length > 0;
+  $('treeBy').hidden = !hasLayers;
+  $('treeBy').setAttribute('aria-pressed', String(hasLayers && opts.treeBy === 'layer'));
+  const tree = buildTree(doc, { by: hasLayers && opts.treeBy === 'layer' ? 'layer' : 'type' });
   // al cambiar la seleccion desde el lienzo, se abre la rama que lleva al elemento
   const key = sel.map((s) => s.k + s.id).join(',');
   const reveal = key !== treeSelKey && sel.length > 0;
@@ -211,6 +215,7 @@ function renderTree() {
       b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); fn(); };
       head.appendChild(b);
     };
+    if (n.layerId) { const l = doc.layers[n.layerId]; act(iconSvg(l.on ? 'eye' : 'eye-off'), l.on ? 'Apagar capa' : 'Encender capa', () => toggleLayer(n.layerId)); }
     if (n.lock !== undefined) act(iconSvg(n.lock ? 'lock' : 'unlock'), n.lock ? 'Soltar punto' : 'Fijar punto', () => treeToggleFix(n.sel.id));
     if (n.con) {
       const k = doc.cons[n.con];
@@ -308,6 +313,7 @@ function applyChrome() {
 }
 $('tPanel').onclick = () => { opts.panel = opts.panel === false; applyChrome(); persist(); };
 $('tTree').onclick = () => { opts.tree = !opts.tree; applyChrome(); persist(); };
+$('treeBy').onclick = () => { opts.treeBy = opts.treeBy === 'layer' ? 'type' : 'layer'; persist(); renderTree(); };
 $('tHelp').onclick = () => { $('helpBody').innerHTML = HELP_HTML + `<p style="color:var(--muted);font-size:12px">iPad CAD v${VERSION}</p>`; $('dlgH').showModal(); $('helpBody').scrollTop = 0; };
 $('helpClose').onclick = () => $('dlgH').close();
 $('treeClose').onclick = () => { opts.tree = false; applyChrome(); persist(); };

@@ -51,7 +51,9 @@ export const conCategory = (k) => (k.hidden ? 'auto' : DIM_T.has(k.t) ? 'dim' : 
 // - Una relacion vive en «Relaciones y cotas»; bajo un elemento hay una sola fila «Relaciones (n)» con enlaces.
 // - Un punto vive en el primer elemento que lo usa (circulos, lineas, arcos, elipses, splines, textos, actuadores);
 //   en los demas es un enlace y en «Puntos» solo quedan los sueltos, que no son de nadie.
-export function buildTree(doc) {
+// Con { by: 'layer' } el primer nivel son las capas («Sin capa» al final) y dentro de cada una los mismos grupos por tipo;
+// relaciones, actuadores, graficas y trazados no tienen capa y van despues. Un punto con dueño sigue a su elemento.
+export function buildTree(doc, { by = 'type' } = {}) {
   const compact = (a) => a.filter(Boolean);
   const group = (key, label, items) => ({ key, label: `${label} (${items.length})`, group: true, children: items });
 
@@ -122,6 +124,11 @@ export function buildTree(doc) {
   const hatches = Object.entries(doc.hatches || {}).map(([id, h]) => ({ key: `ha:${id}`, label: `Relleno ${id} (${h.ids.length} contornos)`, sel: { k: 'ha', id } }));
   // solo los puntos sueltos: los que tienen dueño cuelgan de el (los de control, de su spline)
   const pts = Object.entries(doc.pts).filter(([id, p]) => !p.splOnly && !owner.has(id)).map(([id]) => ptNode(id));
+  // grupos por tipo de los elementos que pueden tener capa: [clave, nombre, nodos, coleccion del documento]
+  const LAYERED = [['g:ln', 'Líneas', lines, 'lines'], ['g:ci', 'Círculos', circles, 'circles'], ['g:ar', 'Arcos', arcs, 'arcs'], ['g:el', 'Elipses', ellipses, 'ellipses'],
+    ['g:sp', 'Splines', splines, 'splines'], ['g:tx', 'Textos', texts, 'texts'], ['g:ha', 'Rellenos', hatches, 'hatches'], ['g:pt', 'Puntos sueltos', pts, 'pts']];
+  const layOf = (coll, n) => { const l = doc[coll]?.[n.sel.id]?.layer; return l && doc.layers?.[l] ? l : null; };
+  const typeGroups = (inLayer) => LAYERED.map(([key, label, items, coll]) => group(key, label, inLayer ? items.filter((n) => layOf(coll, n) === inLayer.id) : items));
 
   // relaciones por tipo; dentro de cada una, sus elementos como enlaces (sin repetir)
   const conNode = (cid, k) => ({
@@ -162,10 +169,15 @@ export function buildTree(doc) {
       : compact([ptNode(a.p1, 'Cola:', 'ac', id), ptNode(a.p2, 'Cabeza:', 'ac', id)]),
   }));
   const graphs = Object.entries(doc.graphs || {}).map(([id, g]) => ({ key: `gr:${id}`, act: id, label: `Gráfica ${id} · ${(g.series || []).join(', ') || 'sin relaciones'}` }));
-  const out = [
-    group('g:ln', 'Líneas', lines), group('g:ci', 'Círculos', circles), group('g:ar', 'Arcos', arcs), group('g:el', 'Elipses', ellipses), group('g:sp', 'Splines', splines),
-    group('g:tx', 'Textos', texts), group('g:ha', 'Rellenos', hatches), group('g:pt', 'Puntos sueltos', pts),
-    group('g:ac', 'Actuadores', acts), group('g:gr', 'Gráficas', graphs), { key: 'g:co', label: `Relaciones y cotas (${nCons})`, group: true, children: cons }, group('g:tr', 'Trazados', traces),
-  ];
-  return out.filter((g) => g.children.length);
+  const rest = [group('g:ac', 'Actuadores', acts), group('g:gr', 'Gráficas', graphs), { key: 'g:co', label: `Relaciones y cotas (${nCons})`, group: true, children: cons }, group('g:tr', 'Trazados', traces)];
+  const nonEmpty = (a) => a.filter((g) => g.children.length);
+  if (by !== 'layer' || !Object.keys(doc.layers || {}).length) return nonEmpty([...typeGroups(null), ...rest]);
+  // por capa: todas las capas (tambien las vacias, para verlas y encenderlas) y «Sin capa» si tiene algo
+  const layerGroups = [...Object.entries(doc.layers).map(([id, l]) => ({ id, l })), { id: null }].map(({ id, l }) => {
+    const kids = nonEmpty(typeGroups({ id }));
+    const n = kids.reduce((s, g) => s + g.children.length, 0);
+    if (!id && !n) return null;
+    return { key: `g:y:${id ?? '-'}`, group: true, layerId: id, label: id ? `${l.name} (${n})${l.on ? '' : ' · apagada'}` : `Sin capa (${n})`, children: kids };
+  });
+  return [...compact(layerGroups), ...nonEmpty(rest)];
 }

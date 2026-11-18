@@ -1642,6 +1642,30 @@ t('copiar y pegar: el centro del cuadro va al destino, lleva sus restricciones y
   assert.ok(r2.ok, 'se puede pegar varias veces');
 });
 
+t('arbol por capa: capas primero, cada una con sus grupos por tipo; sin capas, por tipo', () => {
+  const { d, a, b, l1, l2 } = lineDoc();
+  assert.deepEqual(buildTree(d, { by: 'layer' }).map((g) => g.key), buildTree(d).map((g) => g.key), 'sin capas no cambia nada');
+  const y1 = addLayer(d, 'construcción'), y2 = addLayer(d, 'vacía');
+  d.lines[l1].layer = y1;
+  const cc = addPoint(d, 30, 30); d.pts[cc].layer = y1;
+  const ci = addCircle(d, cc, 5, {}); d.circles[ci].layer = y1;
+  addCon(d, { t: 'PAR', refs: [l1, l2] });
+  d.layers[y1].on = false;
+  const t = buildTree(d, { by: 'layer' });
+  assert.deepEqual(t.map((g) => g.key), [`g:y:${y1}`, `g:y:${y2}`, 'g:y:-', 'g:co']);
+  assert.equal(t[0].layerId, y1);
+  assert.equal(t[0].label, 'construcción (2) · apagada', 'la linea y el circulo; el centro sigue a su circulo');
+  assert.deepEqual(t[0].children.map((g) => g.key), ['g:ln', 'g:ci']);
+  assert.equal(t[0].children[0].children[0].sel.id, l1);
+  assert.equal(t[1].label, 'vacía (0)'); assert.equal(t[1].children.length, 0, 'una capa vacia se ve igual');
+  assert.equal(t[2].label, 'Sin capa (1)'); assert.equal(t[2].children[0].children[0].sel.id, l2);
+  // un elemento con una capa que ya no existe va a «Sin capa»
+  d.lines[l2].layer = 'y999';
+  assert.equal(buildTree(d, { by: 'layer' })[2].label, 'Sin capa (1)');
+  // por tipo, las capas no cambian nada
+  assert.deepEqual(buildTree(d).map((g) => g.key), ['g:ln', 'g:ci', 'g:co']);
+});
+
 t('operaciones: las relaciones automaticas guardan su origen y el arbol las agrupa', () => {
   const d = newDoc();
   const c = addPoint(d, 0, 0), p = addPoint(d, 10, 0);
