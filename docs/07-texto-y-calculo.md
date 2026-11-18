@@ -1,6 +1,6 @@
 # 7. Texto y cálculo
 
-Textos que calculan: fórmulas con AsciiMath, variables, salidas, vectores y matrices, funciones propias y el orden de lectura de la página.
+Textos que calculan: asignaciones, salidas, fórmulas con AsciiMath, vectores y matrices, funciones propias y el orden de lectura de la página. Los ejemplos con resultado se comprueban con el motor de la app en las pruebas automáticas (`test/calcref.test.mjs`).
 
 La lista completa de funciones y operadores, con ejemplos, está en [Funciones y operadores](funciones.md).
 
@@ -8,29 +8,169 @@ La lista completa de funciones y operadores, con ejemplos, está en [Funciones y
 
 ---
 
-## Texto (T)
+## Escribir un texto (T)
 
-Toca donde va el punto de inserción y **escribe ahí mismo**, sin ventana. Por defecto es una **ecuación** (AsciiMath, ver «Matemática en los textos»): se guarda como bloque `$$…$$` (los delimitadores se ven en las propiedades del texto, doble toque), así que no hay que teclearlos. **Enter** la dibuja y abre otra entrada justo debajo; **Shift+Enter** hace otra línea dentro de la misma (otra ecuación del bloque); **Esc** descarta lo que escribes y **Enter en una entrada vacía** o cambiar de herramienta termina (al cambiar de herramienta, lo escrito se dibuja). Tocar en otro sitio dibuja lo escrito y mueve la entrada allí. En la ecuación, `x:valor` asigna y `expr=` al final muestra el valor (ver «Variables en textos» y «Salidas en textos»). Si lo **primero que tecleas es `'`** (o el `’` que pone el teclado del iPad) es texto normal (el apóstrofo no se guarda): se dibuja tal cual, salvo lo que vaya entre `$…$` o `$$…$$`, que es matemático y calcula igual. La fuente se cambia en las propiedades del texto.
+Toca donde va el punto de inserción y escribe ahí mismo, sin ventana. Lo que escribes es una **ecuación**: se guarda como bloque `$$…$$`, así que los delimitadores no se teclean (se ven en las propiedades del texto, doble toque).
 
-## Texto
+| Tecla | Qué hace |
+|---|---|
+| **Enter** | Dibuja lo escrito y abre otra entrada justo debajo. |
+| **Shift+Enter** | Otra línea en el mismo bloque (otra ecuación). |
+| **Esc** | Descarta lo que escribes. |
+| **Enter** en una entrada vacía | Termina. Cambiar de herramienta también termina, y dibuja lo escrito. |
+| Tocar en otro sitio | Dibuja lo escrito y mueve la entrada allí. |
+| `'` al empezar | Texto normal en vez de ecuación (sirve también el `’` del teclado del iPad; el apóstrofo no se guarda). Ver «Texto normal, fórmulas y literales». |
 
-La **fuente** se elige al crearlo o en el panel (sistema, Helvetica/Arial, Times/Georgia, Courier/Menlo, Verdana, Palatino, Optima, Futura, American Typewriter y tres manuscritas; si el dispositivo no tiene una, se usa una genérica parecida). El punto de inserción es un punto real (se puede acotar, fijar o relacionar). Elige el punto de inserción en la caja, el ángulo, la altura, alinea con una línea y *Legible* (gira 180° el texto que quedaría boca abajo).
+## Asignar y mostrar valores
 
-## Matemática en los textos
+Cada línea de una ecuación es un enunciado. El valor se actualiza solo cuando el dibujo cambia.
 
-Escribe una fórmula en **AsciiMath** entre `$…$` (en línea con el texto) o entre `$$…$$` (en bloque: cada línea de dentro es una ecuación, centrada y a tamaño pleno). Ejemplos: `$3/4=1/x$`, `$$x = 3 * 5/2 = 7.5$$`. Se dibuja con fracciones, raíces, índices y símbolos de verdad, gira y se exporta (SVG, DXF) como cualquier texto. **Escritura**: `a/b` fracción (los paréntesis de a y b no se ven), `x^2` y `x_1` índices, `sqrt(x)` y `root 3 x` raíces, `alpha`, `beta`, `pi`, `Delta`… letras griegas, `sum_(i=1)^n`, `prod`, `int_0^1`, `lim_(x->0)`, `sin` `cos` `ln`… funciones, `<=` `>=` `!=` `->` `=>` `+-` `xx` (×) `-:` (÷) `oo` (∞), `abs(x)`, `hat x`, `bar x`, `vec v`, `"texto"`. Los paréntesis crecen con lo que encierran. Dentro de una fórmula, `x:valor` asigna y `expr=` muestra el valor: `D1/D2=`. **Literal**: lo que va entre comillas invertidas se dibuja pero nunca se calcula ni se lee como asignación o salida: ``` `f:RR->RR` ``` (sin ellas, `f:RR->RR` sería una asignación) o ``` `x =` 3 ```. Una comilla invertida sin cerrar se marca con ⚠. Un `$` suelto (precios: «$5 y $6») no es fórmula; `$` es un signo de pesos literal; un `$$` sin cierre se deja tal cual con ⚠. Sigue la sintaxis de [asciimath.org](https://asciimath.org/): matrices `[[a,b],[c,d]]` (y `((a),(b))`, aumentadas `[[a,b,|,c],[d,e,|,f]]`, sistemas `{(2x,+,y,=,3),(x,-,y,=,1):}`), `floor(x)`, `ceil(x)`, `norm(x)`, `ubrace(…)_("texto")`, `obrace`, `overset(x)(=)`, `underset`, `hat` `bar` `vec` `tilde` `dot` `ddot` `ul` `cancel` `overarc`, `color(red)(x)`, fuentes `bb` `bbb` `cc` `tt` `fr` `sf`, `text(hola)`, `dy/dx` y `f'(x)`. Como en AsciiMath, las palabras reservadas se reconocen aunque vayan pegadas a otras letras (`pir` es π r), así que «in», «or», «and»… dentro de nombres de variables se leen como símbolos: sepáralos con espacios o ponlos entre comillas. Los nombres de las variables de texto pueden llevar un **subíndice de texto**: `masa_(total):2*m_(base)` (el subíndice va entre paréntesis y es texto libre, sin paréntesis ni llaves, p. ej. `v_(texto-del-subíndice):3`); se usa igual en `2*masa_(total)=` y en las demás fórmulas, y se dibuja como nombre con el subíndice en texto recto. Los **rangos** (`x:1..5;5`, `x:0..0.5..2`) y sus salidas `x=` se dibujan como **vector fila** con corchetes y sin comas (`x:1..5;5` da x := [1 2 3 4 5]; con más de 8 elementos se abrevia con «…»). `^T` pone la transpuesta: `x^T=` (o `[[1,2,3]]^T`) dibuja el vector columna, y también transpone una matriz. **Vectores y matrices en las salidas y variables de texto**: una matriz se escribe `[1, 2; 3, 4]` (filas separadas por «;»; `[1, 2, 3]` es un vector fila y `[1; 2; 3]` uno columna; dentro de corchetes la coma siempre separa, así que los decimales llevan punto). Se definen con `A:[1,2;3,4]` o con un rango `x:1..3;3` y se operan en las salidas y en otras definiciones: suma y resta (mismo tamaño), `2*x` y `x/2`, producto matricial `A*B`, producto punto `x*y^T` (fila por columna da un número), y la transpuesta `x^T`, `A^T`. Ejemplo: `A*x^T=`. También: la **inversa** `inv(A)` o `A^(-1)` (matrices cuadradas; avisa si es singular), potencias enteras `A^2`, `A^0`, `A^(-2)`, y las operaciones **elemento a elemento**: `.*`, `./`, `.^` (`x.*y`, `x./y`, `x.^2`, `2.^x`; un número se extiende a todos los elementos y dos matrices deben tener el mismo tamaño) y las funciones sobre cada elemento (`sqrt(x)`, `abs(x)`, `sin(x)`, `exp(x)`, `max(x; 2)`, `round(x; 2)`…). Para resolver un sistema `A*x = b`: `A:[1,1; 10,1]`, `b:[-25; 250]`, `x:A^(-1)*b` y `x=`, cada uno en su línea. `*` sigue siendo el producto matricial (dos vectores fila dan error: usa `.*` o `x*y^T`). Funciones de resumen: `det(A)` (determinante), `sum(x)` (suma de todos los elementos) y `norm(x)` (norma euclidiana; de Frobenius en una matriz). **Índices** con la notación matemática, desde 1: `x_2`, `x_i` (un vector fila o columna) y `A_(fila,columna)`; entre paréntesis admiten fórmulas: `x_(i+1)`, `A_(i,j-1)`. Sirven en las salidas, en las demás variables de texto y en las fórmulas de las cotas (`D1 = x_2`). Un nombre que ya existe como variable (`x_1`, `k_(total)`) es esa variable y no un índice. **Filas y columnas**: `A_(2,:)` (la fila 2), `A_(:,3)` (la columna 3) y `A_(:,:)`. **Más resúmenes** (sobre todos los elementos): `prod`, `mean`, `median`, `std` y `variance` (muestrales, entre n−1), `len` (cuántos elementos), `rows`, `cols`, y `min(x)` / `max(x)` con un solo vector. **Acumuladas**: `cumsum(x)` y `cumprod(x)` (vectores fila o columna). **Entre vectores**: `dot(a; b)` (producto punto) y `cross(a; b)` (producto vectorial, de 3 elementos). **Matrices**: `trace(A)`, `diag(A)` (de un vector, la matriz diagonal; de una matriz, su diagonal) y `eye(n)` (la identidad, n de 1 a 100). **Funciones propias**: `foo(x; y):expresión en x e y` define una función (los parámetros se separan con «;» o «,»): `f(x):x^2+1`, `g(a; b):a*b+f(a)`; se usan como cualquier otra, en `f(3)=`, en variables de texto y en cotas (`D1 = f(3)`). Los parámetros valen lo que se les pasa (números, vectores o matrices) y ocultan a las variables del mismo nombre; el resto de la expresión lee las cotas y variables que valen en el punto de la página desde el que se la llama (si cambias `k` después de definir `f(x):x*k`, el siguiente `f(3)` usa el `k` nuevo). Una función puede llamar a otras y a sí misma con `if(condición; a; b)`, que solo calcula la rama que se elige: `fact(n):if(n<=1; 1; n*fact(n-1))` (hasta 200 niveles). Se dibuja `f(x):=x^2+1`. Los nombres de las funciones y de sus parámetros siguen las reglas de los de las variables, y no pueden ser funciones del programa (`sin`, `sum`…). Un vector o una matriz entero todavía no se usa en una cota ni en una gráfica (sí sus elementos y resúmenes): avisa con un mensaje. Una matriz escrita en varias líneas de un bloque `$$` se parte por líneas: escríbela en una sola. Aún no hay alineación por «=» entre líneas.
+| Escribes | Qué hace | Ejemplo | Se ve |
+|---|---|---|---|
+| `x:valor` | Asigna a **x** el valor de una expresión. Se dibuja `x:=valor`, tal como lo escribiste. | `x:2*3` | `x:=2*3` |
+| `x:=valor` | Lo mismo, tecleando `:=`. | `k:=4` | `k:=4` |
+| `expr=` | Un **=** al final de la línea muestra el valor, con hasta 3 decimales. | `2/3=` | `2/3=0.667` |
+| `x:expr=` | Asigna y muestra el valor en la misma línea. | `x:2*3=`<br>`y:x+1=` | `x:=2*3=6`<br>`y:=x+1=7` |
+| `x:a..b;n` | **Rango**: n valores de a hasta b, un vector fila. | `x:1..5;5` | `x:=[1, 2, 3, 4, 5]` |
+| `x:a..paso..b` | Rango con paso. | `x:0..0.5..2` | `x:=[0, 0.5, 1, 1.5, 2]` |
+| Ángulos | Un valor con π es un ángulo en radianes; uno sin π es un número a secas. | `a:30`<br>`sin(a)=` | `a:=30`<br>`sin(a)=0.5` |
+| Error | Si la expresión no se puede calcular, en lugar del valor aparece ⚠. | `sqrt(-1)=` | `sqrt(-1)=⚠` |
 
-## Variables en textos
+- **Un enunciado por línea**: lo que sobra en la línea se marca con ⚠ (`x:2  y:3`). Para poner dos, Shift+Enter.
+- No es salida si la línea termina en `==`, `<=`, `>=`, `!=` o `:=`: ahí el **=** es parte del operador.
+- Un vector o una matriz asignado ya muestra su valor: en `v:1..3;3=` el **=** final no añade nada.
+- Una salida puede leer las cotas (también las de solo lectura y las magnitudes de los vectores), las variables y las funciones y constantes de «Funciones y operadores». Un ángulo de una cota vale su medida en radianes.
+- Al editar ves `expr=`; el dibujo y las exportaciones (SVG, DXF) muestran `expr=valor`. La magnitud de un vector muestra solo el valor.
 
-`nombre:valor` asigna a «nombre» el valor de una expresión (también se puede teclear `:=`); va en una ecuación, o entre `$…$` en un texto normal: `'La carga es $F:250$ N`. **Un enunciado por línea**: lo que sobra en la línea se marca con ⚠ (para poner dos, Shift+Enter). **Orden de lectura y solución** (como SMath): la página se lee **de arriba a abajo y, en una misma fila, de izquierda a derecha** (dentro de un texto, línea por línea; los textos se ordenan por su esquina superior izquierda). Una variable vale lo de la **última definición leída antes**: puedes **redefinirla** (`k:1` … `k=` da 1 … `k:2` … `k=` da 2) y usarla en su propia redefinición (`n:n+1`). Lo que se usa antes de definirse no existe todavía y avisa de que «se define más abajo o más a la derecha». Las salidas `nombre=` y las definiciones siguientes ven el valor de ese punto; las **cotas con fórmula** (`D2 = nombre*2`) también se leen en el orden de la página, **en el lugar de su etiqueta**: ven la variable tal como estaba ahí. Si `k:1` está arriba de la cota y `k:7` entre la cota y el pie de la página, `D2 = k*2` vale 2; una variable que se define más abajo o más a la derecha de la etiqueta todavía no existe para esa cota y avisa. Mover un texto o la etiqueta de una cota (en Seleccionar) recalcula las cotas que leen variables de texto. **Mientras se simula o se arrastra**, el orden de lectura de las cotas queda **congelado** (el que tenían al empezar), así que una etiqueta que cruce un texto a mitad del movimiento no cambia el valor de su cota ni detiene la simulación; al soltar o terminar se vuelve al orden normal. El valor puede usar cotas y variables definidas antes (`k:D1/2`, `m:k+1`), y se recalcula cuando cambia lo que usa. La definición se dibuja como `nombre:=valor`, tal como la escribiste (un vector o una matriz muestra su valor). El nombre sigue las reglas de las cotas (letras, números y _; empieza con una letra; no puede ser una función o constante como `sin` o `pi`) y no puede coincidir con el de una cota: un texto con una definición así (o que usa una variable que aún no existe) se rechaza al escribirlo («se deshizo»); si el problema llega de otra forma (por ejemplo al pegar un texto), esa definición queda con ⚠ y la variable queda sin definir desde ahí. Ya no hay variables que se definan una a la otra: se leen en orden. Como las cotas, un valor con π es un ángulo en radianes (`a:π/2`) y uno sin π es un número a secas (`a:30`: `sin(a)=` da 0,5). Si el texto con la definición se borra, las cotas que la leían conservan su valor actual y pierden la fórmula. Se pueden poner varias definiciones en un texto, y los nombres se actualizan solos si renombras una cota que usan.
+## Texto normal, fórmulas y literales
 
-## Salidas en textos
+Un texto que empieza con `'` se dibuja tal cual, salvo lo que va entre signos de pesos, que es matemático y calcula igual que una ecuación.
 
-Una expresión seguida de `=` al final de la línea muestra su valor: `O1=` se dibuja «O1=10». En un texto normal va entre `$…$`: `'El valor del diámetro es: $O1=$ cm`, `'El área sombreada es $D1*D2=$ mm^2`, `'número de vueltas: $A1/(2π)=$`. No es salida si la línea termina en `==`, `<=`, `>=`, `!=` o `:=` (ahí el «=» es parte del operador). Dentro van los nombres de las cotas (también las de solo lectura y las magnitudes de los vectores) y las funciones y constantes de las fórmulas. El valor se actualiza solo cuando el dibujo cambia, y el resultado se muestra con hasta 3 decimales. Un ángulo vale su medida en **radianes** (como en las fórmulas). Si la expresión falla (un nombre que no existe, por ejemplo), en su lugar aparece ⚠. Al editar el texto ves `expr=`; el dibujo y las exportaciones (SVG, DXF) muestran `expr=valor` (la magnitud de un vector muestra solo el valor). **Dibujos anteriores a la v2.0**: al abrirlos, `x{=v}` pasa a `$x:v$` y `[=e]` a `$e=$` (una sola vez, con un aviso); lo que en una fórmula vieja ahora se leería como asignación o salida queda como literal.
+| Escribes | Qué hace | Ejemplo | Se ve |
+|---|---|---|---|
+| `$…$` | Fórmula en línea con el texto. | `'Vale $2*3=$ mm` | `Vale 2*3=6 mm` |
+| `$$…$$` | Fórmula en bloque: cada línea de dentro es una ecuación, centrada y a tamaño pleno. |  |  |
+| `` `…` `` | **Literal**: se dibuja pero nunca se calcula ni se lee como asignación o salida. Sin las comillas, `f:RR->RR` sería una asignación. | `` `f:RR->RR` ``<br>`` `x =` 3 `` | `f:RR->RR`<br>`x = 3` |
+| `` `… `` sin cerrar | Se marca con ⚠. | `` `abierto `` | `` `abierto ⚠ `` |
+| `\$` | Un signo de pesos que no abre una fórmula. |  |  |
+| `$` suelto | No es fórmula: `$5 y $6` se dibuja tal cual. Un `$$` sin cierre también, con ⚠. |  |  |
+
+## Escritura matemática (AsciiMath)
+
+Las fórmulas siguen la sintaxis de [asciimath.org](https://asciimath.org/). Se dibujan con fracciones, raíces, índices y símbolos de verdad, giran y se exportan (SVG, DXF) como cualquier texto. Los paréntesis crecen con lo que encierran.
+
+| Escribes | Se dibuja |
+|---|---|
+| `a/b` | Fracción (los paréntesis de a y b no se ven). |
+| `x^2`, `x_1` | Superíndice y subíndice. |
+| `sqrt(x)`, `root 3 x` | Raíces. |
+| `alpha`, `beta`, `pi`, `Delta`… | Letras griegas. |
+| `sum_(i=1)^n`, `prod`, `int_0^1`, `lim_(x->0)` | Sumatoria, productoria, integral y límite. |
+| `sin`, `cos`, `ln`… | Nombres de funciones, en letra recta. |
+| `<=`, `>=`, `!=`, `->`, `=>`, `+-`, `xx`, `-:`, `oo` | ≤ ≥ ≠ → ⇒ ± × ÷ ∞ |
+| `abs(x)`, `floor(x)`, `ceil(x)`, `norm(x)` | Valor absoluto, piso, techo y norma, con sus barras. |
+| `hat x`, `bar x`, `vec v`, `tilde`, `dot`, `ddot`, `ul`, `cancel`, `overarc` | Acentos, subrayado y tachado. |
+| `[[a,b],[c,d]]`, `((a),(b))` | Matrices dibujadas (sin calcular). |
+| `[[a,b,\|,c],[d,e,\|,f]]` | Matriz aumentada. |
+| `{(2x,+,y,=,3),(x,-,y,=,1):}` | Sistema de ecuaciones. |
+| `ubrace(…)_("texto")`, `obrace`, `overset(x)(=)`, `underset` | Llaves y signos con algo encima o debajo. |
+| `color(red)(x)` | Color. |
+| `bb`, `bbb`, `cc`, `tt`, `fr`, `sf` | Fuentes: negrita, pizarra, caligráfica, máquina, fraktur, sin serifa. |
+| `"texto"`, `text(hola)` | Texto recto dentro de la fórmula. |
+| `dy/dx`, `f'(x)` | Derivadas. |
+
+- Como en AsciiMath, las palabras reservadas se reconocen aunque vayan pegadas a otras letras (`pir` es π r), así que «in», «or», «and»… dentro de un nombre se leen como símbolos: sepáralos con espacios o ponlos entre comillas.
+- Aún no hay alineación por **=** entre líneas.
+
+## Nombres de variables
+
+Siguen las reglas de los nombres de las cotas: letras, números y _, empiezan con una letra.
+
+| Escribes | Qué hace | Ejemplo | Se ve |
+|---|---|---|---|
+| `masa_(total)` | Nombre con **subíndice de texto**: entre paréntesis, texto libre sin paréntesis ni llaves. Se dibuja con el subíndice en letra recta. | `masa_(total):3`<br>`2*masa_(total)=` | `masa_(total):=3`<br>`2*masa_(total)=6` |
+| Reservados | Un nombre no puede ser una función o constante del programa (`sin`, `pi`…) ni coincidir con el de una cota. | `sin:2` | `sin:=2 ⚠` |
+
+- Un texto con un nombre no válido, o que usa una variable que aún no existe, se rechaza al escribirlo («se deshizo»). Si llega de otra forma (al pegar un texto, por ejemplo), esa definición queda con ⚠ y la variable sin definir desde ahí.
+- Los nombres se actualizan solos si renombras una cota que usan.
+
+## Orden de lectura
+
+Como en SMath, la página se lee **de arriba a abajo** y, en una misma fila, **de izquierda a derecha**: dentro de un texto, línea por línea; los textos, por su esquina superior izquierda. Una variable vale lo de la **última definición leída antes**.
+
+| Escribes | Qué hace | Ejemplo | Se ve |
+|---|---|---|---|
+| Redefinir | Una variable puede cambiar de valor más abajo. | `k:1`<br>`k=`<br>`k:2`<br>`k=` | `k:=1`<br>`k=1`<br>`k:=2`<br>`k=2` |
+| Usarse a sí misma | Una redefinición puede leer el valor anterior. | `n:1`<br>`n:n+1`<br>`n=` | `n:=1`<br>`n:=n+1`<br>`n=2` |
+| Usar antes de definir | Todavía no existe: avisa de que «se define más abajo o más a la derecha». | `y=`<br>`y:2` | `y=⚠`<br>`y:=2` |
+| Leer cotas | Una definición puede usar las cotas y variables leídas antes, y se recalcula cuando cambian. | `k:D1/2` |  |
+
+- Las **cotas con fórmula** (`D2 = k*2`) se leen en el lugar de su **etiqueta**: si `k:1` está arriba de la cota y `k:7` más abajo, `D2` vale 2.
+- Mover un texto o la etiqueta de una cota (en Seleccionar) recalcula las cotas que leen variables de texto.
+- Mientras se simula o se arrastra, el orden de lectura de las cotas queda **congelado**: una etiqueta que cruza un texto no cambia su valor ni detiene la simulación. Al soltar o terminar se vuelve al orden normal.
+- Si se borra el texto con la definición, las cotas que la leían conservan su valor y pierden la fórmula.
+
+## Vectores y matrices
+
+Se escriben entre corchetes: la coma separa los elementos de una fila, el punto y coma empieza otra fila, y los decimales llevan punto. Se dibujan con corchetes de verdad y sin comas; aquí se escriben con comas, como en «Funciones y operadores», donde está la lista completa de operaciones.
+
+| Escribes | Qué hace | Ejemplo | Se ve |
+|---|---|---|---|
+| `[1, 2; 3, 4]` | Matriz. `[1, 2, 3]` es un vector fila y `[1; 2; 3]` uno columna. | `A:[1,2;3,4]`<br>`A=` | `A:=[1, 2; 3, 4]`<br>`A=[1, 2; 3, 4]` |
+| `x^T` | Transpuesta: de un vector fila, el columna. | `x:1..3;3`<br>`x^T=` | `x:=[1, 2, 3]`<br>`x^T=[1; 2; 3]` |
+| `x_2`, `x_i`, `x_(i+1)` | Elemento de un vector, contando desde 1. | `x:1..3;3`<br>`x_2=` | `x:=[1, 2, 3]`<br>`x_2=2` |
+| `A_(i,j)` | Elemento de una matriz (fila, columna). | `A:[1,2;3,4]`<br>`A_(2,1)=` | `A:=[1, 2; 3, 4]`<br>`A_(2,1)=3` |
+| `A_(2,:)`, `A_(:,2)` | Una fila o una columna entera. | `A:[1,2;3,4]`<br>`A_(:,2)=` | `A:=[1, 2; 3, 4]`<br>`A_(:,2)=[2; 4]` |
+| `A^(-1)*b` | Resolver el sistema A·x = b. | `A:[1,1;10,1]`<br>`b:[-25;250]`<br>`x:A^(-1)*b=` | `A:=[1, 1; 10, 1]`<br>`b:=[-25; 250]`<br>`x:=[30.556; -55.556]` |
+
+- Un rango de más de 8 elementos se abrevia con «…».
+- `*` es el producto matricial: dos vectores fila dan error (usa `.*` o `x*y^T`).
+- Un nombre que ya existe como variable (`x_1`, `k_(total)`) es esa variable, no un índice.
+- Una cota puede leer un elemento o un resumen (`D1 = x_2`), pero no un vector o una matriz entero: avisa con un mensaje. Lo mismo en las gráficas.
+- Una matriz escrita en varias líneas de un bloque `$$` se parte por líneas: escríbela en una sola.
+
+## Funciones propias
+
+| Escribes | Qué hace | Ejemplo | Se ve |
+|---|---|---|---|
+| `f(x):…` | Define una función. Se dibuja `f(x):=…` y se usa en las salidas, las variables y las cotas (`D1 = f(3)`). | `f(x):x^2+1`<br>`f(3)=` | `f(x):=x^2+1`<br>`f(3)=10` |
+| `g(a; b):…` | Varios parámetros, separados por `;` o `,`. | `g(a; b):a*b+1`<br>`g(2; 5)=` | `g(a; b):=a*b+1`<br>`g(2; 5)=11` |
+| `if(c; a; b)` | Recursión: solo se calcula la rama elegida (hasta 200 niveles). | `fact(n):if(n<=1; 1; n*fact(n-1))`<br>`fact(5)=` | `fact(n):=if(n<=1; 1; n*fact(n-1))`<br>`fact(5)=120` |
+| Variables de fuera | Lee las variables que valen donde se la llama, no donde se definió. | `k:2`<br>`f(x):x*k`<br>`f(3)=`<br>`k:5`<br>`f(3)=` | `k:=2`<br>`f(x):=x*k`<br>`f(3)=6`<br>`k:=5`<br>`f(3)=15` |
+
+- Los parámetros valen lo que se les pasa (números, vectores o matrices) y ocultan a las variables del mismo nombre.
+- Los nombres de la función y de sus parámetros siguen las reglas de las variables, y no pueden ser funciones del programa (`sin`, `sum`…).
+- En una función, un **=** al final queda en el cuerpo: `x:expr=` solo muestra el valor de una variable.
 
 ## Propiedades con «.»
 
-`p12.x`, `p12.y` (punto), `l3.len` (o `l3.L`), `l3.ang` (línea; el ángulo en radianes), `c1.r`, `c1.d`, `c1.x`, `c1.y` (círculo), `a2.r`, `a2.x`, `a2.y` (arco). La lista de todo lo que acepta una fórmula está en [Funciones y operadores](funciones.md). Se usan en cualquier fórmula: cotas, textos (`p12.x=`), actuadores y gráficas.
+Se usan en cualquier fórmula: cotas, textos (`p12.x=`), actuadores y gráficas. Las medidas que leen se actualizan con el dibujo.
+
+| Escribes | Qué es |
+|---|---|
+| `p12.x`, `p12.y` | Coordenadas de un punto. |
+| `l3.len` (`l3.L`), `l3.ang` | Longitud de una línea y su ángulo, en radianes. |
+| `c1.r`, `c1.d`, `c1.x`, `c1.y` | Radio, diámetro y centro de un círculo. |
+| `a2.r`, `a2.x`, `a2.y` | Radio y centro de un arco. |
+
+## Fuente y formato del texto
+
+| Propiedad | Qué hace |
+|---|---|
+| Fuente | Se elige al crear el texto o en el panel: sistema, Helvetica/Arial, Times/Georgia, Courier/Menlo, Verdana, Palatino, Optima, Futura, American Typewriter y tres manuscritas. Si el dispositivo no tiene una, se usa una genérica parecida. |
+| Punto de inserción | Es un punto real: se puede acotar, fijar o relacionar. Se elige su lugar en la caja del texto. |
+| Ángulo y altura | Gira y escala el texto. También se puede alinear con una línea. |
+| *Legible* | Gira 180° el texto que quedaría boca abajo. |
+
+## Dibujos anteriores a la v2.0
+
+Al abrirlos, la sintaxis vieja pasa a la nueva una sola vez, con un aviso.
+
+| Antes | Qué pasa | Ejemplo | Queda |
+|---|---|---|---|
+| `x{=v}` | Definición: pasa a fórmula con asignación. | `A{=b*h}` | `$A:b*h$` |
+| `[=e]` | Salida: pasa a fórmula con **=** al final. | `[=A]` | `$A=$` |
+| Fórmula vieja | Lo que ahora se leería como asignación o salida queda como literal. | `$$a:b$$` | `` $$`a:b`$$ `` |
 
 ---
 

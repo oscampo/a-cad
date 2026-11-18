@@ -34,6 +34,17 @@ t('el literal `...` no se evalua; sin cerrar se marca con ⚠', () => {
   assert.equal(page('$$`abierto$$'), '$$`abierto ⚠$$');
 });
 
+t('«x:expr=» asigna y muestra el valor en la misma linea', () => {
+  assert.deepEqual(stmts('$$x:2*3=$$'), ['x:2*3']);
+  assert.equal(page('$$x:2*3=\ny:x+1 =\ny*2=$$'), '$$x:=2*3=6\ny:=x+1=7\ny*2=14$$');
+  assert.equal(page('$$k:=4=$$'), '$$k:=4=4$$');
+  assert.equal(page('$$v:1..3;3=$$'), '$$v:=[1, 2, 3]$$'); // un vector ya muestra su valor
+  assert.equal(page('$$b:3==3$$'), '$$b:=3==3$$'); // «==» al final es una comparacion, no «=»
+  assert.equal(page('$$q:sqrt(-1)=$$').includes('⚠'), true);
+  assert.deepEqual(stmts('$$f(x):x^2=$$'), ['f(x):x^2=']); // en una funcion el «=» queda en el cuerpo
+  for (const s of ['$$x:2*3=$$', '$$y:x+1 = $$']) assert.equal(calcSrc(calcParse(s)), s);
+});
+
 t('un enunciado por linea: lo que sobra en la linea da ⚠', () => {
   assert.equal(page('$$x:2  y:3$$'), '$$x:=2  y:3 ⚠$$');
 });

@@ -2,6 +2,13 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## v2.1.0 (2026-11-18)
+
+### Nuevo
+
+- Textos: **`x:expr=` asigna y muestra el valor en la misma línea**: `x:2*3=` se dibuja `x:=2*3=6`. Si el valor no se puede calcular aparece `=⚠`. Un vector o una matriz asignado ya muestra su valor, así que ahí el `=` final no añade nada. No aplica a las funciones propias (en `f(x):x^2=` el `=` queda en el cuerpo) ni a una línea que termina en `==`, `<=`, `>=` o `!=`.
+- Ayuda: la sección **Texto y cálculo** deja los bloques largos de texto y pasa a tablas, como «Funciones y operadores»: once grupos (escribir un texto, asignar y mostrar, texto normal y literales, escritura AsciiMath, nombres, orden de lectura, vectores y matrices, funciones propias, propiedades con «.», fuente y formato, dibujos anteriores a la v2.0), cada uno con lo que se escribe, qué hace, un ejemplo y cómo se ve, y una lista corta de reglas. En el teléfono cada fila es una tarjeta y el buscador filtra las filas. El capítulo del manual ([`docs/07-texto-y-calculo.md`](https://github.com/oscampo/ipad-cad/blob/main/docs/07-texto-y-calculo.md)) sale de la misma fuente, `src/calcref.js`, y una prueba nueva (`test/calcref.test.mjs`) comprueba que cada ejemplo se dibuja como dice la ayuda y que el manual está al día (`npm run docs` regenera los dos capítulos).
+
 ## v2.0.0 (2026-11-18)
 
 ### Nuevo

@@ -59,7 +59,9 @@ export function textValue(doc, t) {
     const dk = tid + ':' + idx++, bad = st.bad.has(dk);
     const val = !bad ? st.defVal.get(dk) : null, mx = val?.vec ? [val.vec] : val?.mat;
     const call = p.params !== undefined ? '(' + p.params.trim() + ')' : ''; // funcion: f(x; y):=...
-    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 : IT0 + shown + call + ':=' + wrapNames(p.expr.trim()) + (bad ? ' ⚠' : '') + IT1) + p.post;
+    // «x:expr=»: ademas del valor asignado, «=valor» (un vector o una matriz ya muestran su valor)
+    const shownVal = p.eq !== undefined && !mx ? '=' + (val ? fmtNum(val.v) : '⚠') : '';
+    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 : IT0 + shown + call + ':=' + wrapNames(p.expr.trim()) + (bad && !shownVal ? ' ⚠' : '') + IT1 + shownVal) + p.post;
   };
   return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + tk.lines.map((l) => l.map(piece).join('')).join('\n') + (tk.disp ? '$$' : '$'))).join('');
 }

@@ -30,6 +30,7 @@ export function runsOf(line) {
 // Solo dentro de una formula ($...$ o $$...$$; la entrada por defecto es una formula), un enunciado por linea:
 //  «x:valor» asigna (se dibuja «x:=valor»; tambien se acepta «x:=valor»), «f(x; y):expr» define una funcion, «x:0..1;10» un rango;
 //  «expr=» al final pide el valor (se dibuja «expr=valor»; no cuentan «==», «<=», «>=», «!=» ni «:=»);
+//  «x:expr=» hace las dos cosas: asigna y muestra el valor (se dibuja «x:=expr=valor»; en una funcion el «=» final no cuenta);
 //  `...` entre acentos graves es un literal: se dibuja como formula pero nunca se calcula (`f:RR->RR`). Parte la linea en trozos y cada
 //  trozo de codigo entre literales es un enunciado aparte. Un acento grave sin cierre queda tal cual con ⚠.
 // El texto plano (lo que va fuera de $...$) se dibuja caracter por caracter: ahi nada se calcula.
@@ -37,10 +38,17 @@ export function runsOf(line) {
 export const NAME_SRC = '[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?(?:_\\([^(){}\\n]+\\))?';
 const DEF_LINE = new RegExp('^(\\s*)(' + NAME_SRC + ')(?:\\(([^()\\n]*)\\))?(\\s*:=?)([\\s\\S]*?)(\\s*)$');
 const OUT_LINE = /^(\s*)([\s\S]*?\S)(\s*)=(\s*)$/;
-// Un trozo de codigo: { k:'def', pre, name, params, sep, expr, post } | { k:'out', pre, expr, mid, post } | { k:'code', s }.
+// Un trozo de codigo: { k:'def', pre, name, params, sep, expr, eq, post } | { k:'out', pre, expr, mid, post } | { k:'code', s }.
+// eq: en «x:expr=», lo que sigue a la expresion («=» con sus espacios); asigna y ademas muestra el valor.
+const EQ_TAIL = /^([\s\S]*?\S)(\s*=)$/;
 function stmtOf(s) {
   let m = DEF_LINE.exec(s);
-  if (m && m[5].trim()) return { k: 'def', pre: m[1], name: m[2], params: m[3], sep: m[4], expr: m[5], post: m[6] };
+  if (m && m[5].trim()) {
+    const d = { k: 'def', pre: m[1], name: m[2], params: m[3], sep: m[4], expr: m[5], post: m[6] };
+    const e = m[3] === undefined && EQ_TAIL.exec(m[5]);
+    if (e && !/[<>=!:≤≥≠]$/.test(e[1])) { d.expr = e[1]; d.eq = e[2]; }
+    return d;
+  }
   m = OUT_LINE.exec(s);
   if (m && !/[<>=!:≤≥≠]$/.test(m[2])) return { k: 'out', pre: m[1], expr: m[2], mid: m[3], post: m[4] };
   return { k: 'code', s };
@@ -62,7 +70,7 @@ export function calcPieces(line) {
   return out;
 }
 export const pieceSrc = (p) => (p.k === 'lit' ? '`' + p.s + (p.closed ? '`' : '') : p.k === 'code' ? p.s
-  : p.k === 'def' ? p.pre + p.name + (p.params !== undefined ? '(' + p.params + ')' : '') + p.sep + p.expr + p.post : p.pre + p.expr + p.mid + '=' + p.post);
+  : p.k === 'def' ? p.pre + p.name + (p.params !== undefined ? '(' + p.params + ')' : '') + p.sep + p.expr + (p.eq ?? '') + p.post : p.pre + p.expr + p.mid + '=' + p.post);
 // Filtro rapido: ¿puede llevar enunciados?
 export const hasCalc = (s) => typeof s === 'string' && s.includes('$') && /[:=]/.test(s);
 // Un texto partido en tramos: { t:'txt', raw } y { t:'math', disp, lines: [[trozo]] }. calcSrc lo vuelve a escribir tal cual.
