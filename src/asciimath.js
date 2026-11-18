@@ -162,9 +162,9 @@ function parseS(p) {
       return { t: 'v', s: k.v };
     }
     case 'sym': return { t: 'sym', s: k.v };
-    case 'vec': { // «[1, 2, 3]» (viene de una salida [=x]): vector fila, sin comas
-      const cells = k.v.trim().replace(/^\[/, '').replace(/\]$/, '').split(',').map((e) => parse(e.trim())).filter((r) => r.c.length);
-      return cells.length ? { t: 'mat', l: '[', r: ']', rows: [cells], bars: [] } : EMPTY();
+    case 'vec': { // «[1, 2, 3]», «[1; 2]», «[1, 2; 3, 4]» (viene de una salida [=x]): matriz sin comas
+      const rows = k.v.trim().replace(/^\[/, '').replace(/\]$/, '').split(';').map((r) => r.split(',').map((e) => parse(e.trim())).filter((c) => c.c.length)).filter((r) => r.length);
+      return rows.length && rows.every((r) => r.length === rows[0].length) ? { t: 'mat', l: '[', r: ']', rows, bars: [] } : EMPTY();
     }
     case 'str': return { t: 'txt', s: k.v };
     case 'fn': return { t: 'fn', s: k.v };

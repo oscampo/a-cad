@@ -6,7 +6,7 @@
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
 import { dimValue, angTrue, initAngle, trackAngles } from './dims.js';
 import { parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE } from './expr.js';
-import { textVarState, hasDefMark } from './tvars.js';
+import { textVarState, hasDefMark, OUT_SRC } from './tvars.js';
 import { geoVars, isGeoName, geoPoints } from './geo.js';
 
 const DEG = Math.PI / 180;
@@ -43,7 +43,7 @@ export function varsList(doc, exceptId = null) {
     return `${k.name} = ${Math.round(x * 1000) / 1000}${k.t === 'ANG' ? '°' : ''}${k.ref ? ' (lectura)' : ''}`;
   });
   const tv = hasDefs(doc) ? textVars(doc, exceptId).vals : {};
-  return dims.concat(Object.entries(tv).map(([n, x]) => `${n} = ${x.vec ? `vector de ${x.vec.length}` : Math.round(x.v * 1000) / 1000} (texto)`)).join(', ');
+  return dims.concat(Object.entries(tv).map(([n, x]) => `${n} = ${x.vec ? `vector de ${x.vec.length}` : x.mat ? `matriz de ${x.mat.length}×${x.mat[0].length}` : Math.round(x.v * 1000) / 1000} (texto)`)).join(', ');
 }
 // Las mismas variables como lista para elegirlas en un menu: [{ name, text, kind }]. kind: 'dim' (distancias, radios, diametros),
 // 'ang' (angulos) o 'var' (variables de los textos).
@@ -54,7 +54,7 @@ export function varsInfo(doc, exceptId = null) {
     return { name: k.name, text: `${k.name} = ${r3(x)}${ang ? '°' : ''}${k.ref ? ' (lectura)' : ''}`, kind: ang ? 'ang' : 'dim' };
   });
   const tv = hasDefs(doc) ? textVars(doc, exceptId).vals : {};
-  for (const [n, x] of Object.entries(tv)) out.push({ name: n, text: x.vec ? `${n} = vector de ${x.vec.length}` : `${n} = ${r3(x.v)}`, kind: 'var' });
+  for (const [n, x] of Object.entries(tv)) out.push({ name: n, text: x.vec ? `${n} = vector de ${x.vec.length}` : x.mat ? `${n} = matriz de ${x.mat.length}×${x.mat[0].length}` : `${n} = ${r3(x.v)}`, kind: 'var' });
   return out;
 }
 // Nombres de las variables definidas en textos (las que alguna definicion valida usa).
@@ -94,7 +94,7 @@ export function renameDim(doc, id, name) {
   k.name = name;
   for (const o of Object.values(doc.cons)) if (o.expr) o.expr = renameInExpr(o.expr, old, name);
   // las salidas de los textos ([=D1]) y los valores de sus variables (x{=2*D1}) tambien siguen al nombre
-  for (const t of Object.values(doc.texts || {})) if (typeof t.text === 'string' && (t.text.includes('[=') || hasDefMark(t.text))) t.text = t.text.replace(/\[=([^\]]*)\]/g, (m, ex) => '[=' + renameInExpr(ex, old, name) + ']').replace(/\{=([^}]*)\}/g, (m, ex) => '{=' + renameInExpr(ex, old, name) + '}');
+  for (const t of Object.values(doc.texts || {})) if (typeof t.text === 'string' && (t.text.includes('[=') || hasDefMark(t.text))) t.text = t.text.replace(new RegExp(OUT_SRC, 'g'), (m, ex) => '[=' + renameInExpr(ex, old, name) + ']').replace(/\{=([^}]*)\}/g, (m, ex) => '{=' + renameInExpr(ex, old, name) + '}');
 }
 
 // Evalua en orden las cotas definidas con formula. { ok: true } o { ok: false, error } sin dejar nada a medias:

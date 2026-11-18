@@ -3,7 +3,7 @@
 // de measureText; en las pruebas puede ser una aproximacion).
 import { evalExpr } from './expr.js';
 import { varsOf, textVars } from './params.js';
-import { IT0, IT1, VB0, VB1, DEF_SRC, runsOf, hasDefMark } from './tvars.js';
+import { IT0, IT1, VB0, VB1, DEF_SRC, OUT_SRC, runsOf, hasDefMark } from './tvars.js';
 export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
 import { hasMath, layoutText, splitMath } from './mathlayout.js';
@@ -15,9 +15,14 @@ export { hasMath } from './mathlayout.js';
 // Definiciones de variables: «x{=valor}» se muestra como «x:=valor» en cursiva (entre marcas IT0 e IT1, ver runsOf); si la
 // definicion no vale (repetida, choca con una cota, falla) lleva un ⚠ al final.
 // Un vector en un texto: «[1, 2, 3]»; si tiene mas de 8 elementos, los 4 primeros y los 2 ultimos.
-const vecText = (v) => '[' + (v.length > 8 ? [...v.slice(0, 4).map(fmtNum), '…', ...v.slice(-2).map(fmtNum)] : v.map(fmtNum)).join(', ') + ']';
+// Una matriz en un texto: «[1, 2, 3]» (fila), «[1; 2; 3]» (columna), «[1, 2; 3, 4]»; con mas de 8 columnas o filas, las 4 primeras y las 2 ultimas.
+const matText = (m) => {
+  const row = (r) => (r.length > 8 ? [...r.slice(0, 4).map(fmtNum), '…', ...r.slice(-2).map(fmtNum)] : r.map(fmtNum));
+  let rows = m.map(row);
+  if (rows.length > 8) rows = [...rows.slice(0, 4), rows[0].map(() => '⋮'), ...rows.slice(-2)];
+  return '[' + rows.map((r) => r.join(', ')).join('; ') + ']';
+};
 const TEXT_RE = () => new RegExp(DEF_SRC + '|' + OUT_SRC, 'g');
-const OUT_SRC = /\[=([^\]]*)\]/.source;
 export function textValue(doc, t) {
   const s = String(t.text ?? '');
   const hasDef = hasDefMark(s), hasOut = s.includes('[=');
@@ -28,15 +33,15 @@ export function textValue(doc, t) {
   const expand = (seg, math) => seg.replace(TEXT_RE(), (m, name, ex, out) => {
     if (name !== undefined) { // definicion x{=valor}
       const bad = st.bad.has(tid + ':' + idx++);
-      const vec = math && !bad ? st.vals?.[name]?.vec : null;
-      if (vec) return IT0 + name + ':=' + IT1 + VB0 + vecText(vec) + VB1;
+      const val = math && !bad ? st.vals?.[name] : null, mt = val?.vec ? [val.vec] : val?.mat;
+      if (mt) return IT0 + name + ':=' + IT1 + VB0 + matText(mt) + VB1;
       return IT0 + name + ':=' + ex +(bad ? ' ⚠' : '') + IT1;
     }
     try {
       vars ||= varsOf(doc);
-      const nm = out.trim();
-      if (vars[nm]?.vec) return math ? VB0 + vecText(vars[nm].vec) + VB1 : vecText(vars[nm].vec); // [=x] con x vector: sus elementos
-      return fmtNum(evalExpr(out, { vars }).value);
+      const r = evalExpr(out, { vars, allowMat: true });
+      if (r.mat) return math ? VB0 + matText(r.mat) + VB1 : matText(r.mat); // vector o matriz: sus elementos
+      return fmtNum(r.value);
     } catch (e) { return '⚠'; }
   });
   if (!s.includes('$')) return expand(s, false);

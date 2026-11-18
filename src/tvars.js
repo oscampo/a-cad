@@ -27,6 +27,8 @@ export function runsOf(line) {
 // Grupos: 1 nombre, 2 valor.
 export const DEF_SRC = '([A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*)\\{=([^}]*)\\}';
 const DEF_RE = () => new RegExp(DEF_SRC, 'g');
+// Salida «[=expresion]»: la expresion puede llevar corchetes (una matriz literal) con un nivel de anidacion. Grupo 1: la expresion.
+export const OUT_SRC = '\\[=((?:[^\\[\\]]|\\[[^\\[\\]]*\\])*)\\]';
 export const hasDefMark = (s) => typeof s === 'string' && s.includes('{=');
 
 // Rangos (vectores de numeros igualmente espaciados): «x{=inicio..fin;n}» (n elementos entre inicio y fin, ambos incluidos) y
@@ -108,7 +110,10 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set()) {
     if (ok) {
       try {
         if (rg) st.vals[name] = { vec: rangeValues(rg, (s) => evalExpr(s, { vars }).value), r: false };
-        else { const r = evalExpr(d.expr, { vars }); st.vals[name] = { v: r.value, r: r.rad }; }
+        else {
+          const r = evalExpr(d.expr, { vars, allowMat: true });
+          st.vals[name] = r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false } : { mat: r.mat, r: false }) : { v: r.value, r: r.rad }; // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
+        }
       } catch (e) { ok = false; st.errs.set(name, `«${name}»: ${e.message}`); }
     }
     state.set(name, 2);

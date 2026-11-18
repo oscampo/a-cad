@@ -52,16 +52,16 @@ const ID_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*/;
 // loose: no falla con identificadores desconocidos (para listar las variables de una formula)
 function tokenize(src, vars = null, loose = false) {
   const toks = [];
-  let i = 0;
+  let i = 0, depth = 0; // depth: corchetes abiertos (dentro de [ ] la coma siempre separa: «[1,2,3]»; la coma decimal solo vale fuera)
   while (i < src.length) {
     const c = src[i];
     if (/\s/.test(c)) { i++; continue; }
-    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'op' && last.v === ')'));
+    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'op' && (last.v === ')' || last.v === ']')));
     // separador de argumentos: «;», o una coma tras un valor («max(a, 5)»); «2,5» ya lo tomo el numero como decimal
-    if (c === ';' || (c === ',' && afterValue)) { toks.push({ t: 'sep', i, j: i + 1 }); i++; continue; }
+    if (c === ';' || (c === ',' && afterValue)) { toks.push({ t: 'sep', c, i, j: i + 1 }); i++; continue; }
     const cm = /^(<=|>=|==|!=|<|>|≤|≥|≠)/.exec(src.slice(i));
     if (cm) { toks.push({ t: 'cmp', v: { '≤': '<=', '≥': '>=', '≠': '!=' }[cm[0]] || cm[0], i, j: i + cm[0].length }); i += cm[0].length; continue; }
-    let m = /^(\d+([.,]\d+)?|[.,]\d+)/.exec(src.slice(i));
+    let m = (depth > 0 ? /^(\d+(\.\d+)?|\.\d+)/ : /^(\d+([.,]\d+)?|[.,]\d+)/).exec(src.slice(i));
     if (m) { toks.push({ t: 'num', v: Number(m[0].replace(',', '.')), i, j: i + m[0].length }); i += m[0].length; continue; }
     if (c === '√') { toks.push({ t: 'sqrt', i, j: i + 1 }); i++; continue; }
     if (c === 'π') { toks.push({ t: 'id', v: 'π', i, j: i + 1 }); i++; continue; }
@@ -76,6 +76,7 @@ function tokenize(src, vars = null, loose = false) {
         if (!(vars && Object.prototype.hasOwnProperty.call(vars, raw))) throw new Error(`No reconozco «${full}» (propiedades: p1.x, p1.y, l1.len, l1.ang, c1.r, c1.d)`);
       }
       if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: 'var', v: raw, i, j: i + raw.length });
+      else if (raw === 'T' && last?.t === 'op' && last.v === '^') toks.push({ t: 'tr', i, j: i + 1 }); // x^T: la transpuesta
       else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name)) toks.push({ t: 'id', v: name, i, j: i + raw.length });
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + raw.length });
       else if (FUTURE_VARS.has(raw)) throw new Error(`${reservedWhy(raw)} (todavía no tiene valor)`);
@@ -83,7 +84,8 @@ function tokenize(src, vars = null, loose = false) {
       i += raw.length; continue;
     }
     if (c === '*' && src[i + 1] === '*') { toks.push({ t: 'op', v: '^', i, j: i + 2 }); i += 2; continue; }
-    if ('+-*/^()×÷·−'.includes(c)) { toks.push({ t: 'op', v: c === '×' || c === '·' ? '*' : c === '÷' ? '/' : c === '−' ? '-' : c, i, j: i + 1 }); i++; continue; }
+    if (c === '[') depth++; else if (c === ']') depth = Math.max(0, depth - 1);
+    if ('+-*/^()[]×÷·−'.includes(c)) { toks.push({ t: 'op', v: c === '×' || c === '·' ? '*' : c === '÷' ? '/' : c === '−' ? '-' : c, i, j: i + 1 }); i++; continue; }
     throw new Error(`Carácter no válido «${c}»`);
   }
   return toks;
@@ -102,13 +104,33 @@ export function renameInExpr(src, from, to) {
   return out + src.slice(last);
 }
 
-export function evalExpr(src, { radians = false, vars = null } = {}) {
+// Matrices: un valor puede ser una matriz { m: [[...], ...] } (un vector fila es de 1 x n; la transpuesta de un vector fila, de n x 1).
+const isM = (a) => !!a?.m;
+const dimsOf = (a) => `${a.m.length}×${a.m[0].length}`;
+const nameM = (a) => (a.m.length === 1 ? `un vector fila de ${a.m[0].length}` : a.m[0].length === 1 ? `un vector columna de ${a.m.length}` : `una matriz de ${dimsOf(a)}`);
+const mapM = (a, f) => ({ m: a.m.map((r) => r.map(f)) });
+const transposeM = (a) => ({ m: a.m[0].map((_, k) => a.m.map((r) => r[k])) });
+function addM(a, b, s) {
+  if (!isM(a) || !isM(b)) throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} un número y ${nameM(isM(a) ? a : b)}`);
+  if (a.m.length !== b.m.length || a.m[0].length !== b.m[0].length) throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} ${nameM(a)} y ${nameM(b)}: deben tener el mismo tamaño`);
+  return { m: a.m.map((r, i) => r.map((x, k) => x + s * b.m[i][k])) };
+}
+function mulM(a, b) {
+  if (!isM(a)) return mapM(b, (x) => a.v * x);
+  if (!isM(b)) return mapM(a, (x) => x * b.v);
+  const n = a.m[0].length;
+  if (n !== b.m.length) throw new Error(`No se puede multiplicar ${nameM(a)} por ${nameM(b)}: las columnas de la primera (${n}) deben ser las filas de la segunda (${b.m.length})` + (a.m.length === 1 && b.m.length === 1 ? '. Para el producto punto de dos vectores fila usa v*w^T' : ''));
+  const out = a.m.map((r) => b.m[0].map((_, k) => r.reduce((s, x, j) => s + x * b.m[j][k], 0)));
+  return out.length === 1 && out[0].length === 1 ? { v: out[0][0], r: false } : { m: out };
+}
+
+export function evalExpr(src, { radians = false, vars = null, allowMat = false } = {}) {
   const toks = tokenize(String(src ?? ''), vars);
   if (!toks.length) throw new Error('Escribe un valor');
   let p = 0;
   const peek = () => toks[p];
   const isOp = (v) => peek()?.t === 'op' && peek().v === v;
-  const startsFactor = () => { const k = peek(); return k && (k.t === 'num' || k.t === 'id' || k.t === 'var' || k.t === 'sqrt' || (k.t === 'op' && k.v === '(')); };
+  const startsFactor = () => { const k = peek(); return k && (k.t === 'num' || k.t === 'id' || k.t === 'var' || k.t === 'sqrt' || (k.t === 'op' && (k.v === '(' || k.v === '['))); };
   const bin = (a, b, v) => ({ v, r: a.r || b.r });
 
   // comparacion (la de menor precedencia): da 1 si se cumple y 0 si no. «==» y «!=» toleran el error de redondeo.
@@ -116,7 +138,9 @@ export function evalExpr(src, { radians = false, vars = null } = {}) {
     const a = expr(), k = peek();
     if (!k || k.t !== 'cmp') return a;
     p++;
-    const b = expr(), x = a.v, y = b.v, eq = Math.abs(x - y) <= 1e-9 * Math.max(1, Math.abs(x), Math.abs(y));
+    const b = expr();
+    if (isM(a) || isM(b)) throw new Error('No se pueden comparar vectores o matrices');
+    const x = a.v, y = b.v, eq = Math.abs(x - y) <= 1e-9 * Math.max(1, Math.abs(x), Math.abs(y));
     const ok = { '<': x < y && !eq, '>': x > y && !eq, '<=': x < y || eq, '>=': x > y || eq, '==': eq, '!=': !eq }[k.v];
     return { v: ok ? 1 : 0, r: false };
   }
@@ -142,6 +166,7 @@ export function evalExpr(src, { radians = false, vars = null } = {}) {
       if (pick.err) throw pick.err;
       return pick;
     }
+    if (A.some((a) => isM(a))) throw new Error(`«${name}» todavía no acepta vectores ni matrices`);
     const sep = ' (sepáralos con «;»: «2,5» es un solo número)';
     if (name in FUNCS) {
       if (A.length !== 1) throw new Error(`«${name}» recibe un solo valor`);
@@ -154,25 +179,37 @@ export function evalExpr(src, { radians = false, vars = null } = {}) {
 
   function expr() {
     let a = term();
-    while (isOp('+') || isOp('-')) { const o = toks[p++].v; const b = term(); a = bin(a, b, o === '+' ? a.v + b.v : a.v - b.v); }
+    while (isOp('+') || isOp('-')) { const o = toks[p++].v, s = o === '+' ? 1 : -1; const b = term(); a = isM(a) || isM(b) ? addM(a, b, s) : bin(a, b, a.v + s * b.v); }
     return a;
   }
   function term() {
     let a = unary();
     for (;;) {
-      if (isOp('*') || isOp('/')) { const o = toks[p++].v; const b = unary(); if (o === '/' && b.v === 0) throw rt('División entre cero'); a = bin(a, b, o === '*' ? a.v * b.v : a.v / b.v); }
-      else if (startsFactor()) { const b = unary(); a = bin(a, b, a.v * b.v); } // multiplicacion implicita: 2π, 3(4+1)
+      if (isOp('*') || isOp('/')) {
+        const o = toks[p++].v; const b = unary();
+        if (o === '/') {
+          if (isM(b)) throw new Error('No se puede dividir entre un vector o una matriz');
+          if (b.v === 0) throw rt('División entre cero');
+          a = isM(a) ? mapM(a, (x) => x / b.v) : bin(a, b, a.v / b.v);
+        } else a = isM(a) || isM(b) ? mulM(a, b) : bin(a, b, a.v * b.v);
+      } else if (startsFactor()) { const b = unary(); a = isM(a) || isM(b) ? mulM(a, b) : bin(a, b, a.v * b.v); } // multiplicacion implicita: 2π, 3(4+1)
       else return a;
     }
   }
   function unary() {
-    if (isOp('-')) { p++; const a = unary(); return { v: -a.v, r: a.r }; }
+    if (isOp('-')) { p++; const a = unary(); return isM(a) ? mapM(a, (x) => -x) : { v: -a.v, r: a.r }; }
     if (isOp('+')) { p++; return unary(); }
     return power();
   }
   function power() {
     const a = primary();
-    if (isOp('^')) { p++; const b = unary(); return { v: Math.pow(a.v, b.v), r: a.r }; }
+    if (isOp('^')) {
+      p++;
+      if (peek()?.t === 'tr') { p++; return isM(a) ? transposeM(a) : a; } // x^T
+      const b = unary();
+      if (isM(a) || isM(b)) throw new Error('La potencia de un vector o una matriz todavía no está disponible (^T es la transpuesta)');
+      return { v: Math.pow(a.v, b.v), r: a.r };
+    }
     return a;
   }
   function primary() {
@@ -180,10 +217,29 @@ export function evalExpr(src, { radians = false, vars = null } = {}) {
     if (!k) throw new Error('Expresión incompleta');
     if (k.t === 'num') return { v: k.v, r: false };
     if (k.t === 'var') {
-      if (vars[k.v].vec) throw new Error(`«${k.v}» es un vector de ${vars[k.v].vec.length} elementos, no un número`);
-      return { v: vars[k.v].v, r: !!vars[k.v].r };
+      const x = vars[k.v];
+      if (x.mat) return { m: x.mat };
+      if (x.vec) return { m: [x.vec] };
+      return { v: x.v, r: !!x.r };
     }
-    if (k.t === 'sqrt') { const a = primary(); if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r }; }
+    if (k.t === 'sqrt') { const a = primary(); if (isM(a)) throw new Error('«√» todavía no acepta vectores ni matrices'); if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r }; }
+    if (k.t === 'op' && k.v === '[') { // matriz: [1, 2, 3] (fila) o [1, 2; 3, 4] (filas separadas por «;»)
+      if (isOp(']')) throw new Error('Una matriz no puede estar vacía');
+      const rows = [[]];
+      for (;;) {
+        const a = cmp();
+        if (isM(a)) throw new Error('Los elementos de una matriz son números');
+        rows.at(-1).push(a.v);
+        const s = peek();
+        if (s?.t === 'sep') { p++; if (s.c === ';') rows.push([]); continue; }
+        break;
+      }
+      if (!isOp(']')) throw new Error('Falta cerrar un corchete');
+      p++;
+      if (rows.some((r) => r.length !== rows[0].length)) throw new Error('Todas las filas de una matriz deben tener el mismo número de elementos');
+      if (rows.length * rows[0].length > 10000) throw new Error('Una matriz admite hasta 10000 elementos');
+      return { m: rows };
+    }
     if (k.t === 'op' && k.v === '(') {
       const a = cmp();
       if (!isOp(')')) throw new Error('Falta cerrar un paréntesis');
@@ -209,6 +265,11 @@ export function evalExpr(src, { radians = false, vars = null } = {}) {
   }
   const res = cmp();
   if (p < toks.length) throw new Error('Sobra algo al final de la expresión');
+  if (isM(res)) {
+    if (!allowMat) throw new Error(`El resultado es ${nameM(res)}, no un número`);
+    if (!res.m.every((r) => r.every(Number.isFinite))) throw new Error('El resultado no es un número');
+    return { mat: res.m, value: NaN, rad: false };
+  }
   if (!Number.isFinite(res.v)) throw new Error('El resultado no es un número');
   return { value: res.v, rad: res.r };
 }

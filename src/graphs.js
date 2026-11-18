@@ -41,7 +41,7 @@ const actKey = (a) => a.kind + a.n;
 export function graphVarNames(doc) {
   const names = ['t'];
   for (const a of Object.values(doc.acts || {})) names.push(actKey(a), actKey(a) + '.d', actKey(a) + '.v');
-  for (const [n, x] of Object.entries(varsOf(doc))) if (!n.includes('.')) names.push(x.vec ? n + ' (vector)' : n);
+  for (const [n, x] of Object.entries(varsOf(doc))) if (!n.includes('.')) names.push(x.vec || x.mat ? n + ' (vector)' : n);
   return names;
 }
 
@@ -83,7 +83,7 @@ function* graphGen(doc, g, solveFn) {
       const t = i * dt;
       if (sim) { const r = simStep(clone, sim, t, solveFn); if (!r.ok) { out.error = 'Se detuvo en t = ' + Math.round(t * 1000) / 1000 + ': ' + r.error; break; } }
       const env = { t: { v: t, r: false } };
-      for (const [nm, x] of Object.entries(varsOf(clone))) if (!x.vec) env[nm] = x;
+      for (const [nm, x] of Object.entries(varsOf(clone))) if (!x.vec && !x.mat) env[nm] = x;
       try {
         for (const [k, a] of Object.entries(acts)) {
           const d = actDisp(clone, a, t, cch);
