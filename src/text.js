@@ -3,18 +3,17 @@
 // de measureText; en las pruebas puede ser una aproximacion).
 import { evalExpr } from './expr.js';
 import { varsOf, textVars } from './params.js';
-import { IT0, IT1, VB0, VB1, NM0, NM1, DEF_SRC, OUT_SRC, runsOf, hasDefMark } from './tvars.js';
+import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts } from './tvars.js';
 import { normName } from './expr.js';
 export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
 import { hasMath, layoutText, splitMath } from './mathlayout.js';
 export { hasMath } from './mathlayout.js';
 
-// Salidas en textos: [=expresion] se reemplaza por el valor de la expresion, que puede usar los nombres de las cotas
-// (D1, A1, O2...) y funciones: "El diametro es [=O1] cm", "vueltas: [=A1/(2π)]". Un ángulo vale su medida en radianes.
-// Si la expresion falla, queda ⚠ en su lugar.
-// Definiciones de variables: «x{=valor}» se muestra como «x:=valor» en cursiva (entre marcas IT0 e IT1, ver runsOf); si la
-// definicion no vale (repetida, choca con una cota, falla) lleva un ⚠ al final.
+// Calculo en los textos (dentro de una formula, ver tvars.js): una salida «expr=» se dibuja «expr=valor»; la expresion puede usar los nombres
+// de las cotas (D1, A1, O2...) y funciones: «$O1=$», «$A1/(2π)=$». Un ángulo vale su medida en radianes. Si la expresion falla, el valor es ⚠.
+// Definiciones de variables: «x:valor» se muestra como «x:=valor» en cursiva (entre marcas IT0 e IT1, ver runsOf); si la
+// definicion no vale (repetida, choca con una cota, falla) lleva un ⚠ al final. Un literal `...` se dibuja sin los acentos y sin calcular.
 // Un vector en un texto: «[1, 2, 3]»; si tiene mas de 8 elementos, los 4 primeros y los 2 ultimos.
 // Una matriz en un texto: «[1, 2, 3]» (fila), «[1; 2; 3]» (columna), «[1, 2; 3, 4]»; con mas de 8 columnas o filas, las 4 primeras y las 2 ultimas.
 const matText = (m) => {
@@ -23,14 +22,16 @@ const matText = (m) => {
   if (rows.length > 8) rows = [...rows.slice(0, 4), rows[0].map(() => '⋮'), ...rows.slice(-2)];
   return '[' + rows.map((r) => r.join(', ')).join('; ') + ']';
 };
-const TEXT_RE = () => new RegExp(DEF_SRC + '|' + OUT_SRC, 'g');
 export function textValue(doc, t) {
   const s = String(t.text ?? '');
-  const hasDef = hasDefMark(s), hasOut = s.includes('[='), hasSub = s.includes('$') && s.includes('_(');
-  if (!hasDef && !hasOut && !hasSub) return s;
+  const hasSub = s.includes('$') && s.includes('_(');
+  if (!hasSub && !(s.includes('$') && /[:=`]/.test(s))) return s;
+  const toks = calcParse(s), pieces = toks.flatMap((tk) => (tk.t === 'math' ? tk.lines.flat() : []));
+  if (!hasSub && pieces.every((p) => p.k === 'code')) return s;
+  const hasDef = pieces.some((p) => p.k === 'def'), hasOut = pieces.some((p) => p.k === 'out');
   let vars = null, st = null, tid = null, idx = 0, oidx = 0;
   // Orden de lectura: cada salida y cada definicion ve las variables tal como estaban en ese punto de la pagina (ver textVarState)
-  if (hasDef || (hasOut && Object.values(doc.texts || {}).some((x) => hasDefMark(x.text)))) { tid = Object.keys(doc.texts || {}).find((k) => doc.texts[k] === t); st = textVars(doc); }
+  if (hasDef || (hasOut && Object.values(doc.texts || {}).some((x) => calcStmts(x.text).some((p) => p.k === 'def')))) { tid = Object.keys(doc.texts || {}).find((k) => doc.texts[k] === t); st = textVars(doc); }
   // Nombres con subindice («var_(texto)») dentro de una formula: se marcan para dibujarlos como nombre con subindice de texto
   // (sin marcar, AsciiMath leeria «texto» como letras y simbolos sueltos: «to» seria una flecha).
   let subNames = null;
@@ -38,34 +39,29 @@ export function textValue(doc, t) {
     if (!seg.includes('_(')) return seg;
     subNames ||= new Set([...(st ||= textVars(doc)).names].filter((n) => n.includes('_(')));
     if (!subNames.size) return seg;
-    return seg.replace(/(?<![A-Za-z0-9α-ωΑ-Ω_])[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?_\([^(){}\n]+\)(?!\{=)/g, (m) => (subNames.has(normName(m)) ? NM0 + normName(m) + NM1 : m));
+    return seg.replace(/(?<![A-Za-z0-9α-ωΑ-Ω_])[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?_\([^(){}\n]+\)/g, (m) => (subNames.has(normName(m)) ? NM0 + normName(m) + NM1 : m));
   };
-  // math: dentro de una formula ($...$) un vector sale entre marcas VB0/VB1 y se dibuja como vector fila (sin comas); fuera, como texto «[1, 2, 3]».
-  const expand = (seg, math) => {
-    let res = '', last = 0;
-    const gap = (g) => (math ? wrapNames(g) : g); // lo que no es definicion ni salida
-    for (const mt of seg.matchAll(TEXT_RE())) {
-      res += gap(seg.slice(last, mt.index)); last = mt.index + mt[0].length;
-      const [, name0, params0, ex, out] = mt;
-      if (name0 !== undefined) { // definicion x{=valor}
-        const name = normName(name0), shown = math && name.includes('_(') ? NM0 + name + NM1 : name;
-        const dk = tid + ':' + idx++, bad = st.bad.has(dk);
-        const val = math && !bad ? st.defVal.get(dk) : null, mx = val?.vec ? [val.vec] : val?.mat;
-        const call = params0 !== undefined ? '(' + params0.trim() + ')' : ''; // funcion: f(x; y):=...
-        res += mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 : IT0 + shown + call + ':=' + gap(ex) + (bad ? ' ⚠' : '') + IT1;
-        continue;
-      }
-      try {
-        const env = st?.outEnv.get(tid + ':' + oidx++) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
-        const r = evalExpr(out, { vars: env, allowMat: true });
-        if (r.mat) res += math ? VB0 + matText(r.mat) + VB1 : matText(r.mat); // vector o matriz: sus elementos
-        else res += fmtNum(r.value);
-      } catch (e) { res += '⚠'; }
-    }
-    return res + gap(seg.slice(last));
+  // Valor de una salida: dentro de una formula un vector sale entre marcas VB0/VB1 y se dibuja como vector fila (sin comas); fuera, como texto «[1, 2, 3]».
+  const outVal = (p, math) => {
+    try {
+      const env = st?.outEnv.get(tid + ':' + oidx++) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
+      const r = evalExpr(p.expr, { vars: env, allowMat: true });
+      return r.mat ? (math ? VB0 + matText(r.mat) + VB1 : matText(r.mat)) : fmtNum(r.value);
+    } catch (e) { return '⚠'; }
   };
-  if (!s.includes('$')) return expand(s, false);
-  return splitMath(s).map((tk) => (tk.t === 'txt' ? expand(tk.raw, false) : (tk.disp ? '$$' : '$') + expand(tk.src, true) + (tk.disp ? '$$' : '$'))).join('');
+  // La magnitud de un vector («$D3=$», ver vectors.js) muestra solo el valor, como texto.
+  if (t.vecOf && toks.length === 1 && pieces.length === 1 && pieces[0].k === 'out') return outVal(pieces[0], false);
+  const piece = (p) => {
+    if (p.k === 'lit') return p.closed ? p.s : '`' + p.s + ' ⚠'; // literal: se dibuja, no se calcula
+    if (p.k === 'code') return wrapNames(p.s);
+    if (p.k === 'out') return p.pre + wrapNames(p.expr) + '=' + outVal(p, true) + p.post; // expr= -> expr=valor
+    const name = normName(p.name), shown = name.includes('_(') ? NM0 + name + NM1 : name; // x:valor -> x:=valor (en cursiva)
+    const dk = tid + ':' + idx++, bad = st.bad.has(dk);
+    const val = !bad ? st.defVal.get(dk) : null, mx = val?.vec ? [val.vec] : val?.mat;
+    const call = p.params !== undefined ? '(' + p.params.trim() + ')' : ''; // funcion: f(x; y):=...
+    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 : IT0 + shown + call + ':=' + wrapNames(p.expr.trim()) + (bad ? ' ⚠' : '') + IT1) + p.post;
+  };
+  return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + tk.lines.map((l) => l.map(piece).join('')).join('\n') + (tk.disp ? '$$' : '$'))).join('');
 }
 // El texto tal como se ve (con sus salidas calculadas): el mismo objeto si no hay ninguna.
 export function shownText(doc, t) {

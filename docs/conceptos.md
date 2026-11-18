@@ -51,7 +51,7 @@ Las cotas tienen nombre (D1 para distancias, A1 para ángulos, R1 para radios, O
 
 ## Calcular en el dibujo
 
-Los textos del dibujo pueden calcular ([capítulo 7](07-texto-y-calculo.md)). `k{=25}` define una variable, `[=2*k]` muestra un resultado, y las fórmulas de las cotas pueden usar esas variables. También hay vectores, matrices y funciones propias.
+Los textos del dibujo pueden calcular ([capítulo 7](07-texto-y-calculo.md)). `k:25` define una variable, `2*k=` muestra un resultado, y las fórmulas de las cotas pueden usar esas variables. También hay vectores, matrices y funciones propias.
 
 La página se lee como una hoja de cálculo matemática: **de arriba a abajo y, en una misma fila, de izquierda a derecha**. Una variable vale lo de su última definición antes del punto donde se usa, y se puede redefinir más abajo. Si la usas antes de definirla, la app avisa que está definida más abajo.
 

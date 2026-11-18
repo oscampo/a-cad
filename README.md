@@ -12,14 +12,14 @@ Es una aplicación web instalable (PWA): no necesita tienda de aplicaciones ni s
 - **Android**: abre el enlace en **Chrome**, toca el menú **⋮** y luego **Instalar app** (o **Añadir a pantalla de inicio**).
 - **Computador**: basta con abrir el enlace en el navegador. Chrome y Edge también ofrecen instalarla desde la barra de direcciones.
 
-La app se actualiza sola cuando hay una versión nueva. La versión y la compilación que corre se ven abajo a la izquierda del dibujo (por ejemplo, *v1.9.0 a1b2c3d*).
+La app se actualiza sola cuando hay una versión nueva. La versión y la compilación que corre se ven abajo a la izquierda del dibujo (por ejemplo, *v2.0.0 a1b2c3d*).
 
 ## Qué puedes hacer
 
 - **Dibujar**: puntos, líneas, vectores, líneas constructivas, círculos, arcos, elipses y arcos elípticos, splines, rectángulos y polígonos. Bloqueo suave a horizontal, vertical, paralela, perpendicular y tangente, e imán a intersecciones y puntos medios.
 - **Editar**: seleccionar (también con cuadro y con filtro), propiedades con doble toque, copiar y pegar, recortar, extender, dividir, redondeo y chaflán, matrices lineal y circular, y copia espejo vinculadas al original.
 - **Restringir y acotar**: horizontal, vertical, paralela, perpendicular, coincidente, punto medio, concéntrica, igual, tangente, fijar y marca de referencia; cotas de distancia, ángulo, radio y diámetro, con fórmulas, nombres (D1, A1, R1, O1), cotas a escala (`4[*10]`) y cotas de solo lectura que alimentan otras.
-- **Calcular en el dibujo**: textos con fórmulas en AsciiMath, variables, vectores y matrices (inversa, determinante, índices), funciones propias y salidas `[=expresión]`, leídos en orden de arriba a abajo y de izquierda a derecha, como en una hoja de cálculo matemática.
+- **Calcular en el dibujo**: textos con fórmulas en AsciiMath, variables, vectores y matrices (inversa, determinante, índices), funciones propias y salidas `expresión=`, leídos en orden de arriba a abajo y de izquierda a derecha, como en una hoja de cálculo matemática.
 - **Splines y trayectorias**: B-splines cúbicos que pasan por puntos del dibujo, con intersecciones y tangencias; trazado de la trayectoria de un punto y conversión a spline; curva equidistante para levas.
 - **Simulaciones gráficas**: actuadores rotacionales y lineales con una expresión o una tabla en el tiempo, reproductor de la simulación, gráficas de cualquier medida contra el tiempo o contra otra medida, engranajes, rueda y cremallera, y relaciones que valen solo mientras los elementos se tocan (topes, levas).
 - **Organizar**: capas, estilos de línea (propios incluidos), colores, grosores y rellenos, y un árbol de elementos con vista por tipo o por capa, relaciones agrupadas por su origen y contornos con su abertura.

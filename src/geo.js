@@ -1,5 +1,5 @@
 // Propiedades de los elementos con la notacion «.»: p12.x es la coordenada x del punto p12. Sin DOM.
-// Se leen en cualquier formula (cotas, textos [=p12.x], variables, actuadores, graficas) y siempre valen lo que tiene el dibujo ahora.
+// Se leen en cualquier formula (cotas, textos p12.x=, variables, actuadores, graficas) y siempre valen lo que tiene el dibujo ahora.
 //   punto:   x, y
 //   linea:   len (o L: longitud), ang (angulo de a hacia b, en radianes: vale como un angulo)
 //   circulo: r, d (diametro), x, y (centro)

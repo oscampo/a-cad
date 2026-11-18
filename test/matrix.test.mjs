@@ -91,15 +91,15 @@ t('variables: vector (vec) y matriz (mat)', () => {
 
 t('textos: definiciones y salidas con vectores y matrices', () => {
   const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
-  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'x{=1..3;3}\nA{=[1,2;3,4]}\ny{=2*x}\nB{=A*A}\nd{=x*y^T}\n[=x+y] | [=x^T] | [=A] | [=B] | [=d] | [=[1,2;3,4]*[1;1]] | [=A^T]' };
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: '$x:1..3;3$\n$A:[1,2;3,4]$\n$y:2*x$\n$B:A*A$\n$d:x*y^T$\n$x+y=$ | $x^T=$ | $A=$ | $B=$ | $d=$ | $[1,2;3,4]*[1;1]=$ | $A^T=$' };
   const s = plainText(textValue(doc, doc.texts.t1));
-  assert.match(s, /\[3, 6, 9\] \| \[1; 2; 3\] \| \[1, 2; 3, 4\] \| \[7, 10; 15, 22\] \| 28 \| \[3; 7\] \| \[1, 3; 2, 4\]$/);
-  assert.match(s, /^x:=1\.\.3;3\nA:=\[1,2;3,4\]\ny:=2\*x/); // las definiciones, en texto plano, muestran su fuente
+  assert.match(s, /\$x\+y=\[3, 6, 9\]\$ \| \$x\^T=\[1; 2; 3\]\$ \| \$A=\[1, 2; 3, 4\]\$ \| \$B=\[7, 10; 15, 22\]\$ \| \$d=28\$ \| \$\[1,2;3,4\]\*\[1;1\]=\[3; 7\]\$ \| \$A\^T=\[1, 3; 2, 4\]\$$/);
+  assert.match(s, /^\$x:=\[1, 2, 3\]\$\n\$A:=\[1, 2; 3, 4\]\$\n\$y:=\[2, 4, 6\]\$\n\$B:=\[7, 10; 15, 22\]\$\n\$d:=x\*y\^T\$\n/); // las definiciones de vectores y matrices muestran su valor; las demas, su fuente
 });
 
 t('textos: dentro de $...$ salen como matrices dibujadas, sin comas', () => {
   const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
-  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'A{=[1,2;3,4]}\nx{=1..3;3}\n$$B{=A*A}\n[=B] [=x^T]\nA := [=A]$$' };
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: '$A:[1,2;3,4]$\n$x:1..3;3$\n$$B:A*A\nB= x^T=\n`A :=` A=$$' };
   const shown = textValue(doc, doc.texts.t1);
   const m = layoutText(shown, (s) => s.length * 0.5, '').prims;
   const txt = m.filter((p) => p.k === 't').map((p) => p.s);
@@ -110,10 +110,10 @@ t('textos: dentro de $...$ salen como matrices dibujadas, sin comas', () => {
 
 t('textos: una salida con corchetes anidados no se corta', () => {
   const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
-  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'ab [=[1,2;3,4]*[1;1]] cd [=1+1]' };
-  assert.equal(textValue(doc, doc.texts.t1), 'ab [3; 7] cd 2');
-  doc.texts.t2 = { pt: 'p', h: 1, font: '', text: '[=[1,2]*[1,2]]' }; // error: aparece ⚠
-  assert.equal(textValue(doc, doc.texts.t2), '⚠');
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'ab $[1,2;3,4]*[1;1]=$ cd $1+1=$' };
+  assert.equal(plainText(textValue(doc, doc.texts.t1)), 'ab $[1,2;3,4]*[1;1]=[3; 7]$ cd $1+1=2$');
+  doc.texts.t2 = { pt: 'p', h: 1, font: '', text: '$[1,2]*[1,2]=$' }; // error: aparece ⚠
+  assert.equal(plainText(textValue(doc, doc.texts.t2)), '$[1,2]*[1,2]=⚠$');
 });
 
 const close = (got, want, e = 1e-9) => { assert.equal(got.length, want.length); got.forEach((r, i) => r.forEach((x, k) => assert.ok(Math.abs(x - want[i][k]) <= e, `[${i}][${k}] ${x} != ${want[i][k]}`))); };
@@ -205,11 +205,11 @@ t('funciones elemento a elemento', () => {
 
 t('inv y operaciones en los textos', () => {
   const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
-  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'A{=[1,1; 10,1]}\nb{=[-25; 250]}\nx{=A^(-1)*b}\ny{=inv(A)}\nz{=sqrt([4,9]).*[2,3]}\n[=x] | [=y] | [=A*x] | [=z] | [=x.^2]' };
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: '$A:[1,1; 10,1]$\n$b:[-25; 250]$\n$x:A^(-1)*b$\n$y:inv(A)$\n$z:sqrt([4,9]).*[2,3]$\n$x=$ | $y=$ | $A*x=$ | $z=$ | $x.^2=$' };
   const s = plainText(textValue(doc, doc.texts.t1));
-  assert.match(s, /\[30\.556; -55\.556\] \| \[-0\.111, 0\.111; 1\.111, -0\.111\] \| \[-25; 250\] \| \[4, 9\] \| \[933\.642; 3086\.4\]$/);
+  assert.match(s, /\$x=\[30\.556; -55\.556\]\$ \| \$y=\[-0\.111, 0\.111; 1\.111, -0\.111\]\$ \| \$A\*x=\[-25; 250\]\$ \| \$z=\[4, 9\]\$ \| \$x\.\^2=\[933\.642; 3086\.4\]\$$/);
   assert.equal(s.includes('⚠'), false);
-  doc.texts.t2 = { pt: 'p', h: 1, font: '', text: 'q{=inv([1,2;2,4])}\n[=q]' }; // singular: la definicion falla
+  doc.texts.t2 = { pt: 'p', h: 1, font: '', text: '$q:inv([1,2;2,4])$\n$q=$' }; // singular: la definicion falla
   assert.match(plainText(textValue(doc, doc.texts.t2)), /⚠/);
 });
 
@@ -284,14 +284,14 @@ t('indices: dependencias (variables de texto y cotas leen elementos de otros vec
   assert.deepEqual(exprRefs('k_2', has), ['k_2']); // una variable llamada asi no es un indice
   assert.deepEqual(exprRefs('x_2'), ['x_2']); // sin saber que existe, tal cual
   const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
-  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'x{=[10, 20, 30]}\nA{=[1,2;3,4]}\ny{=2*x_2+A_(2,1)}\n[=y] [=x_3] [=A_(1,2)] [=sum(x)] [=norm([3,4])] [=det(A)]' }; // en orden de lectura: x y A antes que y
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: '$x:[10, 20, 30]$\n$A:[1,2;3,4]$\n$y:2*x_2+A_(2,1)$\n$y=$ $x_3=$ $A_(1,2)=$ $sum(x)=$ $norm([3,4])=$ $det(A)=$' }; // en orden de lectura: x y A antes que y
   const s = plainText(textValue(doc, doc.texts.t1));
-  assert.match(s, /43 30 2 60 5 -2$/); assert.equal(s.includes('⚠'), false);
+  assert.match(s, /\$y=43\$ \$x_3=30\$ \$A_\(1,2\)=2\$ \$sum\(x\)=60\$ \$norm\(\[3,4\]\)=5\$ \$det\(A\)=-2\$$/); assert.equal(s.includes('⚠'), false);
   // una cota lee un elemento de un vector de texto
   const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 20, 0);
   addLine(d, a, b, {});
   const k = addCon(d, { t: 'DIST', refs: [a, b], v: 5, name: 'D1', expr: 'x_2' });
-  d.texts.t1 = { pt: a, h: 1, font: '', text: 'x{=[10, 20, 30]}', ang: 0, anchor: 'bl', color: 'auto', readable: true };
+  d.texts.t1 = { pt: a, h: 1, font: '', text: '$x:[10, 20, 30]$', ang: 0, anchor: 'bl', color: 'auto', readable: true };
   const r = recompute(d);
   assert.ok(r.ok, r.error);
   assert.equal(d.cons[k].v, 20);

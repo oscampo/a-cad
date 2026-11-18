@@ -1,6 +1,6 @@
 # Funciones y operadores
 
-Todo lo que acepta una fórmula, en las cotas, los textos (`[=…]` y `x{=…}`), los actuadores y las gráficas. Cada ejemplo muestra lo que da; todos se comprueban con el motor de la app en las pruebas automáticas (`test/funcref.test.mjs`). Cómo se usan las fórmulas, las variables y el orden de lectura se explica en [6. Cotas](06-cotas.md) y [7. Texto y cálculo](07-texto-y-calculo.md).
+Todo lo que acepta una fórmula, en las cotas, los textos (`x:…` y `expr=`), los actuadores y las gráficas. Cada ejemplo muestra lo que da; todos se comprueban con el motor de la app en las pruebas automáticas (`test/funcref.test.mjs`). Cómo se usan las fórmulas, las variables y el orden de lectura se explica en [6. Cotas](06-cotas.md) y [7. Texto y cálculo](07-texto-y-calculo.md).
 
 [Índice](README.md) · [7. Texto y cálculo](07-texto-y-calculo.md)
 
@@ -8,7 +8,7 @@ Todo lo que acepta una fórmula, en las cotas, los textos (`[=…]` y `x{=…}`)
 
 ## Operadores
 
-Sirven en cotas, textos `[=…]` y `x{=…}`, actuadores y gráficas.
+Sirven en cotas, textos (`x:…` y `expr=`), actuadores y gráficas.
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
@@ -68,15 +68,15 @@ Los ángulos van en **grados**, salvo que el argumento lleve π o sea un ángulo
 
 ## Vectores y matrices
 
-Se escriben entre corchetes: la coma separa los elementos de una fila, el punto y coma empieza otra fila, y los decimales llevan punto. Se usan en los textos (`A{=[1,2;3,4]}`, `[=A]`); una cota puede leer un elemento (`D1 = x_2`).
+Se escriben entre corchetes: la coma separa los elementos de una fila, el punto y coma empieza otra fila, y los decimales llevan punto. Se usan en los textos (`A:[1,2;3,4]`, `A=`); una cota puede leer un elemento (`D1 = x_2`).
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
 | `[1, 2, 3]`, `[1; 2; 3]` | Vector fila y vector columna. | `[1,2,3]^T` | `[1; 2; 3]` |
-| `a..b;n` | Rango: `n` valores de a hasta b, ambos incluidos. | `x{=0..1;5}`<br>`[=x]` | `[0, 0.25, 0.5, 0.75, 1]` |
-| `a..paso..b` | Rango con paso, sin pasar de b (el paso puede ser negativo). | `x{=10..-3..1}`<br>`[=x]` | `[10, 7, 4, 1]` |
-| `x_i`, `A_(i,j)` | Elemento, contando desde 1. Los índices pueden ser fórmulas: `x_(i+1)`. | `A{=[1,2;3,4]}`<br>`[=A_(2,1)]` | `3` |
-| `A_(i,:)`, `A_(:,j)` | Fila i y columna j. | `A{=[1,2;3,4]}`<br>`[=A_(:,2)]` | `[2; 4]` |
+| `a..b;n` | Rango: `n` valores de a hasta b, ambos incluidos. | `x:0..1;5`<br>`x=` | `[0, 0.25, 0.5, 0.75, 1]` |
+| `a..paso..b` | Rango con paso, sin pasar de b (el paso puede ser negativo). | `x:10..-3..1`<br>`x=` | `[10, 7, 4, 1]` |
+| `x_i`, `A_(i,j)` | Elemento, contando desde 1. Los índices pueden ser fórmulas: `x_(i+1)`. | `A:[1,2;3,4]`<br>`A_(2,1)=` | `3` |
+| `A_(i,:)`, `A_(:,j)` | Fila i y columna j. | `A:[1,2;3,4]`<br>`A_(:,2)=` | `[2; 4]` |
 | `^T` | Transpuesta. | `[1,2;3,4]^T` | `[1, 3; 2, 4]` |
 | `+ -` | Entre matrices del mismo tamaño, o un número con cada elemento. | `[1,2]+10` | `[11, 12]` |
 | `*` | Producto matricial (o número por matriz). | `[1,2;3,4]*[5;6]` | `[17; 39]` |
@@ -104,8 +104,8 @@ Se definen en un texto y se usan en las salidas, en las variables y en las cotas
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
-| `f(x){=…}` | Función de un parámetro. | `f(x){=x^2+1}`<br>`[=f(3)]` | `10` |
-| `g(a; b){=…}` | Varios parámetros, separados por `;` o `,`. | `g(a; b){=a*b+1}`<br>`[=g(2; 5)]` | `11` |
+| `f(x):…` | Función de un parámetro. | `f(x):x^2+1`<br>`f(3)=` | `10` |
+| `g(a; b):…` | Varios parámetros, separados por `;` o `,`. | `g(a; b):a*b+1`<br>`g(2; 5)=` | `11` |
 
 ## Valores del dibujo
 
@@ -118,7 +118,7 @@ Nombres que una fórmula puede leer. Siempre valen lo que tiene el dibujo en ese
 | `l3.len` (`l3.L`), `l3.ang` | Longitud de una línea y su ángulo (de su inicio a su fin, en radianes). |  |  |
 | `c1.r`, `c1.d`, `c1.x`, `c1.y` | Radio, diámetro y centro de un círculo. |  |  |
 | `a2.r`, `a2.x`, `a2.y` | Radio y centro de un arco. |  |  |
-| `x{=…}` | Variables de los textos, leídas de arriba a abajo y de izquierda a derecha. |  |  |
+| `x:…` | Variables de los textos, leídas de arriba a abajo y de izquierda a derecha. |  |  |
 | `t` | El tiempo, en los actuadores y las gráficas. |  |  |
 | `MR1`, `ML1`, `MR1.v` | En las gráficas: el desplazamiento de un actuador (también `.d`) y su velocidad. |  |  |
 | Reservados | No se pueden usar como nombre de cota ni de variable: las funciones y constantes de esta lista, `t`, `j`, `ω`, `θ` y `α`. |  |  |

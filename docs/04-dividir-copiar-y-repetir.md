@@ -20,7 +20,7 @@ Centro (origen o un punto que toques), ángulo total (360° por defecto), númer
 
 ## Variables en Dividir y en las matrices
 
-Los campos de esas herramientas (número de partes, espaciado, número total, ángulos y omitir instancias) aceptan las cotas y las variables `x{=valor}` definidas en los textos, además de números y fórmulas. En los campos que piden un **entero** (número de partes, número total, instancias omitidas), una variable o fórmula se redondea al entero más cercano, como `round(variable;0)`; un número simple sí debe ser entero. Los diálogos tienen un **menú de variables** con un filtro (todas, dimensiones, ángulos, variables de texto): al elegir una se inserta su nombre en el campo donde estabas escribiendo, en la posición del cursor.
+Los campos de esas herramientas (número de partes, espaciado, número total, ángulos y omitir instancias) aceptan las cotas y las variables `x:valor` definidas en los textos, además de números y fórmulas. En los campos que piden un **entero** (número de partes, número total, instancias omitidas), una variable o fórmula se redondea al entero más cercano, como `round(variable;0)`; un número simple sí debe ser entero. Los diálogos tienen un **menú de variables** con un filtro (todas, dimensiones, ángulos, variables de texto): al elegir una se inserta su nombre en el campo donde estabas escribiendo, en la posición del cursor.
 
 ## Copia espejo
 

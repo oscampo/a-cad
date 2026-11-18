@@ -1,4 +1,4 @@
-// Mas funciones de vectores y matrices (prod, mean, cumsum, dot, cross...), filas y columnas A_(i,:) y funciones definidas en los textos: foo(x; y){=...}.
+// Mas funciones de vectores y matrices (prod, mean, cumsum, dot, cross...), filas y columnas A_(i,:) y funciones definidas en los textos: foo(x; y):....
 import assert from 'node:assert/strict';
 import { evalExpr } from '../src/expr.js';
 import { textValue, plainText } from '../src/text.js';
@@ -98,36 +98,36 @@ const mk = (text) => {
 };
 const show = (text) => { const d = mk(text); return plainText(textValue(d, d.texts.t1)); };
 
-t('funciones de usuario: foo(x){=...}, varios parametros, funciones que llaman a funciones', () => {
-  const s = show('f(x){=x^2+1}\ng(a; b){=a*b+f(a)}\nh(u, v){=u-v}\n[=f(3)] [=g(2; 5)] [=h(10, 4)] [=f(f(1))] [=f(2)*f(3)]');
-  assert.match(s, /^f\(x\):=x\^2\+1\ng\(a; b\):=a\*b\+f\(a\)\nh\(u, v\):=u-v\n10 15 6 5 50$/);
+t('funciones de usuario: $foo(x):...$, varios parametros, funciones que llaman a funciones', () => {
+  const s = show('$f(x):x^2+1$\n$g(a; b):a*b+f(a)$\n$h(u, v):u-v$\n$f(3)=$ $g(2; 5)=$ $h(10, 4)=$ $f(f(1))=$ $f(2)*f(3)=$');
+  assert.equal(s, '$f(x):=x^2+1$\n$g(a; b):=a*b+f(a)$\n$h(u, v):=u-v$\n$f(3)=10$ $g(2; 5)=15$ $h(10, 4)=6$ $f(f(1))=5$ $f(2)*f(3)=50$');
   assert.equal(s.includes('⚠'), false);
-  assert.equal(show('f(x){=x^2}\n[=sin(f(30))]').split('\n').at(-1), '0'); // sin(900°) = sin(180°) = 0: las funciones de siempre aceptan las de usuario
+  assert.equal(show('$f(x):x^2$\n$sin(f(30))=$').split('\n').at(-1), '$sin(f(30))=0$'); // sin(900°) = sin(180°) = 0: las funciones de siempre aceptan las de usuario
 });
 
 t('funciones de usuario: los parametros ocultan a las variables de igual nombre; lo demas es del dibujo', () => {
-  const s = show('x{=100}\nk{=3}\nf(x){=x+1}\nh(x){=x*k}\n[=f(1)] [=x] [=h(4)] [=f(x)]');
-  assert.match(s, /2 100 12 101$/);
+  const s = show('$x:100$\n$k:3$\n$f(x):x+1$\n$h(x):x*k$\n$f(1)=$ $x=$ $h(4)=$ $f(x)=$');
+  assert.match(s, /\$f\(1\)=2\$ \$x=100\$ \$h\(4\)=12\$ \$f\(x\)=101\$$/);
 });
 
 t('funciones de usuario: leen las variables que valen al llamarlas (orden de lectura)', () => {
-  const s = show('f(x){=x+c}\ng(q){=q*2}\nc{=10}\nz{=g(c)}\ny{=f(2)+z}\n[=y] [=z]');
-  assert.match(s, /32 20$/); // f(2) = 12; z = g(10) = 20; y = 12 + 20 (f se define antes que c, pero se llama despues)
+  const s = show('$f(x):x+c$\n$g(q):q*2$\n$c:10$\n$z:g(c)$\n$y:f(2)+z$\n$y=$ $z=$');
+  assert.match(s, /\$y=32\$ \$z=20\$$/); // f(2) = 12; z = g(10) = 20; y = 12 + 20 (f se define antes que c, pero se llama despues)
   assert.equal(s.includes('⚠'), false);
   // lo que se llama antes de definirse no existe todavia
-  const late = show('y{=f(2)}\nf(x){=x+1}\n[=f(1)]');
-  assert.match(late, /^y:=f\(2\) ⚠\nf\(x\):=x\+1\n2$/);
+  const late = show('$y:f(2)$\n$f(x):x+1$\n$f(1)=$');
+  assert.match(late, /^\$y:=f\(2\) ⚠\$\n\$f\(x\):=x\+1\$\n\$f\(1\)=2\$$/);
 });
 
 t('funciones de usuario: vectores y matrices como argumentos y resultados', () => {
-  const s = show('sq(x){=x.^2}\nm(A){=A*A}\nn(a; b){=dot(a; b)}\nv{=[1,2,3]}\nB{=[1,1;0,1]}\n[=sq(v)] [=m(B)] [=n(v; [4,5,6])] [=sq(2)] [=sq([1;2])]');
-  assert.match(s, /\[1, 4, 9\] \[1, 2; 0, 1\] 32 4 \[1; 4\]$/);
+  const s = show('$sq(x):x.^2$\n$m(A):A*A$\n$n(a; b):dot(a; b)$\n$v:[1,2,3]$\n$B:[1,1;0,1]$\n$sq(v)=$ $m(B)=$ $n(v; [4,5,6])=$ $sq(2)=$ $sq([1;2])=$');
+  assert.match(s, /\$sq\(v\)=\[1, 4, 9\]\$ \$m\(B\)=\[1, 2; 0, 1\]\$ \$n\(v; \[4,5,6\]\)=32\$ \$sq\(2\)=4\$ \$sq\(\[1;2\]\)=\[1; 4\]\$$/);
 });
 
 t('funciones de usuario: recursion con si() y limite de profundidad', () => {
-  assert.match(show('fact(n){=si(n<=1; 1; n*fact(n-1))}\n[=fact(5)] [=fact(10)]'), /120 3628800\.0$/);
-  assert.match(show('fib(n){=si(n<3; 1; fib(n-1)+fib(n-2))}\n[=fib(12)]'), /144$/);
-  assert.match(show('loop(n){=loop(n+1)}\n[=loop(1)]'), /⚠$/); // sin fin: 200 niveles
+  assert.match(show('$fact(n):si(n<=1; 1; n*fact(n-1))$\n$fact(5)=$ $fact(10)=$'), /=120\$ \$fact\(10\)=3628800\.0\$$/);
+  assert.match(show('$fib(n):si(n<3; 1; fib(n-1)+fib(n-2))$\n$fib(12)=$'), /=144\$$/);
+  assert.match(show('$loop(n):loop(n+1)$\n$loop(1)=$'), /=⚠\$$/); // sin fin: 200 niveles
   assert.throws(() => evalExpr('loop(1)', { vars: { loop: { fn: { params: ['n'], body: 'loop(n+1)' } } } }), /200 niveles/);
 });
 
@@ -146,12 +146,12 @@ t('funciones de usuario: errores claros', () => {
 });
 
 t('funciones de usuario: definiciones invalidas y nombres que chocan', () => {
-  const doc = mk('sin(x){=x}\nf(x; x){=x}\nf2(1x){=x}\nf3(){=5}\nok(x){=x}\nok(y){=y}\nr{=1}\nr(x){=x}\nsum(a){=a}');
+  const doc = mk('$sin(x):x$\n$f(x; x):x$\n$f2(1x):x$\n$f3():5$\n$ok(x):x$\n$ok(y):y$\n$r:1$\n$r(x):x$\n$sum(a):a$');
   const bad = plainText(textValue(doc, doc.texts.t1)).split('\n');
   for (const i of [0, 1, 2, 3, 8]) assert.ok(bad[i].includes('⚠'), `línea ${i}: ${bad[i]}`);
   for (const i of [4, 5, 6, 7]) assert.ok(!bad[i].includes('⚠'), `línea ${i}: ${bad[i]}`); // redefinir (incluso una variable como funcion) vale
-  const f = mk('f(x){=x+1}\n[=f(1)]\nf(x){=x*10}\n[=f(1)]\nf{=7}\n[=f]');
-  assert.match(plainText(textValue(f, f.texts.t1)), /\n2\n.*\n10\n.*\n7$/); // la ultima definicion leida es la que vale
+  const f = mk('$f(x):x+1$\n$f(1)=$\n$f(x):x*10$\n$f(1)=$\n$f:7$\n$f=$');
+  assert.match(plainText(textValue(f, f.texts.t1)), /\n\$f\(1\)=2\$\n.*\n\$f\(1\)=10\$\n.*\n\$f=7\$$/); // la ultima definicion leida es la que vale
 });
 
 t('funciones de usuario: se listan, se leen desde cotas y siguen el renombrado de cotas', () => {
@@ -159,7 +159,7 @@ t('funciones de usuario: se listan, se leen desde cotas y siguen el renombrado d
   addLine(d, a, b, {}); addLine(d, c, e, {});
   const k1 = addCon(d, { t: 'DIST', refs: [a, b], v: 10, name: 'D1' });
   const k2 = addCon(d, { t: 'DIST', refs: [c, e], v: 20, name: 'D2', expr: 'f(3) + D1' });
-  d.texts.t1 = { pt: addPoint(d, 0, 100), h: 1, font: '', text: 'f(x){=x^2+1}\nh(x){=x*D1}', ang: 0, anchor: 'bl', color: 'auto', readable: true }; // por encima de las cotas (orden de lectura)
+  d.texts.t1 = { pt: addPoint(d, 0, 100), h: 1, font: '', text: '$f(x):x^2+1$\n$h(x):x*D1$', ang: 0, anchor: 'bl', color: 'auto', readable: true }; // por encima de las cotas (orden de lectura)
   const r = recompute(d);
   assert.ok(r.ok, r.error);
   assert.equal(d.cons[k2].v, 20); // f(3) + D1 = 10 + 10
@@ -167,13 +167,13 @@ t('funciones de usuario: se listan, se leen desde cotas y siguen el renombrado d
   const info = varsInfo(d).find((x) => x.name === 'f');
   assert.equal(info.text, 'f(x) = función');
   renameDim(d, k1, 'L');
-  assert.match(d.texts.t1.text, /h\(x\)\{=x\*L\}/); // el cuerpo de la funcion sigue al nombre
+  assert.match(d.texts.t1.text, /h\(x\):x\*L\$/); // el cuerpo de la funcion sigue al nombre
   assert.equal(d.cons[k2].expr, 'f(3) + L');
 });
 
 t('funciones de usuario: dentro de una formula se muestran como se escriben', () => {
-  const s = show('$$f(x){=x^2+1}\nA{=[1,2;3,4]}\ng(a; b){=a*b}$$\n[=f(2)]');
-  assert.match(s, /^\$\$f\(x\):=x\^2\+1\nA:=\[1, 2; 3, 4\]\ng\(a; b\):=a\*b\$\$\n5$/);
+  const s = show('$$f(x):x^2+1\nA:[1,2;3,4]\ng(a; b):a*b$$\n$f(2)=$');
+  assert.match(s, /^\$\$f\(x\):=x\^2\+1\nA:=\[1, 2; 3, 4\]\ng\(a; b\):=a\*b\$\$\n\$f\(2\)=5\$$/);
 });
 
 t('dibujo: A_(i,:) y A_(:,j) llevan los dos puntos; (: x :) sigue siendo un angulo', () => {

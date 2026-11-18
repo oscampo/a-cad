@@ -2,7 +2,7 @@
 // varias relaciones por grafica. Sin DOM.
 // doc.graphs[id] = { x, y (esquina inferior izquierda en el modelo), w, h, title, series: ['D1 vs t', ...], t1 (tiempo final), n (muestras) }
 // Variables: «t» (tiempo), el desplazamiento de cada actuador por su nombre («MR1», «ML2»), su velocidad («MR1.v»; «MR1.d» es su desplazamiento, igual que «MR1»), las cotas con nombre
-// (D1, A1...), las variables de los textos y los vectores de rangos (x{=0..1;5}). Si una grafica usa variables que cambian con el tiempo,
+// (D1, A1...), las variables de los textos y los vectores de rangos (x:0..1;5). Si una grafica usa variables que cambian con el tiempo,
 // se simula el dibujo (en una copia) de t = 0 a t1; si solo usa vectores, se grafican tal cual.
 import { varsOf } from './params.js';
 import { evalExpr, exprRefs } from './expr.js';

@@ -23,6 +23,7 @@ import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText
 import { TRACE_STYLE } from './curves.js';
 import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, AXES } from './graphs.js';
 import { textFrame, textHit, textPose, shownText, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss } from './text.js';
+import { migrateCalcDoc } from './tvars.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
@@ -35,7 +36,7 @@ import { parseValue, isPlainNumber } from './expr.js';
 import { HELP_HTML } from './help.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
 
-const VERSION = '1.9.0';
+const VERSION = '2.0.0';
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev'; // commit de la compilacion: junto a la version, abajo a la izquierda del dibujo
 const STORE = 'ipad-cad-v1';
 const $ = (id) => document.getElementById(id);
@@ -2183,7 +2184,7 @@ function askText(labelText, initial) {
   });
 }
 
-// Tras cambiar un texto: las variables que define («x{=valor}») no pueden chocar con una cota, repetirse ni fallar (un problema
+// Tras cambiar un texto: las variables que define («x:valor») no pueden chocar con una cota, repetirse ni fallar (un problema
 // que ya existia antes de la edicion no cuenta) y las cotas con formulas que las leen se recalculan. false: se deshizo todo.
 function textEditOk(before) {
   const bad = textVarErrors(doc).find((e) => !before.some((b) => b.key === e.key));
@@ -2197,11 +2198,13 @@ function textEditOk(before) {
 
 // ---------------------------------------------------------------- entrada directa de texto (herramienta Texto)
 // Se escribe sobre el dibujo, sin ventana. Por defecto es una ecuacion AsciiMath y se guarda como bloque «$$...$$» (los delimitadores quedan
-// en el texto: se ven en sus propiedades); si lo primero que se teclea es «'», es texto normal (con «$...$», «[=...]» y «x{=...}» como siempre).
+// en el texto: se ven en sus propiedades); ahi «x:valor» asigna y «expr=» muestra el valor. Si lo primero que se teclea es «'» (o el «’» que pone
+// el teclado de iOS con la puntuacion inteligente), es texto normal: se dibuja tal cual, salvo lo que vaya entre «$...$» o «$$...$$».
 // Enter lo dibuja (un texto por Enter) y abre otra entrada una linea mas abajo; Shift+Enter es salto de linea dentro del mismo texto;
 // Esc, Enter en una entrada vacia o cambiar de herramienta terminan (lo ya escrito se dibuja al cambiar de herramienta).
 const txLiveBox = $('txLiveBox'), txLive = $('txLive');
-const txIsText = () => txLive.value.startsWith("'");
+const TX_MARK = /^['’‘]/;
+const txIsText = () => TX_MARK.test(txLive.value);
 function txLayout() {
   if (!txState) return;
   const P = txState.sUp.type === 'pt' ? doc.pts[txState.sUp.id] : txState.sUp;
@@ -2213,7 +2216,7 @@ function txLayout() {
   const W = Math.min(cv.clientWidth * 0.92, Math.max(170, mx * px * 0.62 + 26)), Hh = lines.length * px * 1.25 + 6;
   txLive.rows = lines.length; txLive.style.height = Hh - 2 + 'px';
   txLiveBox.style.width = W + 'px';
-  txLiveBox.dataset.tag = txIsText() ? "Texto · Enter dibuja · Shift+Enter línea" : "Matemático · Enter dibuja · Shift+Enter línea · ' = texto";
+  txLiveBox.dataset.tag = txIsText() ? "Texto · Enter dibuja · Shift+Enter línea" : "Matemático · x:valor asigna · expr= calcula · ' = texto";
   const an = cur.tx.anchor || 'bl', ax = { l: 0, c: 0.5, r: 1 }[an[1]], ay = txState.cursor ? 0 : { t: 0, m: 0.5, b: 1 }[an[0]]; // las entradas siguientes cuelgan de la linea anterior
   txLiveBox.style.left = Math.max(2, Math.min(S.x - ax * W, cv.clientWidth - W - 2)) + 'px';
   txLiveBox.style.top = Math.max(24, Math.min(S.y - ay * Hh, cv.clientHeight - Hh - 2)) + 'px';
@@ -2222,7 +2225,7 @@ function endTextLive() { txState = null; txLiveBox.hidden = true; txLive.value =
 // Dibuja lo escrito como un texto nuevo y abre la entrada siguiente. false: no se pudo (la entrada sigue abierta para corregirla).
 function commitTextLive() {
   if (!txState) return false;
-  const raw = txLive.value.replace(/\s+$/, ''), asText = raw.startsWith("'"), body = asText ? raw.slice(1) : raw;
+  const raw = txLive.value.replace(/\s+$/, ''), asText = TX_MARK.test(raw), body = asText ? raw.slice(1) : raw;
   if (!body.trim()) { endTextLive(); return true; }
   const text = asText ? body : '$$' + body.trim() + '$$';
   pushUndo();
@@ -3022,6 +3025,8 @@ function loadDoc(d) {
   if (!d || typeof d !== 'object' || !d.pts || !d.lines || !d.circles) throw new Error('Archivo no válido');
   doc = { n: 0, cons: {}, hatches: {}, ltypes: {}, arcs: {}, ellipses: {}, texts: {}, splines: {}, traces: {}, cn: {}, layers: {}, curLayer: null, ...d };
   ensureNumbers(doc); ensureMarkRefs(doc);
+  const nMig = migrateCalcDoc(doc); // dibujos anteriores a la v2: «x{=v}» -> «$x:v$», «[=e]» -> «$e=$»
+  if (nMig) setTimeout(() => toast(`Sintaxis de cálculo actualizada en ${nMig} texto${nMig > 1 ? 's' : ''}: x:valor asigna, expr= muestra el valor`), 1200);
   if (!(doc.tEnd > 0)) { const m = Math.max(0, ...Object.values(doc.graphs || {}).map((g) => Number(g.t1) || 0)); if (m > 0) doc.tEnd = m; } // dibujos anteriores: el tiempo final de sus graficas
   undoStack = []; redoStack = []; sel = []; pending = null;
 }

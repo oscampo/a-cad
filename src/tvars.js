@@ -1,7 +1,8 @@
-// Variables definidas en los textos: «nombre{=valor}» asigna a «nombre» el valor de una expresion (sin DOM).
+// Variables definidas en los textos: «nombre:valor» (dentro de una formula) asigna a «nombre» el valor de una expresion (sin DOM).
 // Se leen en el orden de la pagina (arriba a abajo, izquierda a derecha; ver textOrder): una variable vale lo de su ultima definicion anterior,
 // y las cotas ven lo que valen al final. El valor puede usar cotas y variables definidas antes. El texto la muestra en cursiva como «nombre:=valor».
 import { evalExpr, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName } from './expr.js';
+import { splitMath } from './mathlayout.js';
 
 // Marcas de cursiva dentro de un texto ya expandido (caracteres de uso privado: no se escriben a mano).
 export const IT0 = '', IT1 = '';
@@ -25,17 +26,114 @@ export function runsOf(line) {
   return out;
 }
 
-// Definicion: «x{=valor}» (asignar) frente a «[=expr]» (leer). Se teclea sin cambiar de pagina en el teclado del telefono.
-// Grupos: 1 nombre, 2 valor.
-// Grupos: 1 nombre, 2 parametros (solo una funcion: «f(x; y){=x+y}»), 3 valor. El nombre puede llevar subindice de texto: «var_(texto){=valor}».
-export const DEF_SRC = '([A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?(?:_\\([^(){}\\n]+\\))?)(?:\\(([^(){}\\n]*)\\))?\\{=([^}]*)\\}';
-const DEF_RE = () => new RegExp(DEF_SRC, 'g');
-// Salida «[=expresion]»: la expresion puede llevar corchetes (una matriz literal) con un nivel de anidacion. Grupo 1: la expresion.
-export const OUT_SRC = '\\[=((?:[^\\[\\]]|\\[[^\\[\\]]*\\])*)\\]';
-export const hasDefMark = (s) => typeof s === 'string' && s.includes('{=');
+// ---- Calculo en los textos (estilo SMath) ----
+// Solo dentro de una formula ($...$ o $$...$$; la entrada por defecto es una formula), un enunciado por linea:
+//  «x:valor» asigna (se dibuja «x:=valor»; tambien se acepta «x:=valor»), «f(x; y):expr» define una funcion, «x:0..1;10» un rango;
+//  «expr=» al final pide el valor (se dibuja «expr=valor»; no cuentan «==», «<=», «>=», «!=» ni «:=»);
+//  `...` entre acentos graves es un literal: se dibuja como formula pero nunca se calcula (`f:RR->RR`). Parte la linea en trozos y cada
+//  trozo de codigo entre literales es un enunciado aparte. Un acento grave sin cierre queda tal cual con ⚠.
+// El texto plano (lo que va fuera de $...$) se dibuja caracter por caracter: ahi nada se calcula.
+// Nombre: letras, numeros y _, con un subindice de texto opcional «var_(texto)».
+export const NAME_SRC = '[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?(?:_\\([^(){}\\n]+\\))?';
+const DEF_LINE = new RegExp('^(\\s*)(' + NAME_SRC + ')(?:\\(([^()\\n]*)\\))?(\\s*:=?)([\\s\\S]*?)(\\s*)$');
+const OUT_LINE = /^(\s*)([\s\S]*?\S)(\s*)=(\s*)$/;
+// Un trozo de codigo: { k:'def', pre, name, params, sep, expr, post } | { k:'out', pre, expr, mid, post } | { k:'code', s }.
+function stmtOf(s) {
+  let m = DEF_LINE.exec(s);
+  if (m && m[5].trim()) return { k: 'def', pre: m[1], name: m[2], params: m[3], sep: m[4], expr: m[5], post: m[6] };
+  m = OUT_LINE.exec(s);
+  if (m && !/[<>=!:≤≥≠]$/.test(m[2])) return { k: 'out', pre: m[1], expr: m[2], mid: m[3], post: m[4] };
+  return { k: 'code', s };
+}
+// Trozos de una linea de formula: literales `...` ({ k:'lit', s, closed }) y codigo (ver stmtOf).
+export function calcPieces(line) {
+  const out = [];
+  let i = 0;
+  for (;;) {
+    const j = line.indexOf('`', i);
+    const code = line.slice(i, j < 0 ? line.length : j);
+    if (code) out.push(stmtOf(code));
+    if (j < 0) break;
+    const k = line.indexOf('`', j + 1);
+    if (k < 0) { out.push({ k: 'lit', s: line.slice(j + 1), closed: false }); break; }
+    out.push({ k: 'lit', s: line.slice(j + 1, k), closed: true });
+    i = k + 1;
+  }
+  return out;
+}
+export const pieceSrc = (p) => (p.k === 'lit' ? '`' + p.s + (p.closed ? '`' : '') : p.k === 'code' ? p.s
+  : p.k === 'def' ? p.pre + p.name + (p.params !== undefined ? '(' + p.params + ')' : '') + p.sep + p.expr + p.post : p.pre + p.expr + p.mid + '=' + p.post);
+// Filtro rapido: ¿puede llevar enunciados?
+export const hasCalc = (s) => typeof s === 'string' && s.includes('$') && /[:=]/.test(s);
+// Un texto partido en tramos: { t:'txt', raw } y { t:'math', disp, lines: [[trozo]] }. calcSrc lo vuelve a escribir tal cual.
+const PARSED = new Map();
+export function calcParse(s) {
+  s = String(s ?? '');
+  let r = PARSED.get(s);
+  if (r) return r;
+  r = splitMath(s).map((tk) => (tk.t === 'txt' ? { t: 'txt', raw: tk.raw } : { t: 'math', disp: tk.disp, lines: tk.src.split('\n').map(calcPieces) }));
+  if (PARSED.size > 2000) PARSED.clear();
+  PARSED.set(s, r);
+  return r;
+}
+export const calcSrc = (toks) => toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + tk.lines.map((l) => l.map(pieceSrc).join('')).join('\n') + (tk.disp ? '$$' : '$'))).join('');
+// Enunciados (asignaciones y salidas) de un texto, en orden.
+export const calcStmts = (s) => (hasCalc(s) ? calcParse(s).flatMap((tk) => (tk.t === 'math' ? tk.lines.flat().filter((p) => p.k === 'def' || p.k === 'out') : [])) : []);
 
-// Rangos (vectores de numeros igualmente espaciados): «x{=inicio..fin;n}» (n elementos entre inicio y fin, ambos incluidos) y
-// «x{=inicio..paso..fin}» (inicio, inicio+paso, ... sin pasar de fin). Cada parte puede ser una formula.
+// ---- Migracion de la sintaxis anterior (antes de la v2): «x{=valor}» y «[=expr]» ----
+const OLD_RE = () => new RegExp('(' + NAME_SRC + ')(?:\\(([^(){}\\n]*)\\))?\\{=([^}]*)\\}|\\[=((?:[^\\[\\]]|\\[[^\\[\\]]*\\])*)\\]', 'g');
+const oldStmt = (m) => (m[1] !== undefined ? m[1] + (m[2] !== undefined ? '(' + m[2].trim() + ')' : '') + ':' + m[3].trim() : m[4].trim() + '=');
+const litOf = (x) => { // lo que no es enunciado pasa a literal `...` (los espacios de los bordes quedan fuera)
+  const a = x.match(/^\s*/)[0], c = x.slice(a.length).trimEnd();
+  return c ? a + '`' + c + '`' + x.slice(a.length + c.length) : x;
+};
+// Lo que precede a una salida vieja: «e = [=e]» ya se escribe «e=», asi que la «e =» de delante sobra (no repetir la expresion).
+const dropEcho = (pre, m) => {
+  if (m[4] === undefined) return pre;
+  const e = m[4].trim(), k = pre.trimEnd();
+  const body = k.endsWith('=') ? k.slice(0, -1).trimEnd() : '';
+  return e && body.endsWith(e) && !/[\p{L}\p{N}_.]/u.test(body[body.length - e.length - 1] ?? '') ? body.slice(0, body.length - e.length) : pre;
+};
+// Un texto con la sintaxis anterior, escrito con la nueva: en el texto plano cada definicion o salida pasa a ser una formula («$x:v$», «$e=$»);
+// dentro de una formula cada una queda en su sitio y lo demas de esa linea pasa a literal `...` (para que no se calcule). Una linea de formula
+// sin nada que migrar que ahora se leeria como enunciado (p. ej. «a:b» o «x=») pasa entera a literal.
+export function migrateCalc(s) {
+  if (typeof s !== 'string' || !(s.includes('{=') || s.includes('[=') || hasCalc(s))) return s;
+  return splitMath(s).map((tk) => {
+    if (tk.t === 'txt') {
+      const src = tk.raw;
+      let res = '', last = 0;
+      for (const m of src.matchAll(OLD_RE())) {
+        const end = m.index + m[0].length;
+        res += dropEcho(src.slice(last, m.index), m) + '$' + oldStmt(m) + '$' + (/\d/.test(src[end] ?? '') ? ' ' : ''); // un digito pegado detras se separa
+        last = end;
+      }
+      return res + src.slice(last);
+    }
+    const lines = tk.src.split('\n').map((ln) => {
+      const ms = [...ln.matchAll(OLD_RE())];
+      if (!ms.length) return calcPieces(ln).some((p) => p.k === 'def' || p.k === 'out') ? litOf(ln) : ln;
+      let res = '', last = 0;
+      for (const m of ms) {
+        res += litOf(dropEcho(ln.slice(last, m.index), m)) + oldStmt(m); last = m.index + m[0].length;
+      }
+      return res + litOf(ln.slice(last));
+    });
+    return (tk.disp ? '$$' : '$') + lines.join('\n') + (tk.disp ? '$$' : '$');
+  }).join('');
+}
+// Un dibujo anterior a la v2 (sin doc.calc): migra sus textos una sola vez. Devuelve cuantos textos cambiaron.
+export const CALC_VERSION = 2;
+export function migrateCalcDoc(doc) {
+  if (!doc || doc.calc >= CALC_VERSION) return 0;
+  let n = 0;
+  for (const t of Object.values(doc.texts || {})) { const s = migrateCalc(t.text); if (s !== t.text) { t.text = s; n++; } }
+  doc.calc = CALC_VERSION;
+  return n;
+}
+
+// Rangos (vectores de numeros igualmente espaciados): «x:inicio..fin;n» (n elementos entre inicio y fin, ambos incluidos) y
+// «x:inicio..paso..fin» (inicio, inicio+paso, ... sin pasar de fin). Cada parte puede ser una formula.
 // Devuelve { kind: 'n'|'step', parts } o null si la definicion no es un rango. Un decimal «1.5» no cuenta como «..».
 export function parseRange(src) {
   const s = String(src ?? '');
@@ -78,7 +176,7 @@ function readingItems(doc, probes = []) {
   let n = 0;
   for (const [tid, t] of Object.entries(doc.texts || {})) {
     const s = String(t.text ?? '');
-    if (!hasDefMark(s) && !s.includes('[=')) continue;
+    if (!calcStmts(s).length) continue;
     const P = doc.pts?.[t.pt] || { x: 0, y: 0 }, h = t.h > 0 ? t.h : 1, lines = s.split('\n');
     const hh = lines.length * 1.2 * h, w = Math.max(1, ...lines.map((l) => l.length)) * 0.55 * h, an = t.anchor || 'bl';
     items.push({ tid, t, h, n: n++, top: P.y + { t: 0, m: hh / 2, b: hh }[an[0]], left: P.x - { l: 0, c: w / 2, r: w }[an[1]] });
@@ -99,15 +197,14 @@ function readingItems(doc, probes = []) {
 export const textOrder = (doc) => readingItems(doc).map((it) => [it.tid, it.t]);
 
 // Definiciones, salidas y cotas de toda la pagina, en orden de lectura: [{ kind: 'def'|'out'|'dim', tid, idx, ... }]. idx: lugar de esa clase dentro de su texto.
-const EVT_RE = () => new RegExp(DEF_SRC + '|' + OUT_SRC, 'g');
 function readingEvents(doc, probes = []) {
   const out = [];
   for (const it of readingItems(doc, probes)) {
     if (it.probe !== undefined) { out.push({ kind: 'dim', id: it.probe }); continue; }
     let di = 0, oi = 0;
-    for (const m of String(it.t.text ?? '').matchAll(EVT_RE())) {
-      if (m[1] !== undefined) out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(m[1]), expr: m[3], params: m[2] === undefined ? null : m[2].split(/[;,]/).map((q) => q.trim()) });
-      else out.push({ kind: 'out', tid: it.tid, idx: oi++, expr: m[4] });
+    for (const p of calcStmts(it.t.text)) {
+      if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(/[;,]/).map((q) => q.trim()) });
+      else out.push({ kind: 'out', tid: it.tid, idx: oi++, expr: p.expr });
     }
   }
   return out;
@@ -122,7 +219,7 @@ export const textDefs = (doc) => readingEvents(doc).filter((e) => e.kind === 'de
 //  bad: Set('tid:idx') de las definiciones que no valen (nombre reservado, de una cota, invalido, o que fallan)
 //  names: Set con los nombres de las definiciones validas (aunque fallen)
 //  defs: las definiciones (en orden de lectura); win: Map(nombre -> su ultima definicion); byName: Map(nombre -> todas sus definiciones)
-//  defVal: Map('tid:idx' -> valor que esa definicion dio); outEnv: Map('tid:idx' -> variables que ve esa salida [=...])
+//  defVal: Map('tid:idx' -> valor que esa definicion dio); outEnv: Map('tid:idx' -> variables que ve esa salida «expr=»)
 //  dimEnv: Map(id de cota -> variables de texto que ve esa cota en su lugar de la pagina)
 let memoKey = null, memoSt = null;
 export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = []) {

@@ -6,7 +6,7 @@
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
 import { dimPos, dimValue, angTrue, initAngle, trackAngles } from './dims.js';
 import { parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE } from './expr.js';
-import { textVarState, hasDefMark, OUT_SRC } from './tvars.js';
+import { textVarState, calcStmts, calcParse, calcSrc } from './tvars.js';
 import { geoVars, isGeoName, geoPoints } from './geo.js';
 
 const DEG = Math.PI / 180;
@@ -20,7 +20,7 @@ export function varValue(doc, k) {
   if (k.t === 'RAD' && k.refs[0] in doc.circles) return { v: 2 * v, r: false };
   return { v, r: false };
 }
-// Estado de las variables de los textos («x{=valor}») con los valores actuales de las cotas.
+// Estado de las variables de los textos («x:valor») con los valores actuales de las cotas.
 // Las cotas con formula se leen en el lugar de su etiqueta (orden de lectura): ven las variables tal como estaban ahi.
 // Mientras algo se mueve (una simulacion o un arrastre) el orden de lectura de las cotas se congela: sus etiquetas se mueven con el dibujo y,
 // si cruzaran un texto a mitad del movimiento, la cota cambiaria de valor (o se detendria con un error) sin que nadie la haya tocado.
@@ -36,7 +36,7 @@ export function textVars(doc, exceptId = null) {
   for (const [id, k] of named(doc)) if (id !== exceptId) dimVars[k.name] = varValue(doc, k);
   return textVarState(doc, dimVars, new Set(named(doc).map(([, k]) => k.name)), probesOf(doc));
 }
-const hasDefs = (doc) => Object.values(doc.texts || {}).some((t) => hasDefMark(t.text));
+const hasDefs = (doc) => Object.values(doc.texts || {}).some((t) => calcStmts(t.text).some((p) => p.k === 'def'));
 const NO_TV = { win: new Map(), byName: new Map(), names: new Set(), vals: {}, errs: new Map(), dimEnv: new Map() };
 const tvOf = (doc) => (hasDefs(doc) ? textVars(doc) : NO_TV);
 // Variables disponibles (sin la cota exceptId, que no puede usarse a si misma): las de las cotas y las de los textos.
@@ -111,8 +111,12 @@ export function renameDim(doc, id, name) {
   if (!old || old === name) { k.name = name; return; }
   k.name = name;
   for (const o of Object.values(doc.cons)) { if (o.expr) o.expr = renameInExpr(o.expr, old, name); if (o.scaleExpr) o.scaleExpr = renameInExpr(o.scaleExpr, old, name); }
-  // las salidas de los textos ([=D1]) y los valores de sus variables (x{=2*D1}) tambien siguen al nombre
-  for (const t of Object.values(doc.texts || {})) if (typeof t.text === 'string' && (t.text.includes('[=') || hasDefMark(t.text))) t.text = t.text.replace(new RegExp(OUT_SRC, 'g'), (m, ex) => '[=' + renameInExpr(ex, old, name) + ']').replace(/\{=([^}]*)\}/g, (m, ex) => '{=' + renameInExpr(ex, old, name) + '}');
+  // las salidas de los textos («D1=») y los valores de sus variables («x:2*D1») tambien siguen al nombre (los literales `...` no)
+  const ren = (p) => (p.k === 'def' || p.k === 'out' ? { ...p, expr: renameInExpr(p.expr, old, name) } : p);
+  for (const t of Object.values(doc.texts || {})) {
+    if (!calcStmts(t.text).length) continue;
+    t.text = calcSrc(calcParse(t.text).map((tk) => (tk.t === 'math' ? { ...tk, lines: tk.lines.map((l) => l.map(ren)) } : tk)));
+  }
 }
 
 // Evalua en orden las cotas definidas con formula. { ok: true } o { ok: false, error } sin dejar nada a medias:

@@ -1,7 +1,7 @@
 {
  "app": "ipad-cad",
  "version": "1.6.0",
- "doc": {
+ "doc": {"calc":2,
   "n": 5600,
   "cons": {
    "k4": {
@@ -36232,7 +36232,7 @@
    "t31": {
     "layer": "y29",
     "pt": "p30",
-    "text": "dp=m*z= [=z*m]",
+    "text": "dp=$m*z=$",
     "h": 4,
     "ang": 0,
     "anchor": "bl",
@@ -36243,7 +36243,7 @@
    "t33": {
     "layer": "y29",
     "pt": "p32",
-    "text": "z=[=z]",
+    "text": "$z=$",
     "h": 4,
     "ang": 0,
     "anchor": "bl",
@@ -36254,7 +36254,7 @@
    "t35": {
     "layer": "y29",
     "pt": "p34",
-    "text": "m=[=m]",
+    "text": "$m=$",
     "h": 4,
     "ang": 0,
     "anchor": "bl",

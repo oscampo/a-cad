@@ -2,12 +2,12 @@
 // Es la fuente de la seccion «Funciones y operadores» de la ayuda y del capitulo del manual. Cada fila con ejemplo se comprueba
 // en test/funcref.test.mjs evaluandolo con el motor real: si una funcion cambia y el ejemplo deja de dar el resultado anotado,
 // la prueba falla. Fila: [nombre, que hace, ejemplo, resultado, modo]. Modo: 'n' numero (grados), 'm' admite vectores y
-// matrices, 't' pagina de texto (las lineas se separan con «\n»; el resultado es la ultima linea que se ve). Sin ejemplo: ''.
+// matrices, 't' texto matematico tal como se teclea (las lineas se separan con «\n»; el resultado es el valor de la ultima salida «expr=»). Sin ejemplo: ''.
 
 export const FUNC_GROUPS = [
   {
     title: 'Operadores',
-    note: 'Sirven en cotas, textos <code>[=…]</code> y <code>x{=…}</code>, actuadores y gráficas.',
+    note: 'Sirven en cotas, textos (<code>x:…</code> y <code>expr=</code>), actuadores y gráficas.',
     rows: [
       ['<code>+ - * /</code>', 'Suma, resta, multiplicación y división. También <code>×</code>, <code>·</code> y <code>÷</code>.', '2+3*4', '14', 'n'],
       ['<code>^</code> (<code>**</code>)', 'Potencia.', '2^10', '1024', 'n'],
@@ -65,13 +65,13 @@ export const FUNC_GROUPS = [
   },
   {
     title: 'Vectores y matrices',
-    note: 'Se escriben entre corchetes: la coma separa los elementos de una fila, el punto y coma empieza otra fila, y los decimales llevan punto. Se usan en los textos (<code>A{=[1,2;3,4]}</code>, <code>[=A]</code>); una cota puede leer un elemento (<code>D1 = x_2</code>).',
+    note: 'Se escriben entre corchetes: la coma separa los elementos de una fila, el punto y coma empieza otra fila, y los decimales llevan punto. Se usan en los textos (<code>A:[1,2;3,4]</code>, <code>A=</code>); una cota puede leer un elemento (<code>D1 = x_2</code>).',
     rows: [
       ['<code>[1, 2, 3]</code>, <code>[1; 2; 3]</code>', 'Vector fila y vector columna.', '[1,2,3]^T', '[1; 2; 3]', 'm'],
-      ['<code>a..b;n</code>', 'Rango: <code>n</code> valores de a hasta b, ambos incluidos.', 'x{=0..1;5}\n[=x]', '[0, 0.25, 0.5, 0.75, 1]', 't'],
-      ['<code>a..paso..b</code>', 'Rango con paso, sin pasar de b (el paso puede ser negativo).', 'x{=10..-3..1}\n[=x]', '[10, 7, 4, 1]', 't'],
-      ['<code>x_i</code>, <code>A_(i,j)</code>', 'Elemento, contando desde 1. Los índices pueden ser fórmulas: <code>x_(i+1)</code>.', 'A{=[1,2;3,4]}\n[=A_(2,1)]', '3', 't'],
-      ['<code>A_(i,:)</code>, <code>A_(:,j)</code>', 'Fila i y columna j.', 'A{=[1,2;3,4]}\n[=A_(:,2)]', '[2; 4]', 't'],
+      ['<code>a..b;n</code>', 'Rango: <code>n</code> valores de a hasta b, ambos incluidos.', 'x:0..1;5\nx=', '[0, 0.25, 0.5, 0.75, 1]', 't'],
+      ['<code>a..paso..b</code>', 'Rango con paso, sin pasar de b (el paso puede ser negativo).', 'x:10..-3..1\nx=', '[10, 7, 4, 1]', 't'],
+      ['<code>x_i</code>, <code>A_(i,j)</code>', 'Elemento, contando desde 1. Los índices pueden ser fórmulas: <code>x_(i+1)</code>.', 'A:[1,2;3,4]\nA_(2,1)=', '3', 't'],
+      ['<code>A_(i,:)</code>, <code>A_(:,j)</code>', 'Fila i y columna j.', 'A:[1,2;3,4]\nA_(:,2)=', '[2; 4]', 't'],
       ['<code>^T</code>', 'Transpuesta.', '[1,2;3,4]^T', '[1, 3; 2, 4]', 'm'],
       ['<code>+ -</code>', 'Entre matrices del mismo tamaño, o un número con cada elemento.', '[1,2]+10', '[11, 12]', 'm'],
       ['<code>*</code>', 'Producto matricial (o número por matriz).', '[1,2;3,4]*[5;6]', '[17; 39]', 'm'],
@@ -98,8 +98,8 @@ export const FUNC_GROUPS = [
     title: 'Funciones propias',
     note: 'Se definen en un texto y se usan en las salidas, en las variables y en las cotas. Pueden llamar a otras funciones y a sí mismas.',
     rows: [
-      ['<code>f(x){=…}</code>', 'Función de un parámetro.', 'f(x){=x^2+1}\n[=f(3)]', '10', 't'],
-      ['<code>g(a; b){=…}</code>', 'Varios parámetros, separados por <code>;</code> o <code>,</code>.', 'g(a; b){=a*b+1}\n[=g(2; 5)]', '11', 't'],
+      ['<code>f(x):…</code>', 'Función de un parámetro.', 'f(x):x^2+1\nf(3)=', '10', 't'],
+      ['<code>g(a; b):…</code>', 'Varios parámetros, separados por <code>;</code> o <code>,</code>.', 'g(a; b):a*b+1\ng(2; 5)=', '11', 't'],
     ],
   },
   {
@@ -111,7 +111,7 @@ export const FUNC_GROUPS = [
       ['<code>l3.len</code> (<code>l3.L</code>), <code>l3.ang</code>', 'Longitud de una línea y su ángulo (de su inicio a su fin, en radianes).', '', '', ''],
       ['<code>c1.r</code>, <code>c1.d</code>, <code>c1.x</code>, <code>c1.y</code>', 'Radio, diámetro y centro de un círculo.', '', '', ''],
       ['<code>a2.r</code>, <code>a2.x</code>, <code>a2.y</code>', 'Radio y centro de un arco.', '', '', ''],
-      ['<code>x{=…}</code>', 'Variables de los textos, leídas de arriba a abajo y de izquierda a derecha.', '', '', ''],
+      ['<code>x:…</code>', 'Variables de los textos, leídas de arriba a abajo y de izquierda a derecha.', '', '', ''],
       ['<code>t</code>', 'El tiempo, en los actuadores y las gráficas.', '', '', ''],
       ['<code>MR1</code>, <code>ML1</code>, <code>MR1.v</code>', 'En las gráficas: el desplazamiento de un actuador (también <code>.d</code>) y su velocidad.', '', '', ''],
       ['Reservados', 'No se pueden usar como nombre de cota ni de variable: las funciones y constantes de esta lista, <code>t</code>, <code>j</code>, <code>ω</code>, <code>θ</code> y <code>α</code>.', '', '', ''],
@@ -137,7 +137,7 @@ const mdExample = (ex) => ex.split('\n').map((l) => '`' + l + '`').join('<br>');
 export function funcRefMarkdown() {
   const head = `# Funciones y operadores
 
-Todo lo que acepta una fórmula, en las cotas, los textos (\`[=…]\` y \`x{=…}\`), los actuadores y las gráficas. Cada ejemplo muestra lo que da; todos se comprueban con el motor de la app en las pruebas automáticas (\`test/funcref.test.mjs\`). Cómo se usan las fórmulas, las variables y el orden de lectura se explica en [6. Cotas](06-cotas.md) y [7. Texto y cálculo](07-texto-y-calculo.md).
+Todo lo que acepta una fórmula, en las cotas, los textos (\`x:…\` y \`expr=\`), los actuadores y las gráficas. Cada ejemplo muestra lo que da; todos se comprueban con el motor de la app en las pruebas automáticas (\`test/funcref.test.mjs\`). Cómo se usan las fórmulas, las variables y el orden de lectura se explica en [6. Cotas](06-cotas.md) y [7. Texto y cálculo](07-texto-y-calculo.md).
 
 [Índice](README.md) · [7. Texto y cálculo](07-texto-y-calculo.md)
 `;

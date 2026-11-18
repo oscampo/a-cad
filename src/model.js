@@ -20,7 +20,7 @@ export const PALETTE = [
 ];
 
 export function newDoc() {
-  return { n: 0, pts: {}, lines: {}, circles: {}, arcs: {}, ellipses: {}, texts: {}, splines: {}, traces: {}, cons: {}, hatches: {}, ltypes: {}, cn: {}, layers: {}, curLayer: null };
+  return { calc: 2, n: 0, pts: {}, lines: {}, circles: {}, arcs: {}, ellipses: {}, texts: {}, splines: {}, traces: {}, cons: {}, hatches: {}, ltypes: {}, cn: {}, layers: {}, curLayer: null };
 }
 
 export function nextId(doc, prefix) {

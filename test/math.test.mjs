@@ -177,11 +177,11 @@ t('asciimath.org: simbolos con espacios y palabras', () => {
   assert.equal(parse('a -<= b').c[1].s, '⪯');
 });
 
-t('rangos: dentro de $...$ el vector es un vector fila; fuera sigue siendo texto', () => {
+t('rangos: dentro de $...$ el vector es un vector fila', () => {
   const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
-  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'a{=1..5;5}\nb{=0..0.5..1}\nfuera [=a] y $b = [=b]$ y $$A{=2..8;3}\nM = [=a]$$' };
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: '$a:1..5;5$\n$b:0..0.5..1$\nvalen $a=$ y $b=$ y $$A:2..8;3\n`M =` a=$$' };
   const shown = textValue(doc, doc.texts.t1);
-  assert.match(shown, /fuera \[1, 2, 3, 4, 5\] y /); // en texto plano, tal cual
+  assert.match(plainText(shown), /valen \$a=\[1, 2, 3, 4, 5\]\$ y \$b=\[0, 0\.5, 1\]\$ y /);
   assert.equal(plainText(shown).includes(''), false);
   const m = layoutText(shown, measure, '').prims;
   const nums = m.filter((p) => p.k === 't').map((p) => p.s);
@@ -207,12 +207,12 @@ t('transpuesta: v^T y M^T se dibujan transpuestas (vector columna = fila transpu
   assert.ok(col.a + col.d > 2 * (fila.a + fila.d) * 0.9 && col.w < fila.w);
 });
 
-t('variables con subindice: var_(texto){=valor} se define, se usa en formulas y se dibuja con el subindice como texto', () => {
+t('variables con subindice: $var_(texto):valor$ se define, se usa en formulas y se dibuja con el subindice como texto', () => {
   const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
-  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'var_(texto-del-subíndice){=3}\nk_( total ){=2*var_(texto-del-subíndice)}\nplano: [=k_(total)+var_(texto-del-subíndice)] y [=2*k_( total )]\n$$n_(ref){=5}\nx = n_(ref) + k_(total) * var_(texto-del-subíndice)^2$$' };
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: '$var_(texto-del-subíndice):3$\n$k_( total ):2*var_(texto-del-subíndice)$\nplano: $k_(total)+var_(texto-del-subíndice)=$ y $2*k_( total )=$\n$$n_(ref):5\nx = n_(ref) + k_(total) * var_(texto-del-subíndice)^2$$' };
   const shown = textValue(doc, doc.texts.t1);
   const plain = plainText(shown);
-  assert.match(plain, /^var_\(texto-del-subíndice\):=3\nk_\(total\):=2\*var_\(texto-del-subíndice\)\nplano: 9 y 12\n/); // k = 2*3 = 6; 6+3 = 9; 2*6 = 12
+  assert.match(plain, /^\$var_\(texto-del-subíndice\):=3\$\n\$k_\(total\):=2\*var_\(texto-del-subíndice\)\$\nplano: \$k_\(total\)\+var_\(texto-del-subíndice\)=9\$ y \$2\*k_\(total\)=12\$\n/); // k = 2*3 = 6; 6+3 = 9; 2*6 = 12
   assert.equal(plain.includes('⚠'), false);
   const m = layoutText(shown, measure, '').prims.filter((p) => p.k === 't');
   const subs = m.filter((p) => p.s === 'texto-del-subíndice'), names = m.filter((p) => p.s === 'var' && p.it);
@@ -227,10 +227,10 @@ t('variables con subindice: var_(texto){=valor} se define, se usa en formulas y 
 
 t('variables con subindice: sin definir no se tocan, y la sintaxis invalida no es una definicion', () => {
   const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
-  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: '$x_(a-b)$ y x_(){=3} y y_(a(b)){=1}' };
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: '$x_(a-b)$ y $x_():3$ y y_(a(b)){=1}' };
   const shown = textValue(doc, doc.texts.t1);
-  // x_(){=3} ahora se lee como una funcion «x_» sin parametros: no vale (⚠); lo demas no se toca
-  assert.equal(plainText(shown), '$x_(a-b)$ y x_():=3 ⚠ y y_(a(b)){=1}');
+  // x_():3 se lee como una funcion «x_» sin parametros: no vale (⚠); lo demas no se toca
+  assert.equal(plainText(shown), '$x_(a-b)$ y $x_():=3 ⚠$ y y_(a(b)){=1}');
 });
 
 console.log(`\n${passed} pruebas de matematica pasaron`);

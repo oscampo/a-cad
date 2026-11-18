@@ -82,18 +82,18 @@ t('cota de solo lectura a escala: la cota dice la medida entre la escala (subray
   near(dimValue(d, d.cons[k]), 13.333); // no restringe: mide
 });
 
-t('escala con formula: «30[*k]» sigue a la variable k{=25} y recalcula el dibujo', () => {
+t('escala con formula: «30[*k]» sigue a la variable $k:25$ y recalcula el dibujo', () => {
   const { d, a, b, k } = mkLine(750);
-  d.texts.t1 = { pt: a, text: 'k{=25}', h: 1, ang: 0, anchor: 'bl', color: 'auto', readable: true };
+  d.texts.t1 = { pt: a, text: '$k:25$', h: 1, ang: 0, anchor: 'bl', color: 'auto', readable: true };
   Object.assign(d.cons[k], { name: 'D1', expr: '30', scale: 25, scaleExpr: 'k' });
   const r = settle(d, solve, []);
   assert.ok(r.ok, r.error);
   near(d.cons[k].v, 750); assert.equal(dimText(d, d.cons[k]), '30');
-  d.texts.t1.text = 'k{=10}'; // la escala cambia: el valor (30) no, el dibujo si
+  d.texts.t1.text = '$k:10$'; // la escala cambia: el valor (30) no, el dibujo si
   assert.ok(settle(d, solve, []).ok);
   near(d.cons[k].scale, 10); near(d.cons[k].v, 300); assert.equal(dimText(d, d.cons[k]), '30');
   near(Math.hypot(d.pts[b].x - d.pts[a].x, d.pts[b].y - d.pts[a].y), 300);
-  d.texts.t1.text = 'k{=-1}'; // escala invalida: se rechaza y no se toca nada
+  d.texts.t1.text = '$k:-1$'; // escala invalida: se rechaza y no se toca nada
   const bad = settle(d, solve, []);
   assert.equal(bad.ok, false); assert.match(bad.error, /escala/);
 });

@@ -450,7 +450,7 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
       if (j === ':') return { m: [m[i - 1]] }; // la fila i
       return { v: m[i - 1][j - 1], r: false };
     }
-    if (k.t === 'ufn') { // funcion definida en un texto: foo(x; y){=...}
+    if (k.t === 'ufn') { // funcion definida en un texto: foo(x; y):...
       if (!isOp('(')) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
       p++;
       const A = [];

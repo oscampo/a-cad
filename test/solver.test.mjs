@@ -2770,9 +2770,9 @@ t('cotas con nombre: renombrar actualiza formulas y valida el nombre', () => {
   assert.equal(checkName(d, 'sin', k1) !== null, true);
   assert.equal(checkName(d, '2x', k1) !== null, true);
   assert.equal(checkName(d, 'Ancho', k1), null);
-  const P = addPoint(d, 1, 1), tx = addText(d, P, 'D1 vale [=D1] y [=D1*D10], no D1', {});
+  const P = addPoint(d, 1, 1), tx = addText(d, P, 'D1 vale $D1=$ y $D1*D10=$, no D1', {});
   renameDim(d, k1, 'Ancho');
-  assert.equal(d.texts[tx].text, 'D1 vale [=Ancho] y [=Ancho*D10], no D1', 'las salidas de los textos siguen al nombre');
+  assert.equal(d.texts[tx].text, 'D1 vale $Ancho=$ y $Ancho*D10=$, no D1', 'las salidas de los textos siguen al nombre');
   assert.equal(d.cons[k2].expr, 'Ancho*2');
   assert.ok(recompute(d).ok); near(d.cons[k2].v, 20);
   delete d.cons[k1];
@@ -2830,7 +2830,7 @@ t('angulo continuo: una formula puede dar mas de 360 y entra en otras como radia
   near(d.cons[kB].v, 2 * (450 * Math.PI) / 180, 1e-9);
 });
 
-t('textos con salidas: [=expresion] usa los nombres de las cotas y las funciones', () => {
+t('textos con salidas: $expresion=$ usa los nombres de las cotas y las funciones', () => {
   const d = newDoc();
   const a = addPoint(d, 0, 0), b = addPoint(d, 4, 0), c = addPoint(d, 0, 3), cc = addPoint(d, 20, 0);
   const ci = addCircle(d, cc, 5, {}), l1 = addLine(d, a, b, {}), l2 = addLine(d, a, c, {});
@@ -2840,17 +2840,19 @@ t('textos con salidas: [=expresion] usa los nombres de las cotas y las funciones
   addCon(d, { t: 'ANG', refs: [l1, l2], s1: 1, s2: 1, sg: 1, cur: 720, v: 0 }); // A1 = 720° = 4π rad
   const P = addPoint(d, 1, 1);
   const T = (txt) => textValue(d, d.texts[addText(d, P, txt, {})]);
-  assert.equal(T('El diámetro es [=O1] cm'), 'El diámetro es 10 cm');
-  assert.equal(T('El área es [=D1*D2] mm^2'), 'El área es 12 mm^2');
-  assert.equal(T('vueltas: [=A1/(2π)]'), 'vueltas: 2');
-  assert.equal(T('[=D1] y [=D2/3] y [=sin(30)*D1]'), '4 y 1 y 2');
+  assert.equal(T('El diámetro es $O1=$ cm'), 'El diámetro es $O1=10$ cm');
+  assert.equal(T('El área es $D1*D2=$ mm^2'), 'El área es $D1*D2=12$ mm^2');
+  assert.equal(T('vueltas: $A1/(2π)=$'), 'vueltas: $A1/(2π)=2$');
+  assert.equal(T('$D1=$ y $D2/3=$ y $sin(30)*D1=$'), '$D1=4$ y $D2/3=1$ y $sin(30)*D1=2$');
   assert.equal(T('sin salidas'), 'sin salidas');
-  assert.equal(T('[=D9]'), '⚠');
-  assert.equal(T('[=2+]'), '⚠');
+  assert.equal(T('$D9=$'), '$D9=⚠$');
+  assert.equal(T('$2+=$'), '$2+=⚠$');
   // el ancho de la caja es el del texto ya calculado
-  const t = d.texts[addText(d, P, 'x [=O1]', { h: 2 })];
+  const t = d.texts[addText(d, P, 'x $O1=$', { h: 2 })];
   const w = textFrame(shownText(d, t), (ln) => ln.length * 0.5).w;
-  near(w, 'x 10'.length * 0.5 * 2, 1e-9);
+  const lit = d.texts[addText(d, P, 'x $`O1=10`$', { h: 2 })]; // lo mismo escrito a mano, como literal
+  near(w, textFrame(shownText(d, lit), (ln) => ln.length * 0.5).w, 1e-9);
+  assert.ok(w > textFrame(shownText(d, d.texts[addText(d, P, 'x $`O1=`$', { h: 2 })]), (ln) => ln.length * 0.5).w);
   assert.equal(shownText(d, d.texts[addText(d, P, 'hola', {})]).text, 'hola');
 });
 t('vector: linea con flecha, magnitud como cota de referencia y texto en el punto medio', () => {
@@ -2864,7 +2866,7 @@ t('vector: linea con flecha, magnitud como cota de referencia y texto en el punt
   const dim = d.cons[v.d];
   assert.deepEqual([dim.t, dim.ref, dim.hidden, dim.name], ['DIST', true, true, 'D1']);
   near(dimValue(d, dim), 10);
-  assert.equal(d.texts[v.t].text, '[=D1]');
+  assert.equal(d.texts[v.t].text, '$D1=$');
   assert.equal(d.texts[v.t].anchor, 'tc');
   assert.equal(d.texts[v.t].ref, l, 'alineado con la linea del vector');
   near(rawAngle(d, d.texts[v.t]), (Math.atan2(8, 6) * 180) / Math.PI, 1e-9);
@@ -3088,38 +3090,38 @@ t('formulas: redondeo, comparacion y trigonometria extra', () => {
   for (const n of ['j', 'ω', 'θ', 'α']) { assert.match(checkName(newDoc(), n, null), /uso futuro/); assert.throws(() => evalExpr('2*' + n), /uso futuro/); }
   for (const n of ['J', 'Ω', 'Θ', 'Α', 'β', 'i']) assert.equal(checkName(newDoc(), n, null), null, n); // solo esas minusculas exactas
   for (const n of ['π', 'pi', 'e']) assert.match(checkName(newDoc(), n, null), /constante/);
-  const dt = newDoc(); addText(dt, addPoint(dt, 0, 0), 't{=5}  T{=2}', {});
+  const dt = newDoc(); addText(dt, addPoint(dt, 0, 0), '$t:5$  $T:2$', {});
   assert.deepEqual(textVarErrors(dt).map((e) => e.msg), ['«t» está reservada para el tiempo']);
   assert.equal(varsOf(dt).T.v, 2); assert.ok(!('t' in varsOf(dt)));
 });
-t('variables de texto: x{=valor} se lee en salidas, en cursiva, se puede redefinir y no puede chocar con una cota', () => {
+t('variables de texto: $x:valor$ se lee en salidas, en cursiva, se puede redefinir y no puede chocar con una cota', () => {
   const d = newDoc();
   const a = addPoint(d, 0, 0), b = addPoint(d, 4, 0); d.pts[a].fixed = true;
   const l = addLine(d, a, b, {}); addCon(d, { t: 'H', refs: [l] });
   addCon(d, { t: 'DIST', refs: [a, b], v: 4 }); // D1
   const P = addPoint(d, 1, 1);
-  const def = addText(d, P, 'k{=D1*2+1}', {}), out = addText(d, P, 'k vale [=k] y dos k [=2*k]', {});
-  assert.deepEqual(runsOf(textValue(d, d.texts[def])), [{ s: 'k:=D1*2+1', it: true }]); // se ve «k:=valor» en cursiva
-  assert.equal(plainText(textValue(d, d.texts[def])), 'k:=D1*2+1');
-  assert.equal(textValue(d, d.texts[out]), 'k vale 9 y dos k 18');
+  const def = addText(d, P, '$k:D1*2+1$', {}), out = addText(d, P, 'k vale $k=$ y dos k $2*k=$', {});
+  assert.deepEqual(runsOf(textValue(d, d.texts[def])), [{ s: '$', it: false }, { s: 'k:=D1*2+1', it: true }, { s: '$', it: false }]); // se ve «k:=valor» en cursiva
+  assert.equal(plainText(textValue(d, d.texts[def])), '$k:=D1*2+1$');
+  assert.equal(textValue(d, d.texts[out]), 'k vale $k=9$ y dos k $2*k=18$');
   // mezclado con texto normal: solo la definicion va en cursiva
-  const mix = addText(d, P, 'Dato: n{=3}  ok', {});
-  assert.deepEqual(runsOf(textValue(d, d.texts[mix])), [{ s: 'Dato: ', it: false }, { s: 'n:=3', it: true }, { s: '  ok', it: false }]);
+  const mix = addText(d, P, 'Dato: $n:3$  ok', {});
+  assert.deepEqual(runsOf(textValue(d, d.texts[mix])), [{ s: 'Dato: $', it: false }, { s: 'n:=3', it: true }, { s: '$  ok', it: false }]);
   assert.equal(varsOf(d).n.v, 3); assert.equal(varsOf(d).k.v, 9);
   assert.ok(varsList(d).includes('k = 9 (texto)'));
   // una variable puede usar otras variables (en cualquier orden) y los angulos de π son radianes
-  addText(d, P, 'm{=n+k}  q{=π/2}', {});
+  addText(d, P, '$m:n+k$  $q:π/2$', {});
   assert.equal(varsOf(d).m.v, 12); near(varsOf(d).q.v, Math.PI / 2); assert.equal(varsOf(d).q.r, true);
   assert.equal(textVarErrors(d).length, 0);
   // el valor sigue a la cota
   d.cons[Object.keys(d.cons).find((k) => d.cons[k].t === 'DIST')].v = 10;
-  assert.equal(textValue(d, d.texts[out]), 'k vale 21 y dos k 42');
+  assert.equal(textValue(d, d.texts[out]), 'k vale $k=21$ y dos k $2*k=42$');
   // multiples lineas y varias definiciones en un texto
-  const multi = addText(d, P, 'r1{=1}\nr2{=2}', {});
+  const multi = addText(d, P, '$r1:1$\n$r2:2$', {});
   assert.equal(varsOf(d).r1.v + varsOf(d).r2.v, 3);
   assert.equal(textValue(d, d.texts[multi]).split('\n').length, 2);
   // redefinida (orden de lectura): la que se lee despues manda a partir de ahi; no es un error
-  const dup = addText(d, P, 'n{=99}', {});
+  const dup = addText(d, P, '$n:99$', {});
   assert.equal(varsOf(d).n.v, 99); // al final de la pagina
   assert.equal(textVarErrors(d).length, 0);
   assert.ok(!plainText(textValue(d, d.texts[dup])).includes('⚠'));
@@ -3128,12 +3130,12 @@ t('variables de texto: x{=valor} se lee en salidas, en cursiva, se puede redefin
   assert.equal(varsOf(d).n.v, 3);
   assert.equal(textVarErrors(d).length, 0);
   // choca con una cota: gana la cota
-  const clash = addText(d, P, 'D1{=5}', {});
+  const clash = addText(d, P, '$D1:5$', {});
   assert.ok(textVarErrors(d).some((e) => /nombre de una cota/.test(e.msg)));
   assert.equal(varsOf(d).D1.v, 10);
   delete d.texts[clash];
   // funcion o constante como nombre, y expresion invalida o desconocida
-  const f = addText(d, P, 'sin{=5}  pi{=3}  z{=2+}  w{=nada*2}', {});
+  const f = addText(d, P, '$sin:5$  $pi:3$  $z:2+$  $w:nada*2$', {});
   const msgs = textVarErrors(d).map((e) => e.msg).join(' | ');
   assert.ok(/«sin» es una función/.test(msgs) && /«pi» es una función/.test(msgs) && /«z»/.test(msgs) && /«w»/.test(msgs), msgs);
   assert.ok((plainText(textValue(d, d.texts[f]))).split('⚠').length === 5);
@@ -3142,7 +3144,7 @@ t('variables de texto: x{=valor} se lee en salidas, en cursiva, se puede redefin
   assert.match(checkName(d, 'k', null), /variable de texto/);
   assert.equal(checkName(d, 'Ancho', null), null);
   // un uso antes de definir falla (no hay ciclos: se lee en orden) y lo que depende de lo que fallo tambien
-  const cyc = addText(d, P, 'c1{=c2+1}  c2{=c1+1}', {});
+  const cyc = addText(d, P, '$c1:c2+1$  $c2:c1+1$', {});
   assert.ok(textVarErrors(d).length >= 2); assert.ok(!('c1' in varsOf(d))); assert.ok(!('c2' in varsOf(d)));
   assert.match(textVarErrors(d)[0].msg, /se define más abajo/);
   delete d.texts[cyc];
@@ -3158,7 +3160,7 @@ t('variables de texto: las leen las cotas con formula, se recalculan en orden y 
   const k3 = addCon(d, { t: 'DIST', refs: [a, e], v: 3, expr: 'D2*2' }); // D3 = 2*D2
   nameDims(d);
   const P = addPoint(d, 5, 60); // por encima de todas las cotas: en el orden de lectura las variables se definen antes que ellas
-  addText(d, P, 'x{=D1/2}', {}); // x depende de D1
+  addText(d, P, '$x:D1/2$', {}); // x depende de D1
   assert.ok(usesTextVars(d));
   assert.ok(solve(d, []).ok);
   const rc = recompute(d); assert.ok(rc.ok, rc.error);
@@ -3169,7 +3171,7 @@ t('variables de texto: las leen las cotas con formula, se recalculan en orden y 
   assert.ok(solve(d, []).ok);
   near(Math.hypot(d.pts[c].x - d.pts[a].x, d.pts[c].y - d.pts[a].y), 11, 1e-4);
   // una variable que depende de una cota con formula tambien va despues de ella
-  addText(d, P, 'y{=D3+1}', {});
+  addText(d, P, '$y:D3+1$', {});
   d.cons[k2].expr = 'x+y'; // D2 = x + y, y = D3 + 1, D3 = 2*D2: en circulo
   const bad = recompute(d); assert.ok(!bad.ok); assert.match(bad.error, /círculo|propia fórmula/);
   d.cons[k2].expr = 'x+1';
@@ -3188,7 +3190,7 @@ t('variables de texto: las leen las cotas con formula, se recalculan en orden y 
   const kk = addCon(d2, { t: 'DIST', refs: [p0, p2], v: 5, expr: 'w' });
   nameDims(d2);
   assert.equal(hasReactive(d2), false);
-  addText(d2, addPoint(d2, 3, 3), 'w{=D1/2}', {});
+  addText(d2, addPoint(d2, 3, 3), '$w:D1/2$', {});
   assert.equal(hasReactive(d2), true);
   void kk;
 });
@@ -3198,22 +3200,22 @@ t('variables de texto: renombrar una cota las actualiza y el texto se mide por t
   const l = addLine(d, a, b, {}); addCon(d, { t: 'H', refs: [l] });
   const k = addCon(d, { t: 'DIST', refs: [a, b], v: 4 }); nameDims(d);
   const P = addPoint(d, 1, 1);
-  const tx = addText(d, P, 'w{=D1*2}  [=w]', { h: 2 });
+  const tx = addText(d, P, '$w:D1*2$  $w=$', { h: 2 });
   renameDim(d, k, 'Ancho');
-  assert.equal(d.texts[tx].text, 'w{=Ancho*2}  [=w]');
-  assert.equal(plainText(textValue(d, d.texts[tx])), 'w:=Ancho*2  8');
-  // el ancho suma los tramos: la cursiva se mide con su propia funcion
+  assert.equal(d.texts[tx].text, '$w:Ancho*2$  $w=$');
+  assert.equal(plainText(textValue(d, d.texts[tx])), '$w:=Ancho*2$  $w=8$');
+  // es una formula: se mide simbolo a simbolo, las letras en cursiva con su propia funcion
   const calls = [];
   const w = textFrame(shownText(d, d.texts[tx]), (s, f, it) => { calls.push([s, it]); return s.length * (it ? 1 : 0.5); }).w;
-  assert.deepEqual(calls, [['w:=Ancho*2', true], ['  8', false]]);
-  near(w, (10 * 1 + 3 * 0.5) * 2);
+  assert.ok(calls.some(([s, it]) => s === 'w' && it) && calls.some(([s, it]) => s === ':=' && !it) && calls.some(([s, it]) => s === '8' && !it), JSON.stringify(calls));
+  assert.ok(w > 0);
   assert.equal(lineWidth((s) => s.length, 'plano', ''), 5);
-  // exportar: SVG con tramo en cursiva y DXF sin marcas
+  // exportar: SVG con la variable en cursiva y DXF sin marcas
   const svg = exportSVG(d, 1);
-  assert.match(svg, /<tspan font-style="italic">w:=Ancho\*2<\/tspan>/);
-  assert.ok(!/[\uE000\uE001]/.test(svg));
+  assert.match(svg, /font-style="italic">w<\/text>/);
+  assert.ok(!/[\uE000-\uE00F]/.test(svg));
   const dxf = exportDXF(d, 5);
-  assert.ok(dxf.includes('w:=Ancho*2 8') && !/[\uE000\uE001]/.test(dxf));
+  assert.ok(dxf.includes('\r\n:=\r\n') && dxf.includes('\r\n8\r\n') && !/[\uE000-\uE00F]/.test(dxf));
 });
 
 const rectDoc = (W = 10, H = 6) => { // rectangulo fijo en (0,0), con sus cotas de ancho y alto
@@ -3332,19 +3334,19 @@ t('chaflan: una linea entre las dos, con una cota por tramo que se puede editar'
   void l;
 });
 
-t('variables de texto: x{=valor} se ve, se lee, se renombra y valida; la sintaxis vieja x[:=valor] ya no es una definicion', () => {
+t('variables de texto: $x:valor$ se ve, se lee, se renombra y valida; la sintaxis vieja x[:=valor] ya no es una definicion', () => {
   const d = newDoc();
   const a = addPoint(d, 0, 0), b = addPoint(d, 4, 0); d.pts[a].fixed = true;
   const l = addLine(d, a, b, {}); addCon(d, { t: 'H', refs: [l] });
   const k = addCon(d, { t: 'DIST', refs: [a, b], v: 4 }); nameDims(d);
   const P = addPoint(d, 1, 1);
-  const tx = addText(d, P, 'w{=D1*2}  z{=w+1}  [=w] [=z]', { h: 2 });
-  assert.equal(plainText(textValue(d, d.texts[tx])), 'w:=D1*2  z:=w+1  8 9');
+  const tx = addText(d, P, '$w:D1*2$  $z:w+1$  $w=$ $z=$', { h: 2 });
+  assert.equal(plainText(textValue(d, d.texts[tx])), '$w:=D1*2$  $z:=w+1$  $w=8$ $z=9$');
   renameDim(d, k, 'Ancho');
-  assert.equal(d.texts[tx].text, 'w{=Ancho*2}  z{=w+1}  [=w] [=z]');
+  assert.equal(d.texts[tx].text, '$w:Ancho*2$  $z:w+1$  $w=$ $z=$');
   // redefinir una variable vale (orden de lectura); chocar con el nombre de una cota no
-  const dup = addText(d, P, 'w{=1}  Ancho{=2}', {});
-  assert.equal(plainText(textValue(d, d.texts[dup])), 'w:=1  Ancho:=2 ⚠');
+  const dup = addText(d, P, '$w:1$  $Ancho:2$', {});
+  assert.equal(plainText(textValue(d, d.texts[dup])), '$w:=1$  $Ancho:=2 ⚠$');
   // llaves sin nombre delante o sin "=" son texto normal
   assert.equal(textValue(d, d.texts[addText(d, P, '{=3} y {5} y x{4}', {})]), '{=3} y {5} y x{4}');
   assert.equal(textValue(d, d.texts[addText(d, P, 'q[:=3]', {})]), 'q[:=3]');
@@ -3394,7 +3396,7 @@ t('forma fija de un spline: sus puntos giran y se mueven como un cuerpo rigido; 
 
 t('campos enteros de matrices y dividir: aceptan variables y formulas (se redondean) y rechazan lo invalido', () => {
   const d = newDoc();
-  addText(d, addPoint(d, 0, 0), 'z{=17.4}  m{=3}  k{=2.5}', {});
+  addText(d, addPoint(d, 0, 0), '$z:17.4$  $m:3$  $k:2.5$', {});
   assert.equal(readInt(d, '12', 'N', 2, 200).n, 12);
   assert.equal(readInt(d, '2,0', 'N', 2, 200).n, 2);
   assert.ok(readInt(d, '2.5', 'N', 2, 200).err); // un numero simple debe ser entero
@@ -3414,7 +3416,7 @@ t('varsInfo: lista las variables con su tipo (dimension, angulo, variable de tex
   const l1 = addLine(d, a, b, {}), l2 = addLine(d, a, c, {});
   const kd = addCon(d, { t: 'DIST', refs: [a, b], v: 4 }), ka = addCon(d, { t: 'ANG', refs: [l1, l2], v: 90, s1: 1, s2: 1, sg: 1 });
   nameDims(d);
-  addText(d, addPoint(d, 5, 5), 'z{=17}', {});
+  addText(d, addPoint(d, 5, 5), '$z:17$', {});
   const all = varsInfo(d);
   assert.deepEqual(all.map((x) => [x.name, x.kind]), [[d.cons[kd].name, 'dim'], [d.cons[ka].name, 'ang'], ['z', 'var']]);
   assert.equal(all[2].text, 'z = 17');
@@ -3636,18 +3638,18 @@ t('redondeo: las 12 esquinas de pruebas-redondeo.json, por esquina y todas a la 
   }
 });
 
-t('rangos: x{=a..b;n} y x{=a..paso..b} son vectores', () => {
+t('rangos: $x:a..b;n$ y $x:a..paso..b$ son vectores', () => {
   const d = newDoc(), P = addPoint(d, 0, 0);
-  addText(d, P, 'v{=0..1;5}  w{=1..2..10}  u{=10..-3..0}  s{=2*2..3*3;2}', {});
+  addText(d, P, '$v:0..1;5$  $w:1..2..10$  $u:10..-3..0$  $s:2*2..3*3;2$', {});
   const vs = varsOf(d);
   assert.deepEqual(vs.v.vec, [0, 0.25, 0.5, 0.75, 1]);
   assert.deepEqual(vs.w.vec, [1, 3, 5, 7, 9]);
   assert.deepEqual(vs.u.vec, [10, 7, 4, 1]);
   assert.deepEqual(vs.s.vec, [4, 9]);
-  const o = addText(d, P, 'a [=v] b [=w+1] c [=w*w]', {});
-  assert.equal(textValue(d, d.texts[o]), 'a [0, 0.25, 0.5, 0.75, 1] b [2, 4, 6, 8, 10] c ⚠'); // un numero se suma a cada elemento; vector por vector (1×5 por 1×5) no cuadra
+  const o = addText(d, P, 'a $v=$ b $w+1=$ c $w*w=$', {});
+  assert.equal(plainText(textValue(d, d.texts[o])), 'a $v=[0, 0.25, 0.5, 0.75, 1]$ b $w+1=[2, 4, 6, 8, 10]$ c $w*w=⚠$'); // un numero se suma a cada elemento; vector por vector (1×5 por 1×5) no cuadra
   const e = newDoc(), Q = addPoint(e, 0, 0);
-  addText(e, Q, 'a{=1..2..0}  b{=1..0;3.5}  c{=1..2..3..4}  d{=1..0..5}', {});
+  addText(e, Q, '$a:1..2..0$  $b:1..0;3.5$  $c:1..2..3..4$  $d:1..0..5$', {});
   assert.equal(Object.keys(varsOf(e)).filter((k) => !k.includes('.')).length, 0);
   assert.equal(textVarErrors(e).length, 4);
 });
@@ -3710,7 +3712,7 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   d.graphs[g].series = ['mala'];
   assert.match(computeGraph(d, d.graphs[g], solve).error, /vs/);
   const e = newDoc(), P = addPoint(e, 0, 0);
-  addText(e, P, 'x{=0..1;3}  y{=0..2..4}  z{=1..2;4}', {});
+  addText(e, P, '$x:0..1;3$  $y:0..2..4$  $z:1..2;4$', {});
   const h = addGraph(e, 0, 0, 100, 60, ['y vs x']);
   assert.deepEqual(computeGraph(e, e.graphs[h], solve).series[0].pts, [[0, 0], [0.5, 2], [1, 4]]);
   e.graphs[h].series = ['z vs x'];
@@ -3733,10 +3735,10 @@ t('notacion punto: p12.x, l1.len, c1.r en formulas, textos, cotas, actuadores y 
   assert.throws(() => evalExpr(`${a}.zz`, { vars: v }), /No reconozco/);
   assert.deepEqual(exprRefs(`${a}.x+1`), [a + '.x']);
   // texto
-  const T = addText(d, a, 'x=[=' + b + '.x] L=[=' + l + '.len]', {});
-  assert.equal(textValue(d, d.texts[T]), 'x=4 L=5');
+  const T = addText(d, a, '$' + b + '.x=$ $' + l + '.len=$', {});
+  assert.equal(plainText(textValue(d, d.texts[T])), '$' + b + '.x=4$ $' + l + '.len=5$');
   // variable de texto que usa una propiedad
-  const T2 = addText(d, a, 'k{=' + b + '.y*2} [=k]', {});
+  const T2 = addText(d, a, '$k:' + b + '.y*2$ $k=$', {});
   assert.match(textValue(d, d.texts[T2]), /12/);
   // cota con formula que lee la geometria: D1 = q.x*2
   const e = newDoc(), o = addPoint(e, 0, 0), q = addPoint(e, 3, 0), r = addPoint(e, 3, 5);

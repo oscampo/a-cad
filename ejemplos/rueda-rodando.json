@@ -1,7 +1,7 @@
 {
  "app": "ipad-cad",
  "version": "1.6.1",
- "doc": {
+ "doc": {"calc":2,
   "n": 13,
   "pts": {
    "p1": {
