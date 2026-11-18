@@ -35,11 +35,11 @@ const MULTI = {
   round: { n: [1, 2], f: (A) => { const d = A.length > 1 ? A[1].v : 0; if (!Number.isInteger(d) || d < 0 || d > 12) throw new Error('round(x; n): n debe ser un entero de 0 a 12'); return { v: rnd(A[0].v, d), r: A[0].r }; } },
 };
 MULTI.redondear = MULTI.round;
-const LAZY = new Set(['if', 'si']); // si(condicion; si_verdadero; si_falso): solo se evalua la rama elegida
+const LAZY = new Set(['if', 'si']); // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
 // Funciones de vectores y matrices (reciben un vector o una matriz): inv, det; resumenes (sobre todos los elementos): sum, prod, mean, median, std, variance, norm, len;
 // forma: rows, cols, trace, diag, eye(n); acumuladas: cumsum, cumprod; entre dos vectores: dot, cross. min(x) y max(x) con un solo vector tambien resumen.
 const MATFN = new Set(['inv', 'det', 'sum', 'prod', 'mean', 'median', 'std', 'variance', 'norm', 'len', 'rows', 'cols', 'trace', 'diag', 'eye', 'cumsum', 'cumprod', 'dot', 'cross']);
-// error de calculo (division entre cero, raiz negativa): una rama de si() que no se elige no lo propaga
+// error de calculo (division entre cero, raiz negativa): una rama de if() que no se elige no lo propaga
 const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
 
 // Nombres que no puede llevar una cota: funciones y constantes del evaluador.
@@ -49,6 +49,8 @@ export const TIME_VAR = 't';
 export const FUTURE_VARS = new Set([TIME_VAR, 'j', 'ω', 'θ', 'α']);
 export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l === 'log10'; };
 export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : `«${n}» es una función o constante`);
+// Todos los nombres de funciones y constantes del evaluador (la referencia de la ayuda debe nombrarlos todos: test/funcref.test.mjs).
+export const FUNC_NAMES = [...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(CONSTS)];
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*$/;
 const ID_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*/;
 // Variables de texto con subindice: «var_(texto-del-subindice)». El subindice es texto libre (sin parentesis ni llaves); espacios sobrantes no cuentan.
@@ -315,8 +317,8 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
     const ok = { '<': x < y && !eq, '>': x > y && !eq, '<=': x < y || eq, '>=': x > y || eq, '==': eq, '!=': !eq }[k.v];
     return { v: ok ? 1 : 0, r: false };
   }
-  // si(condicion; si_verdadero; si_falso): solo se evalua la rama elegida (la otra se salta sin evaluarla; asi una funcion de usuario puede llamarse a si misma)
-  const SI_MSG = 'si(condición; si_verdadero; si_falso) lleva 3 valores separados por «;»';
+  // if(condicion; si_verdadero; si_falso) (o si): solo se evalua la rama elegida (la otra se salta sin evaluarla; asi una funcion de usuario puede llamarse a si misma)
+  const SI_MSG = 'if(condición; si_verdadero; si_falso) lleva 3 valores separados por «;»';
   function skipArg() { // avanza hasta el final del argumento actual (una «;» o un «)» fuera de parentesis y corchetes)
     let d = 0;
     for (; p < toks.length; p++) {
@@ -325,10 +327,10 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
       else if (t.t === 'op' && (t.v === ')' || t.v === ']')) { if (d === 0) return; d--; } else if (t.t === 'sep' && d === 0) return;
     }
   }
-  function lazyIf(name) { // ya se leyo «si(»
+  function lazyIf(name) { // ya se leyo «if(» (o «si(»)
     if (isOp(')')) throw new Error(`«${name}» necesita al menos un valor`);
     const c = cmp();
-    if (isM(c)) throw new Error('La condición de si() es un número, no un vector ni una matriz');
+    if (isM(c)) throw new Error('La condición de if() es un número, no un vector ni una matriz');
     const sep = () => { if (peek()?.t !== 'sep') throw new Error(SI_MSG); p++; };
     const yes = c.v !== 0;
     let pick;

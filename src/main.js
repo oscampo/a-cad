@@ -326,18 +326,26 @@ const helpNorm = (s) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowe
 function filterHelp(q) {
   const body = $('helpBody'), words = helpNorm(q).split(/\s+/).filter(Boolean);
   const hit = (el) => { const t = helpNorm(el.textContent); return words.every((w) => t.includes(w)); };
-  const units = body.querySelectorAll('li, p:not(#helpNone)');
+  const units = body.querySelectorAll('li, p:not(#helpNone), tbody tr');
   for (const el of units) el.hidden = words.length > 0 && !hit(el);
   body.querySelectorAll('details').forEach((d) => { d.hidden = false; }); // lo oculto en la busqueda anterior no cuenta
   // de adentro hacia afuera: una seccion anidada se resuelve antes que la que la contiene
   for (const d of [...body.querySelectorAll('details')].reverse()) {
     if (!words.length) { d.hidden = false; d.open = d.dataset.open0 === '1'; continue; }
     if (hit(d.querySelector(':scope > summary'))) {
-      d.querySelectorAll('li, p, details').forEach((el) => { el.hidden = false; if (el.tagName === 'DETAILS') el.open = true; });
+      d.querySelectorAll('li, p, tbody tr, details').forEach((el) => { el.hidden = false; if (el.tagName === 'DETAILS') el.open = true; });
     }
-    const any = [...d.querySelectorAll('li, p')].some((el) => !el.hidden && !el.closest('details[hidden]'));
+    const any = [...d.querySelectorAll('li, p, tbody tr')].some((el) => !el.hidden && !el.closest('details[hidden]'));
     d.hidden = !any; d.open = any;
   }
+  // una tabla sin filas visibles se oculta con su titulo
+  body.querySelectorAll('table.fref').forEach((tb) => {
+    const none = words.length > 0 && ![...tb.querySelectorAll('tbody tr')].some((tr) => !tr.hidden);
+    tb.hidden = none;
+    const note = tb.previousElementSibling?.tagName === 'P' ? tb.previousElementSibling : null;
+    const h = note ? note.previousElementSibling : tb.previousElementSibling;
+    if (h?.tagName === 'H4') h.hidden = none && (!note || note.hidden); // una nota que coincide conserva su titulo
+  });
   $('helpNone').hidden = !words.length || !!body.querySelector(':scope > details:not([hidden])');
   body.scrollTop = 0;
 }

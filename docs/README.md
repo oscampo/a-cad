@@ -22,6 +22,7 @@ Este manual explica cada herramienta y concepto en detalle, para quien empieza o
 | 5 | [Restricciones](05-restricciones.md) | Las relaciones geométricas que el solver mantiene siempre: horizontal, paralela, tangente, coincidente y las demás, con su numeración en el dibujo. |
 | 6 | [Cotas](06-cotas.md) | Las cotas: medidas que conducen la geometría o solo la leen, con fórmulas, nombres, escala y unidades de ángulo. |
 | 7 | [Texto y cálculo](07-texto-y-calculo.md) | Textos que calculan: fórmulas con AsciiMath, variables, salidas, vectores y matrices, funciones propias y el orden de lectura de la página. |
+| | [Funciones y operadores](funciones.md) | Referencia de todo lo que acepta una fórmula, con un ejemplo y su resultado para cada función. |
 | 8 | [Splines y trazados (levas y trayectorias)](08-splines-y-trazados.md) | Curvas libres que pasan por puntos del dibujo, la trayectoria de un punto que se mueve y las curvas equidistantes, base de levas y trayectorias. |
 | 9 | [Simulaciones gráficas](09-simulaciones-graficas.md) | Mover el dibujo en el tiempo: actuadores rotacionales y lineales, el reproductor de la simulación, gráficas de medidas, engranajes, cremallera y relaciones que solo valen mientras los elementos se tocan. |
 | 10 | [Estilo, capas y vista](10-estilo-capas-y-vista.md) | Color, tipo de línea, grosor y rellenos; capas; lo que muestra la vista; y el árbol de elementos. |
