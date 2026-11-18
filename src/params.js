@@ -137,6 +137,7 @@ export function recompute(doc, omega = 1, hook = null) {
     const k = doc.cons[id];
     let val;
     try { val = parseValue(k.expr, { angle: k.t === 'ANG', radians: k.t === 'ANG' && k.unit === 'rad', vars: varsOf(doc, id) }); } catch (e) { doc.cons = JSON.parse(bak); return { ok: false, error: `${k.name}: ${e.message}` }; }
+    if (k.scale > 0 && k.t !== 'ANG') val *= k.scale; // cota a escala: el dibujo mide el valor por la escala
     if (k.t === 'ANG') { // el angulo no tiene limite (400° = una vuelta y 40°): se trabaja con el valor continuo
       const old = k.cur;
       resid = Math.max(resid, Math.abs(val - old) / (1 + Math.abs(val)));

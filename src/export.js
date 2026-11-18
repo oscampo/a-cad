@@ -71,7 +71,7 @@ function dimSvg(L, color) {
   if (L.label) {
     const b = labelBox(L.label);
     out.push(`<rect x="${n(b.x)}" y="${n(b.y)}" width="${n(b.w)}" height="${n(b.h)}" rx="3" fill="#fff" fill-opacity="0.85"/>`);
-    out.push(`<text x="${n(L.label.x)}" y="${n(L.label.y)}" font-family="sans-serif" font-size="12" text-anchor="middle" dominant-baseline="central"${L.label.italic ? ' font-style="italic"' : ''} fill="${color}">${esc(L.label.text)}</text>`);
+    out.push(`<text x="${n(L.label.x)}" y="${n(L.label.y)}" font-family="sans-serif" font-size="12" text-anchor="middle" dominant-baseline="central"${L.label.italic ? ' font-style="italic"' : ''}${L.label.underline ? ' text-decoration="underline"' : ''} fill="${color}">${esc(L.label.text)}</text>`);
   }
   return out;
 }
@@ -263,7 +263,7 @@ export function exportDXF(doc, viewScale = 5, vis = {}) {
       P.forEach(([px, py], i) => { g(10 + i, mx(px)); g(20 + i, my(py)); g(30 + i, 0); });
     }
     if (L.label) {
-      g(0, 'TEXT'); g(8, '0'); g(10, mx(L.label.x)); g(20, my(L.label.y)); g(30, 0); g(40, 11 / S); g(1, L.label.text.replace(/\u2300/g, '%%c'));
+      g(0, 'TEXT'); g(8, '0'); g(10, mx(L.label.x)); g(20, my(L.label.y)); g(30, 0); g(40, 11 / S); g(1, (L.label.underline ? '%%u' : '') + L.label.text.replace(/\u2300/g, '%%c'));
       if (L.label.italic) g(51, 15); // cota de referencia: oblicuo
       g(72, 1); g(11, mx(L.label.x)); g(21, my(L.label.y)); g(31, 0); g(73, 2);
     }

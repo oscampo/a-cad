@@ -93,12 +93,25 @@ export function dimValue(doc, k) {
   return k.v;
 }
 
+// Cota a escala: «4[*10]» da un dibujo de 4*10 = 40 unidades con la cota «4» (k.scale = 10: el dibujo mide el valor por la escala).
+// La etiqueta lleva la medida real (la del dibujo entre la escala) y va subrayada (ISO 129, UNE 1-039). Solo en distancias, radios y diametros.
+export const dimScale = (k) => (k.t !== 'ANG' && k.t !== 'ANG4' && k.scale > 0 && k.scale !== 1 ? k.scale : 1);
+export const isScaledDim = (k) => dimScale(k) !== 1;
+// «valor[*k]» -> { body: 'valor', scale: k }; sin corchetes, { body }; con una escala que no vale, { body, err }.
+export function splitScale(src) {
+  const m = /^([\s\S]*?)\s*\[\s*\*\s*([^\]]*?)\s*\]\s*$/.exec(String(src ?? ''));
+  if (!m) return { body: String(src ?? '') };
+  const k = Number(m[2].replace(',', '.'));
+  if (!m[2] || !Number.isFinite(k) || !(k > 0)) return { body: m[1], err: 'La escala debe ser un número mayor que cero, p. ej. 4[*10]' };
+  return { body: m[1], scale: k };
+}
+
 export function dimText(doc, k) {
   if (k.t === 'ANG4') { const x = v4(doc, k); return dimText(x.d, x.k); }
-  const v = dimValue(doc, k);
+  const v = dimValue(doc, k), sc = dimScale(k);
   if (k.t === 'ANG') return k.unit === 'rad' ? fmtNum((v * Math.PI) / 180) + ' rad' : fmtNum(v) + '°';
-  if (k.t === 'RAD') return (k.refs[0] in doc.circles ? DIAM + fmtNum(2 * v) : 'R' + fmtNum(v));
-  return fmtNum(v);
+  if (k.t === 'RAD') return (k.refs[0] in doc.circles ? DIAM + fmtNum((2 * v) / sc) : 'R' + fmtNum(v / sc));
+  return fmtNum(v / sc);
 }
 
 function layoutDimBase(doc, k, view) {
@@ -223,7 +236,7 @@ function layoutDimBase(doc, k, view) {
 export function layoutDim(doc, k, view) {
   if (k.t === 'ANG4') { const x = v4(doc, k); return layoutDim(x.d, x.k, view); }
   const L = layoutDimBase(doc, k, view);
-  if (L.label) L.label.italic = !!k.ref;
+  if (L.label) { L.label.italic = !!k.ref; L.label.underline = isScaledDim(k); } // a escala: subrayada
   return L;
 }
 
