@@ -41,8 +41,15 @@ t('«x:expr=» asigna y muestra el valor en la misma linea', () => {
   assert.equal(page('$$v:1..3;3=$$'), '$$v:=[1, 2, 3]$$'); // un vector ya muestra su valor
   assert.equal(page('$$b:3==3$$'), '$$b:=3==3$$'); // «==» al final es una comparacion, no «=»
   assert.equal(page('$$q:sqrt(-1)=$$').includes('⚠'), true);
-  assert.deepEqual(stmts('$$f(x):x^2=$$'), ['f(x):x^2=']); // en una funcion el «=» queda en el cuerpo
+  assert.deepEqual(stmts('$f(x):x^2=$'), ['f(x):x^2']); // en una funcion el «=» tampoco es parte del cuerpo
   for (const s of ['$$x:2*3=$$', '$$y:x+1 = $$']) assert.equal(calcSrc(calcParse(s)), s);
+});
+
+t('«f(x):expr=» define la funcion y muestra f(x) con las variables de ese punto', () => {
+  assert.equal(page('$$x:0..1;3\nf(x):x.^2=\nf(x)=\nf(3)=$$'), '$$x:=[0, 0.5, 1]\nf(x):=x.^2=[0, 0.25, 1]\nf(x)=[0, 0.25, 1]\nf(3)=9$$');
+  assert.equal(page('$$a:2\nb:5\ng(a; b):a*b+1=$$'), '$$a:=2\nb:=5\ng(a; b):=a*b+1=11$$');
+  assert.equal(page('$$f(x):x^2=\nf(3)=$$'), '$$f(x):=x^2=⚠\nf(3)=9$$'); // sin x: ⚠, pero la funcion queda definida
+  for (const s of ['$$f(x):x^2=$$', '$$g(a; b):a+b = $$']) assert.equal(calcSrc(calcParse(s)), s);
 });
 
 t('un enunciado por linea: lo que sobra en la linea da ⚠', () => {

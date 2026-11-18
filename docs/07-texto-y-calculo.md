@@ -70,7 +70,7 @@ Las fórmulas siguen la sintaxis de [asciimath.org](https://asciimath.org/). Se 
 | `<=`, `>=`, `!=`, `->`, `=>`, `+-`, `xx`, `-:`, `oo` | ≤ ≥ ≠ → ⇒ ± × ÷ ∞ |
 | `abs(x)`, `floor(x)`, `ceil(x)`, `norm(x)` | Valor absoluto, piso, techo y norma, con sus barras. |
 | `hat x`, `bar x`, `vec v`, `tilde`, `dot`, `ddot`, `ul`, `cancel`, `overarc` | Acentos, subrayado y tachado. |
-| `[[a,b],[c,d]]`, `((a),(b))` | Matrices dibujadas (sin calcular). |
+| `[a, b; c, d]`, `[a; b]`, `[[a,b],[c,d]]`, `((a),(b))` | Matrices y vectores columna dibujados (sin calcular). Entre corchetes, `;` separa filas y `,` columnas. |
 | `[[a,b,\|,c],[d,e,\|,f]]` | Matriz aumentada. |
 | `{(2x,+,y,=,3),(x,-,y,=,1):}` | Sistema de ecuaciones. |
 | `ubrace(…)_("texto")`, `obrace`, `overset(x)(=)`, `underset` | Llaves y signos con algo encima o debajo. |
@@ -136,11 +136,11 @@ Se escriben entre corchetes: la coma separa los elementos de una fila, el punto 
 | `f(x):…` | Define una función. Se dibuja `f(x):=…` y se usa en las salidas, las variables y las cotas (`D1 = f(3)`). | `f(x):x^2+1`<br>`f(3)=` | `f(x):=x^2+1`<br>`f(3)=10` |
 | `g(a; b):…` | Varios parámetros, separados por `;` o `,`. | `g(a; b):a*b+1`<br>`g(2; 5)=` | `g(a; b):=a*b+1`<br>`g(2; 5)=11` |
 | `if(c; a; b)` | Recursión: solo se calcula la rama elegida (hasta 200 niveles). | `fact(n):if(n<=1; 1; n*fact(n-1))`<br>`fact(5)=` | `fact(n):=if(n<=1; 1; n*fact(n-1))`<br>`fact(5)=120` |
+| `f(x):…=` | Define la función y muestra ahí mismo `f(x)`, con las variables que valen en ese punto (`⚠` si alguna no existe). | `x:3`<br>`f(x):x^2+1=` | `x:=3`<br>`f(x):=x^2+1=10` |
 | Variables de fuera | Lee las variables que valen donde se la llama, no donde se definió. | `k:2`<br>`f(x):x*k`<br>`f(3)=`<br>`k:5`<br>`f(3)=` | `k:=2`<br>`f(x):=x*k`<br>`f(3)=6`<br>`k:=5`<br>`f(3)=15` |
 
 - Los parámetros valen lo que se les pasa (números, vectores o matrices) y ocultan a las variables del mismo nombre.
 - Los nombres de la función y de sus parámetros siguen las reglas de las variables, y no pueden ser funciones del programa (`sin`, `sum`…).
-- En una función, un **=** al final queda en el cuerpo: `x:expr=` solo muestra el valor de una variable.
 
 ## Propiedades con «.»
 

@@ -144,6 +144,10 @@ t('asciimath.org: matrices, vectores columna, aumentadas y casos', () => {
   const cs = parse('{(2x,+,17y,=,23),(x,-,y,=,5):}').c[0];
   assert.equal(cs.t, 'mat'); assert.equal(cs.rows[0].length, 5); assert.equal(cs.r, ':}');
   assert.equal(parse('(1,2)').c[0].t, 'group'); // una pareja no es matriz
+  const sm = parse('[a, b; c, d]').c[0], col = parse('[a;b]').c[0];
+  assert.equal(sm.t, 'mat'); assert.equal(sm.rows.length, 2); assert.equal(sm.rows[0].length, 2);
+  assert.equal(col.t, 'mat'); assert.equal(col.rows.length, 2); assert.equal(col.rows[0].length, 1);
+  for (const s of ['[a, b; c]', '[x; ]', '[0, 1]', '(a; b)']) assert.equal(parse(s).c[0].t, 'group', s); // filas desiguales, celda vacia o sin «;»: tal cual
   const lay2 = layoutMath('[[a,b],[c,d]]', true, measure), lay1 = layoutMath('[a,b]', true, measure);
   assert.ok(lay2.a + lay2.d > 2 * (lay1.a + lay1.d) * 0.9);
   assert.ok(lay2.ops.some((o) => o.k === 'p')); // corchetes grandes

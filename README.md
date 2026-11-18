@@ -12,7 +12,7 @@ Es una aplicación web instalable (PWA): no necesita tienda de aplicaciones ni s
 - **Android**: abre el enlace en **Chrome**, toca el menú **⋮** y luego **Instalar app** (o **Añadir a pantalla de inicio**).
 - **Computador**: basta con abrir el enlace en el navegador. Chrome y Edge también ofrecen instalarla desde la barra de direcciones.
 
-La app se actualiza sola cuando hay una versión nueva. La versión y la compilación que corre se ven abajo a la izquierda del dibujo (por ejemplo, *v2.1.0 a1b2c3d*).
+La app se actualiza sola cuando hay una versión nueva. La versión y la compilación que corre se ven abajo a la izquierda del dibujo (por ejemplo, *v2.2.0 a1b2c3d*).
 
 ## Qué puedes hacer
 

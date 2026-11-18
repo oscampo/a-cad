@@ -45,7 +45,7 @@ function stmtOf(s) {
   let m = DEF_LINE.exec(s);
   if (m && m[5].trim()) {
     const d = { k: 'def', pre: m[1], name: m[2], params: m[3], sep: m[4], expr: m[5], post: m[6] };
-    const e = m[3] === undefined && EQ_TAIL.exec(m[5]);
+    const e = EQ_TAIL.exec(m[5]); // tambien en una funcion: «f(x):x^2=» define f y muestra f(x) con las variables de ese punto
     if (e && !/[<>=!:≤≥≠]$/.test(e[1])) { d.expr = e[1]; d.eq = e[2]; }
     return d;
   }
@@ -211,7 +211,7 @@ function readingEvents(doc, probes = []) {
     if (it.probe !== undefined) { out.push({ kind: 'dim', id: it.probe }); continue; }
     let di = 0, oi = 0;
     for (const p of calcStmts(it.t.text)) {
-      if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(/[;,]/).map((q) => q.trim()) });
+      if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(/[;,]/).map((q) => q.trim()), ...(p.eq !== undefined && p.params !== undefined ? { eq: true } : {}) });
       else out.push({ kind: 'out', tid: it.tid, idx: oi++, expr: p.expr });
     }
   }
@@ -228,10 +228,11 @@ export const textDefs = (doc) => readingEvents(doc).filter((e) => e.kind === 'de
 //  names: Set con los nombres de las definiciones validas (aunque fallen)
 //  defs: las definiciones (en orden de lectura); win: Map(nombre -> su ultima definicion); byName: Map(nombre -> todas sus definiciones)
 //  defVal: Map('tid:idx' -> valor que esa definicion dio); outEnv: Map('tid:idx' -> variables que ve esa salida «expr=»)
+//  fnEnv: Map('tid:idx' -> variables que ve «f(x):expr=», para mostrar f(x) ahi mismo)
 //  dimEnv: Map(id de cota -> variables de texto que ve esa cota en su lugar de la pagina)
 let memoKey = null, memoSt = null;
 export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = []) {
-  const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), dimEnv: new Map() };
+  const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map() };
   const events = readingEvents(doc, probes);
   if (!events.some((e) => e.kind !== 'dim')) return st; // sin definiciones ni salidas: nada que leer
   const key = JSON.stringify([events, dimVars, [...dimNames]]);
@@ -274,7 +275,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
         }
       } catch (err) { st.bad.add(k); st.errs.set(e.name, `«${e.name}»: ${hint(err.message)}`); }
     }
-    if (val) { cur[e.name] = val; env[e.name] = val; st.defVal.set(k, val); } else { delete cur[e.name]; delete env[e.name]; } // una definicion que falla deja la variable sin definir
+    if (val) { cur[e.name] = val; env[e.name] = val; st.defVal.set(k, val); if (e.eq) st.fnEnv.set(k, { ...cur }); } else { delete cur[e.name]; delete env[e.name]; } // una definicion que falla deja la variable sin definir
   }
   memoKey = key; memoSt = st;
   return st;

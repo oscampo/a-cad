@@ -2,6 +2,16 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## v2.2.0 (2026-11-18)
+
+### Nuevo
+
+- Textos: **`[a, b; c, d]` y `[a; b]` se dibujan como matriz y vector columna** en una línea que solo dibuja (sin asignar ni `=` al final). Entre corchetes, `;` separa filas y `,` columnas, la misma escritura de las matrices que se calculan. Si las filas no tienen el mismo número de elementos, si hay una celda vacía o si no hay ningún `;`, se dibuja tal cual. `[[a,b],[c,d]]` y `((a),(b))` siguen funcionando.
+
+### Cambia el comportamiento
+
+- Textos: **`f(x):expr=` define la función y muestra `f(x)` ahí mismo**, calculada con las variables que valen en ese punto de la lectura: con `x:0..1;3`, `f(x):x.^2=` se dibuja `f(x):=x.^2=[0  0.25  1]`. Si un parámetro no existe como variable aparece `=⚠`, pero la función queda definida igual. Antes el `=` quedaba en el cuerpo de la función y cada llamada (`f(x)=`, `f(3)=`) daba ⚠.
+
 ## v2.1.0 (2026-11-18)
 
 ### Nuevo

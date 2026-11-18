@@ -141,7 +141,19 @@ function splitCommas(nodes) {
 }
 // «[[a,b],[c,d]]», «((a),(b))», «{(x,+,y),(u,-,v):}»: un grupo cuyos elementos son grupos con el mismo numero de elementos es una matriz.
 // Una columna formada solo por «|» es una linea vertical (matriz aumentada).
+// «[a, b; c, d]», «[a; b]»: entre corchetes, «;» separa filas y «,» columnas (la misma escritura de las matrices calculadas).
+const isSemi = (n) => n.t === 'o' && n.k === 'punct' && n.s === ';';
+function semiMatrix(g) {
+  if (g.l !== '[' || g.r !== ']' || !g.body.c.some(isSemi)) return null;
+  const rows = [[]];
+  for (const n of g.body.c) { if (isSemi(n)) rows.push([]); else rows.at(-1).push(n); }
+  const cells = rows.map((r) => splitCommas(r).map((c) => ({ t: 'row', c: c.filter((n) => n.t !== 'space') })));
+  if (cells.some((r) => r.length !== cells[0].length || r.some((c) => !c.c.length))) return null;
+  return { t: 'mat', l: '[', r: ']', rows: cells, bars: [] };
+}
 function toMatrix(g) {
+  const semi = semiMatrix(g);
+  if (semi) return semi;
   const items = splitCommas(g.body.c);
   if (!items.length || !items.every((it) => it.length === 1 && it[0].t === 'group')) return null;
   const rows = items.map((it) => splitCommas(it[0].body.c).map((c) => ({ t: 'row', c })));
