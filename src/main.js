@@ -35,7 +35,7 @@ import { parseValue, isPlainNumber } from './expr.js';
 import { HELP_HTML } from './help.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
 
-const VERSION = '1.8.0';
+const VERSION = '1.9.0';
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev'; // commit de la compilacion: junto a la version, abajo a la izquierda del dibujo
 const STORE = 'ipad-cad-v1';
 const $ = (id) => document.getElementById(id);
@@ -314,7 +314,34 @@ function applyChrome() {
 $('tPanel').onclick = () => { opts.panel = opts.panel === false; applyChrome(); persist(); };
 $('tTree').onclick = () => { opts.tree = !opts.tree; applyChrome(); persist(); };
 $('treeBy').onclick = () => { opts.treeBy = opts.treeBy === 'layer' ? 'type' : 'layer'; persist(); renderTree(); };
-$('tHelp').onclick = () => { $('helpBody').innerHTML = HELP_HTML + `<p style="color:var(--muted);font-size:12px">iPad CAD v${VERSION}</p>`; $('dlgH').showModal(); $('helpBody').scrollTop = 0; };
+$('tHelp').onclick = () => {
+  $('helpBody').innerHTML = HELP_HTML + `<p id="helpNone" hidden>Nada en la ayuda coincide con la búsqueda.</p><p style="color:var(--muted);font-size:12px">iPad CAD v${VERSION}</p>`;
+  $('helpBody').querySelectorAll('details').forEach((d) => { d.dataset.open0 = d.open ? '1' : ''; });
+  $('helpSearch').value = '';
+  $('dlgH').showModal(); $('helpBody').scrollTop = 0;
+};
+// Buscador de la ayuda: sin tildes ni mayusculas, todas las palabras deben aparecer. Deja solo los puntos y parrafos que
+// coinciden (una seccion cuyo titulo coincide se muestra entera) y abre sus secciones; vacio, vuelve a como estaba.
+const helpNorm = (s) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+function filterHelp(q) {
+  const body = $('helpBody'), words = helpNorm(q).split(/\s+/).filter(Boolean);
+  const hit = (el) => { const t = helpNorm(el.textContent); return words.every((w) => t.includes(w)); };
+  const units = body.querySelectorAll('li, p:not(#helpNone)');
+  for (const el of units) el.hidden = words.length > 0 && !hit(el);
+  body.querySelectorAll('details').forEach((d) => { d.hidden = false; }); // lo oculto en la busqueda anterior no cuenta
+  // de adentro hacia afuera: una seccion anidada se resuelve antes que la que la contiene
+  for (const d of [...body.querySelectorAll('details')].reverse()) {
+    if (!words.length) { d.hidden = false; d.open = d.dataset.open0 === '1'; continue; }
+    if (hit(d.querySelector(':scope > summary'))) {
+      d.querySelectorAll('li, p, details').forEach((el) => { el.hidden = false; if (el.tagName === 'DETAILS') el.open = true; });
+    }
+    const any = [...d.querySelectorAll('li, p')].some((el) => !el.hidden && !el.closest('details[hidden]'));
+    d.hidden = !any; d.open = any;
+  }
+  $('helpNone').hidden = !words.length || !!body.querySelector(':scope > details:not([hidden])');
+  body.scrollTop = 0;
+}
+$('helpSearch').addEventListener('input', (e) => filterHelp(e.target.value));
 $('helpClose').onclick = () => $('dlgH').close();
 $('treeClose').onclick = () => { opts.tree = false; applyChrome(); persist(); };
 

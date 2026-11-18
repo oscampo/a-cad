@@ -1,26 +1,67 @@
 # iPad CAD
 
-CAD 2D parametrico para iPad (uso personal), inspirado en Updraw. PWA: se instala desde Safari con
-"Anadir a pantalla de inicio". Solver de restricciones: planegcs (FreeCAD) en WebAssembly.
+Editor de dibujo 2D **paramétrico** para iPad con Apple Pencil, que también funciona en un computador con ratón y teclado. Dibujas la geometría, le pones restricciones y cotas, y el dibujo se mantiene coherente al arrastrar o al cambiar una medida. Además calcula con fórmulas, matrices y funciones dentro del propio dibujo y simula mecanismos con gráficas.
 
-- Puntos, lineas, circulos con restricciones (H, V, paralela, perpendicular, coincidente, punto medio,
-  igual, tangente, punto sobre linea/circulo, fijar) y cotas (distancia, angulo, radio).
-- Interseccion de dos elementos (recta-recta, recta-circulo, circulo-circulo) como punto restringido a ambos.
-- Tipos de linea: continua, oculta, eje, fantasma, discontinua, punteada, traza y punto, y propios
-  (patron tipo `12 -3 2 -3`).
-- Colores y grosores por elemento. Rellenos: achurado (lineas, cruzado) y color solido.
-- Arcos (centro y extremos, 3 puntos), colineal y dividir (segmentos, arcos y circulos heredan estilo y relaciones).
-- Cotas con flechas y lineas de extension reposicionables (arrastra la etiqueta): distancia, angulo, R de arco, phi de circulo.
-- Texto con punto de insercion (esquinas, medios de lado o centro de la caja), angulo y altura; el punto es un punto real del dibujo.
-- Texto alineado con una linea (sigue su direccion, con desfase) y modo legible (se gira 180 grados si quedaria boca abajo, manteniendo su caja en el mismo sitio).
-- Cotas de referencia (solo lectura, en cursiva): miden en vivo y no entran al solver, para medir resultados sin generar conflictos.
-- Splines por puntos (Catmull-Rom centripeta, abiertos o cerrados): pasan por puntos reales del dibujo y se pueden rellenar y exportar.
-- Trazado de trayectorias: marca un punto con "Trazar punto" y al arrastrar el mecanismo deja su trayectoria; se puede convertir en un spline editable.
-- Splines como elementos de primera clase: punto sobre spline, intersecciones (recta, arco, circulo y otro spline) y tangencias (recta o circulo/arco con spline) que siguen al dibujo al arrastrar. Equidistante de splines y SVG de corte laser a escala real.
-- SVG para corte laser: escala real en mm, solo trazo continuo, splines como curvas Bezier exactas, un color y grosor de trazo fino.
-- Interruptores de vista: restricciones, puntos, cotas y textos.
-- Escala del patron de linea por elemento.
-- Exportar .json, PNG, SVG, DXF (lineas, arcos, circulos, puntos, textos y cotas; en DXF las cotas salen como geometria: LINE, ARC, SOLID y TEXT, no como entidades DIMENSION).
+**Abrir la app:** <https://oscampo.github.io/ipad-cad/>
 
-Desarrollo: `npm install`, `npm run dev`, `npm test`, `npm run build`.
-Apple Pencil dibuja y arrastra; un dedo desplaza y hace zoom (pellizco). Interruptor "Dibujar con dedo".
+Es una aplicación web instalable (PWA): no necesita App Store ni servidor propio, funciona sin conexión una vez abierta y guarda el dibujo en el dispositivo. Las restricciones las resuelve **PlaneGCS**, el solver geométrico del Sketcher de FreeCAD, compilado a WebAssembly.
+
+## Instalar en el iPad
+
+1. Abre <https://oscampo.github.io/ipad-cad/> en **Safari**.
+2. Toca **Compartir** y luego **Añadir a pantalla de inicio**.
+3. Abre la app desde su ícono. Se actualiza sola cuando hay una versión nueva: la versión y la compilación que corre se ven abajo a la izquierda del dibujo (por ejemplo, *v1.9.0 a1b2c3d*).
+
+En un computador basta con abrir el enlace en el navegador.
+
+## Qué puedes hacer
+
+- **Dibujar**: puntos, líneas, vectores, líneas constructivas, círculos, arcos, elipses y arcos elípticos, splines, rectángulos y polígonos. Bloqueo suave a horizontal, vertical, paralela, perpendicular y tangente, e imán a intersecciones y puntos medios.
+- **Editar**: seleccionar (también con cuadro y con filtro), propiedades con doble toque, copiar y pegar, recortar, extender, dividir, redondeo y chaflán, matrices lineal y circular, y copia espejo vinculadas al original.
+- **Restringir y acotar**: horizontal, vertical, paralela, perpendicular, coincidente, punto medio, concéntrica, igual, tangente, fijar y marca de referencia; cotas de distancia, ángulo, radio y diámetro, con fórmulas, nombres (D1, A1, R1, O1), cotas a escala (`4[*10]`) y cotas de solo lectura que alimentan otras.
+- **Calcular en el dibujo**: textos con fórmulas en AsciiMath, variables, vectores y matrices (inversa, determinante, índices), funciones propias y salidas `[=expresión]`, leídos en orden de arriba a abajo y de izquierda a derecha, como en una hoja de cálculo matemática.
+- **Splines y trayectorias**: B-splines cúbicos que pasan por puntos del dibujo, con intersecciones y tangencias; trazado de la trayectoria de un punto y conversión a spline; curva equidistante para levas.
+- **Simulaciones gráficas**: actuadores rotacionales y lineales con una expresión o una tabla en el tiempo, reproductor de la simulación, gráficas de cualquier medida contra el tiempo o contra otra medida, engranajes, rueda y cremallera, y relaciones que valen solo mientras los elementos se tocan (topes, levas).
+- **Organizar**: capas, estilos de línea (propios incluidos), colores, grosores y rellenos, y un árbol de elementos con vista por tipo o por capa, relaciones agrupadas por su origen y contornos con su abertura.
+- **Guardar y exportar**: archivo `.json`, guardado y administrador de archivos en un repositorio de GitHub (papelera, renombrar, duplicar, proteger), y exportación a PNG, SVG, DXF y SVG para corte láser a escala real.
+
+## Ejemplos
+
+En [`ejemplos/`](ejemplos/) hay dibujos listos para abrir (descárgalos y usa **Archivo → Abrir**):
+
+| Archivo | Qué muestra |
+|---|---|
+| [`cicloide.json`](ejemplos/cicloide.json) | La cicloide `x = r(θ − sen θ)`, `y = r(1 − cos θ)` con la rueda en cinco posiciones, por capas, y su trazado convertido a spline. |
+| [`cicloide-rodando.json`](ejemplos/cicloide-rodando.json) | Una rueda que rueda sin deslizar (`A1 = D1/r`): al arrastrar el punto de contacto, un punto del borde traza la cicloide. |
+| [`rueda-rodando.json`](ejemplos/rueda-rodando.json) | Rueda y cremallera: la rodadura con la relación mecánica, y la trayectoria de un punto. |
+| [`marca-de-referencia.json`](ejemplos/marca-de-referencia.json) | Marca de referencia frente a punto fijo sobre un riel: la marca recuerda el camino recorrido, el punto fijo no. Guía paso a paso dentro del dibujo. |
+| [`marca-de-referencia-2.json`](ejemplos/marca-de-referencia-2.json) | Prueba de memoria con giro: marca de referencia frente a punto coincidente en dos rieles. |
+| [`engrane_recto_giro.json`](ejemplos/engrane_recto_giro.json) | Engrane recto paramétrico (módulo `m` y número de dientes `z`) hecho con matrices circulares, con dos ruedas. Variantes [`_ligero`](ejemplos/engrane_recto_giro_ligero.json) y [`_relacion`](ejemplos/engrane_recto_giro_relacion.json) (con relación de engranaje). |
+
+## Documentación
+
+- **[Manual](docs/README.md)**: cada herramienta y concepto en detalle, con un capítulo por tema. Es la referencia para quien empieza o quiere entender cómo funciona algo.
+- **Ayuda dentro de la app** (botón **?**): la misma información, compacta y con buscador.
+- **[Historial de cambios](CHANGELOG.md)** y [Releases](https://github.com/oscampo/ipad-cad/releases): qué trae cada versión.
+- **Límites conocidos**: al final del manual y de la ayuda.
+
+## Desarrollo
+
+Requiere Node.js.
+
+```bash
+npm install
+npm run dev      # servidor local (también en la red, para probar en el iPad)
+npm test         # pruebas: solver, matemática, matrices, orden de lectura, árbol, GitHub simulado...
+npm run build    # compilación en dist/
+```
+
+- `src/`: la app, sin framework. `main.js` (interfaz y herramientas), `model.js` (documento y elementos), `solver.js` (puente con PlaneGCS), `dims.js` y `params.js` (cotas y fórmulas), `tvars.js` y `expr.js` (cálculo en textos), `tree.js` (árbol de elementos), `help.js` (ayuda).
+- `test/`: pruebas en Node (`node test/<archivo>.test.mjs`).
+- Publicación: cada push a `main` se publica en GitHub Pages (`.github/workflows/pages.yml`). Una etiqueta `vX.Y.Z` crea el Release con las notas de su sección en `CHANGELOG.md` (`.github/workflows/release.yml`).
+
+## Créditos
+
+- [PlaneGCS](https://github.com/FreeCAD/FreeCAD), solver geométrico 2D del Sketcher de FreeCAD, mediante el paquete [@salusoft89/planegcs](https://github.com/Salusoft89/planegcs) (WebAssembly).
+- Íconos [Lucide](https://lucide.dev) (licencia ISC). Empaquetado con [Vite](https://vite.dev) (licencia MIT).
+- Inspirado en Updraw.
