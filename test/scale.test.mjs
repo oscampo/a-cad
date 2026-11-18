@@ -1,7 +1,7 @@
 // Cotas a escala: «valor[*k]» (el dibujo mide valor por k; la cota dice valor y va subrayada, ISO 129) y la entrada de texto matematica.
 import assert from 'node:assert/strict';
 import { newDoc, addPoint, addLine, addCon } from '../src/model.js';
-import { dimText, dimScale, isScaledDim, splitScale, layoutDim } from '../src/dims.js';
+import { dimText, dimScale, dimValue, isScaledDim, splitScale, layoutDim } from '../src/dims.js';
 import { exportSVG, exportDXF } from '../src/export.js';
 import { initSolver, solve } from '../src/solver.js';
 import { settle } from '../src/params.js';
@@ -11,14 +11,16 @@ let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
 const near = (a, b, e = 1e-6) => assert.ok(Math.abs(a - b) <= e, `${a} != ${b}`);
 
-t('splitScale: valor[*k] se separa; sin corchetes no cambia; escalas invalidas dan error', () => {
-  assert.deepEqual(splitScale('4[*10]'), { body: '4', scale: 10 });
-  assert.deepEqual(splitScale('4[*0.1]'), { body: '4', scale: 0.1 });
-  assert.deepEqual(splitScale('2*D1 + 1 [ * 25 ]'), { body: '2*D1 + 1', scale: 25 });
-  assert.deepEqual(splitScale('4[*0,5]'), { body: '4', scale: 0.5 });
+t('splitScale: valor[*k] se separa (k numero o formula); sin corchetes no cambia; escalas invalidas dan error', () => {
+  assert.deepEqual(splitScale('4[*10]'), { body: '4', src: '10', scale: 10 });
+  assert.deepEqual(splitScale('4[*0.1]'), { body: '4', src: '0.1', scale: 0.1 });
+  assert.deepEqual(splitScale('2*D1 + 1 [ * 25 ]'), { body: '2*D1 + 1', src: '25', scale: 25 });
+  assert.deepEqual(splitScale('4[*0,5]'), { body: '4', src: '0,5', scale: 0.5 });
+  assert.deepEqual(splitScale('30[*k]'), { body: '30', src: 'k' }); // formula: la evalua quien llama, con sus variables
+  assert.deepEqual(splitScale('30[* 2*D1 ]'), { body: '30', src: '2*D1' });
   assert.deepEqual(splitScale('3+4'), { body: '3+4' });
   assert.deepEqual(splitScale('[1,2]'), { body: '[1,2]' }); // una matriz no es una escala
-  for (const bad of ['4[*0]', '4[*-2]', '4[*]', '4[*abc]']) assert.ok(splitScale(bad).err, bad);
+  for (const bad of ['4[*0]', '4[*-2]', '4[*]']) assert.ok(splitScale(bad).err, bad);
 });
 
 const mkLine = (len) => {
@@ -68,6 +70,32 @@ t('el solver respeta la longitud del dibujo, y la formula de una cota a escala s
   assert.ok(settle(e, solve, []).ok);
   near(e.cons[k2].v, 100);
   assert.equal(dimText(e, e.cons[k2]), '10');
+});
+
+t('cota de solo lectura a escala: la cota dice la medida entre la escala (subrayada)', () => {
+  const { d, k } = mkLine(13.333);
+  d.cons[k].ref = true; d.cons[k].scale = 10;
+  assert.equal(dimText(d, d.cons[k]), '1.333');
+  assert.equal(layoutDim(d, d.cons[k], { s: 5, ox: 0, oy: 0 }).label.underline, true);
+  assert.equal(layoutDim(d, d.cons[k], { s: 5, ox: 0, oy: 0 }).label.italic, true); // y sigue en cursiva
+  assert.ok(settle(d, solve, []).ok);
+  near(dimValue(d, d.cons[k]), 13.333); // no restringe: mide
+});
+
+t('escala con formula: «30[*k]» sigue a la variable k{=25} y recalcula el dibujo', () => {
+  const { d, a, b, k } = mkLine(750);
+  d.texts.t1 = { pt: a, text: 'k{=25}', h: 1, ang: 0, anchor: 'bl', color: 'auto', readable: true };
+  Object.assign(d.cons[k], { name: 'D1', expr: '30', scale: 25, scaleExpr: 'k' });
+  const r = settle(d, solve, []);
+  assert.ok(r.ok, r.error);
+  near(d.cons[k].v, 750); assert.equal(dimText(d, d.cons[k]), '30');
+  d.texts.t1.text = 'k{=10}'; // la escala cambia: el valor (30) no, el dibujo si
+  assert.ok(settle(d, solve, []).ok);
+  near(d.cons[k].scale, 10); near(d.cons[k].v, 300); assert.equal(dimText(d, d.cons[k]), '30');
+  near(Math.hypot(d.pts[b].x - d.pts[a].x, d.pts[b].y - d.pts[a].y), 300);
+  d.texts.t1.text = 'k{=-1}'; // escala invalida: se rechaza y no se toca nada
+  const bad = settle(d, solve, []);
+  assert.equal(bad.ok, false); assert.match(bad.error, /escala/);
 });
 
 t('SVG y DXF: la cota a escala sale subrayada', () => {

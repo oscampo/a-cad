@@ -97,13 +97,18 @@ export function dimValue(doc, k) {
 // La etiqueta lleva la medida real (la del dibujo entre la escala) y va subrayada (ISO 129, UNE 1-039). Solo en distancias, radios y diametros.
 export const dimScale = (k) => (k.t !== 'ANG' && k.t !== 'ANG4' && k.scale > 0 && k.scale !== 1 ? k.scale : 1);
 export const isScaledDim = (k) => dimScale(k) !== 1;
-// «valor[*k]» -> { body: 'valor', scale: k }; sin corchetes, { body }; con una escala que no vale, { body, err }.
+// «valor[*k]» -> { body: 'valor', src: 'k', scale: k }: k es un numero (scale) o una formula con cotas y variables (src; quien llama la evalua).
+// Sin corchetes, { body }; con la escala vacia o un numero que no vale, { body, err }.
 export function splitScale(src) {
   const m = /^([\s\S]*?)\s*\[\s*\*\s*([^\]]*?)\s*\]\s*$/.exec(String(src ?? ''));
   if (!m) return { body: String(src ?? '') };
-  const k = Number(m[2].replace(',', '.'));
-  if (!m[2] || !Number.isFinite(k) || !(k > 0)) return { body: m[1], err: 'La escala debe ser un número mayor que cero, p. ej. 4[*10]' };
-  return { body: m[1], scale: k };
+  if (!m[2]) return { body: m[1], err: 'La escala debe ser un número mayor que cero, p. ej. 4[*10]' };
+  if (/^[-+]?(\d+([.,]\d+)?|[.,]\d+)$/.test(m[2])) { // un numero simple
+    const k = Number(m[2].replace(',', '.'));
+    if (!(k > 0)) return { body: m[1], err: 'La escala debe ser un número mayor que cero, p. ej. 4[*10]' };
+    return { body: m[1], src: m[2], scale: k };
+  }
+  return { body: m[1], src: m[2] }; // formula: «30[*k]», «4[*2*D1]»
 }
 
 export function dimText(doc, k) {

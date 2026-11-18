@@ -2294,10 +2294,13 @@ let dlgUnit = null; // unidad elegida en la ultima cota angular ('deg' | 'rad')
 let dlgCtx = null, dlgName = null; // dlgCtx (lo fija quien llama): { vars, list, name?, check? } para formulas con nombres y el campo Nombre
 let dlgExpr = null; // formula tecleada en la ultima cota (null si fue un numero simple)
 let dlgScale = null; // escala de «valor[*k]» en la ultima cota (null si no la llevaba)
+let dlgScaleExpr = null; // la escala como formula («k», «2*D1»), null si era un numero
 const KEYS = [['π', 'π'], ['√', '√('], ['sin', 'sin('], ['cos', 'cos('], ['tan', 'tan('], ['^', '^'], ['(', '('], [')', ')'], ['×', '*'], ['÷', '/']];
 // kind: 'len' (distancias, radios) o 'angle' (grados; lo que lleve π se pasa de radianes a grados)
-function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = 'deg', scaleOk = false) {
-  dlgScale = null;
+// sopt: false (sin escala) o { scale0: escala actual como texto, measured: medida del dibujo } (cotas de distancia, radio y diametro).
+function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = 'deg', sopt = false) {
+  dlgScale = null; dlgScaleExpr = null;
+  const scaleOk = !!sopt;
   return new Promise((resolve) => {
     const dlg = $('dlg'), inp = $('dlgInput'), chk = $('dlgRef'), prev = $('dlgPrev');
     const ctx = dlgCtx || { vars: varsOf(doc), list: varsList(doc) }; dlgCtx = null; dlgName = null;
@@ -2331,25 +2334,52 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
       };
       keys.appendChild(b);
     }
+    // Escala de una cota: un numero o una formula con cotas y variables («10», «k», «2*D1»). { sc, src } o { err }.
+    const scaleOf = (src) => {
+      try {
+        const sc = parseValue(src, { vars: ctx?.vars });
+        if (!(sc > 0) || !Number.isFinite(sc)) return { err: 'La escala debe ser un número mayor que cero, p. ej. 4[*10]' };
+        return { sc, src: isPlainNumber(src) ? null : src.trim() };
+      } catch (e) { return { err: 'Escala: ' + e.message }; }
+    };
     // «valor[*k]»: cota a escala (el dibujo mide valor por k y la cota dice valor); solo donde scaleOk
     const evalNow = () => {
       const sp = splitScale(inp.value);
       if (sp.err) return { err: sp.err };
-      if (sp.scale !== undefined && !scaleOk) return { err: 'La escala [*k] solo vale en distancias, radios y diámetros' };
+      if (sp.src !== undefined && !scaleOk) return { err: 'La escala [*k] solo vale en distancias, radios y diámetros' };
+      let so = null;
+      if (sp.src !== undefined) { so = scaleOf(sp.src); if (so.err) return { err: so.err }; }
       try {
         const v = parseValue(sp.body, { angle: kind === 'angle', radians: kind === 'angle' && unitSel.value === 'rad', vars: ctx?.vars });
-        return sp.scale === undefined ? { v } : { v: Number((v * sp.scale).toPrecision(12)), shown: v, scale: sp.scale, body: sp.body };
+        return !so ? { v } : { v: Number((v * so.sc).toPrecision(12)), shown: v, scale: so.sc, scaleSrc: so.src, body: sp.body };
       } catch (e) { return { err: e.message }; }
     };
+    // Solo lectura: campo «Escala (×)» (vacio = sin escala); la cota dice medida ÷ escala
+    const scRow = $('dlgScaleRow'), scInp = $('dlgScale');
+    scInp.value = scaleOk ? String(sopt.scale0 ?? '') : '';
+    const refScale = () => { const s = scInp.value.trim(); return s ? scaleOf(s) : null; };
     const showPrev = () => {
+      if (chk.checked && scaleOk) { // solo lectura con escala: la cota dice la medida entre la escala
+        const so = refScale(), m = sopt.measured, rd6 = (x) => Math.round(x * 1e6) / 1e6;
+        prev.style.color = so?.err ? 'var(--warn)' : 'var(--muted)';
+        prev.textContent = so?.err ? so.err : so ? `Cota «${rd6(m / so.sc)}» (subrayada) · medida ${rd6(m)} ÷ ${rd6(so.sc)}` : '';
+        return;
+      }
       if (chk.checked || (isPlainNumber(inp.value) && kind !== 'angle')) { prev.textContent = ''; return; }
       const r = evalNow();
       prev.style.color = r.err ? 'var(--warn)' : 'var(--muted)';
       const rd6 = (x) => Math.round(x * 1e6) / 1e6;
       prev.textContent = r.err ? r.err : r.scale !== undefined ? `Cota «${rd6(r.shown)}» (subrayada) · dibujo = ${rd6(r.shown)} × ${rd6(r.scale)} = ${rd6(r.v)}` : kind === 'angle' ? `= ${rd6(r.v)}° = ${rd6((r.v * Math.PI) / 180)} rad` : '= ' + rd6(r.v);
     };
-    const sync = () => { inp.disabled = chk.checked; keys.style.display = chk.checked ? 'none' : 'flex'; showPrev(); };
-    chk.onchange = sync; inp.oninput = showPrev; sync();
+    const sync = () => { inp.disabled = chk.checked; keys.style.display = chk.checked ? 'none' : 'flex'; scRow.style.display = chk.checked && scaleOk ? 'flex' : 'none'; showPrev(); };
+    chk.onchange = () => { // la escala pasa de un campo al otro al marcar o desmarcar «Solo lectura»
+      if (scaleOk) {
+        if (chk.checked) { const sp = splitScale(inp.value); if (sp.src !== undefined && !scInp.value.trim()) scInp.value = sp.src; inp.value = splitScale(inp.value).body; }
+        else if (scInp.value.trim() && splitScale(inp.value).src === undefined) inp.value = `${inp.value.trim()}[*${scInp.value.trim()}]`;
+      }
+      sync();
+    };
+    inp.oninput = showPrev; scInp.oninput = showPrev; sync();
     let done = false;
     const finish = (v) => { if (done) return; done = true; dlgRef = chk.checked; dlgUnit = kind === 'angle' ? unitSel.value : null; dlg.close(); resolve(v); };
     $('dlgOk').onclick = (ev) => {
@@ -2359,12 +2389,17 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
         if (nm !== ctx.name) { const er = ctx.check(nm); if (er) { prev.style.color = 'var(--warn)'; prev.textContent = er; return; } }
         dlgName = nm;
       }
-      if (chk.checked) { dlgExpr = null; finish(Number(initial)); return; } // cota de referencia: no se teclea valor
+      if (chk.checked) { // cota de referencia: no se teclea valor, pero si su escala
+        const so = scaleOk ? refScale() : null;
+        if (so?.err) { prev.style.color = 'var(--warn)'; prev.textContent = so.err; return; }
+        dlgExpr = null; dlgScale = so ? so.sc : null; dlgScaleExpr = so ? so.src : null;
+        finish(Number(initial)); return;
+      }
       const r = evalNow();
       if (r.err) { prev.style.color = 'var(--warn)'; prev.textContent = r.err; return; } // se queda abierto para corregir
       const sp = splitScale(inp.value);
-      dlgExpr = isPlainNumber(sp.body) ? null : sp.body.trim();
-      dlgScale = sp.scale ?? null;
+      dlgExpr = isPlainNumber(sp.body) && !r.scaleSrc ? null : sp.body.trim(); // con la escala como formula, el valor tambien se guarda: «30[*k]» sigue a k
+      dlgScale = r.scale ?? null; dlgScaleExpr = r.scaleSrc ?? null;
       finish(r.v);
     };
     $('dlgCancel').onclick = () => finish(null);
@@ -2538,14 +2573,14 @@ async function applyCon(kind) {
         parallelPair = [lns[0], lns[1]];
       } else return bad('Selecciona 2 puntos, 1 línea, 1 punto + 1 línea, o 2 líneas paralelas');
       if (v < 1e-9) return bad('La distancia es cero (coinciden o comparten el centro): no hay nada que acotar');
-      const val = await askNumber('Distancia', Math.round(v * 1000) / 1000, false, 'len', 'deg', true);
+      const val = await askNumber('Distancia', Math.round(v * 1000) / 1000, false, 'len', 'deg', { scale0: '', measured: v });
       if (val === null || val <= 0) return;
       // para que sigan siendo paralelas (si ya no lo estaban por restriccion), se agrega la restriccion Paralela
       if (parallelPair && !dlgRef && !Object.values(doc.cons).some((k) => k.t === 'PAR' && parallelPair.every((x) => k.refs.includes(x)))) {
         list.push({ t: 'PAR', refs: parallelPair });
         toast('Se agregó también la restricción Paralela entre las dos líneas');
       }
-      list.push({ t, refs, v: val, ...(dlgExpr ? { expr: dlgExpr } : {}), ...(dlgScale && !dlgRef ? { scale: dlgScale } : {}), ...(dlgRef ? { ref: true } : {}) });
+      list.push({ t, refs, v: val, ...(dlgExpr ? { expr: dlgExpr } : {}), ...(dlgScale ? { scale: dlgScale, ...(dlgScaleExpr ? { scaleExpr: dlgScaleExpr } : {}) } : {}), ...(dlgRef ? { ref: true } : {}) });
       break;
     }
     case 'ANG': {
@@ -2574,10 +2609,10 @@ async function applyCon(kind) {
       const allC = crv.every((id) => id in doc.circles), allA = crv.every((id) => id in doc.arcs);
       if (!allC && !allA) return bad('Selecciona solo círculos o solo arcos');
       const r0 = curveOf(crv[0]).r;
-      const val0 = await askNumber(allC ? `Diámetro (${DIAM})` : 'Radio (R)', Math.round((allC ? 2 * r0 : r0) * 1000) / 1000, false, 'len', 'deg', true);
+      const val0 = await askNumber(allC ? `Diámetro (${DIAM})` : 'Radio (R)', Math.round((allC ? 2 * r0 : r0) * 1000) / 1000, false, 'len', 'deg', { scale0: '', measured: allC ? 2 * r0 : r0 });
       if (val0 === null || val0 <= 0) return;
-      const sc = dlgScale;
-      crv.forEach((c) => list.push({ t: 'RAD', refs: [c], v: allC ? val0 / 2 : val0, ...(dlgExpr ? { expr: dlgExpr } : {}), ...(sc && !dlgRef ? { scale: sc } : {}), ...(dlgRef ? { ref: true } : {}) }));
+      const sc = dlgScale, scx = dlgScaleExpr;
+      crv.forEach((c) => list.push({ t: 'RAD', refs: [c], v: allC ? val0 / 2 : val0, ...(dlgExpr ? { expr: dlgExpr } : {}), ...(sc ? { scale: sc, ...(scx ? { scaleExpr: scx } : {}) } : {}), ...(dlgRef ? { ref: true } : {}) }));
       break;
     }
     default: return;
@@ -2675,19 +2710,24 @@ async function editDimension(id) {
   const sc0 = dimScale(k); // cota a escala: se muestra «valor[*k]»
   let initial = u0 === 'rad' ? Math.round(((shown * Math.PI) / 180) * 1e10) / 1e10 : Math.round((shown / sc0) * 1000) / 1000;
   if (k.expr && !k.ref) { try { if (Math.abs(parseValue(k.expr, { angle: k.t === 'ANG', radians: u0 === 'rad', vars: varsOf(doc, id) }) * sc0 - shown) <= 1e-6 * Math.max(1, Math.abs(shown))) initial = k.expr; } catch { /* formula invalida: valor */ } }
-  if (sc0 !== 1 && !k.ref) initial = `${initial}[*${sc0}]`;
+  if (sc0 !== 1 && !k.ref) initial = `${initial}[*${k.scaleExpr ?? sc0}]`;
   dlgCtx = { vars: varsOf(doc, id), list: varsList(doc, id), except: id, ...(k.name ? { name: k.name, check: (n) => checkName(doc, n, id) } : {}) };
-  const val0 = await askNumber((k.name ? k.name + ' · ' : '') + (k.t === 'ANG' ? 'Ángulo (°)' : k.t === 'RAD' ? (isC ? `Diámetro (${DIAM})` : 'Radio (R)') : 'Distancia'), initial, !!k.ref, k.t === 'ANG' ? 'angle' : 'len', u0, k.t !== 'ANG');
+  const val0 = await askNumber((k.name ? k.name + ' · ' : '') + (k.t === 'ANG' ? 'Ángulo (°)' : k.t === 'RAD' ? (isC ? `Diámetro (${DIAM})` : 'Radio (R)') : 'Distancia'), initial, !!k.ref, k.t === 'ANG' ? 'angle' : 'len', u0, k.t !== 'ANG' ? { scale0: k.scale > 0 && k.scale !== 1 ? (k.scaleExpr ?? String(k.scale)) : '', measured: shown } : false);
   if (val0 === null || (!dlgRef && k.t !== 'ANG' && val0 <= 0)) return;
   pushUndo();
   if (dlgName && dlgName !== k.name) renameDim(doc, id, dlgName);
   if (k.t === 'ANG') { if (dlgUnit === 'rad') k.unit = 'rad'; else delete k.unit; opts.angUnit = dlgUnit; persist(); }
-  if (dlgRef) { k.ref = true; afterChange(); return; } // es (o pasa a ser) cota de referencia: no toca el solver
+  if (dlgRef) { // es (o pasa a ser) cota de referencia: no toca el solver; su escala si cuenta (la cota dice medida ÷ escala)
+    k.ref = true;
+    if (k.t !== 'ANG' && dlgScale) { k.scale = dlgScale; if (dlgScaleExpr) k.scaleExpr = dlgScaleExpr; else delete k.scaleExpr; } else { delete k.scale; delete k.scaleExpr; }
+    delete k.expr;
+    afterChange(); return;
+  }
   const val = isC ? val0 / 2 : k.t === 'ANG' ? angTrue(doc, { ...k, ref: false, v: k.ref ? (angSector(doc, k).A * 180) / Math.PI : k.v }, val0) : val0;
   k.v = val; delete k.ref;
   if (k.t === 'ANG') k.cur = val0;
   if (dlgExpr) k.expr = dlgExpr; else delete k.expr;
-  if (dlgScale && k.t !== 'ANG') k.scale = dlgScale; else delete k.scale;
+  if (dlgScale && k.t !== 'ANG') { k.scale = dlgScale; if (dlgScaleExpr) k.scaleExpr = dlgScaleExpr; else delete k.scaleExpr; } else { delete k.scale; delete k.scaleExpr; }
   const r = settle(doc, solve, []); // las cotas definidas con formulas se actualizan con el nuevo valor (y se repite si leen medidas)
   if (!r.ok) { rollback(); toast(r.error || (r.count ? 'Imposible con las restricciones actuales (con las cotas que dependen de esta). Usa «Solo lectura» para solo medirla' : 'Valor imposible con las restricciones actuales. Usa «Solo lectura» para solo medirla')); }
   afterChange();

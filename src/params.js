@@ -59,6 +59,8 @@ export function varsInfo(doc, exceptId = null) {
 }
 // Nombres de las variables definidas en textos (las que alguna definicion valida usa).
 export const textVarNames = (doc) => (hasDefs(doc) ? textVars(doc).names : new Set());
+// Fuente de las formulas de una cota (el valor y, si la lleva, la escala): de ahi salen sus dependencias.
+const srcOf = (k) => (k.scaleExpr ? `${k.expr ?? ''};${k.scaleExpr}` : k.expr);
 // Cotas (por nombre) de las que depende una formula, directamente o a traves de variables de texto.
 function dimRefs(doc, expr, st = tvOf(doc), seen = new Set()) {
   const out = new Set();
@@ -71,7 +73,7 @@ function dimRefs(doc, expr, st = tvOf(doc), seen = new Set()) {
 export function usesTextVars(doc) {
   if (!hasDefs(doc)) return false;
   const st = tvOf(doc);
-  return drivers(doc).some(([, k]) => k.expr && exprRefs(k.expr).some((n) => st.names.has(n)));
+  return drivers(doc).some(([, k]) => k.expr && exprRefs(srcOf(k)).some((n) => st.names.has(n)));
 }
 // Problemas de las definiciones de los textos: [{ key, msg }] (repetidas, que chocan con una cota, que fallan o se piden en circulo).
 export function textVarErrors(doc) {
@@ -92,7 +94,7 @@ export function renameDim(doc, id, name) {
   const k = doc.cons[id], old = k.name;
   if (!old || old === name) { k.name = name; return; }
   k.name = name;
-  for (const o of Object.values(doc.cons)) if (o.expr) o.expr = renameInExpr(o.expr, old, name);
+  for (const o of Object.values(doc.cons)) { if (o.expr) o.expr = renameInExpr(o.expr, old, name); if (o.scaleExpr) o.scaleExpr = renameInExpr(o.scaleExpr, old, name); }
   // las salidas de los textos ([=D1]) y los valores de sus variables (x{=2*D1}) tambien siguen al nombre
   for (const t of Object.values(doc.texts || {})) if (typeof t.text === 'string' && (t.text.includes('[=') || hasDefMark(t.text))) t.text = t.text.replace(new RegExp(OUT_SRC, 'g'), (m, ex) => '[=' + renameInExpr(ex, old, name) + ']').replace(/\{=([^}]*)\}/g, (m, ex) => '{=' + renameInExpr(ex, old, name) + '}');
 }
@@ -108,11 +110,11 @@ export function recompute(doc, omega = 1, hook = null) {
   const deps = new Map(), tv = tvOf(doc);
   for (const [id, k] of f) {
     const ids = [];
-    for (const n of exprRefs(k.expr)) {
+    for (const n of exprRefs(srcOf(k))) {
       if (n === k.name) return { ok: false, error: `${k.name} no puede usarse en su propia fórmula` };
       if (!byName.has(n) && !tv.names.has(n) && !isGeoName(doc, n)) return { ok: false, error: `En la fórmula de ${k.name}: «${n}» no es una cota ni una variable` };
     }
-    for (const n of dimRefs(doc, k.expr, tv)) { // tambien las cotas de las que dependen las variables de texto que lee
+    for (const n of dimRefs(doc, srcOf(k), tv)) { // tambien las cotas de las que dependen las variables de texto que lee
       if (n === k.name) return { ok: false, error: `${k.name} no puede usarse en su propia fórmula (la lee a través de una variable de texto)` };
       if (byName.has(n)) ids.push(byName.get(n));
     }
@@ -137,6 +139,9 @@ export function recompute(doc, omega = 1, hook = null) {
     const k = doc.cons[id];
     let val;
     try { val = parseValue(k.expr, { angle: k.t === 'ANG', radians: k.t === 'ANG' && k.unit === 'rad', vars: varsOf(doc, id) }); } catch (e) { doc.cons = JSON.parse(bak); return { ok: false, error: `${k.name}: ${e.message}` }; }
+    if (k.scaleExpr && k.t !== 'ANG') { // escala con formula: «30[*k]»; se reevalua con las variables de ahora
+      try { const sc = parseValue(k.scaleExpr, { vars: varsOf(doc, id) }); if (!(sc > 0)) throw new Error('debe ser mayor que cero'); k.scale = sc; } catch (e) { doc.cons = JSON.parse(bak); return { ok: false, error: `${k.name}: escala ${e.message}` }; }
+    }
     if (k.scale > 0 && k.t !== 'ANG') val *= k.scale; // cota a escala: el dibujo mide el valor por la escala
     if (k.t === 'ANG') { // el angulo no tiene limite (400° = una vuelta y 40°): se trabaja con el valor continuo
       const old = k.cur;
@@ -159,7 +164,7 @@ export function pruneFormulas(doc) {
   const names = new Set([...named(doc).map(([, k]) => k.name), ...textVarNames(doc)]), out = [];
   for (const k of Object.values(doc.cons)) {
     if (!k.expr) continue;
-    if (!isNamedDim(k) || k.ref || exprRefs(k.expr).some((n) => !(names.has(n) || isGeoName(doc, n)) || n === k.name)) { delete k.expr; if (k.name) out.push(k.name); }
+    if (!isNamedDim(k) || k.ref || exprRefs(srcOf(k)).some((n) => !(names.has(n) || isGeoName(doc, n)) || n === k.name)) { delete k.expr; delete k.scaleExpr; if (k.name) out.push(k.name); }
   }
   return out;
 }
@@ -168,13 +173,13 @@ export function pruneFormulas(doc) {
 export function hasReactive(doc) {
   const refs = new Set(named(doc).filter(([, k]) => k.ref).map(([, k]) => k.name));
   const st = tvOf(doc);
-  return drivers(doc).some(([, k]) => k.expr && [...dimRefs(doc, k.expr, st)].some((n) => refs.has(n) || isGeoName(doc, n))); // una propiedad de la geometria (p1.x) tambien se lee del dibujo
+  return drivers(doc).some(([, k]) => k.expr && [...dimRefs(doc, srcOf(k), st)].some((n) => refs.has(n) || isGeoName(doc, n))); // una propiedad de la geometria (p1.x) tambien se lee del dibujo
 }
 
 // Puntos que miden las cotas de solo lectura que leen las formulas (las entradas del sistema).
 function measuredPoints(doc) {
   const want = new Set(), st = tvOf(doc);
-  for (const [, k] of drivers(doc)) if (k.expr) for (const n of dimRefs(doc, k.expr, st)) want.add(n);
+  for (const [, k] of drivers(doc)) if (k.expr) for (const n of dimRefs(doc, srcOf(k), st)) want.add(n);
   const pts = new Set();
   for (const n of want) for (const q of geoPoints(doc, n)) pts.add(q);
   const endsOf = (lid) => { const l = doc.lines[lid]; if (l) { pts.add(l.a); pts.add(l.b); } };
