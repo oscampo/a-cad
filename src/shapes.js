@@ -1,6 +1,6 @@
 // Formas compuestas: rectangulos, poligonos regulares y circunferencia por 3 puntos. Sin DOM (se prueba en Node).
 // Crean elementos y restricciones en doc; quien llama hace undo/solve y revierte si el solver falla.
-import { addLine, addCon } from './model.js';
+import { addLine, addCon, withOp } from './model.js';
 import { circumcircle } from './geom.js';
 
 // Estilo de la linea constructiva: gris, fina, tipo "constructiva". No sale en el SVG de corte laser.
@@ -40,7 +40,7 @@ export function polygonVertices(c, rp, n, circumscribed = false) {
 
 // Poligono regular con vertices (ids de puntos) ya creados alrededor del centro cId. Para mantenerlo regular:
 // los vertices equidistan del centro y los lados son iguales (restricciones ocultas). Devuelve los ids de las lineas.
-export function addPolygon(doc, cId, verts, style) {
+function addPolygon0(doc, cId, verts, style) {
   const n = verts.length, ls = [];
   for (let i = 0; i < n; i++) ls.push(addLine(doc, verts[i], verts[(i + 1) % n], style));
   for (let i = 1; i < n; i++) addCon(doc, { t: 'EQD', refs: [cId, verts[0], cId, verts[i]], hidden: true });
@@ -62,3 +62,6 @@ export function constructionArcDash(L, dot, gap) {
   const solid = L - 2 * (dot + gap);
   return solid > dot ? [dot, gap, solid, gap, dot] : [];
 }
+
+// es una operacion: las relaciones que crea quedan agrupadas por su origen en el arbol (model.js, withOp)
+export const addPolygon = (doc, ...a) => withOp(doc, 'POL', () => addPolygon0(doc, ...a));

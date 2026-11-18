@@ -15,7 +15,7 @@ import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamfe
 import { addRotary, addLinear, actName, actDisp, simBegin, simStep, simEnd, parseTable, actError } from '../src/actuators.js';
 import { addGraph, computeGraph, computeGraphAsync, niceTicks, parseSeries, axisLayout } from '../src/graphs.js';
 import { rigidShape, looseShape, isRigid } from '../src/rigid.js';
-import { nameDims } from '../src/model.js';
+import { nameDims, withOp } from '../src/model.js';
 import { trimAt, extendEnd, cutsOf, curveCuts, linearArray, mirrorCopy, circularArray, clipOf, pasteClip, bboxOf } from '../src/edit.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from '../src/shapes.js';
 import { FONTS, fontCss } from '../src/text.js';
@@ -1640,6 +1640,44 @@ t('copiar y pegar: el centro del cuadro va al destino, lleva sus restricciones y
   assert.ok(solve(d, []).ok);
   const r2 = pasteClip(d, clip, { x: 0, y: 0 });
   assert.ok(r2.ok, 'se puede pegar varias veces');
+});
+
+t('operaciones: las relaciones automaticas guardan su origen y el arbol las agrupa', () => {
+  const d = newDoc();
+  const c = addPoint(d, 0, 0), p = addPoint(d, 10, 0);
+  d.pts[c].fixed = true;
+  const l = addLine(d, c, p, {});
+  const r1 = circularArray(d, [{ k: 'ln', id: l }], { c: { x: 0, y: 0 }, step: Math.PI / 2, n: 3, link: true, cid: c });
+  assert.ok(r1.ok);
+  const op1 = Object.keys(d.ops)[0];
+  assert.deepEqual(d.ops[op1], { t: 'MATC', n: 1 });
+  const hid = Object.values(d.cons).filter((k) => k.hidden);
+  assert.ok(hid.length > 0 && hid.every((k) => k.op === op1), 'todas las relaciones de la matriz llevan su operacion');
+  const r2 = circularArray(d, [{ k: 'ln', id: l }], { c: { x: 0, y: 0 }, step: Math.PI / 3, n: 2, link: true, cid: c });
+  assert.ok(r2.ok);
+  assert.deepEqual(Object.values(d.ops).map((o) => o.n), [1, 2], 'cada matriz con su numero');
+  // una operacion que no crea relaciones no queda registrada ni gasta numero
+  withOp(d, 'MATC', () => {});
+  assert.equal(Object.keys(d.ops).length, 2); assert.equal(d.opn.MATC, 2);
+  // una operacion dentro de otra pertenece a la de fuera
+  const kin = withOp(d, 'RED', () => withOp(d, 'CHA', () => addCon(d, { t: 'EQL', refs: [l, r1.made[0].id], hidden: true })));
+  assert.equal(d.ops[d.cons[kin].op].t, 'RED');
+  // fuera de una operacion no se marca nada, y una copia pegada no hereda la operacion del original
+  const kout = addCon(d, { t: 'EQD', refs: [c, p, c, p], hidden: true, op: op1 });
+  assert.equal(d.cons[kout].op, undefined);
+  const nOp = Object.values(d.cons).filter((k) => k.op).length;
+  const items = [{ k: 'ln', id: r1.made[0].id }, { k: 'ln', id: r1.made[1].id }];
+  assert.ok(pasteClip(d, clipOf(d, items), { x: 50, y: 50 }).ok);
+  assert.equal(Object.values(d.cons).filter((k) => k.op).length, nOp, 'lo pegado no se suma a la matriz');
+  // arbol: primero las operaciones, en orden, y luego las de por tipo (sin origen)
+  const auto = buildTree(d).find((x) => x.key === 'g:co').children.find((x) => x.key === 'g:co:auto');
+  const labels = auto.children.map((g) => g.label);
+  assert.match(labels[0], /^Matriz circular 1 \(\d+\)$/);
+  assert.match(labels[1], /^Matriz circular 2 \(\d+\)$/);
+  assert.match(labels[2], /^Redondeo 1 \(1\)$/);
+  assert.ok(labels.slice(3).some((x) => /^Igual distancia \(\d+\)$/.test(x)), 'sin origen: por tipo');
+  assert.equal(auto.label, `Automáticas (${auto.children.reduce((s, g) => s + g.children.length, 0)})`);
+  assert.equal(auto.children.reduce((s, g) => s + g.children.length, 0), Object.values(d.cons).filter((k) => k.hidden).length);
 });
 
 t('linea constructiva: estilo propio y no sale en el SVG de corte por defecto', () => {

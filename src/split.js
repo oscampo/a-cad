@@ -1,6 +1,6 @@
 // Dividir un segmento, arco o circulo por puntos que estan sobre el. Sin DOM (se prueba en Node).
 // Muta doc; quien llama hace undo/solve y revierte si el solver falla.
-import { addLine, addArc, addCon, addPoint, cleanup } from './model.js';
+import { addLine, addArc, addCon, withOp, addPoint, cleanup } from './model.js';
 import { closestOnSeg, dist, arcSweepOf, angleFrom, norm, TAU } from './geom.js';
 
 const styleOf = (o) => ({ color: o.color, ltype: o.ltype, w: o.w, ls: o.ls, ...(o.layer ? { layer: o.layer } : {}) });
@@ -40,7 +40,7 @@ function transfer(doc, elId, pieces, splitSet, rules) {
   return dropped;
 }
 
-export function splitElement(doc, elId, ptIds) {
+function splitElement0(doc, elId, ptIds) {
   if (elId in doc.lines) return splitLine(doc, elId, ptIds);
   if (elId in doc.arcs) return splitArc(doc, elId, ptIds);
   if (elId in doc.circles) return splitCircle(doc, elId, ptIds);
@@ -158,3 +158,6 @@ function splitCircle(doc, id, ptIds) {
   cleanup(doc);
   return { ok: true, pieces, dropped };
 }
+
+// cada una es una operacion: las relaciones que crea quedan agrupadas por su origen en el arbol (model.js, withOp)
+export const splitElement = (doc, ...a) => withOp(doc, 'DIV', () => splitElement0(doc, ...a));

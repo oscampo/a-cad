@@ -35,6 +35,15 @@ const KIND_NAME = { pt: 'Punto', ln: 'Línea', ci: 'Círculo', ar: 'Arco', sp: '
 // Tipos de relacion por grupo dentro de «Relaciones y cotas» (las ocultas van a «Automáticas»).
 const DIM_T = new Set(['DIST', 'DISTPL', 'ANG', 'ANG4', 'RAD']);
 const MECH_T = new Set(['GEAR', 'RACK']);
+export const OP_NAMES = { MATL: 'Matriz lineal', MATC: 'Matriz circular', ESP: 'Copia espejo', RED: 'Redondeo', CHA: 'Chaflán', DIV: 'División', POL: 'Polígono' };
+// origen de una relacion automatica: { key, label, ord? } (ord: orden en que se hizo la operacion)
+export function autoOrigin(doc, k) {
+  const op = k.op && doc.ops?.[k.op];
+  if (op) return { key: k.op, label: `${OP_NAMES[op.t] || op.t} ${op.n}`, ord: Number(k.op.slice(1)) || 0 };
+  if (k.shape) return { key: `shape:${k.shape}`, label: `Forma fija del spline ${k.shape}` };
+  if (k.vec) return { key: `vec:${k.vec}`, label: `Vector ${k.vec}` };
+  return { key: `t:${k.t}`, label: CON_NAMES[k.t] || k.t };
+}
 export const conCategory = (k) => (k.hidden ? 'auto' : DIM_T.has(k.t) ? 'dim' : MECH_T.has(k.t) ? 'mech' : 'geo');
 
 // Nodo: { key, label, sel?: {k,id}, con?: id, lock?: boolean|undefined, link?: true, sub?: true, group?: true, children?: [] }
@@ -123,12 +132,25 @@ export function buildTree(doc) {
     }).filter(Boolean),
   });
   const cats = { dim: [], geo: [], mech: [], auto: [] };
-  for (const [cid, k] of Object.entries(doc.cons)) cats[conCategory(k)].push(conNode(cid, k));
+  // las automaticas, agrupadas por su origen (la operacion que las creo, la forma fija o el vector);
+  // sin origen (dibujos anteriores, o al dibujar sobre un elemento), por tipo
+  const autoBy = new Map();
+  for (const [cid, k] of Object.entries(doc.cons)) {
+    const c = conCategory(k);
+    if (c !== 'auto') { cats[c].push(conNode(cid, k)); continue; }
+    const o = autoOrigin(doc, k);
+    if (!autoBy.has(o.key)) autoBy.set(o.key, { ...o, items: [] });
+    autoBy.get(o.key).items.push(conNode(cid, k));
+  }
+  // primero las operaciones (en el orden en que se hicieron), luego las de por tipo
+  const autoGroups = [...autoBy.values()].sort((a, b) => (a.ord ?? 1e15) - (b.ord ?? 1e15))
+    .map((o) => ({ key: `g:co:auto:${o.key}`, sub: true, label: `${o.label} (${o.items.length})`, children: o.items }));
+  const nAuto = autoGroups.reduce((s, g) => s + g.children.length, 0);
   const cons = compact([
     cats.dim.length && group('g:co:dim', 'Cotas', cats.dim),
     cats.geo.length && group('g:co:geo', 'Geométricas', cats.geo),
     cats.mech.length && group('g:co:mech', 'Mecánicas', cats.mech),
-    cats.auto.length && group('g:co:auto', 'Automáticas', cats.auto),
+    nAuto && { key: 'g:co:auto', label: `Automáticas (${nAuto})`, group: true, children: autoGroups },
   ]);
   const nCons = Object.keys(doc.cons).length;
   const traces = Object.entries(doc.traces || {}).map(([id, t]) => ({ key: `tr:${id}`, label: `Trazado del punto ${id} · ${t.pts.length} muestras`, sel: doc.pts[id] ? { k: 'pt', id } : null }));

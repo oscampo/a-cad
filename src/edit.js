@@ -1,7 +1,7 @@
 // Recortar, extender y matriz lineal. Sin DOM (se prueba en Node). Mutan doc; quien llama hace undo/solve
 // y revierte si el solver falla.
 import { makeVector } from './vectors.js';
-import { shownEntries, addPoint, addLine, addArc, addCircle, addEllipse, addSpline, addText, addCon, nextId, arcOf, splinePolyline, deleteItems, arcSamples, ellipsePolyline, ellipseOf, ellipseRange, ellipsePoint, ellipseParam, isPartial, cleanup } from './model.js';
+import { shownEntries, addPoint, addLine, addArc, addCircle, addEllipse, addSpline, addText, addCon, withOp, nextId, arcOf, splinePolyline, deleteItems, arcSamples, ellipsePolyline, ellipseOf, ellipseRange, ellipsePoint, ellipseParam, isPartial, cleanup } from './model.js';
 import { dist, closestOnSeg, lineLine, lineCircle, circleCircle, polylineLine, polylineCircle, polylinePolyline, closestOnPolyline, splineSamples, inSweep, angleFrom, norm, TAU } from './geom.js';
 import { splitElement } from './split.js';
 import { rawAngle } from './text.js';
@@ -620,7 +620,7 @@ function linkMirror(doc, col, M, axis) {
 // items: [{k,id}] a copiar. dirs: [{u:{x,y} unitario, s: espaciado, n: copias nuevas}] (1 o 2 direcciones).
 // Con dos direcciones se crea la cuadricula completa. Devuelve los elementos nuevos.
 // opts: { link: copias atadas al original, dims: mostrar la cota de distancia (solo con link) }
-export function linearArray(doc, items, dirs, { link = false, dims = false } = {}) {
+function linearArray0(doc, items, dirs, { link = false, dims = false } = {}) {
   const col = collect(doc, items);
   if (!col.P.size) return { ok: false, msg: 'No hay nada que copiar' };
   const [d1, d2] = dirs;
@@ -643,7 +643,7 @@ export function linearArray(doc, items, dirs, { link = false, dims = false } = {
 // Refleja una copia de items respecto de la recta que pasa por A y B. Los puntos que ya estan sobre el eje
 // se comparten (la copia queda unida al original por ahi). El eje no se copia.
 // opts: { axis: id de la linea eje, para vincular las copias con simetria }
-export function mirrorCopy(doc, items, A, B, { axis = null } = {}) {
+function mirrorCopy0(doc, items, A, B, { axis = null } = {}) {
   const len = dist(A, B);
   if (len < 1e-9) return { ok: false, msg: 'El eje no tiene longitud' };
   const u = { x: (B.x - A.x) / len, y: (B.y - A.y) / len };
@@ -664,7 +664,7 @@ export function mirrorCopy(doc, items, A, B, { axis = null } = {}) {
 // c: centro {x,y}; step: angulo entre instancias (rad, con signo); n: instancias totales (incluye el original);
 // skip: Set de numeros de instancia (2..n) que no se crean. Los puntos que coinciden con el centro se comparten.
 // link: copias atadas al original; cid: punto del centro (si no hay, con link se crea uno fijo); dims: cota angular visible
-export function circularArray(doc, items, { c, step, n, skip = new Set(), link = false, cid = null, dims = false }) {
+function circularArray0(doc, items, { c, step, n, skip = new Set(), link = false, cid = null, dims = false }) {
   const col = collect(doc, items);
   if (!col.P.size) return { ok: false, msg: 'No hay nada que copiar' };
   if (!(n >= 2) || n > 400) return { ok: false, msg: 'Número de instancias no válido' };
@@ -719,3 +719,8 @@ export function pasteClip(doc, clip, target) {
   const r = makeCopy(doc, col, (o) => ({ x: o.x + dx, y: o.y + dy }), { src: clip.src });
   return { ok: true, made: r.made };
 }
+
+// cada una es una operacion: las relaciones que crea quedan agrupadas por su origen en el arbol (model.js, withOp)
+export const linearArray = (doc, ...a) => withOp(doc, 'MATL', () => linearArray0(doc, ...a));
+export const mirrorCopy = (doc, ...a) => withOp(doc, 'ESP', () => mirrorCopy0(doc, ...a));
+export const circularArray = (doc, ...a) => withOp(doc, 'MATC', () => circularArray0(doc, ...a));

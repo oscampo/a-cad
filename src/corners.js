@@ -5,7 +5,7 @@
 // Las cotas de longitud (que son distancias entre los dos puntos de la linea) siguen valiendo porque el vertice virtual no
 // se mueve; la igualdad de longitudes entre lineas (EQL) no, porque la linea ahora es mas corta: se pasa a igualdad de
 // distancias entre el otro extremo y el vertice virtual (EQD).
-import { addPoint, addLine, addArc, addCon, arcOf, ellipseOf, ellipsePoint, ellipseParam, ellipseRange, isPartial } from './model.js';
+import { addPoint, addLine, addArc, addCon, withOp, arcOf, ellipseOf, ellipsePoint, ellipseParam, ellipseRange, isPartial } from './model.js';
 import { norm, TAU } from './geom.js';
 import { cutEnd } from './edit.js';
 
@@ -91,7 +91,7 @@ function growHatches(doc, C, id) {
 export const maxFillet = (C) => Math.min(C.A.len, C.B.len) * Math.tan(C.theta / 2);
 
 // Redondeo de radio r: un arco tangente a las dos lineas. Devuelve { ok, arc, pts } o { ok: false, msg }.
-export function filletCorner(doc, pid, r) {
+function filletCorner0(doc, pid, r) {
   const C = cornerOf(doc, pid);
   if (!C.ok) return C;
   if (!(r > 0) || !Number.isFinite(r)) return { ok: false, msg: 'El radio debe ser mayor que cero' };
@@ -115,7 +115,7 @@ export function filletCorner(doc, pid, r) {
 }
 
 // Chaflan: una linea entre dos puntos de las lineas, a d1 y d2 de la esquina (la cota de cada tramo se puede editar).
-export function chamferCorner(doc, pid, d1, d2 = d1) {
+function chamferCorner0(doc, pid, d1, d2 = d1) {
   const C = cornerOf(doc, pid);
   if (!C.ok) return C;
   if (!(d1 > 0) || !(d2 > 0) || !Number.isFinite(d1 + d2)) return { ok: false, msg: 'La distancia debe ser mayor que cero' };
@@ -297,7 +297,7 @@ const PON = { ln: 'PONL', ar: 'PONC', el: 'PONE' };
 
 // Redondeo de radio r entre dos elementos { k, id, p } (p: el punto del modelo que se toco en cada uno). Dos segmentos que
 // se juntan en una esquina usan el redondeo de esquina. Devuelve { ok, arc, pts, dims, dropped } o { ok: false, msg }.
-export function filletBetween(doc, A, B, r) {
+function filletBetween0(doc, A, B, r) {
   if (!(r > 0) || !Number.isFinite(r)) return { ok: false, msg: 'El radio debe ser mayor que cero' };
   if (A.k === B.k && A.id === B.id) return { ok: false, msg: 'Elige dos elementos distintos' };
   if (A.k === 'ln' && B.k === 'ln') {
@@ -332,7 +332,7 @@ export function filletBetween(doc, A, B, r) {
 // Chaflan entre dos elementos que se cortan (sus prolongaciones): una linea entre un punto de cada uno, a d1 y d2 (distancia en
 // recta) del vertice donde se cortan, del lado de lo tocado. Cada elemento se recorta o se alarga hasta su punto; el vertice queda
 // como punto virtual sobre los dos, con una cota por tramo. Devuelve { ok, line, pts, dims, dropped } o { ok: false, msg }.
-export function chamferBetween(doc, A, B, d1, d2 = d1) {
+function chamferBetween0(doc, A, B, d1, d2 = d1) {
   if (!(d1 > 0) || !(d2 > 0) || !Number.isFinite(d1 + d2)) return { ok: false, msg: 'La distancia debe ser mayor que cero' };
   if (A.k === B.k && A.id === B.id) return { ok: false, msg: 'Elige dos elementos distintos' };
   if (A.k === 'ln' && B.k === 'ln') {
@@ -376,3 +376,9 @@ export function filletReach(doc, A, B) {
   const a = curveOf(doc, A.k, A.id), b = curveOf(doc, B.k, B.id);
   return a.msg || b.msg ? { msg: a.msg || b.msg } : { len: Math.min(a.len, b.len) };
 }
+
+// cada una es una operacion: las relaciones que crea quedan agrupadas por su origen en el arbol (model.js, withOp)
+export const filletCorner = (doc, ...a) => withOp(doc, 'RED', () => filletCorner0(doc, ...a));
+export const filletBetween = (doc, ...a) => withOp(doc, 'RED', () => filletBetween0(doc, ...a));
+export const chamferCorner = (doc, ...a) => withOp(doc, 'CHA', () => chamferCorner0(doc, ...a));
+export const chamferBetween = (doc, ...a) => withOp(doc, 'CHA', () => chamferBetween0(doc, ...a));

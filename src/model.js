@@ -221,8 +221,27 @@ function giveName(doc, con) {
   do { doc.cnd[L] = (doc.cnd[L] || 0) + 1; } while (nameTaken(doc, L + doc.cnd[L]));
   con.name = L + doc.cnd[L];
 }
+// Operaciones que crean varias relaciones de una vez (matrices, espejo, redondeo, chaflan, poligono, dividir):
+// cada relacion creada dentro de withOp guarda op: id, y doc.ops[id] = { t, n } dice de que operacion salio
+// («Matriz circular 2»). Asi el arbol agrupa las automaticas por su origen. Una operacion dentro de otra
+// pertenece a la de fuera (un redondeo que llama a otro). Si no creo ninguna relacion, no queda registrada.
+let curOp = null;
+export function withOp(doc, t, fn) {
+  if (curOp) return fn();
+  doc.ops ||= {}; doc.opn ||= {};
+  const id = nextId(doc, 'o');
+  curOp = { doc, id, used: false };
+  doc.ops[id] = { t, n: (doc.opn[t] = (doc.opn[t] || 0) + 1) };
+  try { return fn(); } finally {
+    if (!curOp.used) { delete doc.ops[id]; doc.opn[t] -= 1; }
+    curOp = null;
+  }
+}
+
 export function addCon(doc, con) {
   const id = nextId(doc, 'k');
+  // dentro de una operacion, la relacion es suya; fuera, una copia pegada no hereda la operacion del original
+  if (curOp && curOp.doc === doc) { con.op = curOp.id; curOp.used = true; } else delete con.op;
   delete con.n;
   if (isNamedDim(con)) { if (!con.name || nameTaken(doc, con.name)) giveName(doc, con); } else delete con.name;
   const g = CON_GROUP[con.t];

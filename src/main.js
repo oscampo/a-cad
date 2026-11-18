@@ -3,6 +3,7 @@ import { initSolver, solve, solveSteps, reparamSplines, addConsSolved, projectMa
 import {
   newDoc, addLayer, deleteLayer, layerCount, shownEntries, shownValues, layerHiddenPoints, consHidden, visibleDoc, isHidden, addPoint, addLine, addCircle, addArc, addText, addSpline, splinePolyline, addCon, cleanup, deleteItems, clone, hatchLoops,
   allLtypes, PALETTE, arcOf, conTag, ensureNumbers, addEllipse, ellipsePolyline, ellipseOf, ellipsePoint, ellipseParam, ellipseRange, isPartial, DIM_TYPES,
+  withOp,
 } from './model.js';
 import {
   dist, closestOnSeg, lineLine, lineCircle, circleCircle, signedAngle, dashFromPattern, parsePattern,
@@ -2672,9 +2673,13 @@ async function splitEqual(el) {
   }
   pushUndo();
   const ids = P.map((q) => addPoint(doc, q.x, q.y, true));
-  const res = splitElement(doc, el.id, ids);
+  // una sola operacion: los tramos iguales quedan en la misma «División» que el corte
+  const res = withOp(doc, 'DIV', () => {
+    const r0 = splitElement(doc, el.id, ids);
+    if (r0.ok && el.k === 'ln') for (let i = 1; i < r0.pieces.length; i++) addCon(doc, { t: 'EQL', refs: [r0.pieces[i - 1], r0.pieces[i]], hidden: true });
+    return r0;
+  });
   if (!res.ok) { rollback(); toast(res.msg); afterChange(); return; }
-  if (el.k === 'ln') for (let i = 1; i < res.pieces.length; i++) addCon(doc, { t: 'EQL', refs: [res.pieces[i - 1], res.pieces[i]], hidden: true });
   const r = solve(doc, []);
   if (!r.ok) { rollback(); toast('No se pudo dividir: conflicto con las restricciones'); afterChange(); return; }
   sel = res.pieces.map((id) => ({ k: el.k === 'ln' ? 'ln' : 'ar', id }));
