@@ -1023,8 +1023,10 @@ function drawTexts(c, o) {
     c.fillStyle = colorOf(t.color, o); c.textBaseline = 'top'; c.textAlign = 'left';
     if (f.math) { // con formulas ($...$, $$...$$): textos en su linea base y trazos (barras, raices, parentesis grandes)
       c.textBaseline = 'alphabetic'; c.strokeStyle = c.fillStyle; c.lineCap = 'round'; c.lineJoin = 'round'; c.setLineDash([]);
+      const base = c.fillStyle;
       for (const p of framePrims(f, t)) {
-        if (p.k === 't') { c.font = `${p.it ? 'italic ' : ''}${p.size * sc * dpr}px ${fontCss(p.font)}`; c.fillText(p.s, p.x * sc * dpr, -p.y * sc * dpr); } else {
+        c.fillStyle = c.strokeStyle = p.col || base; // color(red)(x)
+        if (p.k === 't') { c.font = `${p.it ? 'italic ' : ''}${p.bold ? 'bold ' : ''}${p.size * sc * dpr}px ${fontCss(p.font)}`; c.fillText(p.s, p.x * sc * dpr, -p.y * sc * dpr); } else {
           c.lineWidth = Math.max(p.lw * sc * dpr, dpr); c.beginPath();
           p.pts.forEach(([x, y], k) => (k ? c.lineTo(x * sc * dpr, -y * sc * dpr) : c.moveTo(x * sc * dpr, -y * sc * dpr)));
           c.stroke();

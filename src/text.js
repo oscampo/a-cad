@@ -120,7 +120,7 @@ export function textFrame(t, measure, anchor = t.anchor) {
 export function framePrims(f, t) {
   if (!f.math) return [];
   const h = t.h, X = (x) => f.xmin + x * h, Y = (y) => f.ymax - y * h;
-  return f.math.prims.map((p) => (p.k === 't' ? { k: 't', s: p.s, x: X(p.x), y: Y(p.y), size: p.sz * h, it: p.it, font: p.font } : { k: 'p', pts: p.pts.map(([x, y]) => [X(x), Y(y)]), lw: p.lw * h }));
+  return f.math.prims.map((p) => (p.k === 't' ? { k: 't', s: p.s, x: X(p.x), y: Y(p.y), size: p.sz * h, it: p.it, font: p.font, bold: p.bold, col: p.col } : { k: 'p', pts: p.pts.map(([x, y]) => [X(x), Y(y)]), lw: p.lw * h, col: p.col }));
 }
 
 // Esquinas de la caja en coordenadas del modelo (antihorario).

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { parse } from '../src/asciimath.js';
 import { splitMath, layoutMath, layoutText } from '../src/mathlayout.js';
 import { textFrame, framePrims } from '../src/text.js';
+import { CASES } from './math-cases.mjs';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
@@ -122,6 +123,57 @@ t('textFrame: sin formulas no cambia; con formulas trae las primitivas', () => {
   const pr = framePrims(g, tm);
   assert.ok(pr.some((p) => p.k === 'p') && pr.some((p) => p.k === 't' && p.size > 0));
   for (const p of pr) for (const v of p.k === 't' ? [p.x, p.y] : p.pts.flat()) assert.ok(Number.isFinite(v));
+});
+
+t('asciimath.org: todos los ejemplos de la tabla se parsean y se miden sin NaN', () => {
+  for (const s of CASES) for (const disp of [false, true]) {
+    const b = layoutMath(s, disp, measure);
+    for (const v of [b.w, b.a, b.d]) assert.ok(Number.isFinite(v), s);
+    for (const o of b.ops) for (const v of o.k === 't' ? [o.x, o.y, o.sz] : [...o.pts.flat(), o.lw]) assert.ok(Number.isFinite(v), s);
+    assert.ok(b.w > 0, s + ' (vacio)');
+  }
+});
+
+t('asciimath.org: matrices, vectores columna, aumentadas y casos', () => {
+  const m = parse('[[a,b],[c,d]]').c[0];
+  assert.equal(m.t, 'mat'); assert.equal(m.rows.length, 2); assert.equal(m.rows[0].length, 2);
+  assert.equal(parse('((a),(b))').c[0].rows.length, 2);
+  const au = parse('[[a,b,|,c],[d,e,|,f]]').c[0];
+  assert.equal(au.rows[0].length, 3); assert.deepEqual(au.bars, [2]);
+  const cs = parse('{(2x,+,17y,=,23),(x,-,y,=,5):}').c[0];
+  assert.equal(cs.t, 'mat'); assert.equal(cs.rows[0].length, 5); assert.equal(cs.r, ':}');
+  assert.equal(parse('(1,2)').c[0].t, 'group'); // una pareja no es matriz
+  const lay2 = layoutMath('[[a,b],[c,d]]', true, measure), lay1 = layoutMath('[a,b]', true, measure);
+  assert.ok(lay2.a + lay2.d > 2 * (lay1.a + lay1.d) * 0.9);
+  assert.ok(lay2.ops.some((o) => o.k === 'p')); // corchetes grandes
+  assert.ok(layoutMath('[[a,b,|,c],[d,e,|,f]]', true, measure).ops.filter((o) => o.k === 'p').length >= 3);
+});
+
+t('asciimath.org: dy/dx, primas, texto, color, fuentes y alfabetos', () => {
+  const d = parse('dy/dx').c[0];
+  assert.equal(d.t, 'frac'); assert.equal(d.a.c.length, 2);
+  assert.equal(parse("f'(x)").c[1].s, '′');
+  assert.equal(parse('text(hi there)').c[0].s, 'hi there');
+  assert.equal(parse('color(red)(x)').c[0].col, 'red');
+  assert.equal(parse('color(red"><x)(y)').c[0].col, null); // nombres raros se descartan (van a atributos SVG)
+  const col = layoutMath('color(red)(x) + y', false, measure).ops.filter((o) => o.k === 't');
+  assert.equal(col[0].col, 'red'); assert.equal(col[1].col, undefined);
+  const bold = layoutMath('bb x', false, measure).ops[0];
+  assert.equal(bold.bold, true); assert.equal(bold.it, false);
+  assert.equal(layoutMath('bbb R', false, measure).ops[0].s, 'ℝ');
+  assert.equal(layoutMath('cc A', false, measure).ops[0].s, '𝒜');
+  assert.equal(layoutMath('fr g', false, measure).ops[0].s, '𝔤');
+  assert.equal(layoutMath('tt x', false, measure).ops[0].font, 'mono');
+  assert.equal(parse('overbrace(1+2)^("n")').c[0].sup.c[0].t, 'txt');
+});
+
+t('asciimath.org: simbolos con espacios y palabras', () => {
+  assert.equal(parse('a and b').c[1].k, 'word');
+  assert.equal(parse('a in B').c[1].s, '∈');
+  assert.equal(parse('sin x').c[0].t, 'fn'); // «sin» no se parte en «s» + «in»
+  assert.equal(parse('a o+ b').c[1].s, '⊕');
+  assert.equal(parse('x |__ y __|').c[1].t, 'group');
+  assert.equal(parse('a -<= b').c[1].s, '⪯');
 });
 
 console.log(`\n${passed} pruebas de matematica pasaron`);

@@ -1,47 +1,84 @@
-// Parser de un subconjunto de AsciiMath (sin DOM): «3/4 = 1/x», «sqrt(x^2+y^2)», «sum_(i=1)^n i», «alpha + beta».
+// Parser de AsciiMath (sin DOM), con la sintaxis de https://asciimath.org/ : «3/4 = 1/x», «sqrt(x^2+y^2)», «sum_(i=1)^n i», «[[a,b],[c,d]]».
 // parse(src) -> arbol de nodos; nunca lanza: lo que no entiende se muestra tal cual.
 // Nodos: { t:'row', c:[...] } | 'n' numero | 'v' variable (cursiva) | 'sym' simbolo recto | 'txt' texto recto | 'fn' funcion recta
-//   | 'o' operador { s, k:'bin'|'rel'|'ord'|'punct' } | 'frac' { a, b } | 'ss' { base, sub, sup } | 'sqrt' { body, idx }
-//   | 'group' { l, r, body } (r null: sin cierre) | 'big' { s, sub, sup } (sum, prod, int, lim) | 'acc' { k, body }.
+//   | 'o' operador { s, k:'bin'|'rel'|'ord'|'punct'|'word' } | 'space' { w } | 'frac' { a, b } | 'ss' { base, sub, sup }
+//   | 'sqrt' { body, idx } | 'group' { l, r, body } (r null: sin cierre) | 'mat' { l, r, rows, bars }
+//   | 'big' { s, sub, sup } (sum, prod, int, lim...) | 'acc' { k, body } | 'brace' { k:'u'|'o', body, sub, sup }
+//   | 'stack' { k:'over'|'under', top, base } | 'font' { k, body } | 'color' { col, body }.
 
 const GREEK = {
-  alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ', vartheta: 'ϑ', iota: 'ι',
-  kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', rho: 'ρ', sigma: 'σ', tau: 'τ', upsilon: 'υ', phi: 'φ', varphi: 'ϕ',
+  alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ɛ', zeta: 'ζ', eta: 'η', theta: 'θ', vartheta: 'ϑ', iota: 'ι',
+  kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', rho: 'ρ', sigma: 'σ', tau: 'τ', upsilon: 'υ', phi: 'ϕ', varphi: 'φ',
   chi: 'χ', psi: 'ψ', omega: 'ω',
 };
 const GREEK_UP = { Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Xi: 'Ξ', Pi: 'Π', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω' };
-const FUNCS = ['arcsin', 'arccos', 'arctan', 'sinh', 'cosh', 'tanh', 'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'log', 'ln', 'exp', 'det', 'dim', 'gcd', 'lcm', 'max', 'min'];
-const KW = ['sqrt', 'root', 'frac', 'abs', 'norm', 'hat', 'bar', 'vec', 'sum', 'prod', 'int', 'lim'];
-const WORD_SYM = { oo: '∞', partial: '∂', nabla: '∇', deg: '°', cdots: '⋯', ldots: '…', dots: '…', cdot: '·', times: '×', div: '÷', pm: '±', mp: '∓' };
-const WORD_OP = { xx: ['×', 'bin'], prop: ['∝', 'rel'], cdot: ['·', 'bin'], times: ['×', 'bin'], div: ['÷', 'bin'], pm: ['±', 'bin'], mp: ['∓', 'bin'] };
+const FUNCS = ['arcsin', 'arccos', 'arctan', 'sinh', 'cosh', 'tanh', 'sech', 'csch', 'coth', 'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'log', 'ln', 'exp', 'det', 'dim', 'mod', 'gcd', 'lcm', 'lub', 'glb', 'max', 'min'];
+// Palabras que toman argumentos: unarias (S), binarias (SS), operadores grandes y fuentes.
+const KW = {
+  sqrt: 'sqrt', root: 'root', frac: 'frac', abs: 'abs', norm: 'norm', floor: 'floor', ceil: 'ceil',
+  hat: 'acc:hat', bar: 'acc:bar', overline: 'acc:bar', vec: 'acc:vec', tilde: 'acc:tilde', dot: 'acc:dot', ddot: 'acc:ddot',
+  ul: 'acc:ul', underline: 'acc:ul', overarc: 'acc:arc', overparen: 'acc:arc', cancel: 'acc:cancel',
+  overset: 'stack:over', stackrel: 'stack:over', underset: 'stack:under',
+  ubrace: 'brace:u', underbrace: 'brace:u', obrace: 'brace:o', overbrace: 'brace:o',
+  bb: 'font:bb', mathbf: 'font:bb', bbb: 'font:bbb', mathbb: 'font:bbb', cc: 'font:cc', mathcal: 'font:cc',
+  tt: 'font:tt', mathtt: 'font:tt', fr: 'font:fr', mathfrak: 'font:fr', sf: 'font:sf', mathsf: 'font:sf',
+  sum: 'big:sum', prod: 'big:prod', int: 'big:int', oint: 'big:oint', lim: 'big:lim',
+  bigwedge: 'big:bigwedge', bigvee: 'big:bigvee', bigcap: 'big:bigcap', bigcup: 'big:bigcup',
+};
+const SYM = { // simbolos rectos sin espacios propios
+  oo: '∞', infty: '∞', aleph: 'ℵ', partial: '∂', del: '∂', nabla: '∇', grad: '∇', deg: '°', cdots: '⋯', ldots: '…', dots: '…', vdots: '⋮', ddots: '⋱',
+  'O/': '∅', emptyset: '∅', therefore: '∴', because: '∵', angle: '∠', frown: '⌢', triangle: '△', diamond: '⋄', square: '□',
+  CC: 'ℂ', NN: 'ℕ', QQ: 'ℚ', RR: 'ℝ', ZZ: 'ℤ', AA: '∀', forall: '∀', EE: '∃', exists: '∃', bot: '⊥', top: '⊤', TT: '⊤', not: '¬', neg: '¬',
+};
+const BIN = { cdot: '⋅', ast: '∗', star: '⋆', times: '×', xx: '×', div: '÷', pm: '±', mp: '∓', circ: '∘', oplus: '⊕', ox: '⊗', otimes: '⊗', odot: '⊙',
+  setminus: '∖', backslash: '∖', ltimes: '⋉', rtimes: '⋊', wedge: '∧', vee: '∨', vv: '∨', cap: '∩', nn: '∩', cup: '∪', uu: '∪' };
+const REL = { ne: '≠', lt: '<', gt: '>', le: '≤', ge: '≥', ll: '≪', gg: '≫', mlt: '≪', mgt: '≫', prec: '≺', preceq: '⪯', succ: '≻', succeq: '⪰',
+  in: '∈', notin: '∉', sub: '⊂', subset: '⊂', sup: '⊃', supset: '⊃', sube: '⊆', subseteq: '⊆', supe: '⊇', supseteq: '⊇',
+  equiv: '≡', cong: '≅', approx: '≈', propto: '∝', prop: '∝', implies: '⇒', iff: '⇔', to: '→', mapsto: '↦', bowtie: '⋈', vdash: '⊢', models: '⊨',
+  uarr: '↑', uparrow: '↑', darr: '↓', downarrow: '↓', rarr: '→', rightarrow: '→', larr: '←', leftarrow: '←', harr: '↔', leftrightarrow: '↔',
+  rArr: '⇒', Rightarrow: '⇒', lArr: '⇐', Leftarrow: '⇐', hArr: '⇔', Leftrightarrow: '⇔', rightarrowtail: '↣', twoheadrightarrow: '↠' };
+const WORD = { and: 'and', or: 'or', if: 'if' }; // se escriben como palabra, con espacios a los lados
+const OPEN = { langle: '⟨', lfloor: '⌊', lceiling: '⌈' }, CLOSE = { rangle: '⟩', rfloor: '⌋', rceiling: '⌉' };
 
 const WORDS = new Map();
 for (const [k, v] of Object.entries(GREEK)) WORDS.set(k, { t: 'var', v });
 for (const [k, v] of Object.entries(GREEK_UP)) WORDS.set(k, { t: 'sym', v });
 for (const k of FUNCS) WORDS.set(k, { t: 'fn', v: k });
-for (const k of KW) WORDS.set(k, { t: 'kw', v: k });
-for (const [k, v] of Object.entries(WORD_SYM)) WORDS.set(k, { t: 'sym', v });
-for (const [k, [v, kind]] of Object.entries(WORD_OP)) WORDS.set(k, { t: 'op', v, k: kind });
+for (const [k, v] of Object.entries(KW)) WORDS.set(k, { t: 'kw', v });
+for (const [k, v] of Object.entries(SYM)) WORDS.set(k, { t: 'sym', v });
+for (const [k, v] of Object.entries(BIN)) WORDS.set(k, { t: 'op', v, k: 'bin' });
+for (const [k, v] of Object.entries(REL)) WORDS.set(k, { t: 'op', v, k: 'rel' });
+for (const [k, v] of Object.entries(WORD)) WORDS.set(k, { t: 'op', v, k: 'word' });
+for (const [k, v] of Object.entries(OPEN)) WORDS.set(k, { t: 'open', v });
+for (const [k, v] of Object.entries(CLOSE)) WORDS.set(k, { t: 'close', v });
+WORDS.set('vvv', { t: 'kw', v: 'big:bigvee' }); WORDS.set('nnn', { t: 'kw', v: 'big:bigcap' }); WORDS.set('uuu', { t: 'kw', v: 'big:bigcup' });
+WORDS.set('quad', { t: 'space', w: 1 }); WORDS.set('qquad', { t: 'space', w: 2 });
+WORDS.set('text', { t: 'raw', v: 'text' }); WORDS.set('color', { t: 'raw', v: 'color' });
 const WORD_KEYS = [...WORDS.keys()].sort((a, b) => b.length - a.length);
 
+const op = (v, k) => ({ t: 'op', v, k });
 const SYMS = [
-  ['<=>', { t: 'op', v: '⇔', k: 'rel' }], ['|->', { t: 'op', v: '↦', k: 'rel' }], ['...', { t: 'sym', v: '…' }],
-  ['!=', { t: 'op', v: '≠', k: 'rel' }], ['<=', { t: 'op', v: '≤', k: 'rel' }], ['>=', { t: 'op', v: '≥', k: 'rel' }],
-  ['->', { t: 'op', v: '→', k: 'rel' }], ['=>', { t: 'op', v: '⇒', k: 'rel' }], ['<-', { t: 'op', v: '←', k: 'rel' }],
-  ['~~', { t: 'op', v: '≈', k: 'rel' }], ['~=', { t: 'op', v: '≅', k: 'rel' }], ['-=', { t: 'op', v: '≡', k: 'rel' }],
-  [':=', { t: 'op', v: ':=', k: 'rel' }], ['-:', { t: 'op', v: '÷', k: 'bin' }], ['+-', { t: 'op', v: '±', k: 'bin' }],
-  ['-+', { t: 'op', v: '∓', k: 'bin' }], ['**', { t: 'op', v: '∗', k: 'bin' }], ['//', { t: 'sym', v: '/' }],
+  ['<=>', op('⇔', 'rel')], ['|->', op('↦', 'rel')], ['...', { t: 'sym', v: '…' }], ['>->>', op('⤖', 'rel')],
+  ['!in', op('∉', 'rel')], ['!=', op('≠', 'rel')], ['<=', op('≤', 'rel')], ['>=', op('≥', 'rel')], ['->', op('→', 'rel')], ['=>', op('⇒', 'rel')], ['<-', op('←', 'rel')],
+  ['~~', op('≈', 'rel')], ['~=', op('≅', 'rel')], ['-=', op('≡', 'rel')], [':=', op(':=', 'rel')], ['-<=', op('⪯', 'rel')], ['-<', op('≺', 'rel')],
+  ['>-=', op('⪰', 'rel')], ['>-', op('≻', 'rel')], ['>->', op('↣', 'rel')], ['->>', op('↠', 'rel')], ['|--', op('⊢', 'rel')], ['|==', op('⊨', 'rel')],
+  ['-:', op('÷', 'bin')], ['+-', op('±', 'bin')], ['-+', op('∓', 'bin')], ['***', op('⋆', 'bin')], ['**', op('∗', 'bin')], ['//', { t: 'sym', v: '/' }],
+  ['\\\\', op('∖', 'bin')], ['|><|', op('⋈', 'bin')], ['|><', op('⋉', 'bin')], ['><|', op('⋊', 'bin')], ['o+', op('⊕', 'bin')], ['o.', op('⊙', 'bin')],
+  ['^^^', { t: 'kw', v: 'big:bigwedge' }],
+  ['^^', op('∧', 'bin')], [':.', { t: 'sym', v: '∴' }], [":'", { t: 'sym', v: '∵' }], ['/_\\', { t: 'sym', v: '△' }], ['/_', { t: 'sym', v: '∠' }], ['_|_', { t: 'sym', v: '⊥' }],
+  ['|__', { t: 'open', v: '⌊' }], ['__|', { t: 'close', v: '⌋' }], ['|~', { t: 'open', v: '⌈' }], ['~|', { t: 'close', v: '⌉' }],
+  ['(:', { t: 'open', v: '⟨' }], [':)', { t: 'close', v: '⟩' }], ['<<', { t: 'open', v: '⟨' }], ['>>', { t: 'close', v: '⟩' }],
   ['{:', { t: 'open', v: '{:' }], [':}', { t: 'close', v: ':}' }],
-  ['+', { t: 'op', v: '+', k: 'bin' }], ['-', { t: 'op', v: '−', k: 'bin' }], ['*', { t: 'op', v: '·', k: 'bin' }],
-  ['@', { t: 'op', v: '∘', k: 'bin' }], ['=', { t: 'op', v: '=', k: 'rel' }], ['<', { t: 'op', v: '<', k: 'rel' }], ['>', { t: 'op', v: '>', k: 'rel' }],
+  ['+', op('+', 'bin')], ['-', op('−', 'bin')], ['*', op('⋅', 'bin')], ['@', op('∘', 'bin')], ['=', op('=', 'rel')], ['<', op('<', 'rel')], ['>', op('>', 'rel')],
   ['/', { t: 'slash' }], ['_', { t: 'sub' }], ['^', { t: 'sup' }],
   ['(', { t: 'open', v: '(' }], ['[', { t: 'open', v: '[' }], ['{', { t: 'open', v: '{' }],
   [')', { t: 'close', v: ')' }], [']', { t: 'close', v: ']' }], ['}', { t: 'close', v: '}' }],
-  [',', { t: 'punct', v: ',' }], [';', { t: 'punct', v: ';' }],
+  [',', { t: 'punct', v: ',' }], [';', { t: 'punct', v: ';' }], ["'", { t: 'sym', v: '′' }],
 ].sort((a, b) => b[0].length - a[0].length);
 
 const NUM_RE = /(?:\d+(?:\.\d+)?|\.\d+)/y;
 const LETTER = /\p{L}/u;
+const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|[A-Za-z]{3,20})$/;
 
 export function tokenize(s) {
   const out = [];
@@ -50,6 +87,7 @@ export function tokenize(s) {
   while (i < n) {
     const ch = s[i];
     if (/\s/.test(ch)) { i++; continue; }
+    if (ch === '\\' && s[i + 1] === ' ') { out.push({ t: 'space', w: 0.28 }); i += 2; continue; }
     if (ch === '"') { let j = s.indexOf('"', i + 1); if (j < 0) j = n; out.push({ t: 'str', v: s.slice(i + 1, j) }); i = j + 1; continue; }
     NUM_RE.lastIndex = i;
     const m = NUM_RE.exec(s);
@@ -57,7 +95,24 @@ export function tokenize(s) {
     const cp = String.fromCodePoint(s.codePointAt(i));
     if (LETTER.test(cp)) {
       const k = WORD_KEYS.find((w) => s.startsWith(w, i));
-      if (k) { out.push({ ...WORDS.get(k) }); i += k.length; } else { out.push({ t: 'var', v: cp }); i += cp.length; }
+      if (!k) {
+        const ls = SYMS.find(([w]) => /^[A-Za-z]/.test(w) && s.startsWith(w, i)); // «o+», «o.», «vvv», «nnn», «uuu»
+        if (ls) { out.push({ ...ls[1] }); i += ls[0].length; } else { out.push({ t: 'var', v: cp }); i += cp.length; }
+        continue;
+      }
+      i += k.length;
+      const tk = { ...WORDS.get(k) };
+      if (tk.t === 'raw') { // text(...) y color(...): el contenido entre parentesis o llaves se lee tal cual
+        let j = i; while (j < n && s[j] === ' ') j++;
+        const close = { '(': ')', '{': '}' }[s[j]];
+        if (!close) { out.push({ t: 'var', v: tk.v[0] }); i -= k.length - 1; continue; }
+        let e = s.indexOf(close, j + 1); if (e < 0) e = n;
+        const arg = s.slice(j + 1, e).trim();
+        i = e + 1;
+        if (tk.v === 'text') out.push({ t: 'str', v: arg }); else out.push({ t: 'kw', v: 'color', arg: COLOR_RE.test(arg) ? arg : null });
+        continue;
+      }
+      out.push(tk);
       continue;
     }
     const sy = SYMS.find(([k]) => s.startsWith(k, i));
@@ -68,8 +123,30 @@ export function tokenize(s) {
 }
 
 const EMPTY = () => ({ t: 'row', c: [] });
-// En una fraccion, «(a+b)» como operando pierde sus parentesis.
-const unwrap = (n) => (n.t === 'group' && (n.l === '(' || n.l === '[' || n.l === '{:') && n.body ? n.body : n);
+// Como en AsciiMath, los parentesis, corchetes y llaves que son el operando de una fraccion, raiz, indice... no se ven.
+const unwrap = (n) => (n.t === 'group' && (n.l === '(' || n.l === '[' || n.l === '{' || n.l === '{:') && n.body ? n.body : n);
+
+const isComma = (n) => n.t === 'o' && n.k === 'punct' && n.s === ',';
+function splitCommas(nodes) {
+  const out = [[]];
+  for (const n of nodes) { if (isComma(n)) out.push([]); else out.at(-1).push(n); }
+  return out;
+}
+// «[[a,b],[c,d]]», «((a),(b))», «{(x,+,y),(u,-,v):}»: un grupo cuyos elementos son grupos con el mismo numero de elementos es una matriz.
+// Una columna formada solo por «|» es una linea vertical (matriz aumentada).
+function toMatrix(g) {
+  const items = splitCommas(g.body.c);
+  if (!items.length || !items.every((it) => it.length === 1 && it[0].t === 'group')) return null;
+  const rows = items.map((it) => splitCommas(it[0].body.c).map((c) => ({ t: 'row', c })));
+  const cols = rows[0].length;
+  if (rows.some((r) => r.length !== cols) || (rows.length === 1 && cols === 1)) return null;
+  const isBar = (cell) => cell.c.length === 1 && cell.c[0].t === 'sym' && cell.c[0].s === '|';
+  const bars = [];
+  const keep = [];
+  for (let k = 0; k < cols; k++) { if (rows.every((r) => isBar(r[k]))) bars.push(keep.length); else keep.push(k); }
+  if (!keep.length) return null;
+  return { t: 'mat', l: g.l, r: g.r, rows: rows.map((r) => keep.map((k) => r[k])), bars };
+}
 
 function parseS(p) {
   const k = p.toks[p.i];
@@ -78,12 +155,17 @@ function parseS(p) {
   p.i++;
   switch (k.t) {
     case 'num': return { t: 'n', s: k.v };
-    case 'var': return { t: 'v', s: k.v };
+    case 'var': {
+      const nx = p.toks[p.i];
+      if (k.v === 'd' && nx?.t === 'var' && 'xyzt'.includes(nx.v)) { p.i++; return { t: 'row', c: [{ t: 'v', s: 'd' }, { t: 'v', s: nx.v }] }; } // dy/dx
+      return { t: 'v', s: k.v };
+    }
     case 'sym': return { t: 'sym', s: k.v };
     case 'str': return { t: 'txt', s: k.v };
     case 'fn': return { t: 'fn', s: k.v };
     case 'op': return { t: 'o', s: k.v, k: k.k };
     case 'punct': return { t: 'o', s: k.v, k: 'punct' };
+    case 'space': return { t: 'space', w: k.w };
     case 'close': return { t: 'sym', s: k.v === ':}' ? '' : k.v };
     case 'slash': return { t: 'o', s: '/', k: 'ord' };
     case 'sub': return { t: 'o', s: '_', k: 'ord' };
@@ -94,17 +176,26 @@ function parseS(p) {
       p.depth--;
       let r = null;
       if (p.toks[p.i]?.t === 'close') r = p.toks[p.i++].v;
-      return { t: 'group', l: k.v, r, body };
+      const g = { t: 'group', l: k.v, r, body };
+      return toMatrix(g) || g;
     }
     case 'kw': {
-      switch (k.v) {
+      const [kind, arg] = k.v.split(':');
+      switch (kind) {
         case 'sqrt': return { t: 'sqrt', body: unwrap(parseS(p)) };
         case 'root': { const idx = unwrap(parseS(p)); return { t: 'sqrt', idx, body: unwrap(parseS(p)) }; }
         case 'frac': { const a = unwrap(parseS(p)); return { t: 'frac', a, b: unwrap(parseS(p)) }; }
         case 'abs': return { t: 'group', l: '|', r: '|', body: unwrap(parseS(p)) };
         case 'norm': return { t: 'group', l: '‖', r: '‖', body: unwrap(parseS(p)) };
-        case 'hat': case 'bar': case 'vec': return { t: 'acc', k: k.v, body: unwrap(parseS(p)) };
-        default: return { t: 'big', s: k.v, sub: null, sup: null }; // sum prod int lim
+        case 'floor': return { t: 'group', l: '⌊', r: '⌋', body: unwrap(parseS(p)) };
+        case 'ceil': return { t: 'group', l: '⌈', r: '⌉', body: unwrap(parseS(p)) };
+        case 'acc': return { t: 'acc', k: arg, body: unwrap(parseS(p)) };
+        case 'font': return { t: 'font', k: arg, body: unwrap(parseS(p)) };
+        case 'brace': return { t: 'brace', k: arg, body: unwrap(parseS(p)), sub: null, sup: null };
+        case 'stack': { const top = unwrap(parseS(p)); return { t: 'stack', k: arg, top, base: unwrap(parseS(p)) }; }
+        case 'color': return { t: 'color', col: k.arg, body: unwrap(parseS(p)) };
+        case 'big': return { t: 'big', s: arg, sub: null, sup: null };
+        default: return EMPTY();
       }
     }
     default: return { t: 'sym', s: k.v ?? '' };
@@ -112,13 +203,14 @@ function parseS(p) {
 }
 
 function parseI(p) {
-  let base = parseS(p), sub = null, sup = null;
+  const base = parseS(p);
+  let sub = null, sup = null;
   for (let n = 0; n < 2; n++) {
     const k = p.toks[p.i];
     if (k?.t === 'sub' && !sub) { p.i++; sub = unwrap(parseS(p)); } else if (k?.t === 'sup' && !sup) { p.i++; sup = unwrap(parseS(p)); } else break;
   }
   if (!sub && !sup) return base;
-  if (base.t === 'big') return { ...base, sub, sup };
+  if (base.t === 'big' || base.t === 'brace') return { ...base, sub, sup };
   return { t: 'ss', base, sub, sup };
 }
 

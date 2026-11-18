@@ -157,8 +157,8 @@ export function exportSVG(doc, ltScale = 1, vis = {}) {
     const f = textFrame(t, approx, pose.anchor);
     if (f.math) { // formulas: cada primitiva con su posicion (texto en su linea base, trazos como rutas)
       const els = framePrims(f, t).map((p) => (p.k === 't'
-        ? `<text x="${n(p.x * K)}" y="${n(-p.y * K)}" font-size="${n(p.size * K)}" font-family="${fontCss(p.font).replace(/"/g, "'")}"${p.it ? ' font-style="italic"' : ''}>${esc(p.s)}</text>`
-        : `<path d="M${p.pts.map(([x, y]) => `${n(x * K)} ${n(-y * K)}`).join(' L')}" fill="none" stroke="${col(t.color)}" stroke-width="${n(Math.max(p.lw * K, 0.5))}" stroke-linecap="round" stroke-linejoin="round"/>`));
+        ? `<text x="${n(p.x * K)}" y="${n(-p.y * K)}" font-size="${n(p.size * K)}" font-family="${fontCss(p.font).replace(/"/g, "'")}"${p.it ? ' font-style="italic"' : ''}${p.bold ? ' font-weight="bold"' : ''}${p.col ? ` fill="${esc(p.col)}"` : ''}>${esc(p.s)}</text>`
+        : `<path d="M${p.pts.map(([x, y]) => `${n(x * K)} ${n(-y * K)}`).join(' L')}" fill="none" stroke="${p.col ? esc(p.col) : col(t.color)}" stroke-width="${n(Math.max(p.lw * K, 0.5))}" stroke-linecap="round" stroke-linejoin="round"/>`));
       out.push(`<g transform="translate(${X(P.x)} ${Y(P.y)}) rotate(${n(-pose.ang)})" fill="${col(t.color)}">${els.join('')}</g>`);
       continue;
     }
