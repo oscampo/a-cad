@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { newDoc, addPoint, addLine, addCon, addText } from '../src/model.js';
 import { textValue, plainText } from '../src/text.js';
 import { textOrder } from '../src/tvars.js';
+import { dimPos } from '../src/dims.js';
 import { varsOf, textVarErrors, recompute, pruneFormulas } from '../src/params.js';
 
 let passed = 0;
@@ -71,7 +72,7 @@ t('redefinir no es un error, pero chocar con una cota o con una funcion del prog
   assert.equal(varsOf(d).k.v, 3);
 });
 
-t('las cotas leen el valor final de las variables, y las variables leen las cotas en su punto', () => {
+t('una cota por debajo de todo ve el valor final de las variables, y las variables leen las cotas en su punto', () => {
   const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 10, 0), c = addPoint(d, 0, 5), e = addPoint(d, 10, 5);
   d.pts[a].fixed = true;
   addLine(d, a, b, {}); addLine(d, c, e, {});
@@ -87,6 +88,34 @@ t('las cotas leen el valor final de las variables, y las variables leen las cota
   assert.deepEqual(pruneFormulas(d), []);
   d.cons[k1].v = 20;
   assert.equal(plainText(textValue(d, d.texts[out])), 'k vale 7 y m vale 21');
+});
+
+t('las cotas con formula se leen en el lugar de su etiqueta y ven las variables de ahi', () => {
+  const d = newDoc();
+  const dim = (y, name, expr) => { // una linea horizontal de 10 de largo a la altura y, con su cota
+    const a = addPoint(d, 0, y), b = addPoint(d, 10, y);
+    addLine(d, a, b, {});
+    return addCon(d, { t: 'DIST', refs: [a, b], v: 10, name, expr });
+  };
+  addText(d, addPoint(d, 0, 30), 'k{=1}', { h: 1 });
+  addText(d, addPoint(d, 0, 10), 'k{=7}', { h: 1 });
+  const k2 = dim(20, 'D2', 'k*2'), k3 = dim(0, 'D3', 'k*2');
+  const p2 = dimPos(d, d.cons[k2]);
+  near(p2.x, 5, 1); near(p2.y, 20, 1); // la etiqueta de una cota horizontal esta sobre su linea
+  const r = recompute(d);
+  assert.ok(r.ok, r.error);
+  near(d.cons[k2].v, 2); // entre k{=1} y k{=7}: k vale 1
+  near(d.cons[k3].v, 14); // por debajo de las dos: k vale 7
+  // por encima de todo, k aun no existe
+  const k4 = dim(40, 'D4', 'k*3');
+  const bad = recompute(d);
+  assert.ok(!bad.ok); assert.match(bad.error, /D4: «k» se define después de esta cota en el orden de lectura/);
+  // mover la etiqueta de D2 por debajo de k{=7} cambia lo que lee
+  delete d.cons[k4];
+  for (const off of [14, -14]) { d.cons[k2].off = off; if (dimPos(d, d.cons[k2]).y < 8) break; }
+  assert.ok(dimPos(d, d.cons[k2]).y < 8);
+  assert.ok(recompute(d).ok);
+  near(d.cons[k2].v, 14);
 });
 
 t('las funciones de varios textos, vectores y funciones recursivas siguen valiendo en este orden', () => {

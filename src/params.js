@@ -4,7 +4,7 @@
 // Las cotas de referencia (solo lectura) tambien se pueden leer en una formula: su valor sale de la geometria, asi que
 // resolver y recalcular se repite hasta que ya nada cambia (settle). Si no se estabiliza se avisa y se deshace.
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
-import { dimValue, angTrue, initAngle, trackAngles } from './dims.js';
+import { dimPos, dimValue, angTrue, initAngle, trackAngles } from './dims.js';
 import { parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE } from './expr.js';
 import { textVarState, hasDefMark, OUT_SRC } from './tvars.js';
 import { geoVars, isGeoName, geoPoints } from './geo.js';
@@ -21,20 +21,23 @@ export function varValue(doc, k) {
   return { v, r: false };
 }
 // Estado de las variables de los textos («x{=valor}») con los valores actuales de las cotas.
+// Las cotas con formula se leen en el lugar de su etiqueta (orden de lectura): ven las variables tal como estaban ahi.
+const probesOf = (doc) => drivers(doc).filter(([, k]) => k.expr || k.scaleExpr).map(([id, k]) => ({ id, ...dimPos(doc, k) }));
 export function textVars(doc, exceptId = null) {
   const dimVars = geoVars(doc);
   for (const [id, k] of named(doc)) if (id !== exceptId) dimVars[k.name] = varValue(doc, k);
-  return textVarState(doc, dimVars, new Set(named(doc).map(([, k]) => k.name)));
+  return textVarState(doc, dimVars, new Set(named(doc).map(([, k]) => k.name)), probesOf(doc));
 }
 const hasDefs = (doc) => Object.values(doc.texts || {}).some((t) => hasDefMark(t.text));
-const NO_TV = { win: new Map(), byName: new Map(), names: new Set(), vals: {}, errs: new Map() };
+const NO_TV = { win: new Map(), byName: new Map(), names: new Set(), vals: {}, errs: new Map(), dimEnv: new Map() };
 const tvOf = (doc) => (hasDefs(doc) ? textVars(doc) : NO_TV);
 // Variables disponibles (sin la cota exceptId, que no puede usarse a si misma): las de las cotas y las de los textos.
 export function varsOf(doc, exceptId = null) {
   const out = geoVars(doc);
   for (const [id, k] of named(doc)) if (id !== exceptId) out[k.name] = varValue(doc, k);
   if (!hasDefs(doc)) return out;
-  return Object.assign(out, textVarState(doc, out, new Set(named(doc).map(([, k]) => k.name))).vals);
+  const st = textVarState(doc, out, new Set(named(doc).map(([, k]) => k.name)), probesOf(doc));
+  return Object.assign(out, exceptId != null && st.dimEnv.has(exceptId) ? st.dimEnv.get(exceptId) : st.vals); // una cota con formula ve las variables de su lugar de la pagina
 }
 // Texto corto de las variables para mostrarlas al escribir una formula: "D1 = 25, A1 = 45°".
 export function varsList(doc, exceptId = null) {
@@ -113,6 +116,8 @@ export function recompute(doc, omega = 1, hook = null) {
   for (const [, k] of drivers(doc)) if (k.t === 'ANG' && k.expr && k.cur === undefined) initAngle(doc, k); // las angulares con formula usan valor continuo
   const dr = drivers(doc), byName = new Map(named(doc).map(([id, k]) => [k.name, id])), f = dr.filter(([, k]) => k.expr);
   const deps = new Map(), tv = tvOf(doc);
+  // una variable de texto que se define despues de la cota (mas abajo o mas a la derecha) todavia no existe para ella
+  const hintLate = (m) => { const q = /No reconozco «(.+?)»/.exec(m); return q && tv.names.has(q[1]) ? `«${q[1]}» se define después de esta cota en el orden de lectura (más abajo o más a la derecha de su etiqueta)` : m; };
   for (const [id, k] of f) {
     const ids = [];
     for (const n of exprRefs(srcOf(k), (q) => byName.has(q) || tv.names.has(q) || isGeoName(doc, q))) {
@@ -143,7 +148,7 @@ export function recompute(doc, omega = 1, hook = null) {
   for (const id of order) {
     const k = doc.cons[id];
     let val;
-    try { val = parseValue(k.expr, { angle: k.t === 'ANG', radians: k.t === 'ANG' && k.unit === 'rad', vars: varsOf(doc, id) }); } catch (e) { doc.cons = JSON.parse(bak); return { ok: false, error: `${k.name}: ${e.message}` }; }
+    try { val = parseValue(k.expr, { angle: k.t === 'ANG', radians: k.t === 'ANG' && k.unit === 'rad', vars: varsOf(doc, id) }); } catch (e) { doc.cons = JSON.parse(bak); return { ok: false, error: `${k.name}: ${hintLate(e.message)}` }; }
     if (k.scaleExpr && k.t !== 'ANG') { // escala con formula: «30[*k]»; se reevalua con las variables de ahora
       try { const sc = parseValue(k.scaleExpr, { vars: varsOf(doc, id) }); if (!(sc > 0)) throw new Error('debe ser mayor que cero'); k.scale = sc; } catch (e) { doc.cons = JSON.parse(bak); return { ok: false, error: `${k.name}: escala ${e.message}` }; }
     }

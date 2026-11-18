@@ -159,7 +159,7 @@ t('funciones de usuario: se listan, se leen desde cotas y siguen el renombrado d
   addLine(d, a, b, {}); addLine(d, c, e, {});
   const k1 = addCon(d, { t: 'DIST', refs: [a, b], v: 10, name: 'D1' });
   const k2 = addCon(d, { t: 'DIST', refs: [c, e], v: 20, name: 'D2', expr: 'f(3) + D1' });
-  d.texts.t1 = { pt: a, h: 1, font: '', text: 'f(x){=x^2+1}\nh(x){=x*D1}', ang: 0, anchor: 'bl', color: 'auto', readable: true };
+  d.texts.t1 = { pt: addPoint(d, 0, 100), h: 1, font: '', text: 'f(x){=x^2+1}\nh(x){=x*D1}', ang: 0, anchor: 'bl', color: 'auto', readable: true }; // por encima de las cotas (orden de lectura)
   const r = recompute(d);
   assert.ok(r.ok, r.error);
   assert.equal(d.cons[k2].v, 20); // f(3) + D1 = 10 + 10

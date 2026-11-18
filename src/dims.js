@@ -111,6 +111,17 @@ export function splitScale(src) {
   return { body: m[1], src: m[2] }; // formula: «30[*k]», «4[*2*D1]»
 }
 
+// Donde esta la etiqueta de una cota (en el dibujo), para ordenarla en la pagina como a un texto (orden de lectura). layoutDim trabaja en pixeles
+// de pantalla: con una escala enorme, sus desplazamientos fijos en pixeles se vuelven despreciables.
+export function dimPos(doc, k) {
+  try {
+    const S = 1e4, L = layoutDim(doc, k, { s: S, ox: 0, oy: 0 });
+    if (L.label) return { x: L.label.x / S, y: -L.label.y / S, len: String(L.label.text).length };
+  } catch (e) { /* referencias rotas: se usa el primer punto */ }
+  const p = doc.pts?.[k.refs?.[0]];
+  return { x: p ? p.x : 0, y: p ? p.y : 0, len: 3 };
+}
+
 export function dimText(doc, k) {
   if (k.t === 'ANG4') { const x = v4(doc, k); return dimText(x.d, x.k); }
   const v = dimValue(doc, k), sc = dimScale(k);

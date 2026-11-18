@@ -1732,7 +1732,12 @@ function toolUp(p, q) {
       afterChange(); return;
     }
     if (d?.box && d.boxOn) { finishBox(d, p); return; }
-    if (d?.started) { recordTraces(doc, 2e-4); reparamSplines(doc); afterChange(); return; } // la trayectoria termina donde quedo el punto al soltar
+    if (d?.started) { // la trayectoria termina donde quedo el punto al soltar
+      recordTraces(doc, 2e-4); reparamSplines(doc);
+      // mover un texto o la etiqueta de una cota cambia su lugar en el orden de lectura: las cotas con formula que leen variables de texto se recalculan
+      if (usesTextVars(doc)) { const st = settle(doc, solve, []); if (!st.ok) { rollback(); toast(st.error || 'No se pudo: queda donde estaba'); } }
+      afterChange(); return;
+    }
     const ah = fkOn('ac') ? actAt(p.x, p.y) : null;
     if (ah) { editAct(ah, false); return; }
     selectAt(p);

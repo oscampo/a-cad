@@ -3024,7 +3024,7 @@ t('variables de texto: las leen las cotas con formula, se recalculan en orden y 
   const k2 = addCon(d, { t: 'DIST', refs: [a, c], v: 6, expr: 'x+1' }); // D2 = x + 1
   const k3 = addCon(d, { t: 'DIST', refs: [a, e], v: 3, expr: 'D2*2' }); // D3 = 2*D2
   nameDims(d);
-  const P = addPoint(d, 5, 5);
+  const P = addPoint(d, 5, 60); // por encima de todas las cotas: en el orden de lectura las variables se definen antes que ellas
   addText(d, P, 'x{=D1/2}', {}); // x depende de D1
   assert.ok(usesTextVars(d));
   assert.ok(solve(d, []).ok);
@@ -3040,7 +3040,7 @@ t('variables de texto: las leen las cotas con formula, se recalculan en orden y 
   d.cons[k2].expr = 'x+y'; // D2 = x + y, y = D3 + 1, D3 = 2*D2: en circulo
   const bad = recompute(d); assert.ok(!bad.ok); assert.match(bad.error, /círculo|propia fórmula/);
   d.cons[k2].expr = 'x+1';
-  assert.ok(recompute(d).ok);
+  { const rr = recompute(d); assert.ok(rr.ok, rr.error); }
   // sin la variable, la formula pierde su base y se avisa
   d.texts = {};
   assert.ok(!recompute(d).ok);
