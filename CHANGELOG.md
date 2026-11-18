@@ -2,6 +2,16 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## v2.3.0 (2026-11-18)
+
+### Nuevo
+
+- Gráficas: **un lado puede ser una expresión que da un vector**, no solo el nombre de uno: con `x:0..1;10` y `f(x):x.^2`, `f(x) vs x`, `x.^2 vs x` o `sin(x) vs x` se grafican punto a punto. Antes daban «un vector solo se grafica solo, sin operaciones». También se acepta un vector columna (`v:[1;2;3]`). Los dos lados tienen que dar vectores del mismo tamaño; una expresión que da una matriz, o un vector contra `t`, sigue dando error.
+
+### Cambia el comportamiento
+
+- Textos: en `f(x):expr=`, si algún parámetro no es una variable en ese punto de la lectura, no se muestra nada (antes `=⚠`). Si los parámetros existen y el cálculo falla, sigue apareciendo `=⚠`.
+
 ## v2.2.0 (2026-11-18)
 
 ### Nuevo

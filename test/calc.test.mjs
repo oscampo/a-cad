@@ -48,7 +48,8 @@ t('«x:expr=» asigna y muestra el valor en la misma linea', () => {
 t('«f(x):expr=» define la funcion y muestra f(x) con las variables de ese punto', () => {
   assert.equal(page('$$x:0..1;3\nf(x):x.^2=\nf(x)=\nf(3)=$$'), '$$x:=[0, 0.5, 1]\nf(x):=x.^2=[0, 0.25, 1]\nf(x)=[0, 0.25, 1]\nf(3)=9$$');
   assert.equal(page('$$a:2\nb:5\ng(a; b):a*b+1=$$'), '$$a:=2\nb:=5\ng(a; b):=a*b+1=11$$');
-  assert.equal(page('$$f(x):x^2=\nf(3)=$$'), '$$f(x):=x^2=⚠\nf(3)=9$$'); // sin x: ⚠, pero la funcion queda definida
+  assert.equal(page('$$f(x):x^2=\nf(3)=$$'), '$$f(x):=x^2\nf(3)=9$$'); // sin x no muestra nada, pero la funcion queda definida
+  assert.equal(page('$$x:-1\nf(x):sqrt(x)=$$'), '$$x:=-1\nf(x):=sqrt(x)=⚠$$'); // con x, un calculo que falla si da ⚠
   for (const s of ['$$f(x):x^2=$$', '$$g(a; b):a+b = $$']) assert.equal(calcSrc(calcParse(s)), s);
 });
 

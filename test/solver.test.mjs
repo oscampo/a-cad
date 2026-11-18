@@ -3717,6 +3717,17 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   assert.deepEqual(computeGraph(e, e.graphs[h], solve).series[0].pts, [[0, 0], [0.5, 2], [1, 4]]);
   e.graphs[h].series = ['z vs x'];
   assert.match(computeGraph(e, e.graphs[h], solve).error, /distinto/);
+  // un lado con una expresion que da un vector (una funcion propia, «.^», un vector columna) tambien se grafica contra otro vector
+  const fv = newDoc(), Q = addPoint(fv, 0, 0);
+  addText(fv, Q, '$$x:0..1;3\nf(x):x.^2\nv:[1;2;3]$$', {});
+  const k = addGraph(fv, 0, 0, 100, 60, ['f(x) vs x', 'x.^2 vs x', 'v vs v.^2']);
+  const rv = computeGraph(fv, fv.graphs[k], solve);
+  assert.equal(rv.error, null);
+  assert.deepEqual(rv.series.map((s) => s.pts), [[[0, 0], [0.5, 0.25], [1, 1]], [[0, 0], [0.5, 0.25], [1, 1]], [[1, 1], [4, 2], [9, 3]]]);
+  fv.graphs[k].series = ['f(x) vs t'];
+  assert.match(computeGraph(fv, fv.graphs[k], solve).error, /otro vector/);
+  fv.graphs[k].series = ['x.^2 + [1, 2] vs x'];
+  assert.ok(computeGraph(fv, fv.graphs[k], solve).error);
   assert.deepEqual(parseSeries('A1  vs  t'), { y: 'A1', x: 't', ax: 'x1', ay: 'y1' });
   const tk = niceTicks(0, 97);
   assert.ok(tk.lo <= 0 && tk.hi >= 97 && tk.ticks.length >= 3);

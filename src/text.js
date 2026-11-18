@@ -51,12 +51,13 @@ export function textValue(doc, t) {
   };
   // La magnitud de un vector («$D3=$», ver vectors.js) muestra solo el valor, como texto.
   if (t.vecOf && toks.length === 1 && pieces.length === 1 && pieces[0].k === 'out') return outVal(pieces[0], false);
-  // «f(x):expr=»: el valor de f(x) con las variables de ese punto (x ya definida); si no se puede, ⚠
-  const fnVal = (callSrc, env) => {
+  // «f(x):expr=»: «=» y el valor de f(x) con las variables de ese punto; nada si algun parametro no es una variable ahi; ⚠ si falla el calculo
+  const fnVal = (callSrc, params, env) => {
+    if (!env || params.split(/[;,]/).some((q) => !(normName(q.trim()) in env))) return '';
     try {
       const r = evalExpr(callSrc, { vars: env, allowMat: true });
-      return r.mat ? VB0 + matText(r.mat) + VB1 : fmtNum(r.value);
-    } catch (e) { return '⚠'; }
+      return '=' + (r.mat ? VB0 + matText(r.mat) + VB1 : fmtNum(r.value));
+    } catch (e) { return '=⚠'; }
   };
   const piece = (p) => {
     if (p.k === 'lit') return p.closed ? p.s : '`' + p.s + ' ⚠'; // literal: se dibuja, no se calcula
@@ -67,7 +68,7 @@ export function textValue(doc, t) {
     const val = !bad ? st.defVal.get(dk) : null, mx = val?.vec ? [val.vec] : val?.mat;
     const call = p.params !== undefined ? '(' + p.params.trim() + ')' : ''; // funcion: f(x; y):=...
     // «x:expr=»: ademas del valor asignado, «=valor» (un vector o una matriz ya muestran su valor)
-    const shownVal = p.eq === undefined || mx ? '' : val?.fn ? '=' + fnVal(name + call, st.fnEnv.get(dk)) : '=' + (val ? fmtNum(val.v) : '⚠');
+    const shownVal = p.eq === undefined || mx ? '' : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? fmtNum(val.v) : '⚠');
     return p.pre + (mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 : IT0 + shown + call + ':=' + wrapNames(p.expr.trim()) + (bad && !shownVal ? ' ⚠' : '') + IT1 + shownVal) + p.post;
   };
   return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + tk.lines.map((l) => l.map(piece).join('')).join('\n') + (tk.disp ? '$$' : '$'))).join('');

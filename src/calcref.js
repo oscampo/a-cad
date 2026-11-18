@@ -140,7 +140,7 @@ export const CALC_GROUPS = [
       [c('f(x):…'), 'Define una función. Se dibuja ' + c('f(x):=…') + ' y se usa en las salidas, las variables y las cotas (' + c('D1 = f(3)') + ').', 'f(x):x^2+1\nf(3)=', 'f(x):=x^2+1\nf(3)=10', 't'],
       [c('g(a; b):…'), 'Varios parámetros, separados por ' + c(';') + ' o ' + c(',') + '.', 'g(a; b):a*b+1\ng(2; 5)=', 'g(a; b):=a*b+1\ng(2; 5)=11', 't'],
       [c('if(c; a; b)'), 'Recursión: solo se calcula la rama elegida (hasta 200 niveles).', 'fact(n):if(n<=1; 1; n*fact(n-1))\nfact(5)=', 'fact(n):=if(n<=1; 1; n*fact(n-1))\nfact(5)=120', 't'],
-      [c('f(x):…='), 'Define la función y muestra ahí mismo ' + c('f(x)') + ', con las variables que valen en ese punto (' + c('⚠') + ' si alguna no existe).', 'x:3\nf(x):x^2+1=', 'x:=3\nf(x):=x^2+1=10', 't'],
+      [c('f(x):…='), 'Define la función y muestra ahí mismo ' + c('f(x)') + ', con las variables que valen en ese punto (si un parámetro no es una variable en ese punto, no muestra nada).', 'x:3\nf(x):x^2+1=', 'x:=3\nf(x):=x^2+1=10', 't'],
       ['Variables de fuera', 'Lee las variables que valen donde se la llama, no donde se definió.', 'k:2\nf(x):x*k\nf(3)=\nk:5\nf(3)=', 'k:=2\nf(x):=x*k\nf(3)=6\nk:=5\nf(3)=15', 't'],
     ],
     rules: [

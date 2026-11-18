@@ -58,12 +58,27 @@ function* graphGen(doc, g, solveFn) {
   const acts = {};
   for (const [id, a] of Object.entries(clone.acts || {})) acts[actKey(a)] = a;
   const base = varsOf(clone);
-  const isVec = (nm) => bareRe.test(nm) && !!base[nm]?.vec;
+  // Un lado que da un vector: su nombre («x») o una expresion con vectores («f(x)», «x.^2»), que se calcula una vez con todos sus elementos.
+  const vecs = new Map();
+  const vecOf = (side) => {
+    if (vecs.has(side)) return vecs.get(side);
+    let v = null;
+    if (bareRe.test(side) && base[side]?.vec) v = base[side].vec;
+    else if (bareRe.test(side) ? base[side]?.mat : exprRefs(side).some((nm) => base[nm]?.vec || base[nm]?.mat)) {
+      const m = bareRe.test(side) ? base[side].mat : evalExpr(side, { vars: base, allowMat: true }).mat;
+      if (!m) throw new Error('«' + side + '»: no da un vector');
+      if (m.length === 1) v = m[0]; else if (m.every((row) => row.length === 1)) v = m.map((row) => row[0]);
+      else throw new Error('«' + side + '»: da una matriz, no un vector');
+    }
+    vecs.set(side, v);
+    return v;
+  };
+  const isVec = (side) => !!vecOf(side);
   const known = (nm) => nm === 't' || nm in acts || (/\.[vd]$/.test(nm) && nm.slice(0, -2) in acts) || (nm in base);
   for (const sp of specs) {
     for (const side of [sp.x, sp.y]) {
       for (const r of exprRefs(side)) if (!known(r)) { out.error = 'No reconozco «' + r + '»'; return out; }
-      if (!bareRe.test(side) && exprRefs(side).some(isVec)) { out.error = '«' + side + '»: un vector solo se grafica solo, sin operaciones'; return out; }
+      try { vecOf(side); } catch (e) { out.error = e.message; return out; }
     }
   }
   const needSim = specs.some((sp) => !(isVec(sp.x) && isVec(sp.y)));
@@ -102,7 +117,7 @@ function* graphGen(doc, g, solveFn) {
   specs.forEach((sp, i) => {
     let pts = bufs[i];
     if (isVec(sp.x) && isVec(sp.y)) {
-      const X = base[sp.x].vec, Y = base[sp.y].vec;
+      const X = vecOf(sp.x), Y = vecOf(sp.y);
       if (X.length !== Y.length) { out.error = '«' + sp.y + '» y «' + sp.x + '» tienen distinto número de elementos'; return; }
       pts = X.map((x, j) => [x, Y[j]]);
     } else if (isVec(sp.x) || isVec(sp.y)) { out.error = '«' + sp.y + ' vs ' + sp.x + '»: un vector solo se grafica contra otro vector del mismo tamaño'; return; }
