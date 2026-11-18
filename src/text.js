@@ -45,12 +45,13 @@ export function textValue(doc, t) {
     const gap = (g) => (math ? wrapNames(g) : g); // lo que no es definicion ni salida
     for (const mt of seg.matchAll(TEXT_RE())) {
       res += gap(seg.slice(last, mt.index)); last = mt.index + mt[0].length;
-      const [, name0, ex, out] = mt;
+      const [, name0, params0, ex, out] = mt;
       if (name0 !== undefined) { // definicion x{=valor}
         const name = normName(name0), shown = math && name.includes('_(') ? NM0 + name + NM1 : name;
         const bad = st.bad.has(tid + ':' + idx++);
         const val = math && !bad ? st.vals?.[name] : null, mx = val?.vec ? [val.vec] : val?.mat;
-        res += mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 : IT0 + shown + ':=' + gap(ex) + (bad ? ' ⚠' : '') + IT1;
+        const call = params0 !== undefined ? '(' + params0.trim() + ')' : ''; // funcion: f(x; y):=...
+        res += mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 : IT0 + shown + call + ':=' + gap(ex) + (bad ? ' ⚠' : '') + IT1;
         continue;
       }
       try {

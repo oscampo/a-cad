@@ -147,7 +147,7 @@ t('inversa y potencia: errores claros', () => {
   fails('inv([1,2,3])', /cuadradas.*1×3/);
   fails('[1,2;3,4;5,6]^2', /cuadradas/);
   fails('[1,2;3,4]^0.5', /entero/);
-  fails('inv([1,2;3,4],[1,2;3,4])', /recibe una matriz/);
+  fails('inv([1,2;3,4],[1,2;3,4])', /recibe un valor/);
   fails('inv(0)', /División entre cero/);
   assert.throws(() => evalExpr('inv'), /necesita paréntesis/);
 });
@@ -231,8 +231,8 @@ t('det, sum y norm', () => {
   assert.equal(num('norm([3;4])'), 5);
   assert.ok(Number.isFinite(num('norm([10^200,10^200])'))); // sin desbordar
   fails('det([1,2,3])', /cuadradas.*1×3/);
-  fails('det([1,2;3,4],2)', /recibe un vector o una matriz/);
-  fails('sum([1,2],[3,4])', /recibe un vector o una matriz/);
+  fails('det([1,2;3,4],2)', /recibe un valor/);
+  fails('sum([1,2],[3,4])', /recibe un valor/);
   assert.throws(() => evalExpr('sum'), /necesita paréntesis/);
 });
 

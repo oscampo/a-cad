@@ -229,7 +229,8 @@ t('variables con subindice: sin definir no se tocan, y la sintaxis invalida no e
   const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
   doc.texts.t1 = { pt: 'p', h: 1, font: '', text: '$x_(a-b)$ y x_(){=3} y y_(a(b)){=1}' };
   const shown = textValue(doc, doc.texts.t1);
-  assert.equal(shown, doc.texts.t1.text); // nada se define ni se reemplaza
+  // x_(){=3} ahora se lee como una funcion «x_» sin parametros: no vale (⚠); lo demas no se toca
+  assert.equal(plainText(shown), '$x_(a-b)$ y x_():=3 ⚠ y y_(a(b)){=1}');
 });
 
 console.log(`\n${passed} pruebas de matematica pasaron`);

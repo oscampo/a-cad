@@ -36,7 +36,9 @@ const MULTI = {
 };
 MULTI.redondear = MULTI.round;
 const LAZY = new Set(['if', 'si']); // si(condicion; si_verdadero; si_falso): solo se evalua la rama elegida
-const MATFN = new Set(['inv', 'det', 'sum', 'norm']); // funciones de matrices: inv(A) (la inversa), det(A), sum(v) (suma de todos los elementos) y norm(v)
+// Funciones de vectores y matrices (reciben un vector o una matriz): inv, det; resumenes (sobre todos los elementos): sum, prod, mean, median, std, variance, norm, len;
+// forma: rows, cols, trace, diag, eye(n); acumuladas: cumsum, cumprod; entre dos vectores: dot, cross. min(x) y max(x) con un solo vector tambien resumen.
+const MATFN = new Set(['inv', 'det', 'sum', 'prod', 'mean', 'median', 'std', 'variance', 'norm', 'len', 'rows', 'cols', 'trace', 'diag', 'eye', 'cumsum', 'cumprod', 'dot', 'cross']);
 // error de calculo (division entre cero, raiz negativa): una rama de si() que no se elige no lo propaga
 const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
 
@@ -104,7 +106,7 @@ function tokenize(src, vars = null, loose = false) {
         if (loose || (vars && Object.prototype.hasOwnProperty.call(vars, full))) { toks.push({ t: 'var', v: full, i, j: i + full.length }); i += full.length; continue; }
         if (!(vars && Object.prototype.hasOwnProperty.call(vars, raw))) throw new Error(`No reconozco «${full}» (propiedades: p1.x, p1.y, l1.len, l1.ang, c1.r, c1.d)`);
       }
-      if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: 'var', v: raw, i, j: i + L });
+      if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: vars[raw]?.fn ? 'ufn' : 'var', v: raw, i, j: i + L }); // ufn: funcion definida en un texto
       else if (vars && (ix = indexOfVar(raw, vars))) toks.push({ t: 'idx', base: ix.base, src: ix.src, i, j: i + L }); // v_2, v_i, A_(1,2): un elemento de un vector o matriz
       else if (raw === 'T' && last?.t === 'op' && last.v === '^') toks.push({ t: 'tr', i, j: i + 1 }); // x^T: la transpuesta
       else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name) || MATFN.has(name)) toks.push({ t: 'id', v: name, i, j: i + L });
@@ -130,7 +132,7 @@ export function exprRefs(src, has = null) {
     for (const k of tokenize(String(src ?? ''), null, true)) {
       if (k.t !== 'var') continue;
       const ip = has && !has(k.v) ? indexParts(k.v) : null;
-      if (ip && has(ip.base)) out.push(ip.base, ...exprRefs(ip.src, has)); else out.push(k.v);
+      if (ip && has(ip.base)) out.push(ip.base, ...splitIdx(ip.src).filter((s) => s && s !== ':').flatMap((s) => exprRefs(s, has))); else out.push(k.v);
     }
     return [...new Set(out)];
   } catch (e) { return []; }
@@ -222,13 +224,84 @@ function elementwise(a, b, f, what) {
 }
 const divEl = (x, y) => { if (y === 0) throw rt('División entre cero'); return x / y; };
 
-export function evalExpr(src, { radians = false, vars = null, allowMat = false } = {}) {
+const flatOf = (a) => (isM(a) ? a.m.flat() : [a.v]);
+// Un vector (fila o columna) o un numero, como lista.
+function vectorOf(a, name) {
+  if (!isM(a)) return [a.v];
+  if (a.m.length !== 1 && a.m[0].length !== 1) throw new Error(`«${name}» es para vectores (fila o columna), no para ${nameM(a)}`);
+  return a.m.flat();
+}
+// Una lista como vector con la orientacion de a (columna si a es columna, si no fila).
+const likeVec = (a, arr) => (isM(a) && a.m.length > 1 && a.m[0].length === 1 ? { m: arr.map((x) => [x]) } : { m: [arr] });
+const sum = (arr) => arr.reduce((s, x) => s + x, 0);
+// Funciones de vectores y matrices (MATFN).
+function matFn(name, A) {
+  const need = name === 'dot' || name === 'cross' ? 2 : 1;
+  if (A.length !== need) throw new Error(need === 1 ? `«${name}» recibe un valor (un vector o una matriz)` : `«${name}» recibe dos vectores separados por «;»: ${name}(a; b)`);
+  const [a, b] = A, flat = flatOf(a);
+  switch (name) {
+    case 'inv': // inversa de una matriz cuadrada (de un numero, su inverso)
+      if (!isM(a)) { if (a.v === 0) throw rt('División entre cero'); return { v: 1 / a.v, r: false }; }
+      return { m: invM(a.m) };
+    case 'det': return { v: isM(a) ? detM(a.m) : a.v, r: false };
+    case 'sum': return { v: sum(flat), r: isM(a) ? false : a.r };
+    case 'prod': return { v: flat.reduce((s, x) => s * x, 1), r: false };
+    case 'mean': return { v: sum(flat) / flat.length, r: false };
+    case 'median': { const s = [...flat].sort((x, y) => x - y), h = s.length >> 1; return { v: s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2, r: false }; }
+    case 'variance': case 'std': { // muestral (entre n-1); con un solo elemento, 0
+      const n = flat.length;
+      if (n < 2) return { v: 0, r: false };
+      const mu = sum(flat) / n, v = sum(flat.map((x) => (x - mu) ** 2)) / (n - 1);
+      return { v: name === 'std' ? Math.sqrt(v) : v, r: false };
+    }
+    case 'norm': { // euclidiana (de Frobenius en una matriz), sin desbordar
+      const big = Math.max(...flat.map(Math.abs));
+      return { v: big === 0 ? 0 : big * Math.sqrt(sum(flat.map((x) => (x / big) ** 2))), r: false };
+    }
+    case 'len': return { v: flat.length, r: false };
+    case 'rows': return { v: isM(a) ? a.m.length : 1, r: false };
+    case 'cols': return { v: isM(a) ? a.m[0].length : 1, r: false };
+    case 'trace': {
+      if (!isM(a)) return a;
+      if (a.m.length !== a.m[0].length) throw new Error(`Solo las matrices cuadradas tienen traza (esta es de ${dimsOf(a)})`);
+      return { v: sum(a.m.map((r, i) => r[i])), r: false };
+    }
+    case 'diag': { // de un vector: la matriz diagonal; de una matriz: su diagonal como columna
+      if (!isM(a)) return { m: [[a.v]] };
+      if (a.m.length === 1 || a.m[0].length === 1) { const v = a.m.flat(); return { m: v.map((x, i) => v.map((_, k) => (i === k ? x : 0))) }; }
+      return { m: Array.from({ length: Math.min(a.m.length, a.m[0].length) }, (_, i) => [a.m[i][i]]) };
+    }
+    case 'eye': {
+      if (isM(a) || !Number.isInteger(a.v) || a.v < 1 || a.v > 100) throw new Error('eye(n): n debe ser un entero de 1 a 100');
+      return { m: eyeM(a.v) };
+    }
+    case 'cumsum': case 'cumprod': {
+      const v = vectorOf(a, name);
+      let acc = name === 'cumsum' ? 0 : 1;
+      const out = v.map((x) => (acc = name === 'cumsum' ? acc + x : acc * x));
+      return isM(a) ? likeVec(a, out) : { v: out[0], r: false };
+    }
+    case 'dot': {
+      const x = vectorOf(a, 'dot'), y = vectorOf(b, 'dot');
+      if (x.length !== y.length) throw new Error(`«dot» pide dos vectores del mismo tamaño (${x.length} y ${y.length})`);
+      return { v: sum(x.map((q, i) => q * y[i])), r: false };
+    }
+    case 'cross': {
+      const x = vectorOf(a, 'cross'), y = vectorOf(b, 'cross');
+      if (x.length !== 3 || y.length !== 3) throw new Error('«cross» (producto vectorial) pide dos vectores de 3 elementos');
+      return likeVec(a, [x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]]);
+    }
+    default: throw new Error(`«${name}» no está disponible`);
+  }
+}
+
+export function evalExpr(src, { radians = false, vars = null, allowMat = false, depth = 0, globals = null } = {}) {
   const toks = tokenize(String(src ?? ''), vars);
   if (!toks.length) throw new Error('Escribe un valor');
   let p = 0;
   const peek = () => toks[p];
   const isOp = (v) => peek()?.t === 'op' && peek().v === v;
-  const startsFactor = () => { const k = peek(); return k && (k.t === 'num' || k.t === 'id' || k.t === 'var' || k.t === 'idx' || k.t === 'sqrt' || (k.t === 'op' && (k.v === '(' || k.v === '['))); };
+  const startsFactor = () => { const k = peek(); return k && (k.t === 'num' || k.t === 'id' || k.t === 'var' || k.t === 'ufn' || k.t === 'idx' || k.t === 'sqrt' || (k.t === 'op' && (k.v === '(' || k.v === '['))); };
   const bin = (a, b, v) => ({ v, r: a.r || b.r });
 
   // comparacion (la de menor precedencia): da 1 si se cumple y 0 si no. «==» y «!=» toleran el error de redondeo.
@@ -242,42 +315,35 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false }
     const ok = { '<': x < y && !eq, '>': x > y && !eq, '<=': x < y || eq, '>=': x > y || eq, '==': eq, '!=': !eq }[k.v];
     return { v: ok ? 1 : 0, r: false };
   }
-  // argumento de una rama de si(): si falla por un calculo imposible (1/0, raiz negativa) se guarda el error y se salta
-  // hasta el final del argumento: solo importa si esa rama es la elegida
-  function branch() {
-    const start = p;
-    try { return cmp(); } catch (e) {
-      if (!e.rt) throw e;
-      let d = 0;
-      for (p = start; p < toks.length; p++) {
-        const t = toks[p];
-        if (t.t === 'op' && t.v === '(') d++;
-        else if (t.t === 'op' && t.v === ')') { if (d === 0) break; d--; } else if (t.t === 'sep' && d === 0) break;
-      }
-      return { err: e };
+  // si(condicion; si_verdadero; si_falso): solo se evalua la rama elegida (la otra se salta sin evaluarla; asi una funcion de usuario puede llamarse a si misma)
+  const SI_MSG = 'si(condición; si_verdadero; si_falso) lleva 3 valores separados por «;»';
+  function skipArg() { // avanza hasta el final del argumento actual (una «;» o un «)» fuera de parentesis y corchetes)
+    let d = 0;
+    for (; p < toks.length; p++) {
+      const t = toks[p];
+      if (t.t === 'op' && (t.v === '(' || t.v === '[')) d++;
+      else if (t.t === 'op' && (t.v === ')' || t.v === ']')) { if (d === 0) return; d--; } else if (t.t === 'sep' && d === 0) return;
     }
   }
+  function lazyIf(name) { // ya se leyo «si(»
+    if (isOp(')')) throw new Error(`«${name}» necesita al menos un valor`);
+    const c = cmp();
+    if (isM(c)) throw new Error('La condición de si() es un número, no un vector ni una matriz');
+    const sep = () => { if (peek()?.t !== 'sep') throw new Error(SI_MSG); p++; };
+    const yes = c.v !== 0;
+    let pick;
+    sep();
+    if (yes) { pick = cmp(); sep(); skipArg(); } else { skipArg(); sep(); pick = cmp(); }
+    if (!isOp(')')) throw new Error(peek()?.t === 'sep' ? SI_MSG : 'Falta cerrar un paréntesis');
+    p++;
+    return pick;
+  }
   function call(name, A) {
-    if (LAZY.has(name)) {
-      if (A.length !== 3) throw new Error('si(condición; si_verdadero; si_falso) lleva 3 valores separados por «;»');
-      if (isM(A[0])) throw new Error('La condición de si() es un número, no un vector ni una matriz');
-      const pick = A[0].v !== 0 ? A[1] : A[2];
-      if (pick.err) throw pick.err;
-      return pick;
-    }
     const sep = ' (sepáralos con «;»: «2,5» es un solo número)';
-    if (name === 'det' || name === 'sum' || name === 'norm') { // de una matriz o vector a un numero
-      if (A.length !== 1) throw new Error(`«${name}» recibe un vector o una matriz`);
-      const a = A[0], flat = isM(a) ? a.m.flat() : [a.v];
-      if (name === 'det') return { v: isM(a) ? detM(a.m) : a.v, r: false };
-      if (name === 'sum') return { v: flat.reduce((s, x) => s + x, 0), r: isM(a) ? false : a.r };
-      const big = Math.max(...flat.map(Math.abs)); // norma euclidiana (de Frobenius en una matriz), sin desbordar
-      return { v: big === 0 ? 0 : big * Math.sqrt(flat.reduce((s, x) => s + (x / big) ** 2, 0)), r: false };
-    }
-    if (name === 'inv') { // inversa de una matriz cuadrada (de un numero, su inverso)
-      if (A.length !== 1) throw new Error('«inv» recibe una matriz');
-      if (!isM(A[0])) { if (A[0].v === 0) throw rt('División entre cero'); return { v: 1 / A[0].v, r: false }; }
-      return { m: invM(A[0].m) };
+    if (MATFN.has(name)) return matFn(name, A);
+    if ((name === 'min' || name === 'max') && A.length === 1) { // min(x), max(x): el menor o el mayor de todos los elementos
+      if (!isM(A[0])) throw new Error(`«${name}» recibe dos valores (${name}(a; b)) o un vector`);
+      return { v: Math[name](...A[0].m.flat()), r: false };
     }
     if (A.some((a) => isM(a))) { // funciones sobre vectores y matrices: a cada elemento (los escalares se extienden)
       if (name in FUNCS) {
@@ -297,6 +363,22 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false }
     const M = MULTI[name], [lo, hi] = [M.n[0], M.n[1] ?? Infinity];
     if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === Infinity ? `${lo} valores o más` : lo === hi ? `${lo} valores` : `${lo} o ${hi} valores`}${sep}`);
     return M.f(A, radians);
+  }
+
+  // Funcion definida en un texto: sus parametros valen lo que se le pasa; lo demas (cotas y variables) es lo de todo el dibujo, no lo del que la llama.
+  function callUser(name, A) {
+    const f = vars[name].fn;
+    if (A.length !== f.params.length) throw new Error(`«${name}» recibe ${f.params.length === 1 ? 'un valor' : `${f.params.length} valores separados por «;»`}: ${name}(${f.params.join('; ')})`);
+    if (depth >= 200) throw new Error(`«${name}» se llama a sí misma demasiadas veces (200 niveles)`);
+    const g = globals || vars, local = { ...g };
+    f.params.forEach((q, i) => { local[q] = isM(A[i]) ? { mat: A[i].m } : { v: A[i].v, r: !!A[i].r }; });
+    try {
+      const r = evalExpr(f.body, { radians, vars: local, allowMat: true, depth: depth + 1, globals: g });
+      return r.mat ? { m: r.mat } : { v: r.value, r: r.rad };
+    } catch (e) {
+      if (/^En «/.test(e.message)) throw e;
+      const ne = new Error(`En «${name}»: ${e.message}`); ne.rt = e.rt; throw ne;
+    }
   }
 
   function expr() {
@@ -347,22 +429,38 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false }
     const k = toks[p++];
     if (!k) throw new Error('Expresión incompleta');
     if (k.t === 'num') return { v: k.v, r: false };
-    if (k.t === 'idx') { // v_2, A_(i,j): un elemento (los indices empiezan en 1)
-      const x = vars[k.base], m = x.mat || [x.vec], R = m.length, C = m[0].length;
+    if (k.t === 'idx') { // v_2, A_(i,j), A_(i,:), A_(:,j): un elemento, una fila o una columna (los indices empiezan en 1)
+      const x = vars[k.base], m = x.mat || [x.vec], R = m.length, C = m[0].length, name = `${k.base}_(${k.src})`;
       const ix = splitIdx(k.src).map((s) => {
-        if (!s) throw new Error(`Falta un índice en «${k.base}_(${k.src})»`);
-        const v = evalExpr(s, { vars }).value;
+        if (!s) throw new Error(`Falta un índice en «${name}»`);
+        if (s === ':') return ':';
+        const v = evalExpr(s, { vars, depth: depth + 1, globals }).value;
         if (!Number.isInteger(Math.round(v * 1e9) / 1e9)) throw new Error(`El índice «${s}» de «${k.base}» debe ser un entero (vale ${Math.round(v * 1e6) / 1e6})`);
         return Math.round(v);
       });
       if (ix.length > 2) throw new Error('Un elemento lleva un índice (vector) o dos (matriz): A_(fila,columna)');
-      if (ix.length === 1 && R > 1 && C > 1) throw new Error(`«${k.base}» es una matriz de ${R}×${C}: lleva dos índices, ${k.base}_(fila,columna)`);
+      if (ix.length === 1 && (ix[0] === ':' || (R > 1 && C > 1))) throw new Error(ix[0] === ':' ? 'Un «:» solo no vale: usa A_(fila,:) o A_(:,columna)' : `«${k.base}» es una matriz de ${R}×${C}: lleva dos índices, ${k.base}_(fila,columna)`);
       const [i, j] = ix.length === 2 ? ix : R === 1 ? [1, ix[0]] : [ix[0], 1];
-      if (i < 1 || i > R || j < 1 || j > C) throw new Error(`Índice fuera de rango: «${k.base}» es ${R === 1 ? `un vector de ${C}` : C === 1 ? `un vector de ${R}` : `una matriz de ${R}×${C}`}` + (ix.length === 2 ? ` y pides la fila ${i}, columna ${j}` : ` y pides el elemento ${ix[0]}`));
+      const out = (q, lim) => q !== ':' && (q < 1 || q > lim);
+      if (out(i, R) || out(j, C)) throw new Error(`Índice fuera de rango: «${k.base}» es ${R === 1 ? `un vector de ${C}` : C === 1 ? `un vector de ${R}` : `una matriz de ${R}×${C}`}` + (ix.length === 2 ? ` y pides la fila ${i}, columna ${j}` : ` y pides el elemento ${ix[0]}`));
+      if (i === ':' && j === ':') return { m };
+      if (i === ':') return { m: m.map((r) => [r[j - 1]]) }; // la columna j
+      if (j === ':') return { m: [m[i - 1]] }; // la fila i
       return { v: m[i - 1][j - 1], r: false };
+    }
+    if (k.t === 'ufn') { // funcion definida en un texto: foo(x; y){=...}
+      if (!isOp('(')) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
+      p++;
+      const A = [];
+      if (isOp(')')) throw new Error(`«${k.v}» necesita al menos un valor`);
+      for (;;) { A.push(cmp()); if (peek()?.t === 'sep') { p++; continue; } break; }
+      if (!isOp(')')) throw new Error('Falta cerrar un paréntesis');
+      p++;
+      return callUser(k.v, A);
     }
     if (k.t === 'var') {
       const x = vars[k.v];
+      if (x.fn) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
       if (x.mat) return { m: x.mat };
       if (x.vec) return { m: [x.vec] };
       return { v: x.v, r: !!x.r };
@@ -395,10 +493,11 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false }
       if (k.v in CONSTS) return { v: CONSTS[k.v], r: k.v === 'pi' || k.v === 'π' };
       if (!isOp('(')) throw new Error(`«${k.v}» necesita paréntesis, p. ej. ${k.v}(30)`);
       p++;
+      if (LAZY.has(k.v)) return lazyIf(k.v);
       const A = [];
       if (isOp(')')) throw new Error(`«${k.v}» necesita al menos un valor`);
       for (;;) {
-        A.push(LAZY.has(k.v) && A.length ? branch() : cmp());
+        A.push(cmp());
         if (peek()?.t === 'sep') { p++; continue; }
         break;
       }

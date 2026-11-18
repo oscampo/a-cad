@@ -41,7 +41,7 @@ const actKey = (a) => a.kind + a.n;
 export function graphVarNames(doc) {
   const names = ['t'];
   for (const a of Object.values(doc.acts || {})) names.push(actKey(a), actKey(a) + '.d', actKey(a) + '.v');
-  for (const [n, x] of Object.entries(varsOf(doc))) if (!n.includes('.')) names.push(x.vec || x.mat ? n + ' (vector)' : n);
+  for (const [n, x] of Object.entries(varsOf(doc))) if (!n.includes('.')) names.push(x.fn ? n + '(…)' : x.vec || x.mat ? n + ' (vector)' : n);
   return names;
 }
 

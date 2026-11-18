@@ -82,7 +82,7 @@ const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|[A-Za-z]{3,20})$/;
 
 export function tokenize(s) {
   const out = [];
-  let i = 0;
+  let i = 0, angle = 0; // angle: «(:» (abre ⟨) sin cerrar
   const n = s.length;
   while (i < n) {
     const ch = s[i];
@@ -117,7 +117,12 @@ export function tokenize(s) {
       out.push(tk);
       continue;
     }
-    const sy = SYMS.find(([k]) => s.startsWith(k, i));
+    let sy = SYMS.find(([k]) => s.startsWith(k, i));
+    // «(:» y «:)» son los angulos ⟨ ⟩ solo si van en pareja; si no, son un «:» pegado a un parentesis: A_(i,:) y A_(:,j) (filas y columnas)
+    if (sy && sy[0] === '(:' && !s.includes(':)', i + 2)) sy = SYMS.find(([k]) => k === '(');
+    else if (sy && sy[0] === ':)' && angle <= 0) { out.push({ t: 'sym', v: ':' }); i += 1; continue; }
+    else if (sy && sy[0] === '(:') angle++;
+    else if (sy && sy[0] === ':)') angle--;
     if (sy) { out.push({ ...sy[1] }); i += sy[0].length; continue; }
     out.push({ t: 'sym', v: cp }); i += cp.length;
   }

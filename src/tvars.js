@@ -1,7 +1,7 @@
 // Variables definidas en los textos: «nombre{=valor}» asigna a «nombre» el valor de una expresion (sin DOM).
 // Valen para todo el dibujo: las lee cualquier salida de texto ([=nombre]) y cualquier formula de una cota. El valor puede
 // usar cotas y otras variables de texto. El texto la muestra en cursiva como «nombre:=valor».
-import { evalExpr, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, normName } from './expr.js';
+import { evalExpr, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName } from './expr.js';
 
 // Marcas de cursiva dentro de un texto ya expandido (caracteres de uso privado: no se escriben a mano).
 export const IT0 = '', IT1 = '';
@@ -27,7 +27,8 @@ export function runsOf(line) {
 
 // Definicion: «x{=valor}» (asignar) frente a «[=expr]» (leer). Se teclea sin cambiar de pagina en el teclado del telefono.
 // Grupos: 1 nombre, 2 valor.
-export const DEF_SRC = '([A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?(?:_\\([^(){}\\n]+\\))?)\\{=([^}]*)\\}'; // «x{=valor}» o con subindice de texto: «var_(texto){=valor}»
+// Grupos: 1 nombre, 2 parametros (solo una funcion: «f(x; y){=x+y}»), 3 valor. El nombre puede llevar subindice de texto: «var_(texto){=valor}».
+export const DEF_SRC = '([A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?(?:_\\([^(){}\\n]+\\))?)(?:\\(([^(){}\\n]*)\\))?\\{=([^}]*)\\}';
 const DEF_RE = () => new RegExp(DEF_SRC, 'g');
 // Salida «[=expresion]»: la expresion puede llevar corchetes (una matriz literal) con un nivel de anidacion. Grupo 1: la expresion.
 export const OUT_SRC = '\\[=((?:[^\\[\\]]|\\[[^\\[\\]]*\\])*)\\]';
@@ -72,7 +73,7 @@ export function textDefs(doc) {
     const s = t.text;
     if (!hasDefMark(s)) continue;
     let idx = 0;
-    for (const m of s.matchAll(DEF_RE())) out.push({ tid, idx: idx++, name: normName(m[1]), expr: m[2] });
+    for (const m of s.matchAll(DEF_RE())) out.push({ tid, idx: idx++, name: normName(m[1]), expr: m[3], params: m[2] === undefined ? null : m[2].split(/[;,]/).map((q) => q.trim()) });
   }
   return out;
 }
@@ -94,6 +95,11 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set()) {
     if (isReservedName(d.name)) { st.bad.add(key); st.errs.set(d.name, reservedWhy(d.name)); continue; }
     if (dimNames.has(d.name)) { st.bad.add(key); st.errs.set(d.name, `«${d.name}» ya es el nombre de una cota`); continue; }
     if (!TEXT_NAME_RE.test(d.name)) { st.bad.add(key); st.errs.set(d.name, `«${d.name}» no es un nombre válido`); continue; }
+    if (d.params) { // funcion: «f(x; y){=...}»
+      const ps = d.params;
+      const why = !ps.length || ps.some((q) => !q) ? 'necesita al menos un parámetro, separados por «;»' : ps.find((q) => !NAME_RE.test(q)) !== undefined ? `el parámetro «${ps.find((q) => !NAME_RE.test(q))}» no es un nombre válido` : new Set(ps).size !== ps.length ? 'tiene parámetros repetidos' : ps.find((q) => isReservedName(q)) !== undefined ? reservedWhy(ps.find((q) => isReservedName(q))) : null;
+      if (why) { st.bad.add(key); st.errs.set(d.name, `«${d.name}(…)»: ${why}`); continue; }
+    }
     win.set(d.name, { ...d, key });
   }
   for (const n of win.keys()) st.names.add(n);
@@ -104,10 +110,16 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set()) {
     if (s === 2) return false;
     if (s === 1) return false; // ciclo: quien lo cierra queda con error
     state.set(name, 1);
-    const d = win.get(name), vars = { ...dimVars }, rg = parseRange(d.expr);
+    const d = win.get(name), vars = { ...dimVars };
+    if (d.params) { st.vals[name] = { fn: { params: d.params, body: d.expr } }; state.set(name, 2); return true; } // una funcion no se calcula: se calcula al llamarla
+    const rg = parseRange(d.expr);
     let ok = true;
     const has = (q) => win.has(q) || q in dimVars || dimNames.has(q);
-    for (const n of new Set((rg ? rg.parts : [d.expr]).flatMap((s) => exprRefs(s, has)))) {
+    // lo que necesita: sus variables y, si llama a funciones, lo que leen los cuerpos de esas funciones (menos sus parametros)
+    const need = new Set();
+    const visit = (src, skip) => { for (const n of exprRefs(src, has)) { if (skip.includes(n) || need.has(n)) continue; need.add(n); const e = win.get(n); if (e?.params) visit(e.expr, e.params); } };
+    for (const s of rg ? rg.parts : [d.expr]) visit(s, []);
+    for (const n of need) {
       if (win.has(n)) { if (ev(n)) vars[n] = st.vals[n]; else { ok = false; st.errs.set(name, `«${name}» depende de «${n}», que no se puede calcular`); } }
     }
     if (ok) {
