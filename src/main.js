@@ -188,6 +188,8 @@ function renderTree() {
   const key = sel.map((s) => s.k + s.id).join(',');
   const reveal = key !== treeSelKey && sel.length > 0;
   treeSelKey = key;
+  // lo que se revela: el elemento seleccionado, o la relacion elegida (que viene con sus elementos)
+  const target = sel.length === 1 || sel[0]?.k === 'co' ? sel[0] : null;
   let focusEl = null;
   const lock = iconSvg('lock');
   const mk = (n, path, depth) => {
@@ -195,7 +197,7 @@ function renderTree() {
     const p = path + '/' + n.key;
     const on = !n.group && selMatch(n);
     const head = document.createElement(kids ? 'summary' : 'div');
-    head.className = 'row2' + (on ? ' on' : '') + (kids ? '' : ' leaf');
+    head.className = 'row2' + (on ? ' on' : '') + (kids ? '' : ' leaf') + (n.link ? ' lnk' : '');
     const nm = document.createElement('span');
     nm.className = 'nm'; nm.textContent = n.label; nm.title = n.label;
     head.appendChild(nm);
@@ -214,11 +216,11 @@ function renderTree() {
       if (k && ['DIST', 'DISTPL', 'ANG', 'RAD'].includes(k.t) && !k.ref) act(iconSvg('ruler'), 'Editar valor', () => editDimension(n.con));
     }
     if (n.act) { act(iconSvg('props'), 'Editar', () => treeEditAct(n.act)); act(iconSvg('trash'), 'Borrar', () => { pushUndo(); delete doc.acts?.[n.act]; delete doc.graphs?.[n.act]; delete graphData[n.act]; afterChange(); }); }
-    if (n.sel && !String(n.key).startsWith('ref:') && !String(n.key).startsWith('tr:')) act(iconSvg('trash'), 'Borrar', () => treeDelete(n.sel));
+    if (n.sel && !n.link && !String(n.key).startsWith('tr:')) act(iconSvg('trash'), 'Borrar', () => treeDelete(n.sel));
     if (!kids) return head;
     const d = document.createElement('details');
-    d.className = n.group ? 'grp' : '';
-    if (reveal && sel.length === 1 && containsSel(n)) treeOpen.add(p);
+    d.className = n.group ? 'grp' : n.sub ? 'sub' : '';
+    if (reveal && target && containsSel(n)) treeOpen.add(p);
     d.open = treeOpen.has(p);
     d.addEventListener('toggle', () => { if (d.open) treeOpen.add(p); else treeOpen.delete(p); });
     d.appendChild(head);
@@ -235,14 +237,15 @@ function renderTree() {
       });
     }
     d.appendChild(wrap);
-    if (on && !focusEl) focusEl = head;
+    if (on && !n.link && !focusEl) focusEl = head;
     return d;
   };
-  const containsSel = (n) => (n.sel && selMatch(n) && !n.group) || (n.children || []).some(containsSel);
+  // solo el lugar propio de un elemento abre su rama; los enlaces (↗) no
+  const containsSel = (n) => (n.sel && !n.link && !n.group && n.sel.k === target.k && n.sel.id === target.id) || (n.children || []).some(containsSel);
   body.textContent = '';
   if (!tree.length) { body.innerHTML = '<p style="padding:12px;color:var(--muted)">El dibujo está vacío.</p>'; return; }
   tree.forEach((g) => body.appendChild(mk(g, '', 0)));
-  if (!focusEl) focusEl = body.querySelector('.row2.on');
+  if (!focusEl) focusEl = body.querySelector('.row2.on:not(.lnk)');
   if (reveal && focusEl) focusEl.scrollIntoView({ block: 'nearest' });
 }
 
@@ -276,7 +279,8 @@ function treeSelect(n) {
       view = { s: view.s, ox: r.width / 2 - ((x0 + x1) / 2) * view.s, oy: r.height / 2 + ((y0 + y1) / 2) * view.s };
     }
   }
-  treeSelKey = sel.map((s) => s.k + s.id).join(','); // no reabrir ramas: ya estamos en el arbol
+  // no reabrir ramas: ya estamos en el arbol; un enlace (↗) si lleva al lugar propio del elemento
+  treeSelKey = n.link ? '' : sel.map((s) => s.k + s.id).join(',');
   afterChange();
 }
 function treeToggleFix(id) {
@@ -3504,7 +3508,7 @@ function runGroupItem(id) {
 const grpTool = (g) => { const c = (opts.grp || {})[g]; return GROUPS[g].some((x) => x[0] === c && !isAct(x[0])) ? c : GROUPS[g][0][0]; };
 function refreshGroups() {
   const filtered = (opts.filtKinds || []).length > 0 || (opts.filtLt || []).length > 0;
-  document.querySelectorAll('.grp').forEach((b) => {
+  document.querySelectorAll('.grp[data-group]').forEach((b) => {
     const g = b.dataset.group, id = grpTool(g), it = MENU_ONLY.has(g) ? ['', b.dataset.icon, 'Archivo: nuevo, guardar, abrir y exportar'] : GROUPS[g].find((x) => x[0] === id);
     b.querySelector(':scope > i').innerHTML = iconSvg(it[1]);
     b.title = it[2] + (MENU_ONLY.has(g) ? '' : ' · toca de nuevo o mantén presionado para ver más herramientas') + (g === 'sel' && filtered ? ' (filtro activo)' : '');
@@ -3540,7 +3544,7 @@ function openFly(b) {
   fly = { el, btn: b };
 }
 function wireGroups() {
-  document.querySelectorAll('.grp').forEach((b) => {
+  document.querySelectorAll('.grp[data-group]').forEach((b) => {
     let lp = 0, long = false;
     b.addEventListener('pointerdown', () => { long = false; clearTimeout(lp); lp = setTimeout(() => { long = true; openFly(b); }, 420); });
     for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => clearTimeout(lp));
@@ -3551,7 +3555,7 @@ function wireGroups() {
       runGroupItem(grpTool(b.dataset.group));
     });
   });
-  document.addEventListener('pointerdown', (e) => { if (fly && !e.target.closest('#fly') && !e.target.closest('.grp')) closeFly(); }, true);
+  document.addEventListener('pointerdown', (e) => { if (fly && !e.target.closest('#fly') && !e.target.closest('.grp[data-group]')) closeFly(); }, true);
 }
 
 // ---------------------------------------------------------------- capas

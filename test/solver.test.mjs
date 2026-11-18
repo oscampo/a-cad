@@ -857,7 +857,7 @@ t('arrastrar un punto ligado a un spline deforma la curva y el punto llega al de
 
 
 t('arbol de elementos: grupos, puntos de cada elemento y relaciones', () => {
-  const { d, a, b, l1, l2 } = lineDoc();
+  const { d, a, b, e, l1, l2 } = lineDoc();
   addCon(d, { t: 'PAR', refs: [l1, l2] });
   addCon(d, { t: 'DIST', refs: [a, b], v: 14.14 });
   const ids = [[0, 0], [5, 3], [9, 0]].map(([x, y]) => addPoint(d, x, y, true));
@@ -868,13 +868,34 @@ t('arbol de elementos: grupos, puntos de cada elemento y relaciones', () => {
   const g = (k) => tree.find((x) => x.key === k);
   assert.equal(g('g:ln').children.length, 2);
   const ln1 = g('g:ln').children.find((n) => n.sel.id === l1);
-  assert.ok(ln1.children.some((c) => c.con && /Paralelas/.test(c.label)), 'la linea muestra sus relaciones');
-  assert.equal(ln1.children.filter((c) => c.sel.k === 'pt').length, 2, 'y sus dos puntos');
+  const rels = ln1.children.find((c) => c.sub);
+  assert.ok(rels.children.some((c) => c.link && c.con && /Paralelas/.test(c.label)), 'la linea enlaza sus relaciones');
+  assert.ok(rels.children.some((c) => /Distancia/.test(c.label)), 'y las de sus puntos (la cota entre a y b)');
+  assert.ok(rels.children.every((c) => !c.children), 'los enlaces no repiten hijos');
+  assert.equal(ln1.children.filter((c) => c.sel?.k === 'pt').length, 2, 'y sus dos puntos');
+  assert.ok(ln1.children.filter((c) => c.sel?.k === 'pt').every((c) => !c.children.length), 'un punto con dueño no repite relaciones');
   const spn = g('g:sp').children[0];
-  assert.equal(spn.children.find((c) => c.group).children.length, 3, 'puntos de control del spline');
-  assert.ok(spn.children.some((c) => /punto sobre spline/.test(c.label)));
-  assert.ok(!g('g:pt').children.some((c) => ids.includes(c.sel.id)), 'los puntos de control no aparecen sueltos');
-  assert.equal(g('g:co').children.length, 3);
+  assert.equal(spn.children.find((c) => c.key.startsWith('spp:')).children.length, 3, 'puntos de control del spline');
+  assert.ok(spn.children.find((c) => c.sub).children.some((c) => /punto sobre spline/.test(c.label)));
+  // solo los puntos sueltos: p (sobre el spline) si; a, b, c, e (de las lineas) y los de control no
+  assert.deepEqual(g('g:pt').children.map((c) => c.sel.id), [p]);
+  assert.ok(g('g:pt').children[0].children.some((c) => c.link && /punto sobre spline/.test(c.label)), 'el punto suelto enlaza sus relaciones');
+  const co = g('g:co');
+  assert.equal(co.label, 'Relaciones y cotas (3)');
+  assert.deepEqual(co.children.map((c) => c.key), ['g:co:dim', 'g:co:geo']);
+  assert.equal(co.children[1].children.length, 2, 'paralelas y punto sobre spline');
+  // un punto compartido por dos lineas vive en la primera y en la segunda es un enlace
+  const l3 = addLine(d, b, e, {});
+  const t2 = buildTree(d);
+  const ln3 = t2.find((x) => x.key === 'g:ln').children.find((n) => n.sel.id === l3);
+  assert.deepEqual(ln3.children.filter((c) => c.sel?.k === 'pt').map((c) => [c.link || false, c.sel.id]), [[true, b], [true, e]]);
+  assert.match(ln3.children.find((c) => c.sel?.id === b).label, new RegExp(`en Línea ${l1}`));
+  // las automaticas van aparte y se cuentan en la fila del elemento
+  addCon(d, { t: 'EQD', refs: [a, b, a, e], hidden: true });
+  const t3 = buildTree(d);
+  const ln1b = t3.find((x) => x.key === 'g:ln').children.find((n) => n.sel.id === l1);
+  assert.match(ln1b.children.find((c) => c.sub).label, /\+1 automática\)/);
+  assert.equal(t3.find((x) => x.key === 'g:co').children.find((c) => c.key === 'g:co:auto').children.length, 1);
   assert.equal(conLabel(d, { t: 'DIST', refs: [a, b], v: 14.14, ref: true }), 'Distancia = 14.14 (referencia)');
   assert.deepEqual(buildTree(newDoc()), []);
 });
