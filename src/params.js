@@ -22,7 +22,15 @@ export function varValue(doc, k) {
 }
 // Estado de las variables de los textos («x{=valor}») con los valores actuales de las cotas.
 // Las cotas con formula se leen en el lugar de su etiqueta (orden de lectura): ven las variables tal como estaban ahi.
-const probesOf = (doc) => drivers(doc).filter(([, k]) => k.expr || k.scaleExpr).map(([id, k]) => ({ id, ...dimPos(doc, k) }));
+// Mientras algo se mueve (una simulacion o un arrastre) el orden de lectura de las cotas se congela: sus etiquetas se mueven con el dibujo y,
+// si cruzaran un texto a mitad del movimiento, la cota cambiaria de valor (o se detendria con un error) sin que nadie la haya tocado.
+const FROZEN = new WeakMap();
+export const freezeDimOrder = (doc) => { FROZEN.set(doc, new Map(probesOf(doc).map((p) => [p.id, p]))); };
+export const thawDimOrder = (doc) => { FROZEN.delete(doc); };
+const probesOf = (doc) => {
+  const fz = FROZEN.get(doc);
+  return drivers(doc).filter(([, k]) => k.expr || k.scaleExpr).map(([id, k]) => (fz?.get(id) ?? { id, ...dimPos(doc, k) }));
+};
 export function textVars(doc, exceptId = null) {
   const dimVars = geoVars(doc);
   for (const [id, k] of named(doc)) if (id !== exceptId) dimVars[k.name] = varValue(doc, k);

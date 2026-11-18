@@ -23,7 +23,7 @@ import { TRACE_STYLE } from './curves.js';
 import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, AXES } from './graphs.js';
 import { textFrame, textHit, textPose, shownText, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss } from './text.js';
 import * as gh from './github.js';
-import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors } from './params.js';
+import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg } from './icons.js';
 import { buildTree, kindOf, conLabel } from './tree.js';
@@ -1431,7 +1431,7 @@ cv.addEventListener('pointermove', (e) => {
   if (PERF) perfShow(tp1 - tp0, tp2 - tp1, performance.now() - tp2, !!q, perfSolveMs);
 });
 function endPointer(e) {
-  endSession(); ovCancelTimer();
+  endSession(); thawDimOrder(doc); ovCancelTimer();
   const q = pointers.get(e.pointerId);
   pointers.delete(e.pointerId);
   const hadLoupe = !!loupe;
@@ -1468,7 +1468,7 @@ function zoomAt(p, f) {
 }
 
 function startGesture() {
-  drag = null; endSession(); ovCancelTimer();
+  drag = null; endSession(); thawDimOrder(doc); ovCancelTimer();
   const t = [...pointers.values()].filter((q) => q.type === 'touch').slice(0, 2);
   gesture = { mode: 'pinch', d0: dist(t[0], t[1]) || 1, s0: view.s, c0: { x: (t[0].x + t[1].x) / 2, y: (t[0].y + t[1].y) / 2 }, o0: { x: view.ox, y: view.oy } };
 }
@@ -1689,7 +1689,7 @@ function toolMove(p) {
   if (!drag.hit || !drag.orig) return;
   if (!drag.started) {
     if (dist(p, drag.p0) < 6) return;
-    drag.started = true; pushUndo(); beginSession(doc, !hasReactive(doc));
+    drag.started = true; pushUndo(); beginSession(doc, !hasReactive(doc)); freezeDimOrder(doc); // al arrastrar, las cotas no cambian de lugar en el orden de lectura hasta soltar
   }
   const m = toModel(p.x, p.y);
   const h = drag.hit;

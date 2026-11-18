@@ -5,7 +5,11 @@ import { newDoc, addPoint, addLine, addCon, addText } from '../src/model.js';
 import { textValue, plainText } from '../src/text.js';
 import { textOrder } from '../src/tvars.js';
 import { dimPos } from '../src/dims.js';
-import { varsOf, textVarErrors, recompute, pruneFormulas } from '../src/params.js';
+import { initSolver, solve } from '../src/solver.js';
+import { addLinear, simBegin, simStep, simEnd } from '../src/actuators.js';
+import { varsOf, textVarErrors, recompute, pruneFormulas, freezeDimOrder, thawDimOrder } from '../src/params.js';
+
+await initSolver();
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
@@ -116,6 +120,38 @@ t('las cotas con formula se leen en el lugar de su etiqueta y ven las variables 
   assert.ok(dimPos(d, d.cons[k2]).y < 8);
   assert.ok(recompute(d).ok);
   near(d.cons[k2].v, 14);
+});
+
+t('mecanismos: durante una simulacion el orden de lectura de las cotas se congela (su etiqueta puede cruzar un texto)', () => {
+  const d = newDoc(), p = addPoint(d, 0, 0), q = addPoint(d, 0, 10), r = addPoint(d, 5, 10);
+  d.pts[p].fixed = true;
+  addLine(d, p, q); addCon(d, { t: 'AZ', refs: [p, q], v: 90, hidden: true }); // q sube por el eje y
+  addLine(d, q, r);
+  const kk = addCon(d, { t: 'DIST', refs: [q, r], v: 5, name: 'D1', expr: 'k*5' }); // el eslabon q-r mide k*5 y sube con q
+  addText(d, addPoint(d, 20, 13), 'k{=1}', { h: 1 }); // la etiqueta empieza debajo de este texto y termina encima
+  addLinear(d, p, q, { mode: 'vel', expr: '2' });
+  assert.ok(recompute(d).ok);
+  assert.ok(dimPos(d, d.cons[kk]).y < 13);
+  // sin congelar, la etiqueta pasa por encima del texto: la cota deja de ver k y la simulacion se detiene
+  const s0 = simBegin(d); thawDimOrder(d);
+  const bad = simStep(d, s0, 3, solve);
+  assert.equal(bad.ok, false); assert.match(bad.error, /se define después de esta cota/);
+  simEnd(d, s0);
+  // con el orden congelado (lo normal), la simulacion llega al final
+  const s1 = simBegin(d);
+  const ok = simStep(d, s1, 3, solve);
+  assert.ok(ok.ok, ok.error);
+  assert.ok(Math.abs(d.pts[q].y - 16) < 1e-3, 'q llego a y = 16');
+  assert.ok(dimPos(d, d.cons[kk]).y > 14, 'la etiqueta quedo por encima del texto');
+  assert.ok(Math.abs(Math.hypot(d.pts[r].x - d.pts[q].x, d.pts[r].y - d.pts[q].y) - 5) < 1e-3, 'el eslabon sigue midiendo k*5');
+  simEnd(d, s1);
+  assert.ok(dimPos(d, d.cons[kk]).y < 13); // al terminar vuelve al dibujo original, con su orden normal
+  // arrastrar: congelar y soltar
+  freezeDimOrder(d); d.pts[q].y = 16; d.pts[r].y = 16;
+  assert.ok(recompute(d).ok); // sigue viendo k mientras se arrastra
+  thawDimOrder(d);
+  const after = recompute(d);
+  assert.equal(after.ok, false); // al soltar, la etiqueta quedo por encima del texto: ahora si cuenta
 });
 
 t('las funciones de varios textos, vectores y funciones recursivas siguen valiendo en este orden', () => {

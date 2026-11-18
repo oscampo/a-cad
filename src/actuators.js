@@ -9,7 +9,7 @@
 // entre los dos puntos), simStep las mueve a su valor en el tiempo t y simEnd restaura el dibujo tal como estaba.
 import { addCon } from './model.js';
 import { evalExpr, exprRefs } from './expr.js';
-import { varsOf, settle } from './params.js';
+import { varsOf, settle, freezeDimOrder, thawDimOrder } from './params.js';
 
 export const actName = (a) => a.kind + a.n;
 export const actUnit = (a) => (a.kind === 'MR' ? (a.mode === 'vel' ? '°/s' : '°') : a.mode === 'vel' ? '/s' : '');
@@ -107,6 +107,7 @@ export function actError(doc, a) {
 
 // ---- simulacion
 export function simBegin(doc) {
+  freezeDimOrder(doc); // el orden de lectura de las cotas no cambia mientras el mecanismo se mueve
   const snap = JSON.stringify(doc), items = {};
   for (const [id, a] of Object.entries(doc.acts || {})) {
     if (a.kind === 'MR') {
@@ -142,6 +143,7 @@ export function simStep(doc, sim, t, solveFn) {
 }
 // Restaura el dibujo tal como estaba antes de simular.
 export function simEnd(doc, sim) {
+  thawDimOrder(doc);
   const o = JSON.parse(sim.snap);
   for (const k of Object.keys(doc)) delete doc[k];
   Object.assign(doc, o);
