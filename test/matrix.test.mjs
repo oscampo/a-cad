@@ -63,9 +63,8 @@ t('errores claros', () => {
   fails('[1,2;3,4]*[1,2,3]', /columnas de la primera \(2\)/);
   fails('[1,2]/[1,2]', /dividir entre/);
   fails('[1,2]/0', /División entre cero/);
-  fails('[1,2]^2', /potencia/);
-  fails('2^[1,2]', /potencia/);
-  fails('sin([1,2])', /todavía no acepta/);
+  fails('[1,2]^2', /cuadradas/); // un vector no es cuadrado
+  fails('2^[1,2]', /exponente/);
   fails('[1,2]<[3,4]', /comparar/);
   fails('[[1,2],[3,4]]', /son números/);
   assert.throws(() => evalExpr('[1,2]'), /El resultado es un vector fila de 2, no un número/); // en una cota, por ejemplo
@@ -110,6 +109,103 @@ t('textos: una salida con corchetes anidados no se corta', () => {
   assert.equal(textValue(doc, doc.texts.t1), 'ab [3; 7] cd 2');
   doc.texts.t2 = { pt: 'p', h: 1, font: '', text: '[=[1,2]*[1,2]]' }; // error: aparece ⚠
   assert.equal(textValue(doc, doc.texts.t2), '⚠');
+});
+
+const close = (got, want, e = 1e-9) => { assert.equal(got.length, want.length); got.forEach((r, i) => r.forEach((x, k) => assert.ok(Math.abs(x - want[i][k]) <= e, `[${i}][${k}] ${x} != ${want[i][k]}`))); };
+
+t('inversa: inv(A) y A^(-1); el sistema A*x = b', () => {
+  const A = [[1, 1], [10, 1]], vars = { A: { mat: A }, b: { mat: [[-25], [250]] } };
+  close(mat('inv(A)', vars), [[-1 / 9, 1 / 9], [10 / 9, -1 / 9]]);
+  close(mat('A^(-1)', vars), [[-1 / 9, 1 / 9], [10 / 9, -1 / 9]]);
+  close(mat('A*inv(A)', vars), [[1, 0], [0, 1]]);
+  close(mat('A^(-1)*b', vars), [[275 / 9], [-500 / 9]]); // x = 30.556, y = -55.556
+  close(mat('A*(A^(-1)*b)', vars), [[-25], [250]]); // verifica: A*x = b
+  close(mat('inv([2,0;0,4])'), [[0.5, 0], [0, 0.25]]);
+  close(mat('inv([0,1;1,0])'), [[0, 1], [1, 0]]); // pide intercambiar filas (pivote parcial)
+  close(mat('inv([2,1,0;1,3,1;0,1,4])*[2,1,0;1,3,1;0,1,4]'), [[1, 0, 0], [0, 1, 0], [0, 0, 1]], 1e-12);
+  assert.equal(num('inv(4)'), 0.25);
+  assert.equal(M('inv([5])').mat[0][0], 0.2); // 1x1: sigue siendo matriz
+});
+
+t('potencia entera de una matriz cuadrada', () => {
+  const vars = { A: { mat: [[1, 1], [10, 1]] } };
+  close(mat('A^2', vars), [[11, 2], [20, 11]]);
+  close(mat('A^1', vars), [[1, 1], [10, 1]]);
+  close(mat('A^0', vars), [[1, 0], [0, 1]]);
+  close(mat('A^3', vars), mat('A*A*A', vars));
+  close(mat('A^(-2)', vars), mat('inv(A)*inv(A)', vars), 1e-12);
+  close(mat('[1,1;0,1]^10'), [[1, 10], [0, 1]]);
+  assert.equal(num('2^3'), 8); assert.equal(num('(2)^(-1)'), 0.5); // los escalares, como siempre
+});
+
+t('inversa y potencia: errores claros', () => {
+  fails('inv([1,2;2,4])', /singular/);
+  fails('inv([0,0;0,0])', /singular/);
+  fails('[1,2;2,4]^(-1)', /singular/);
+  fails('inv([1,2,3])', /cuadradas.*1×3/);
+  fails('[1,2;3,4;5,6]^2', /cuadradas/);
+  fails('[1,2;3,4]^0.5', /entero/);
+  fails('inv([1,2;3,4],[1,2;3,4])', /recibe una matriz/);
+  fails('inv(0)', /División entre cero/);
+  assert.throws(() => evalExpr('inv'), /necesita paréntesis/);
+});
+
+t('elemento a elemento: .* ./ .^', () => {
+  assert.deepEqual(mat('[1,2,3].*[4,5,6]'), [[4, 10, 18]]);
+  assert.deepEqual(mat('[1,2,3]./[2,4,6]'), [[0.5, 0.5, 0.5]]);
+  assert.deepEqual(mat('[1,2,3].^2'), [[1, 4, 9]]);
+  assert.deepEqual(mat('2.^[1,2,3]'), [[2, 4, 8]]);
+  assert.deepEqual(mat('[1,2].^[3,2]'), [[1, 4]]);
+  assert.deepEqual(mat('2.*[1,2]'), [[2, 4]]);
+  assert.deepEqual(mat('12./[1,2,3]'), [[12, 6, 4]]); // escalar ./ vector
+  assert.deepEqual(mat('[1,2;3,4].*[1,0;0,1]'), [[1, 0], [0, 4]]);
+  assert.deepEqual(mat('[1,2;3,4].^2'), [[1, 4], [9, 16]]); // no es A*A
+  assert.deepEqual(mat('2*[1,2].^2'), [[2, 8]]); // .^ antes que *
+  assert.deepEqual(mat('[1,2].*[3,4]+[1,1]'), [[4, 9]]);
+  assert.equal(num('3.*4'), 12); assert.equal(num('8./2'), 4); assert.equal(num('2.^3'), 8); // con numeros, como * / ^
+  assert.equal(num('2.5*2'), 5); // el punto decimal sigue siendo decimal
+  assert.deepEqual(mat('[1.5,2.5].*2'), [[3, 5]]);
+  fails('[1,2].*[1,2,3]', /mismo tamaño/);
+  fails('[1,2]./[0,1]', /División entre cero/);
+  fails('[1,2]./0', /División entre cero/);
+  fails('[-1,2].^0.5', /no es un número/);
+  fails('[1,2]*[3,4]', /v\*w\^T/); // * sigue siendo el producto matricial
+});
+
+t('funciones elemento a elemento', () => {
+  assert.deepEqual(mat('sqrt([1,4,9])'), [[1, 2, 3]]);
+  assert.deepEqual(mat('√[4,9]'), [[2, 3]]);
+  assert.deepEqual(mat('abs([-1,2;-3,4])'), [[1, 2], [3, 4]]);
+  close(mat('sin([0,90,30])'), [[0, 1, 0.5]]); // en grados, como con un numero
+  close(mat('cos([0,60])'), [[1, 0.5]], 1e-12);
+  assert.deepEqual(mat('exp([0])'), [[1]]);
+  assert.deepEqual(mat('floor([1.5,-1.5])'), [[1, -2]]);
+  assert.deepEqual(mat('max([1,5,3]; 2)'), [[2, 5, 3]]); // un escalar se extiende
+  assert.deepEqual(mat('max([1,5]; [3,2])'), [[3, 5]]);
+  assert.deepEqual(mat('min([4,1,9]; 3)'), [[3, 1, 3]]);
+  assert.deepEqual(mat('round([1.234,2.345]; 1)'), [[1.2, 2.3]]);
+  assert.deepEqual(mat('mod([7,8,9]; 4)'), [[3, 0, 1]]);
+  close(mat('atan2([1,1]; [1,-1])'), [[45, 135]]);
+  assert.deepEqual(mat('clamp([0,5,10]; 2; 8)'), [[2, 5, 8]]);
+  assert.deepEqual(mat('hypot([3,5]; [4,12])'), [[5, 13]]);
+  fails('sqrt([-1,4])', /no es un número/); // igual que sqrt(-1)
+  fails('√[-1,4]', /negativo/);
+  fails('ln([0,1])', /no es un número/); // ln(0) = -inf
+  fails('max([1,2]; [1,2,3])', /mismo tamaño/);
+  fails('sin([1,2],[3,4])', /un solo valor/);
+  fails('si([1,0]; 1; 2)', /condición/);
+  assert.equal(num('sin(30)'), Math.sin(Math.PI / 6)); // los escalares no cambian
+  assert.deepEqual(mat('si(1; [1,2]; [3,4])'), [[1, 2]]); // las ramas de si() si pueden ser vectores
+});
+
+t('inv y operaciones en los textos', () => {
+  const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'A{=[1,1; 10,1]}\nb{=[-25; 250]}\nx{=A^(-1)*b}\ny{=inv(A)}\nz{=sqrt([4,9]).*[2,3]}\n[=x] | [=y] | [=A*x] | [=z] | [=x.^2]' };
+  const s = plainText(textValue(doc, doc.texts.t1));
+  assert.match(s, /\[30\.556; -55\.556\] \| \[-0\.111, 0\.111; 1\.111, -0\.111\] \| \[-25; 250\] \| \[4, 9\] \| \[933\.642; 3086\.4\]$/);
+  assert.equal(s.includes('⚠'), false);
+  doc.texts.t2 = { pt: 'p', h: 1, font: '', text: 'q{=inv([1,2;2,4])}\n[=q]' }; // singular: la definicion falla
+  assert.match(plainText(textValue(doc, doc.texts.t2)), /⚠/);
 });
 
 console.log(`\n${passed} pruebas de vectores y matrices pasaron`);

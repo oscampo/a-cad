@@ -36,6 +36,7 @@ const MULTI = {
 };
 MULTI.redondear = MULTI.round;
 const LAZY = new Set(['if', 'si']); // si(condicion; si_verdadero; si_falso): solo se evalua la rama elegida
+const MATFN = new Set(['inv']); // funciones de matrices: inv(A) (la inversa)
 // error de calculo (division entre cero, raiz negativa): una rama de si() que no se elige no lo propaga
 const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
 
@@ -44,7 +45,7 @@ const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
 // quedan guardadas para los motores, las animaciones y los calculos dinamicos. Todavia no valen nada.
 export const TIME_VAR = 't';
 export const FUTURE_VARS = new Set([TIME_VAR, 'j', 'ω', 'θ', 'α']);
-export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || l === 'log10'; };
+export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l === 'log10'; };
 export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : `«${n}» es una función o constante`);
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*$/;
 const ID_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*/;
@@ -82,13 +83,14 @@ function tokenize(src, vars = null, loose = false) {
       }
       if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: 'var', v: raw, i, j: i + L });
       else if (raw === 'T' && last?.t === 'op' && last.v === '^') toks.push({ t: 'tr', i, j: i + 1 }); // x^T: la transpuesta
-      else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name)) toks.push({ t: 'id', v: name, i, j: i + L });
+      else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name) || MATFN.has(name)) toks.push({ t: 'id', v: name, i, j: i + L });
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + L });
       else if (FUTURE_VARS.has(raw)) throw new Error(`${reservedWhy(raw)} (todavía no tiene valor)`);
       else throw new Error(`No reconozco «${raw}»` + (/\d/.test(raw) || raw.length === 1 ? ' (no hay una cota con ese nombre)' : ''));
       i += L; continue;
     }
     if (c === '*' && src[i + 1] === '*') { toks.push({ t: 'op', v: '^', i, j: i + 2 }); i += 2; continue; }
+    if (c === '.' && '*/^'.includes(src[i + 1] ?? ' ')) { toks.push({ t: 'op', v: '.' + src[i + 1], i, j: i + 2 }); i += 2; continue; } // elemento a elemento: .* ./ .^
     if (c === '[') depth++; else if (c === ']') depth = Math.max(0, depth - 1);
     if ('+-*/^()[]×÷·−'.includes(c)) { toks.push({ t: 'op', v: c === '×' || c === '·' ? '*' : c === '÷' ? '/' : c === '−' ? '-' : c, i, j: i + 1 }); i++; continue; }
     throw new Error(`Carácter no válido «${c}»`);
@@ -129,6 +131,45 @@ function mulM(a, b) {
   return out.length === 1 && out[0].length === 1 ? { v: out[0][0], r: false } : { m: out };
 }
 
+// Inversa por Gauss-Jordan con pivote parcial.
+function invM(m) {
+  const n = m.length;
+  if (m[0].length !== n) throw new Error(`Solo las matrices cuadradas tienen inversa (esta es de ${n}×${m[0].length})`);
+  const big = Math.max(1e-300, ...m.flat().map(Math.abs));
+  const a = m.map((r, i) => [...r, ...Array.from({ length: n }, (_, k) => (k === i ? 1 : 0))]);
+  for (let c = 0; c < n; c++) {
+    let q = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(a[r][c]) > Math.abs(a[q][c])) q = r;
+    if (Math.abs(a[q][c]) <= 1e-12 * big) throw new Error('La matriz es singular: no tiene inversa');
+    [a[c], a[q]] = [a[q], a[c]];
+    const d = a[c][c];
+    for (let k = 0; k < 2 * n; k++) a[c][k] /= d;
+    for (let r = 0; r < n; r++) if (r !== c) { const f = a[r][c]; if (f !== 0) for (let k = 0; k < 2 * n; k++) a[r][k] -= f * a[c][k]; }
+  }
+  return a.map((r) => r.slice(n));
+}
+const eyeM = (n) => Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, k) => (i === k ? 1 : 0)));
+const mulRaw = (a, b) => a.map((r) => b[0].map((_, k) => r.reduce((s, x, j) => s + x * b[j][k], 0)));
+// A^n con n entero (A cuadrada): A^0 = I, A^(-1) = inversa, A^(-2) = inversa al cuadrado...
+function powM(a, n) {
+  const sq = a.m.length;
+  if (a.m[0].length !== sq) throw new Error(`Solo las matrices cuadradas se elevan a una potencia (esta es de ${dimsOf(a)}); la potencia elemento a elemento es .^`);
+  if (!Number.isInteger(n)) throw new Error('La potencia de una matriz debe ser un número entero (A^2, A^(-1)); la potencia elemento a elemento es .^');
+  if (Math.abs(n) > 1000) throw new Error('La potencia de una matriz admite hasta ±1000');
+  let base = n < 0 ? invM(a.m) : a.m, e = Math.abs(n), out = eyeM(sq);
+  while (e > 0) { if (e & 1) out = mulRaw(out, base); base = mulRaw(base, base); e >>= 1; }
+  return { m: out };
+}
+// Operaciones elemento a elemento (.* ./ .^ y las funciones): un escalar se extiende a todos los elementos; dos matrices deben tener el mismo tamano.
+function sameShape(a, b, what) {
+  if (a.m.length !== b.m.length || a.m[0].length !== b.m[0].length) throw new Error(`No se puede ${what} ${nameM(a)} y ${nameM(b)}: deben tener el mismo tamaño`);
+}
+function elementwise(a, b, f, what) {
+  if (isM(a) && isM(b)) { sameShape(a, b, what); return { m: a.m.map((r, i) => r.map((x, k) => f(x, b.m[i][k]))) }; }
+  return isM(a) ? mapM(a, (x) => f(x, b.v)) : mapM(b, (y) => f(a.v, y));
+}
+const divEl = (x, y) => { if (y === 0) throw rt('División entre cero'); return x / y; };
+
 export function evalExpr(src, { radians = false, vars = null, allowMat = false } = {}) {
   const toks = tokenize(String(src ?? ''), vars);
   if (!toks.length) throw new Error('Escribe un valor');
@@ -167,12 +208,28 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false }
   function call(name, A) {
     if (LAZY.has(name)) {
       if (A.length !== 3) throw new Error('si(condición; si_verdadero; si_falso) lleva 3 valores separados por «;»');
+      if (isM(A[0])) throw new Error('La condición de si() es un número, no un vector ni una matriz');
       const pick = A[0].v !== 0 ? A[1] : A[2];
       if (pick.err) throw pick.err;
       return pick;
     }
-    if (A.some((a) => isM(a))) throw new Error(`«${name}» todavía no acepta vectores ni matrices`);
     const sep = ' (sepáralos con «;»: «2,5» es un solo número)';
+    if (name === 'inv') { // inversa de una matriz cuadrada (de un numero, su inverso)
+      if (A.length !== 1) throw new Error('«inv» recibe una matriz');
+      if (!isM(A[0])) { if (A[0].v === 0) throw rt('División entre cero'); return { v: 1 / A[0].v, r: false }; }
+      return { m: invM(A[0].m) };
+    }
+    if (A.some((a) => isM(a))) { // funciones sobre vectores y matrices: a cada elemento (los escalares se extienden)
+      if (name in FUNCS) {
+        if (A.length !== 1) throw new Error(`«${name}» recibe un solo valor`);
+        return mapM(A[0], (x) => FUNCS[name](x, radians, radians));
+      }
+      const M = MULTI[name], [lo, hi] = [M.n[0], M.n[1] ?? Infinity];
+      if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === Infinity ? `${lo} valores o más` : lo === hi ? `${lo} valores` : `${lo} o ${hi} valores`}${sep}`);
+      const ms = A.filter(isM);
+      for (const m of ms.slice(1)) sameShape(ms[0], m, `aplicar «${name}» a`);
+      return { m: ms[0].m.map((row, i) => row.map((_, k) => M.f(A.map((a) => ({ v: isM(a) ? a.m[i][k] : a.v, r: false })), radians).v)) };
+    }
     if (name in FUNCS) {
       if (A.length !== 1) throw new Error(`«${name}» recibe un solo valor`);
       return { v: FUNCS[name](A[0].v, A[0].r || radians, radians), r: MAKE_RAD.has(name) || (KEEP_RAD.has(name) && A[0].r) };
@@ -190,7 +247,10 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false }
   function term() {
     let a = unary();
     for (;;) {
-      if (isOp('*') || isOp('/')) {
+      if (isOp('.*') || isOp('./')) { // elemento a elemento
+        const o = toks[p++].v, b = unary();
+        if (!isM(a) && !isM(b)) { if (o === './' && b.v === 0) throw rt('División entre cero'); a = bin(a, b, o === '.*' ? a.v * b.v : a.v / b.v); } else a = o === '.*' ? elementwise(a, b, (x, y) => x * y, 'multiplicar elemento a elemento') : elementwise(a, b, divEl, 'dividir elemento a elemento');
+      } else if (isOp('*') || isOp('/')) {
         const o = toks[p++].v; const b = unary();
         if (o === '/') {
           if (isM(b)) throw new Error('No se puede dividir entre un vector o una matriz');
@@ -212,8 +272,14 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false }
       p++;
       if (peek()?.t === 'tr') { p++; return isM(a) ? transposeM(a) : a; } // x^T
       const b = unary();
-      if (isM(a) || isM(b)) throw new Error('La potencia de un vector o una matriz todavía no está disponible (^T es la transpuesta)');
+      if (isM(a) && !isM(b)) return powM(a, b.v); // A^2, A^(-1)
+      if (isM(b)) throw new Error('El exponente no puede ser un vector ni una matriz (para elevar elemento a elemento usa .^)');
       return { v: Math.pow(a.v, b.v), r: a.r };
+    }
+    if (isOp('.^')) { // elemento a elemento
+      p++;
+      const b = unary();
+      return !isM(a) && !isM(b) ? { v: Math.pow(a.v, b.v), r: a.r } : elementwise(a, b, Math.pow, 'elevar elemento a elemento');
     }
     return a;
   }
@@ -227,7 +293,7 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false }
       if (x.vec) return { m: [x.vec] };
       return { v: x.v, r: !!x.r };
     }
-    if (k.t === 'sqrt') { const a = primary(); if (isM(a)) throw new Error('«√» todavía no acepta vectores ni matrices'); if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r }; }
+    if (k.t === 'sqrt') { const a = primary(); if (isM(a)) { if (a.m.some((r) => r.some((x) => x < 0))) throw rt('Raíz de un número negativo'); return mapM(a, Math.sqrt); } if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r }; }
     if (k.t === 'op' && k.v === '[') { // matriz: [1, 2, 3] (fila) o [1, 2; 3, 4] (filas separadas por «;»)
       if (isOp(']')) throw new Error('Una matriz no puede estar vacía');
       const rows = [[]];
