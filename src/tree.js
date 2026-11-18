@@ -50,7 +50,7 @@ export const conCategory = (k) => (k.hidden ? 'auto' : DIM_T.has(k.t) ? 'dim' : 
 // abiertas). Dos extremos se tocan si son el mismo punto, puntos atados por una coincidencia (COI) o puntos en el mismo
 // lugar sin nada que los ate (loose: cuantas uniones asi tiene el contorno). Cada grupo conectado
 // de dos o mas elementos es un contorno: cerrado si cada nudo junta exactamente dos extremos, ramificado si alguno junta
-// tres o mas, abierto si no. Devuelve [{ items: [{k,id}] en el orden en que se recorren, closed, branched, loose }].
+// tres o mas, abierto si no. Devuelve [{ items: [{k,id}] en el orden en que se recorren, closed, branched, loose, gap? }].
 export function contours(doc) {
   const solid = (o) => o.ltype !== 'constructiva';
   const edges = [];
@@ -71,7 +71,8 @@ export function contours(doc) {
   // igual, porque asi se ve el contorno, pero se cuentan aparte; al mover el dibujo esas uniones se pueden abrir
   const ends = [...new Set(edges.flatMap((e) => e.ends))].filter((p) => doc.pts[p]);
   const xs = ends.map((p) => doc.pts[p].x), ys = ends.map((p) => doc.pts[p].y);
-  const tol = 1e-6 * Math.max(1, Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  const size = Math.max(1, Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  const tol = 1e-6 * size;
   const cell = new Map(), loose = [];
   const ck = (x, y) => `${Math.floor(x / tol)},${Math.floor(y / tol)}`;
   for (const p of ends) {
@@ -114,8 +115,25 @@ export function contours(doc) {
       }
     }
     const looseN = [...nodes].reduce((n, x) => n + (looseAt.get(x) || 0), 0);
-    out.push({ items: items.map(({ k, id }) => ({ k, id })), closed, branched, loose: looseN });
+    const free = [...nodes].filter((n) => at.get(n).length === 1 && doc.pts[n]); // extremos libres (un nudo es un punto)
+    out.push({ items: items.map(({ k, id }) => ({ k, id })), closed, branched, loose: looseN, free });
   }
+  // abertura: para cada contorno con extremos libres, el extremo libre mas cercano a uno de los suyos (de otro contorno o
+  // el otro extremo del mismo). Solo cuenta hasta el 1 % del tamaño del dibujo: mas lejos no es una abertura, es un trazo
+  // abierto. gap: { d, with } (with: indice del otro contorno, o el propio si casi se cierra solo).
+  const fr = out.flatMap((c, i) => c.free.map((n) => ({ i, n, x: doc.pts[n].x, y: doc.pts[n].y }))).sort((a, b) => a.x - b.x);
+  const lim = 0.01 * size;
+  for (let a = 0; a < fr.length; a++) {
+    for (let b = a + 1; b < fr.length && fr[b].x - fr[a].x <= lim; b++) { // barrido por x: solo los vecinos posibles
+      const d = Math.hypot(fr[b].x - fr[a].x, fr[b].y - fr[a].y);
+      if (d > lim) continue;
+      for (const [u, v] of [[fr[a], fr[b]], [fr[b], fr[a]]]) {
+        const c = out[u.i];
+        if (!c.gap || d < c.gap.d) c.gap = { d, with: v.i };
+      }
+    }
+  }
+  for (const c of out) delete c.free;
   return out;
 }
 
@@ -243,6 +261,8 @@ export function buildTree(doc, { by = 'type' } = {}) {
   }));
   const graphs = Object.entries(doc.graphs || {}).map(([id, g]) => ({ key: `gr:${id}`, act: id, label: `Gráfica ${id} · ${(g.series || []).join(', ') || 'sin relaciones'}` }));
   // contornos: el contorno selecciona todos sus elementos; dentro, sus elementos como enlaces en el orden del recorrido
+  // abertura con tres cifras significativas (0.0143), con quien: el otro contorno, o «entre sus extremos» si casi se cierra solo
+  const gapText = (c, i) => (c.gap ? ` · abertura ${Number(c.gap.d.toPrecision(3))} ${c.gap.with === i ? 'entre sus extremos' : `con el ${c.gap.with + 1}`}` : '');
   const KN = { ln: ['línea', 'líneas'], ar: ['arco', 'arcos'], el: ['arco elíptico', 'arcos elípticos'], sp: ['spline', 'splines'] };
   const ctNodes = contours(doc).map((c, i) => {
     const cnt = {}; for (const it of c.items) cnt[it.k] = (cnt[it.k] || 0) + 1;
@@ -250,7 +270,7 @@ export function buildTree(doc, { by = 'type' } = {}) {
     return {
       key: `ct:${c.items[0].k}:${c.items[0].id}`, selMany: c.items,
       // el aviso va antes de la composicion: en el panel angosto la etiqueta se corta por el final
-      label: `Contorno ${i + 1} · ${c.closed ? 'cerrado' : c.branched ? 'ramificado' : 'abierto'}${c.loose ? ` · ${c.loose} ${c.loose > 1 ? 'uniones' : 'unión'} sin restricción` : ''} · ${what}`,
+      label: `Contorno ${i + 1} · ${c.closed ? 'cerrado' : c.branched ? 'ramificado' : 'abierto'}${gapText(c, i)}${c.loose ? ` · ${c.loose} ${c.loose > 1 ? 'uniones' : 'unión'} sin restricción` : ''} · ${what}`,
       children: c.items.map((it) => ({ key: `lk:${it.k}:${it.id}`, label: `↗ ${KIND_NAME[it.k]} ${it.id}`, sel: it, link: true })),
     };
   });

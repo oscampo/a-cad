@@ -1686,8 +1686,17 @@ t('contornos: cerrado, abierto y ramificado; coincidencias, uniones sin restricc
   addCircle(d, P(60, 60), 3, {});
   // dos lineas que se tocan en el mismo lugar con puntos distintos y sin COI: se unen, pero contadas aparte
   const lz = [addLine(d, P(200, 0), P(210, 0), {}), addLine(d, P(210, 0), P(210, 10), {})];
+  // triangulo que casi se cierra (abertura 0.01) y dos trazos separados por 0.5
+  const tri = [addLine(d, P(300, 0), P(310, 0), {})]; tri.push(addLine(d, d.lines[tri[0]].b, P(305, 8), {})); tri.push(addLine(d, d.lines[tri[1]].b, P(300.01, 0), {}));
+  // dos «L» que se quedan a 0.5: (400,10)-(400,0)-(410,0) y (410.5,0)-(420,0)-(420,10)
+  const q0 = P(400, 0), q1 = P(420, 0);
+  addLine(d, P(400, 10), q0, {}); addLine(d, q0, P(410, 0), {});
+  addLine(d, P(410.5, 0), q1, {}); addLine(d, q1, P(420, 10), {});
   const cs = contours(d);
-  assert.equal(cs.length, 4);
+  assert.equal(cs.length, 7);
+  near(cs[4].gap.d, 0.01, 1e-9); assert.equal(cs[4].gap.with, 4, 'casi se cierra solo');
+  near(cs[5].gap.d, 0.5, 1e-9); assert.equal(cs[5].gap.with, 6); assert.equal(cs[6].gap.with, 5);
+  assert.ok(!cs[1].gap && !cs[2].gap && !cs[3].gap, 'extremos lejanos (mas del 1 % del dibujo) no son una abertura');
   assert.deepEqual(cs[3].items.map((i) => i.id), lz); assert.equal(cs[3].loose, 1);
   assert.equal(cs[0].loose, 0, 'la esquina con COI no cuenta como suelta');
   const [cq, co, cb] = cs;
@@ -1699,7 +1708,8 @@ t('contornos: cerrado, abierto y ramificado; coincidencias, uniones sin restricc
   assert.deepEqual(cb.items.map((i) => i.id).sort(), [...br].sort());
   // en el arbol
   const g0 = buildTree(d).find((x) => x.key === 'g:ct');
-  assert.deepEqual(g0.children.map((n) => n.label), ['Contorno 1 · cerrado · 4 líneas', 'Contorno 2 · abierto · 1 línea, 1 arco', 'Contorno 3 · ramificado · 3 líneas', 'Contorno 4 · abierto · 1 unión sin restricción · 2 líneas']);
+  assert.deepEqual(g0.children.map((n) => n.label), ['Contorno 1 · cerrado · 4 líneas', 'Contorno 2 · abierto · 1 línea, 1 arco', 'Contorno 3 · ramificado · 3 líneas', 'Contorno 4 · abierto · 1 unión sin restricción · 2 líneas',
+    'Contorno 5 · abierto · abertura 0.01 entre sus extremos · 3 líneas', 'Contorno 6 · abierto · abertura 0.5 con el 7 · 2 líneas', 'Contorno 7 · abierto · abertura 0.5 con el 6 · 2 líneas']);
   assert.deepEqual(g0.children[0].selMany.map((i) => i.id), sq, 'tocar el contorno selecciona sus elementos');
   assert.ok(g0.children[0].children.every((n) => n.link && !n.children));
   assert.ok(buildTree(d, { by: 'layer' }).some((x) => x.key === 'g:ct'), 'tambien en la vista por capa');
