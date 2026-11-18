@@ -2,6 +2,14 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## Sin publicar
+
+### Nuevo
+
+- Nombre: la app pasa a llamarse **A-CAD** (antes iPad CAD), porque funciona en iOS, Android y el navegador. Cambia lo que se ve: el título de la pestaña, el nombre en la pantalla de inicio, la ayuda, el manual, el README y los mensajes de commit que la app escribe en el repositorio de dibujos (`A-CAD: nombre`). No cambian los identificadores internos, para no perder nada guardado: el autoguardado y la configuración de GitHub de cada dispositivo, la marca de archivos protegidos (`_ipad-cad.json`), el campo `"app": "ipad-cad"` de los archivos `.json` y la dirección de la app.
+- Íconos: el ícono de la app (triángulo con el vértice naranja) llega también al iPhone y al iPad, que no aceptan un SVG en la pantalla de inicio: ahora hay un `apple-touch-icon.png` de 180×180, cuadrado y opaco (iOS redondea las esquinas). La pestaña del navegador tiene un favicon PNG de respaldo para los navegadores que no muestran SVG, y el manifiesto suma íconos PNG de 192 y 512 para Android.
+- Descripción: «CAD 2D paramétrico para iOS/Android y navegador: restricciones, cotas con fórmulas, cálculo en el dibujo y simulaciones gráficas de mecanismos», en el manifiesto, en `index.html` (lo que muestran buscadores y enlaces compartidos) y en `package.json`. La presentación de la ayuda, del manual y del README menciona ahora el cálculo en el dibujo, las simulaciones gráficas y el corte láser. El README explica cómo instalarla también en Android y en el computador.
+
 ## v1.9.0 (2026-11-18)
 
 ### Nuevo

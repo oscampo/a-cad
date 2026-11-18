@@ -1,7 +1,7 @@
 // Contenido de la ayuda (HTML estático). Se inserta en el diálogo de ayuda. Ordenada por tareas; el manual
 // detallado para otras personas está en docs/ (GitHub) y el historial en CHANGELOG.md.
 export const HELP_HTML = `
-<p>iPad CAD es un editor de dibujo 2D <b>paramétrico</b>: dibujas puntos, líneas, círculos, arcos y splines, los relacionas con <b>restricciones</b> (horizontal, paralela, tangente...) y <b>cotas</b>, y un solver geométrico mantiene todo consistente. Si mueves un punto, el resto del dibujo se reacomoda respetando las relaciones. Sirve para croquis, geometría descriptiva, <b>mecanismos</b> (arrastras un eslabón y el mecanismo se mueve) y estática gráfica.</p>
+<p>A-CAD es un editor de dibujo 2D <b>paramétrico</b> para iOS, Android y el navegador. Dibujas puntos, líneas, círculos, arcos, elipses y splines, los relacionas con <b>restricciones</b> (horizontal, paralela, tangente...) y <b>cotas</b>, y un solver geométrico mantiene todo consistente: si mueves un punto o cambias una medida, el resto del dibujo se reacomoda. Los textos del dibujo <b>calculan</b> (variables, fórmulas, vectores y matrices) y pueden gobernar las cotas, y los mecanismos se mueven a mano o con <b>simulaciones gráficas</b> en el tiempo, con actuadores y gráficas. Sirve para croquis, geometría descriptiva, estática gráfica, mecanismos y piezas para corte láser.</p>
 
 <details open><summary>Empezar</summary>
 <ul>

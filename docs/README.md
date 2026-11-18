@@ -1,6 +1,6 @@
-# Manual de iPad CAD
+# Manual de A-CAD
 
-iPad CAD es un editor de dibujo 2D **paramétrico**: dibujas puntos, líneas, círculos, arcos y splines, los relacionas con **restricciones** (horizontal, paralela, tangente...) y **cotas**, y un solver geométrico mantiene todo consistente. Si mueves un punto, el resto del dibujo se reacomoda respetando las relaciones. Sirve para croquis, geometría descriptiva, **mecanismos** (arrastras un eslabón y el mecanismo se mueve) y estática gráfica.
+A-CAD es un editor de dibujo 2D **paramétrico** para iOS, Android y el navegador. Dibujas puntos, líneas, círculos, arcos, elipses y splines, los relacionas con **restricciones** (horizontal, paralela, tangente...) y **cotas**, y un solver geométrico mantiene todo consistente: si mueves un punto o cambias una medida, el resto del dibujo se reacomoda. Los textos del dibujo **calculan** (variables, fórmulas, vectores y matrices) y pueden gobernar las cotas, y los mecanismos se mueven a mano o con **simulaciones gráficas** en el tiempo, con actuadores y gráficas. Sirve para croquis, geometría descriptiva, estática gráfica, mecanismos y piezas para corte láser.
 
 Este manual explica cada herramienta y concepto en detalle, para quien empieza o quiere entender cómo funciona algo. La ayuda dentro de la app (botón **?**) tiene la misma información en forma compacta y con buscador.
 

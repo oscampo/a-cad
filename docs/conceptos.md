@@ -1,6 +1,6 @@
 # Conceptos básicos
 
-Las ideas que hay detrás de iPad CAD. Si nunca has usado un CAD paramétrico, empieza aquí: con estas ideas claras, el resto del manual se entiende solo.
+Las ideas que hay detrás de A-CAD. Si nunca has usado un CAD paramétrico, empieza aquí: con estas ideas claras, el resto del manual se entiende solo.
 
 [Índice](README.md) · [1. Empezar →](01-empezar.md)
 
@@ -10,7 +10,7 @@ Las ideas que hay detrás de iPad CAD. Si nunca has usado un CAD paramétrico, e
 
 En un programa de dibujo común, una línea es un trazo que queda donde la dejaste. En un dibujo **paramétrico**, cada elemento guarda además sus **relaciones** con los demás: esta línea es horizontal, aquel círculo es tangente a ella, este punto está sobre ese arco, esta distancia mide 40. Cuando mueves algo o cambias una medida, el programa recoloca todo lo demás para que esas relaciones se sigan cumpliendo.
 
-Por eso en iPad CAD se trabaja en dos tiempos:
+Por eso en A-CAD se trabaja en dos tiempos:
 
 1. **Dibujas la forma aproximada**, sin preocuparte por medidas exactas.
 2. **Le pones restricciones y cotas** hasta que la forma queda como la quieres. Las medidas exactas salen de las cotas, no de la mano.
@@ -36,7 +36,7 @@ Hay dos errores típicos:
 
 ## El solver
 
-El **solver** es el motor que, después de cada cambio, busca posiciones para todos los puntos que cumplan a la vez todas las restricciones y cotas. iPad CAD usa **PlaneGCS**, el solver del Sketcher de FreeCAD ([capítulo 14](14-acerca-de.md)).
+El **solver** es el motor que, después de cada cambio, busca posiciones para todos los puntos que cumplan a la vez todas las restricciones y cotas. A-CAD usa **PlaneGCS**, el solver del Sketcher de FreeCAD ([capítulo 14](14-acerca-de.md)).
 
 El solver parte de dónde están las cosas y busca la solución más cercana. Por eso **la forma aproximada importa**: si una tangencia puede ocurrir por dentro o por fuera, el solver elige la que está más cerca de lo que dibujaste. Si una restricción no converge, acerca un poco los elementos a la posición que quieres y vuelve a intentarlo.
 

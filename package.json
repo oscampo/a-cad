@@ -1,6 +1,7 @@
 {
-  "name": "ipad-cad",
+  "name": "a-cad",
   "version": "1.9.0",
+  "description": "CAD 2D paramétrico para iOS/Android y navegador: restricciones, cotas con fórmulas, cálculo en el dibujo y simulaciones gráficas de mecanismos.",
   "license": "MIT",
   "private": true,
   "type": "module",

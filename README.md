@@ -1,18 +1,18 @@
-# iPad CAD
+# A-CAD
 
-Editor de dibujo 2D **paramétrico** para iPad con Apple Pencil, que también funciona en un computador con ratón y teclado. Dibujas la geometría, le pones restricciones y cotas, y el dibujo se mantiene coherente al arrastrar o al cambiar una medida. Además calcula con fórmulas, matrices y funciones dentro del propio dibujo y simula mecanismos con gráficas.
+A-CAD es un editor de dibujo 2D **paramétrico** para iOS, Android y el navegador. Dibujas puntos, líneas, círculos, arcos, elipses y splines, los relacionas con **restricciones** (horizontal, paralela, tangente...) y **cotas**, y un solver geométrico mantiene todo consistente: si mueves un punto o cambias una medida, el resto del dibujo se reacomoda. Los textos del dibujo **calculan** (variables, fórmulas, vectores y matrices) y pueden gobernar las cotas, y los mecanismos se mueven a mano o con **simulaciones gráficas** en el tiempo, con actuadores y gráficas. Sirve para croquis, geometría descriptiva, estática gráfica, mecanismos y piezas para corte láser.
 
 **Abrir la app:** <https://oscampo.github.io/ipad-cad/>
 
-Es una aplicación web instalable (PWA): no necesita App Store ni servidor propio, funciona sin conexión una vez abierta y guarda el dibujo en el dispositivo. Las restricciones las resuelve **PlaneGCS**, el solver geométrico del Sketcher de FreeCAD, compilado a WebAssembly.
+Es una aplicación web instalable (PWA): no necesita tienda de aplicaciones ni servidor propio, funciona sin conexión una vez abierta y guarda el dibujo en el dispositivo. Se usa con Apple Pencil o el dedo en tableta y teléfono, y con ratón y teclado en el computador. Las restricciones las resuelve **PlaneGCS**, el solver geométrico del Sketcher de FreeCAD, compilado a WebAssembly.
 
-## Instalar en el iPad
+## Instalar
 
-1. Abre <https://oscampo.github.io/ipad-cad/> en **Safari**.
-2. Toca **Compartir** y luego **Añadir a pantalla de inicio**.
-3. Abre la app desde su ícono. Se actualiza sola cuando hay una versión nueva: la versión y la compilación que corre se ven abajo a la izquierda del dibujo (por ejemplo, *v1.9.0 a1b2c3d*).
+- **iPad o iPhone**: abre <https://oscampo.github.io/ipad-cad/> en **Safari**, toca **Compartir** y luego **Añadir a pantalla de inicio**.
+- **Android**: abre el enlace en **Chrome**, toca el menú **⋮** y luego **Instalar app** (o **Añadir a pantalla de inicio**).
+- **Computador**: basta con abrir el enlace en el navegador. Chrome y Edge también ofrecen instalarla desde la barra de direcciones.
 
-En un computador basta con abrir el enlace en el navegador.
+La app se actualiza sola cuando hay una versión nueva. La versión y la compilación que corre se ven abajo a la izquierda del dibujo (por ejemplo, *v1.9.0 a1b2c3d*).
 
 ## Qué puedes hacer
 

@@ -121,7 +121,7 @@ export const cachedDate = (c, path, sha) => jget(DATE_KEY, {})[`${c.repo}@${c.br
 export async function copyFile(c, from, to, f = fetch) {
   if (await currentSha(c, to, f)) throw new GhError('Ya existe un archivo con ese nombre', 409);
   const text = await read(c, from, f);
-  return write(c, to, text, `ipad-cad: copia ${from} -> ${to}`, null, f);
+  return write(c, to, text, `A-CAD: copia ${from} -> ${to}`, null, f);
 }
 
 // Mueve (o renombra) un archivo: primero crea el destino y luego borra el original, asi un fallo a medias deja una copia de mas, nunca una perdida.
@@ -129,7 +129,7 @@ export async function moveFile(c, from, to, f = fetch) {
   const fromSha = await currentSha(c, from, f);
   if (!fromSha) throw new GhError('El archivo ya no está en GitHub', 404);
   const sha = await copyFile(c, from, to, f);
-  try { await remove(c, from, fromSha, `ipad-cad: mover ${from} -> ${to}`, f); }
+  try { await remove(c, from, fromSha, `A-CAD: mover ${from} -> ${to}`, f); }
   catch (e) { throw new GhError(`Se creó «${to}» pero no se pudo borrar el original «${from}»: ${e.message}`, e.status); }
   return sha;
 }
@@ -146,7 +146,7 @@ export async function updateMeta(c, fn, f = fetch) {
   for (let i = 0; ; i++) {
     const { meta, sha } = await loadMeta(c, f);
     const next = fn(meta) || meta;
-    try { await write(c, dirPath(c, META), JSON.stringify(next, null, 1), 'ipad-cad: metadatos', sha, f); return next; }
+    try { await write(c, dirPath(c, META), JSON.stringify(next, null, 1), 'A-CAD: metadatos', sha, f); return next; }
     catch (e) { if (i >= 2 || (e.status !== 409 && e.status !== 422)) throw e; }
   }
 }

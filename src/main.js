@@ -315,7 +315,7 @@ $('tPanel').onclick = () => { opts.panel = opts.panel === false; applyChrome(); 
 $('tTree').onclick = () => { opts.tree = !opts.tree; applyChrome(); persist(); };
 $('treeBy').onclick = () => { opts.treeBy = opts.treeBy === 'layer' ? 'type' : 'layer'; persist(); renderTree(); };
 $('tHelp').onclick = () => {
-  $('helpBody').innerHTML = HELP_HTML + `<p id="helpNone" hidden>Nada en la ayuda coincide con la búsqueda.</p><p style="color:var(--muted);font-size:12px">iPad CAD v${VERSION}</p>`;
+  $('helpBody').innerHTML = HELP_HTML + `<p id="helpNone" hidden>Nada en la ayuda coincide con la búsqueda.</p><p style="color:var(--muted);font-size:12px">A-CAD v${VERSION}</p>`;
   $('helpBody').querySelectorAll('details').forEach((d) => { d.dataset.open0 = d.open ? '1' : ''; });
   $('helpSearch').value = '';
   $('dlgH').showModal(); $('helpBody').scrollTop = 0;
@@ -4420,7 +4420,7 @@ async function ghSaveCmd() {
       ? `«${name}» cambió en GitHub desde la última vez que lo abriste o guardaste en este dispositivo (quizá lo editaste en otro). ¿Sobrescribirlo con este dibujo?`
       : `Ya existe «${name}» en GitHub. ¿Sobrescribirlo con este dibujo?`)) { toast('No se guardó'); return; }
     const text = JSON.stringify({ app: 'ipad-cad', version: VERSION, doc }, null, 1);
-    const sha = await gh.write(c, path, text, `ipad-cad: ${name}`, cur);
+    const sha = await gh.write(c, path, text, `A-CAD: ${name}`, cur);
     if (sha) gh.rememberSha(c, path, sha);
     toast(`Guardado en GitHub: ${path}`);
   } catch (e) { toast('No se pudo guardar en GitHub: ' + e.message + (e.status === 409 || e.status === 422 ? '. Ábrelo de nuevo y reintenta.' : '')); }
