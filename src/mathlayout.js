@@ -2,7 +2,8 @@
 // Sin DOM: la formula se reparte en cajas y sale como una lista de primitivas (texto y trazos) que el lienzo y las exportaciones dibujan igual.
 // Unidades: em (altura de texto 1). En una caja: x a la derecha desde su borde, y hacia ABAJO desde su linea base (a: alto sobre ella, d: bajo ella).
 import { parse } from './asciimath.js';
-import { runsOf, plainText } from './tvars.js';
+import { runsOf } from './tvars.js';
+const noIT = (s) => s.replace(/[\uE000\uE001]/g, ''); // las marcas de cursiva no van a la formula; las de vector (VB0/VB1) si
 
 const MF = 'serif'; // fuente de la formula (claves de FONTS en text.js)
 const AXIS = 0.26; // altura del eje (barra de fraccion, signo menos) sobre la linea base
@@ -14,9 +15,9 @@ export const hasMath = (s) => typeof s === 'string' && s.includes('$');
 // del de cierre, y el de cierre sin una cifra detras: «cuesta $5 y $6» no es una formula, como en pandoc). Un «$$» sin cierre queda tal cual con ⚠.
 export function splitMath(s) {
   const out = [];
-  let buf = '', i = 0;
+  let buf = '', raw = '', i = 0;
   const n = s.length;
-  const flush = () => { if (buf) { out.push({ t: 'txt', s: buf }); buf = ''; } };
+  const flush = () => { if (buf || raw) { out.push({ t: 'txt', s: buf, raw }); buf = ''; raw = ''; } };
   const closeBlock = (from) => { let j = s.indexOf('$$', from); while (j > 0 && s[j - 1] === '\\') j = s.indexOf('$$', j + 2); return j; };
   const closeInline = (from) => {
     if (from >= n || /\s/.test(s[from])) return -1;
@@ -30,17 +31,17 @@ export function splitMath(s) {
   };
   while (i < n) {
     const ch = s[i];
-    if (ch === '\\' && s[i + 1] === '$') { buf += '$'; i += 2; continue; }
+    if (ch === '\\' && s[i + 1] === '$') { buf += '$'; raw += '\\$'; i += 2; continue; }
     if (ch === '$') {
       if (s[i + 1] === '$') {
         const j = closeBlock(i + 2);
         if (j >= 0) { flush(); out.push({ t: 'math', src: s.slice(i + 2, j), disp: true }); i = j + 2; continue; }
-        buf += '$$⚠'; i += 2; continue;
+        buf += '$$⚠'; raw += '$$'; i += 2; continue;
       }
       const j = closeInline(i + 1);
       if (j >= 0) { flush(); out.push({ t: 'math', src: s.slice(i + 1, j), disp: false }); i = j + 1; continue; }
     }
-    buf += ch; i++;
+    buf += ch; raw += ch; i++;
   }
   flush();
   return out;
@@ -181,7 +182,7 @@ function matrix(n, ctx) {
   const cells = n.rows.map((r) => r.map((c) => lay(c, cs)));
   const nc = cells[0].length, colW = Array.from({ length: nc }, (_, k) => Math.max(...cells.map((r) => r[k].w)));
   const rowA = cells.map((r) => Math.max(0.7 * sz, ...r.map((c) => c.a))), rowD = cells.map((r) => Math.max(0.22 * sz, ...r.map((c) => c.d)));
-  const gapX = 0.8 * sz, gapY = 0.28 * sz, ax = AXIS * sz;
+  const gapX = (n.rows.length === 1 ? 0.55 : 0.8) * sz, gapY = 0.28 * sz, ax = AXIS * sz;
   const xs = []; let x = 0;
   colW.forEach((w, k) => { xs.push(x); x += w + (k < nc - 1 ? gapX : 0); });
   const W = x;
@@ -327,10 +328,10 @@ function compute(text, measure, font) {
       skipNL = false;
       s.split('\n').forEach((p, i) => { if (i > 0) { rows.push({ items: cur }); cur = []; } if (p) cur.push({ k: 't', s: p }); });
     } else if (!tk.disp) {
-      cur.push({ k: 'm', box: layoutMath(plainText(tk.src), false, measure) }); skipNL = false;
+      cur.push({ k: 'm', box: layoutMath(noIT(tk.src), false, measure) }); skipNL = false;
     } else {
       if (cur.length) { rows.push({ items: cur }); cur = []; }
-      const src = plainText(tk.src).replace(/^[ \t]*\n/, '').replace(/\n[ \t]*$/, '');
+      const src = noIT(tk.src).replace(/^[ \t]*\n/, '').replace(/\n[ \t]*$/, '');
       for (const ln of src.split('\n')) rows.push({ items: ln.trim() ? [{ k: 'm', box: layoutMath(ln, true, measure) }] : [], center: true });
       skipNL = true;
     }

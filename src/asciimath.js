@@ -88,6 +88,7 @@ export function tokenize(s) {
     const ch = s[i];
     if (/\s/.test(ch)) { i++; continue; }
     if (ch === '\\' && s[i + 1] === ' ') { out.push({ t: 'space', w: 0.28 }); i += 2; continue; }
+    if (ch === '\uE002') { let j = s.indexOf('\uE003', i + 1); if (j < 0) j = n; out.push({ t: 'vec', v: s.slice(i + 1, j) }); i = j + 1; continue; } // vector de un texto ([=x])
     if (ch === '"') { let j = s.indexOf('"', i + 1); if (j < 0) j = n; out.push({ t: 'str', v: s.slice(i + 1, j) }); i = j + 1; continue; }
     NUM_RE.lastIndex = i;
     const m = NUM_RE.exec(s);
@@ -161,6 +162,10 @@ function parseS(p) {
       return { t: 'v', s: k.v };
     }
     case 'sym': return { t: 'sym', s: k.v };
+    case 'vec': { // «[1, 2, 3]» (viene de una salida [=x]): vector fila, sin comas
+      const cells = k.v.trim().replace(/^\[/, '').replace(/\]$/, '').split(',').map((e) => parse(e.trim())).filter((r) => r.c.length);
+      return cells.length ? { t: 'mat', l: '[', r: ']', rows: [cells], bars: [] } : EMPTY();
+    }
     case 'str': return { t: 'txt', s: k.v };
     case 'fn': return { t: 'fn', s: k.v };
     case 'op': return { t: 'o', s: k.v, k: k.k };

@@ -3,10 +3,10 @@
 // de measureText; en las pruebas puede ser una aproximacion).
 import { evalExpr } from './expr.js';
 import { varsOf, textVars } from './params.js';
-import { IT0, IT1, DEF_SRC, runsOf, hasDefMark } from './tvars.js';
+import { IT0, IT1, VB0, VB1, DEF_SRC, runsOf, hasDefMark } from './tvars.js';
 export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
-import { hasMath, layoutText } from './mathlayout.js';
+import { hasMath, layoutText, splitMath } from './mathlayout.js';
 export { hasMath } from './mathlayout.js';
 
 // Salidas en textos: [=expresion] se reemplaza por el valor de la expresion, que puede usar los nombres de las cotas
@@ -24,18 +24,23 @@ export function textValue(doc, t) {
   if (!hasDef && !hasOut) return s;
   let vars = null, st = null, tid = null, idx = 0;
   if (hasDef) { tid = Object.keys(doc.texts || {}).find((k) => doc.texts[k] === t); st = textVars(doc); }
-  return s.replace(TEXT_RE(), (m, name, ex, out) => {
+  // math: dentro de una formula ($...$) un vector sale entre marcas VB0/VB1 y se dibuja como vector fila (sin comas); fuera, como texto «[1, 2, 3]».
+  const expand = (seg, math) => seg.replace(TEXT_RE(), (m, name, ex, out) => {
     if (name !== undefined) { // definicion x{=valor}
       const bad = st.bad.has(tid + ':' + idx++);
+      const vec = math && !bad ? st.vals?.[name]?.vec : null;
+      if (vec) return IT0 + name + ':=' + IT1 + VB0 + vecText(vec) + VB1;
       return IT0 + name + ':=' + ex +(bad ? ' ⚠' : '') + IT1;
     }
     try {
       vars ||= varsOf(doc);
       const nm = out.trim();
-      if (vars[nm]?.vec) return vecText(vars[nm].vec); // [=x] con x vector: sus elementos
+      if (vars[nm]?.vec) return math ? VB0 + vecText(vars[nm].vec) + VB1 : vecText(vars[nm].vec); // [=x] con x vector: sus elementos
       return fmtNum(evalExpr(out, { vars }).value);
     } catch (e) { return '⚠'; }
   });
+  if (!s.includes('$')) return expand(s, false);
+  return splitMath(s).map((tk) => (tk.t === 'txt' ? expand(tk.raw, false) : (tk.disp ? '$$' : '$') + expand(tk.src, true) + (tk.disp ? '$$' : '$'))).join('');
 }
 // El texto tal como se ve (con sus salidas calculadas): el mismo objeto si no hay ninguna.
 export function shownText(doc, t) {

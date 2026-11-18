@@ -5,10 +5,14 @@ import { evalExpr, exprRefs, isReservedName, reservedWhy, NAME_RE } from './expr
 
 // Marcas de cursiva dentro de un texto ya expandido (caracteres de uso privado: no se escriben a mano).
 export const IT0 = '', IT1 = '';
-const MARKS = /[]/g;
+// Vector de un texto dentro de una formula ($...$): lo que va entre VB0 y VB1 se dibuja como vector fila; en un texto plano solo se ven los corchetes.
+export const VB0 = '', VB1 = '';
+const MARKS = /[-]/g;
+const VBM = /[]/g;
 export const plainText = (s) => String(s).replace(MARKS, '');
 // Tramos de una linea: [{ s, it }] (it: cursiva).
 export function runsOf(line) {
+  line = String(line).replace(VBM, '');
   if (!/[]/.test(line)) return [{ s: line, it: false }];
   const out = [];
   let it = false, cur = '';

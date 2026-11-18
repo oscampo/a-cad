@@ -2,12 +2,13 @@
 import assert from 'node:assert/strict';
 import { parse } from '../src/asciimath.js';
 import { splitMath, layoutMath, layoutText } from '../src/mathlayout.js';
-import { textFrame, framePrims } from '../src/text.js';
+import { textFrame, framePrims, textValue, plainText } from '../src/text.js';
 import { CASES } from './math-cases.mjs';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
 const measure = (s) => s.length * 0.5;
+const sp = (x) => splitMath(x).map(({ raw, ...r }) => r); // sin el texto original (raw)
 
 t('parser: fraccion con operandos simples y parentesis que se quitan', () => {
   const r = parse('3/4=1/x');
@@ -49,13 +50,13 @@ t('parser: nunca lanza y un grupo sin cierre se acepta', () => {
 });
 
 t('reparto: $ en linea, $$ en bloque, \\$ literal, y reglas de pandoc', () => {
-  assert.deepEqual(splitMath('a $x$ b'), [{ t: 'txt', s: 'a ' }, { t: 'math', src: 'x', disp: false }, { t: 'txt', s: ' b' }]);
-  assert.deepEqual(splitMath('$$\na\nb\n$$'), [{ t: 'math', src: '\na\nb\n', disp: true }]);
-  assert.deepEqual(splitMath('cuesta $5 y $6'), [{ t: 'txt', s: 'cuesta $5 y $6' }]); // cierre seguido de cifra
-  assert.deepEqual(splitMath('a $ x $ b'), [{ t: 'txt', s: 'a $ x $ b' }]); // espacio junto al $
-  assert.deepEqual(splitMath('vale \\$5'), [{ t: 'txt', s: 'vale $5' }]);
-  assert.deepEqual(splitMath('$a\nb$'), [{ t: 'txt', s: '$a\nb$' }]); // en linea no cruza lineas
-  const u = splitMath('x $$a');
+  assert.deepEqual(sp('a $x$ b'), [{ t: 'txt', s: 'a ' }, { t: 'math', src: 'x', disp: false }, { t: 'txt', s: ' b' }]);
+  assert.deepEqual(sp('$$\na\nb\n$$'), [{ t: 'math', src: '\na\nb\n', disp: true }]);
+  assert.deepEqual(sp('cuesta $5 y $6'), [{ t: 'txt', s: 'cuesta $5 y $6' }]); // cierre seguido de cifra
+  assert.deepEqual(sp('a $ x $ b'), [{ t: 'txt', s: 'a $ x $ b' }]); // espacio junto al $
+  assert.deepEqual(sp('vale \\$5'), [{ t: 'txt', s: 'vale $5' }]);
+  assert.deepEqual(sp('$a\nb$'), [{ t: 'txt', s: '$a\nb$' }]); // en linea no cruza lineas
+  const u = sp('x $$a');
   assert.equal(u.length, 1); assert.match(u[0].s, /⚠/); // $$ sin cierre
 });
 
@@ -174,6 +175,23 @@ t('asciimath.org: simbolos con espacios y palabras', () => {
   assert.equal(parse('a o+ b').c[1].s, '⊕');
   assert.equal(parse('x |__ y __|').c[1].t, 'group');
   assert.equal(parse('a -<= b').c[1].s, '⪯');
+});
+
+t('rangos: dentro de $...$ el vector es un vector fila; fuera sigue siendo texto', () => {
+  const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'a{=1..5;5}\nb{=0..0.5..1}\nfuera [=a] y $b = [=b]$ y $$A{=2..8;3}\nM = [=a]$$' };
+  const shown = textValue(doc, doc.texts.t1);
+  assert.match(shown, /fuera \[1, 2, 3, 4, 5\] y /); // en texto plano, tal cual
+  assert.equal(plainText(shown).includes(''), false);
+  const m = layoutText(shown, measure, '').prims;
+  const nums = m.filter((p) => p.k === 't').map((p) => p.s);
+  assert.ok(['0', '0.5', '1'].every((x) => nums.includes(x)), 'b = [0 0.5 1]');
+  assert.ok(['2', '5', '8'].every((x) => nums.includes(x)), 'A := [2 5 8]');
+  assert.ok(!nums.includes(','), 'sin comas dentro de la formula');
+  assert.ok(m.filter((p) => p.k === 't' && p.s === '[').length >= 3 || m.some((p) => p.k === 'p'), 'con corchetes');
+  const row = layoutMath('[1, 2, 3, 4, …, 9, 10]', false, measure);
+  assert.ok(row.ops.some((o) => o.k === 't' && o.s === '…'));
+  assert.equal(parse('[1, 2, 3]').c[0].rows[0].length, 3);
 });
 
 console.log(`\n${passed} pruebas de matematica pasaron`);
