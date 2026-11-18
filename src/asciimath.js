@@ -207,6 +207,12 @@ function parseS(p) {
   }
 }
 
+const isT = (n) => (n.t === 'v' || n.t === 'txt' || n.t === 'sym') && n.s === 'T' || (n.t === 'row' && n.c.length === 1 && isT(n.c[0]));
+function transpose(m) {
+  const cols = m.rows[0].length;
+  return { ...m, rows: Array.from({ length: cols }, (_, k) => m.rows.map((r) => r[k])), bars: [] };
+}
+
 function parseI(p) {
   const base = parseS(p);
   let sub = null, sup = null;
@@ -215,6 +221,7 @@ function parseI(p) {
     if (k?.t === 'sub' && !sub) { p.i++; sub = unwrap(parseS(p)); } else if (k?.t === 'sup' && !sup) { p.i++; sup = unwrap(parseS(p)); } else break;
   }
   if (!sub && !sup) return base;
+  if (base.t === 'mat' && !sub && isT(sup)) return transpose(base); // v^T, M^T: la transpuesta se dibuja transpuesta (fila <-> columna)
   if (base.t === 'big' || base.t === 'brace') return { ...base, sub, sup };
   return { t: 'ss', base, sub, sup };
 }

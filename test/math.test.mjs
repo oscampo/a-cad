@@ -194,4 +194,17 @@ t('rangos: dentro de $...$ el vector es un vector fila; fuera sigue siendo texto
   assert.equal(parse('[1, 2, 3]').c[0].rows[0].length, 3);
 });
 
+t('transpuesta: v^T y M^T se dibujan transpuestas (vector columna = fila transpuesta)', () => {
+  const r = parse('[[1,2,3]]^T').c[0];
+  assert.equal(r.t, 'mat'); assert.equal(r.rows.length, 3); assert.equal(r.rows[0].length, 1);
+  const m = parse('[[a,b],[c,d]]^T').c[0];
+  assert.equal(m.rows[0][1].c[0].s, 'c'); assert.equal(m.rows[1][0].c[0].s, 'b');
+  const v = parse('[1, 2, 3]^T').c[0];
+  assert.equal(v.rows.length, 3);
+  assert.equal(parse('[1, 2, 3]^2').c[0].t, 'ss'); // otro exponente: no es transpuesta
+  assert.equal(parse('x^T').c[0].t, 'ss'); // una letra no es una matriz
+  const col = layoutMath('[1, 2, 3]^T', false, measure), fila = layoutMath('[1, 2, 3]', false, measure);
+  assert.ok(col.a + col.d > 2 * (fila.a + fila.d) * 0.9 && col.w < fila.w);
+});
+
 console.log(`\n${passed} pruebas de matematica pasaron`);
