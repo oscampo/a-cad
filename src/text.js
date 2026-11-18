@@ -3,7 +3,8 @@
 // de measureText; en las pruebas puede ser una aproximacion).
 import { evalExpr } from './expr.js';
 import { varsOf, textVars } from './params.js';
-import { IT0, IT1, VB0, VB1, DEF_SRC, OUT_SRC, runsOf, hasDefMark } from './tvars.js';
+import { IT0, IT1, VB0, VB1, NM0, NM1, DEF_SRC, OUT_SRC, runsOf, hasDefMark } from './tvars.js';
+import { normName } from './expr.js';
 export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
 import { hasMath, layoutText, splitMath } from './mathlayout.js';
@@ -25,25 +26,42 @@ const matText = (m) => {
 const TEXT_RE = () => new RegExp(DEF_SRC + '|' + OUT_SRC, 'g');
 export function textValue(doc, t) {
   const s = String(t.text ?? '');
-  const hasDef = hasDefMark(s), hasOut = s.includes('[=');
-  if (!hasDef && !hasOut) return s;
+  const hasDef = hasDefMark(s), hasOut = s.includes('[='), hasSub = s.includes('$') && s.includes('_(');
+  if (!hasDef && !hasOut && !hasSub) return s;
   let vars = null, st = null, tid = null, idx = 0;
   if (hasDef) { tid = Object.keys(doc.texts || {}).find((k) => doc.texts[k] === t); st = textVars(doc); }
+  // Nombres con subindice («var_(texto)») dentro de una formula: se marcan para dibujarlos como nombre con subindice de texto
+  // (sin marcar, AsciiMath leeria «texto» como letras y simbolos sueltos: «to» seria una flecha).
+  let subNames = null;
+  const wrapNames = (seg) => {
+    if (!seg.includes('_(')) return seg;
+    subNames ||= new Set([...(st ||= textVars(doc)).names].filter((n) => n.includes('_(')));
+    if (!subNames.size) return seg;
+    return seg.replace(/(?<![A-Za-z0-9α-ωΑ-Ω_])[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?_\([^(){}\n]+\)(?!\{=)/g, (m) => (subNames.has(normName(m)) ? NM0 + normName(m) + NM1 : m));
+  };
   // math: dentro de una formula ($...$) un vector sale entre marcas VB0/VB1 y se dibuja como vector fila (sin comas); fuera, como texto «[1, 2, 3]».
-  const expand = (seg, math) => seg.replace(TEXT_RE(), (m, name, ex, out) => {
-    if (name !== undefined) { // definicion x{=valor}
-      const bad = st.bad.has(tid + ':' + idx++);
-      const val = math && !bad ? st.vals?.[name] : null, mt = val?.vec ? [val.vec] : val?.mat;
-      if (mt) return IT0 + name + ':=' + IT1 + VB0 + matText(mt) + VB1;
-      return IT0 + name + ':=' + ex +(bad ? ' ⚠' : '') + IT1;
+  const expand = (seg, math) => {
+    let res = '', last = 0;
+    const gap = (g) => (math ? wrapNames(g) : g); // lo que no es definicion ni salida
+    for (const mt of seg.matchAll(TEXT_RE())) {
+      res += gap(seg.slice(last, mt.index)); last = mt.index + mt[0].length;
+      const [, name0, ex, out] = mt;
+      if (name0 !== undefined) { // definicion x{=valor}
+        const name = normName(name0), shown = math && name.includes('_(') ? NM0 + name + NM1 : name;
+        const bad = st.bad.has(tid + ':' + idx++);
+        const val = math && !bad ? st.vals?.[name] : null, mx = val?.vec ? [val.vec] : val?.mat;
+        res += mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 : IT0 + shown + ':=' + gap(ex) + (bad ? ' ⚠' : '') + IT1;
+        continue;
+      }
+      try {
+        vars ||= varsOf(doc);
+        const r = evalExpr(out, { vars, allowMat: true });
+        if (r.mat) res += math ? VB0 + matText(r.mat) + VB1 : matText(r.mat); // vector o matriz: sus elementos
+        else res += fmtNum(r.value);
+      } catch (e) { res += '⚠'; }
     }
-    try {
-      vars ||= varsOf(doc);
-      const r = evalExpr(out, { vars, allowMat: true });
-      if (r.mat) return math ? VB0 + matText(r.mat) + VB1 : matText(r.mat); // vector o matriz: sus elementos
-      return fmtNum(r.value);
-    } catch (e) { return '⚠'; }
-  });
+    return res + gap(seg.slice(last));
+  };
   if (!s.includes('$')) return expand(s, false);
   return splitMath(s).map((tk) => (tk.t === 'txt' ? expand(tk.raw, false) : (tk.disp ? '$$' : '$') + expand(tk.src, true) + (tk.disp ? '$$' : '$'))).join('');
 }

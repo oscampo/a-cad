@@ -1,14 +1,16 @@
 // Variables definidas en los textos: «nombre{=valor}» asigna a «nombre» el valor de una expresion (sin DOM).
 // Valen para todo el dibujo: las lee cualquier salida de texto ([=nombre]) y cualquier formula de una cota. El valor puede
 // usar cotas y otras variables de texto. El texto la muestra en cursiva como «nombre:=valor».
-import { evalExpr, exprRefs, isReservedName, reservedWhy, NAME_RE } from './expr.js';
+import { evalExpr, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, normName } from './expr.js';
 
 // Marcas de cursiva dentro de un texto ya expandido (caracteres de uso privado: no se escriben a mano).
 export const IT0 = '', IT1 = '';
 // Vector de un texto dentro de una formula ($...$): lo que va entre VB0 y VB1 se dibuja como vector fila; en un texto plano solo se ven los corchetes.
 export const VB0 = '', VB1 = '';
-const MARKS = /[-]/g;
-const VBM = /[]/g;
+// Nombre de variable con subindice dentro de una formula: lo que va entre NM0 y NM1 se dibuja como nombre (cursiva) con el subindice como texto.
+export const NM0 = '', NM1 = '';
+const MARKS = /[-]/g;
+const VBM = /[-]/g;
 export const plainText = (s) => String(s).replace(MARKS, '');
 // Tramos de una linea: [{ s, it }] (it: cursiva).
 export function runsOf(line) {
@@ -25,7 +27,7 @@ export function runsOf(line) {
 
 // Definicion: «x{=valor}» (asignar) frente a «[=expr]» (leer). Se teclea sin cambiar de pagina en el teclado del telefono.
 // Grupos: 1 nombre, 2 valor.
-export const DEF_SRC = '([A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*)\\{=([^}]*)\\}';
+export const DEF_SRC = '([A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?(?:_\\([^(){}\\n]+\\))?)\\{=([^}]*)\\}'; // «x{=valor}» o con subindice de texto: «var_(texto){=valor}»
 const DEF_RE = () => new RegExp(DEF_SRC, 'g');
 // Salida «[=expresion]»: la expresion puede llevar corchetes (una matriz literal) con un nivel de anidacion. Grupo 1: la expresion.
 export const OUT_SRC = '\\[=((?:[^\\[\\]]|\\[[^\\[\\]]*\\])*)\\]';
@@ -70,7 +72,7 @@ export function textDefs(doc) {
     const s = t.text;
     if (!hasDefMark(s)) continue;
     let idx = 0;
-    for (const m of s.matchAll(DEF_RE())) out.push({ tid, idx: idx++, name: m[1], expr: m[2] });
+    for (const m of s.matchAll(DEF_RE())) out.push({ tid, idx: idx++, name: normName(m[1]), expr: m[2] });
   }
   return out;
 }
@@ -91,7 +93,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set()) {
     if (win.has(d.name)) { st.bad.add(key); if (!st.errs.has(d.name)) st.errs.set(d.name, `«${d.name}» está definida más de una vez`); continue; }
     if (isReservedName(d.name)) { st.bad.add(key); st.errs.set(d.name, reservedWhy(d.name)); continue; }
     if (dimNames.has(d.name)) { st.bad.add(key); st.errs.set(d.name, `«${d.name}» ya es el nombre de una cota`); continue; }
-    if (!NAME_RE.test(d.name)) { st.bad.add(key); st.errs.set(d.name, `«${d.name}» no es un nombre válido`); continue; }
+    if (!TEXT_NAME_RE.test(d.name)) { st.bad.add(key); st.errs.set(d.name, `«${d.name}» no es un nombre válido`); continue; }
     win.set(d.name, { ...d, key });
   }
   for (const n of win.keys()) st.names.add(n);

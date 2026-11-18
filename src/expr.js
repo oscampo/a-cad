@@ -48,6 +48,10 @@ export const isReservedName = (n) => { const l = String(n).toLowerCase(); return
 export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : `«${n}» es una función o constante`);
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*$/;
 const ID_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*/;
+// Variables de texto con subindice: «var_(texto-del-subindice)». El subindice es texto libre (sin parentesis ni llaves); espacios sobrantes no cuentan.
+const SUB_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?_\([^(){}\n]+\)/;
+export const TEXT_NAME_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?(?:_\([^(){}\n]+\))?$/;
+export const normName = (s) => String(s).replace(/_\(\s*([^()]*?)\s*\)$/, '_($1)');
 
 // loose: no falla con identificadores desconocidos (para listar las variables de una formula)
 function tokenize(src, vars = null, loose = false) {
@@ -65,9 +69,10 @@ function tokenize(src, vars = null, loose = false) {
     if (m) { toks.push({ t: 'num', v: Number(m[0].replace(',', '.')), i, j: i + m[0].length }); i += m[0].length; continue; }
     if (c === '√') { toks.push({ t: 'sqrt', i, j: i + 1 }); i++; continue; }
     if (c === 'π') { toks.push({ t: 'id', v: 'π', i, j: i + 1 }); i++; continue; }
-    m = ID_RE.exec(src.slice(i));
+    m = SUB_RE.exec(src.slice(i)) || ID_RE.exec(src.slice(i));
     if (m) {
-      let raw = m[0], name = raw.toLowerCase();
+      const L = m[0].length; // largo escrito (el nombre se normaliza: «a_( b )» es «a_(b)»)
+      let raw = normName(m[0]), name = raw.toLowerCase();
       // propiedad de un elemento: p12.x, l3.len (nombre + «.» + propiedad)
       const dm = /^[A-Za-z]+\d+$/.test(raw) ? /^\.([A-Za-zα-ωΑ-Ω]\w*)/.exec(src.slice(i + raw.length)) : null; // solo nombres como p12, l3, c1
       if (dm) {
@@ -75,13 +80,13 @@ function tokenize(src, vars = null, loose = false) {
         if (loose || (vars && Object.prototype.hasOwnProperty.call(vars, full))) { toks.push({ t: 'var', v: full, i, j: i + full.length }); i += full.length; continue; }
         if (!(vars && Object.prototype.hasOwnProperty.call(vars, raw))) throw new Error(`No reconozco «${full}» (propiedades: p1.x, p1.y, l1.len, l1.ang, c1.r, c1.d)`);
       }
-      if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: 'var', v: raw, i, j: i + raw.length });
+      if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: 'var', v: raw, i, j: i + L });
       else if (raw === 'T' && last?.t === 'op' && last.v === '^') toks.push({ t: 'tr', i, j: i + 1 }); // x^T: la transpuesta
-      else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name)) toks.push({ t: 'id', v: name, i, j: i + raw.length });
-      else if (loose) toks.push({ t: 'var', v: raw, i, j: i + raw.length });
+      else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name)) toks.push({ t: 'id', v: name, i, j: i + L });
+      else if (loose) toks.push({ t: 'var', v: raw, i, j: i + L });
       else if (FUTURE_VARS.has(raw)) throw new Error(`${reservedWhy(raw)} (todavía no tiene valor)`);
       else throw new Error(`No reconozco «${raw}»` + (/\d/.test(raw) || raw.length === 1 ? ' (no hay una cota con ese nombre)' : ''));
-      i += raw.length; continue;
+      i += L; continue;
     }
     if (c === '*' && src[i + 1] === '*') { toks.push({ t: 'op', v: '^', i, j: i + 2 }); i += 2; continue; }
     if (c === '[') depth++; else if (c === ']') depth = Math.max(0, depth - 1);

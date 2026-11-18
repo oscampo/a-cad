@@ -207,4 +207,29 @@ t('transpuesta: v^T y M^T se dibujan transpuestas (vector columna = fila transpu
   assert.ok(col.a + col.d > 2 * (fila.a + fila.d) * 0.9 && col.w < fila.w);
 });
 
+t('variables con subindice: var_(texto){=valor} se define, se usa en formulas y se dibuja con el subindice como texto', () => {
+  const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'var_(texto-del-subíndice){=3}\nk_( total ){=2*var_(texto-del-subíndice)}\nplano: [=k_(total)+var_(texto-del-subíndice)] y [=2*k_( total )]\n$$n_(ref){=5}\nx = n_(ref) + k_(total) * var_(texto-del-subíndice)^2$$' };
+  const shown = textValue(doc, doc.texts.t1);
+  const plain = plainText(shown);
+  assert.match(plain, /^var_\(texto-del-subíndice\):=3\nk_\(total\):=2\*var_\(texto-del-subíndice\)\nplano: 9 y 12\n/); // k = 2*3 = 6; 6+3 = 9; 2*6 = 12
+  assert.equal(plain.includes('⚠'), false);
+  const m = layoutText(shown, measure, '').prims.filter((p) => p.k === 't');
+  const subs = m.filter((p) => p.s === 'texto-del-subíndice'), names = m.filter((p) => p.s === 'var' && p.it);
+  assert.ok(subs.length >= 1 && subs.every((p) => !p.it && p.sz < 1), 'subindice como texto recto y pequeno');
+  assert.ok(names.length >= 1 && m.some((p) => p.s === 'ref'), 'el nombre en cursiva y la definicion dentro de la formula');
+  assert.ok(!m.some((p) => /[→∈⊂]/.test(p.s)), 'sin simbolos sueltos («to» ya no es una flecha)');
+  assert.ok(m.some((p) => p.s === 'k' && p.it) && m.some((p) => p.s === 'total'), 'k_(total)');
+  // exponente junto al subindice
+  const pw = parse('var_(a-b)^2').c[0];
+  assert.equal(pw.t, 'ss'); assert.equal(pw.sub.s, 'a-b'); assert.equal(pw.sup.s, '2');
+});
+
+t('variables con subindice: sin definir no se tocan, y la sintaxis invalida no es una definicion', () => {
+  const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: '$x_(a-b)$ y x_(){=3} y y_(a(b)){=1}' };
+  const shown = textValue(doc, doc.texts.t1);
+  assert.equal(shown, doc.texts.t1.text); // nada se define ni se reemplaza
+});
+
 console.log(`\n${passed} pruebas de matematica pasaron`);

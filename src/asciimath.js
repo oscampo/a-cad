@@ -88,6 +88,7 @@ export function tokenize(s) {
     const ch = s[i];
     if (/\s/.test(ch)) { i++; continue; }
     if (ch === '\\' && s[i + 1] === ' ') { out.push({ t: 'space', w: 0.28 }); i += 2; continue; }
+    if (ch === '\uE004') { let j = s.indexOf('\uE005', i + 1); if (j < 0) j = n; out.push({ t: 'name', v: s.slice(i + 1, j) }); i = j + 1; continue; } // nombre con subindice de texto
     if (ch === '\uE002') { let j = s.indexOf('\uE003', i + 1); if (j < 0) j = n; out.push({ t: 'vec', v: s.slice(i + 1, j) }); i = j + 1; continue; } // vector de un texto ([=x])
     if (ch === '"') { let j = s.indexOf('"', i + 1); if (j < 0) j = n; out.push({ t: 'str', v: s.slice(i + 1, j) }); i = j + 1; continue; }
     NUM_RE.lastIndex = i;
@@ -162,6 +163,10 @@ function parseS(p) {
       return { t: 'v', s: k.v };
     }
     case 'sym': return { t: 'sym', s: k.v };
+    case 'name': { // «var_(texto)»: el nombre en cursiva y el subindice como texto
+      const m = /^(.*?)_\((.*)\)$/.exec(k.v);
+      return m ? { t: 'ss', base: { t: 'v', s: m[1] }, sub: { t: 'txt', s: m[2] }, sup: null, nm: true } : { t: 'v', s: k.v };
+    }
     case 'vec': { // «[1, 2, 3]», «[1; 2]», «[1, 2; 3, 4]» (viene de una salida [=x]): matriz sin comas
       const rows = k.v.trim().replace(/^\[/, '').replace(/\]$/, '').split(';').map((r) => r.split(',').map((e) => parse(e.trim())).filter((c) => c.c.length)).filter((r) => r.length);
       return rows.length && rows.every((r) => r.length === rows[0].length) ? { t: 'mat', l: '[', r: ']', rows, bars: [] } : EMPTY();
@@ -221,6 +226,7 @@ function parseI(p) {
     if (k?.t === 'sub' && !sub) { p.i++; sub = unwrap(parseS(p)); } else if (k?.t === 'sup' && !sup) { p.i++; sup = unwrap(parseS(p)); } else break;
   }
   if (!sub && !sup) return base;
+  if (base.nm && sup && !sub && !base.sup) return { ...base, sup }; // var_(texto)^2: el exponente va junto al subindice
   if (base.t === 'mat' && !sub && isT(sup)) return transpose(base); // v^T, M^T: la transpuesta se dibuja transpuesta (fila <-> columna)
   if (base.t === 'big' || base.t === 'brace') return { ...base, sub, sup };
   return { t: 'ss', base, sub, sup };
