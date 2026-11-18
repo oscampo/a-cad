@@ -36,7 +36,7 @@ const MULTI = {
 };
 MULTI.redondear = MULTI.round;
 const LAZY = new Set(['if', 'si']); // si(condicion; si_verdadero; si_falso): solo se evalua la rama elegida
-const MATFN = new Set(['inv']); // funciones de matrices: inv(A) (la inversa)
+const MATFN = new Set(['inv', 'det', 'sum', 'norm']); // funciones de matrices: inv(A) (la inversa), det(A), sum(v) (suma de todos los elementos) y norm(v)
 // error de calculo (division entre cero, raiz negativa): una rama de si() que no se elige no lo propaga
 const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
 
@@ -52,6 +52,28 @@ const ID_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*/;
 // Variables de texto con subindice: «var_(texto-del-subindice)». El subindice es texto libre (sin parentesis ni llaves); espacios sobrantes no cuentan.
 const SUB_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?_\([^(){}\n]+\)/;
 export const TEXT_NAME_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?(?:_\([^(){}\n]+\))?$/;
+// Indices de vectores y matrices con la notacion matematica: «v_2», «v_i» (un indice) y «A_(fila,columna)», «v_(i+1)» (entre parentesis, con formulas).
+// Un nombre que existe como variable (p. ej. «k_(total)» o «x_1») es esa variable: solo es un indice si el nombre entero no existe y su base si.
+export function indexParts(raw) {
+  const k = raw.lastIndexOf('_(');
+  if (k > 0 && raw.endsWith(')')) return { base: raw.slice(0, k), src: raw.slice(k + 2, -1) };
+  const j = raw.lastIndexOf('_');
+  if (j > 0 && /^[A-Za-z0-9α-ωΑ-Ω]+$/.test(raw.slice(j + 1))) return { base: raw.slice(0, j), src: raw.slice(j + 1) };
+  return null;
+}
+function indexOfVar(raw, vars) {
+  const ip = indexParts(raw), x = ip && Object.prototype.hasOwnProperty.call(vars, ip.base) ? vars[ip.base] : null;
+  return x && (x.vec || x.mat) ? ip : null;
+}
+const splitIdx = (s) => { // «i, j+1» -> ['i', 'j+1'] (las comas de dentro de parentesis no separan)
+  const out = []; let d = 0, cur = '';
+  for (const ch of s) {
+    if ('([' .includes(ch)) d++; else if (')]'.includes(ch)) d--;
+    if ((ch === ',' || ch === ';') && d === 0) { out.push(cur.trim()); cur = ''; } else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+};
 export const normName = (s) => String(s).replace(/_\(\s*([^()]*?)\s*\)$/, '_($1)');
 
 // loose: no falla con identificadores desconocidos (para listar las variables de una formula)
@@ -61,7 +83,7 @@ function tokenize(src, vars = null, loose = false) {
   while (i < src.length) {
     const c = src[i];
     if (/\s/.test(c)) { i++; continue; }
-    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'op' && (last.v === ')' || last.v === ']')));
+    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'idx') || (last.t === 'op' && (last.v === ')' || last.v === ']')));
     // separador de argumentos: «;», o una coma tras un valor («max(a, 5)»); «2,5» ya lo tomo el numero como decimal
     if (c === ';' || (c === ',' && afterValue)) { toks.push({ t: 'sep', c, i, j: i + 1 }); i++; continue; }
     const cm = /^(<=|>=|==|!=|<|>|≤|≥|≠)/.exec(src.slice(i));
@@ -72,6 +94,7 @@ function tokenize(src, vars = null, loose = false) {
     if (c === 'π') { toks.push({ t: 'id', v: 'π', i, j: i + 1 }); i++; continue; }
     m = SUB_RE.exec(src.slice(i)) || ID_RE.exec(src.slice(i));
     if (m) {
+      let ix = null;
       const L = m[0].length; // largo escrito (el nombre se normaliza: «a_( b )» es «a_(b)»)
       let raw = normName(m[0]), name = raw.toLowerCase();
       // propiedad de un elemento: p12.x, l3.len (nombre + «.» + propiedad)
@@ -82,6 +105,7 @@ function tokenize(src, vars = null, loose = false) {
         if (!(vars && Object.prototype.hasOwnProperty.call(vars, raw))) throw new Error(`No reconozco «${full}» (propiedades: p1.x, p1.y, l1.len, l1.ang, c1.r, c1.d)`);
       }
       if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: 'var', v: raw, i, j: i + L });
+      else if (vars && (ix = indexOfVar(raw, vars))) toks.push({ t: 'idx', base: ix.base, src: ix.src, i, j: i + L }); // v_2, v_i, A_(1,2): un elemento de un vector o matriz
       else if (raw === 'T' && last?.t === 'op' && last.v === '^') toks.push({ t: 'tr', i, j: i + 1 }); // x^T: la transpuesta
       else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name) || MATFN.has(name)) toks.push({ t: 'id', v: name, i, j: i + L });
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + L });
@@ -99,8 +123,17 @@ function tokenize(src, vars = null, loose = false) {
 }
 
 // Variables que usa una formula (nombres que no son numeros, funciones ni constantes).
-export function exprRefs(src) {
-  try { return [...new Set(tokenize(String(src ?? ''), null, true).filter((k) => k.t === 'var').map((k) => k.v))]; } catch (e) { return []; }
+// has(nombre): ¿existe esa variable? Si se da, un nombre con indice («v_2», «A_(i,j)») cuenta como la variable indexada y las variables de sus indices.
+export function exprRefs(src, has = null) {
+  try {
+    const out = [];
+    for (const k of tokenize(String(src ?? ''), null, true)) {
+      if (k.t !== 'var') continue;
+      const ip = has && !has(k.v) ? indexParts(k.v) : null;
+      if (ip && has(ip.base)) out.push(ip.base, ...exprRefs(ip.src, has)); else out.push(k.v);
+    }
+    return [...new Set(out)];
+  } catch (e) { return []; }
 }
 // Cambia el nombre de una variable dentro de una formula (solo la palabra entera).
 export function renameInExpr(src, from, to) {
@@ -148,6 +181,25 @@ function invM(m) {
   }
   return a.map((r) => r.slice(n));
 }
+// Determinante: formulas exactas hasta 3x3 (los enteros dan enteros) y eliminacion con pivote parcial despues.
+function detM(m) {
+  const n = m.length;
+  if (m[0].length !== n) throw new Error(`Solo las matrices cuadradas tienen determinante (esta es de ${n}×${m[0].length})`);
+  if (n === 1) return m[0][0];
+  if (n === 2) return m[0][0] * m[1][1] - m[0][1] * m[1][0];
+  if (n === 3) return m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  const a = m.map((r) => [...r]);
+  let det = 1;
+  for (let c = 0; c < n; c++) {
+    let q = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(a[r][c]) > Math.abs(a[q][c])) q = r;
+    if (a[q][c] === 0) return 0;
+    if (q !== c) { [a[c], a[q]] = [a[q], a[c]]; det = -det; }
+    det *= a[c][c];
+    for (let r = c + 1; r < n; r++) { const f = a[r][c] / a[c][c]; for (let k = c; k < n; k++) a[r][k] -= f * a[c][k]; }
+  }
+  return det;
+}
 const eyeM = (n) => Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, k) => (i === k ? 1 : 0)));
 const mulRaw = (a, b) => a.map((r) => b[0].map((_, k) => r.reduce((s, x, j) => s + x * b[j][k], 0)));
 // A^n con n entero (A cuadrada): A^0 = I, A^(-1) = inversa, A^(-2) = inversa al cuadrado...
@@ -176,7 +228,7 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false }
   let p = 0;
   const peek = () => toks[p];
   const isOp = (v) => peek()?.t === 'op' && peek().v === v;
-  const startsFactor = () => { const k = peek(); return k && (k.t === 'num' || k.t === 'id' || k.t === 'var' || k.t === 'sqrt' || (k.t === 'op' && (k.v === '(' || k.v === '['))); };
+  const startsFactor = () => { const k = peek(); return k && (k.t === 'num' || k.t === 'id' || k.t === 'var' || k.t === 'idx' || k.t === 'sqrt' || (k.t === 'op' && (k.v === '(' || k.v === '['))); };
   const bin = (a, b, v) => ({ v, r: a.r || b.r });
 
   // comparacion (la de menor precedencia): da 1 si se cumple y 0 si no. «==» y «!=» toleran el error de redondeo.
@@ -214,6 +266,14 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false }
       return pick;
     }
     const sep = ' (sepáralos con «;»: «2,5» es un solo número)';
+    if (name === 'det' || name === 'sum' || name === 'norm') { // de una matriz o vector a un numero
+      if (A.length !== 1) throw new Error(`«${name}» recibe un vector o una matriz`);
+      const a = A[0], flat = isM(a) ? a.m.flat() : [a.v];
+      if (name === 'det') return { v: isM(a) ? detM(a.m) : a.v, r: false };
+      if (name === 'sum') return { v: flat.reduce((s, x) => s + x, 0), r: isM(a) ? false : a.r };
+      const big = Math.max(...flat.map(Math.abs)); // norma euclidiana (de Frobenius en una matriz), sin desbordar
+      return { v: big === 0 ? 0 : big * Math.sqrt(flat.reduce((s, x) => s + (x / big) ** 2, 0)), r: false };
+    }
     if (name === 'inv') { // inversa de una matriz cuadrada (de un numero, su inverso)
       if (A.length !== 1) throw new Error('«inv» recibe una matriz');
       if (!isM(A[0])) { if (A[0].v === 0) throw rt('División entre cero'); return { v: 1 / A[0].v, r: false }; }
@@ -287,6 +347,20 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false }
     const k = toks[p++];
     if (!k) throw new Error('Expresión incompleta');
     if (k.t === 'num') return { v: k.v, r: false };
+    if (k.t === 'idx') { // v_2, A_(i,j): un elemento (los indices empiezan en 1)
+      const x = vars[k.base], m = x.mat || [x.vec], R = m.length, C = m[0].length;
+      const ix = splitIdx(k.src).map((s) => {
+        if (!s) throw new Error(`Falta un índice en «${k.base}_(${k.src})»`);
+        const v = evalExpr(s, { vars }).value;
+        if (!Number.isInteger(Math.round(v * 1e9) / 1e9)) throw new Error(`El índice «${s}» de «${k.base}» debe ser un entero (vale ${Math.round(v * 1e6) / 1e6})`);
+        return Math.round(v);
+      });
+      if (ix.length > 2) throw new Error('Un elemento lleva un índice (vector) o dos (matriz): A_(fila,columna)');
+      if (ix.length === 1 && R > 1 && C > 1) throw new Error(`«${k.base}» es una matriz de ${R}×${C}: lleva dos índices, ${k.base}_(fila,columna)`);
+      const [i, j] = ix.length === 2 ? ix : R === 1 ? [1, ix[0]] : [ix[0], 1];
+      if (i < 1 || i > R || j < 1 || j > C) throw new Error(`Índice fuera de rango: «${k.base}» es ${R === 1 ? `un vector de ${C}` : C === 1 ? `un vector de ${R}` : `una matriz de ${R}×${C}`}` + (ix.length === 2 ? ` y pides la fila ${i}, columna ${j}` : ` y pides el elemento ${ix[0]}`));
+      return { v: m[i - 1][j - 1], r: false };
+    }
     if (k.t === 'var') {
       const x = vars[k.v];
       if (x.mat) return { m: x.mat };

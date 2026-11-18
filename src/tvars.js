@@ -106,7 +106,8 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set()) {
     state.set(name, 1);
     const d = win.get(name), vars = { ...dimVars }, rg = parseRange(d.expr);
     let ok = true;
-    for (const n of new Set((rg ? rg.parts : [d.expr]).flatMap(exprRefs))) {
+    const has = (q) => win.has(q) || q in dimVars || dimNames.has(q);
+    for (const n of new Set((rg ? rg.parts : [d.expr]).flatMap((s) => exprRefs(s, has)))) {
       if (win.has(n)) { if (ev(n)) vars[n] = st.vals[n]; else { ok = false; st.errs.set(name, `«${name}» depende de «${n}», que no se puede calcular`); } }
     }
     if (ok) {

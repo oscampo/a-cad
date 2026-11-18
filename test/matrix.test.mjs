@@ -1,6 +1,8 @@
 // Vectores y matrices en las formulas: literales [1, 2; 3, 4], suma, producto, division por escalar, transpuesta, y su uso en los textos.
 import assert from 'node:assert/strict';
-import { evalExpr } from '../src/expr.js';
+import { evalExpr, exprRefs } from '../src/expr.js';
+import { newDoc, addPoint, addLine, addCon } from '../src/model.js';
+import { recompute, pruneFormulas } from '../src/params.js';
 import { textValue, plainText } from '../src/text.js';
 import { layoutText } from '../src/mathlayout.js';
 
@@ -206,6 +208,91 @@ t('inv y operaciones en los textos', () => {
   assert.equal(s.includes('⚠'), false);
   doc.texts.t2 = { pt: 'p', h: 1, font: '', text: 'q{=inv([1,2;2,4])}\n[=q]' }; // singular: la definicion falla
   assert.match(plainText(textValue(doc, doc.texts.t2)), /⚠/);
+});
+
+t('det, sum y norm', () => {
+  assert.equal(num('det([2,1;1,3])'), 5);
+  assert.equal(num('det([1,2;2,4])'), 0);
+  assert.equal(num('det([1,2,3;4,5,6;7,8,10])'), -3); // exacto con enteros
+  assert.equal(num('det([2,1,3,4;0,3,1,2;0,0,4,5;0,0,0,5])'), 120); // triangular 4x4
+  assert.equal(num('det([0,1,0,0;1,0,0,0;0,0,1,0;0,0,0,1])'), -1); // un intercambio de filas
+  assert.equal(num('det([1,2,3,4;1,2,3,4;5,6,7,8;9,1,2,3])'), 0); // filas iguales
+  assert.equal(num('det(5)'), 5);
+  assert.equal(num('det([1,1;10,1]) * det(inv([1,1;10,1]))').toFixed(12), '1.000000000000');
+  assert.equal(num('sum([1,2,3])'), 6);
+  assert.equal(num('sum([1,2;3,4])'), 10); // todos los elementos
+  assert.equal(num('sum([1,2,3].*[4,5,6])'), 32); // producto punto
+  assert.equal(num('sum([1;2;3].^2)'), 14);
+  assert.equal(num('sum(7)'), 7);
+  assert.equal(num('norm([3,4])'), 5);
+  assert.equal(num('norm([1,2;2,4])'), 5); // Frobenius
+  assert.equal(num('norm([0,0])'), 0);
+  assert.equal(num('norm(-3)'), 3);
+  assert.equal(num('norm([3;4])'), 5);
+  assert.ok(Number.isFinite(num('norm([10^200,10^200])'))); // sin desbordar
+  fails('det([1,2,3])', /cuadradas.*1×3/);
+  fails('det([1,2;3,4],2)', /recibe un vector o una matriz/);
+  fails('sum([1,2],[3,4])', /recibe un vector o una matriz/);
+  assert.throws(() => evalExpr('sum'), /necesita paréntesis/);
+});
+
+const IV = { v: { vec: [10, 20, 30] }, w: { mat: [[1], [2], [3]] }, A: { mat: [[1, 2], [3, 4]] }, i: { v: 2, r: false }, j: { v: 1, r: false } };
+
+t('indices: v_2, v_i, A_(fila,columna), v_(i+1)', () => {
+  assert.equal(num('v_2', IV), 20);
+  assert.equal(num('v_1+v_3', IV), 40);
+  assert.equal(num('w_3', IV), 3); // columna: el indice es la fila
+  assert.equal(num('A_(2,1)', IV), 3);
+  assert.equal(num('A_(1,2)*2', IV), 4);
+  assert.equal(num('v_(1+1)', IV), 20);
+  assert.equal(num('v_i', IV), 20); // un indice puede ser una variable
+  assert.equal(num('v_(i+1)', IV), 30);
+  assert.equal(num('A_(i,i)', IV), 4);
+  assert.equal(num('A_(i-1, i)', IV), 2);
+  assert.equal(num('A_(i,j)', IV), 3);
+  assert.equal(num('v_(1,3)', IV), 30); // dos indices en un vector fila: fila 1, columna 3
+  assert.equal(num('A_(2,2)^2', IV), 16);
+  assert.equal(num('-v_1', IV), -10);
+  assert.equal(num('2*v_2', IV), 40);
+  assert.equal(num('3v_1', IV), 30); // multiplicacion implicita
+  assert.equal(num('max(v_1, v_3)', IV), 30);
+  assert.equal(num('sum(v) - v_1 - v_2 - v_3', IV), 0);
+  assert.deepEqual(mat('A*[v_1; v_2]', IV), [[50], [110]]);
+  assert.equal(num('A_(1,1) + det(A) + norm(w)', { ...IV, A: IV.A }).toFixed(6), (1 + -2 + Math.sqrt(14)).toFixed(6));
+});
+
+t('indices: un nombre que existe es esa variable; errores claros', () => {
+  assert.equal(num('k_2', { k: { vec: [1, 2, 3] }, k_2: { v: 99, r: false } }), 99); // la variable k_2 gana
+  assert.equal(num('k_(total)', { k: { vec: [1, 2, 3] }, 'k_(total)': { v: 7, r: false } }), 7); // variable con subindice de texto
+  fails('v_4', /fuera de rango.*vector de 3.*elemento 4/, IV);
+  fails('v_0', /fuera de rango/, IV);
+  fails('A_3', /matriz de 2×2: lleva dos índices/, IV);
+  fails('A_(3,1)', /fuera de rango.*fila 3, columna 1/, IV);
+  fails('A_(1,2,3)', /dos/, IV);
+  fails('v_(1.5)', /entero/, IV);
+  fails('v_(1,)', /Falta un índice/, IV);
+  fails('u_2', /No reconozco «u_2»/, IV); // u no existe
+  fails('i_1', /No reconozco «i_1»/, IV); // i es un numero: no se indexa
+});
+
+t('indices: dependencias (variables de texto y cotas leen elementos de otros vectores)', () => {
+  const has = (n) => ['x', 'A', 'i', 'k_2'].includes(n);
+  assert.deepEqual(exprRefs('2*x_2+A_(i,1)', has).sort(), ['A', 'i', 'x']);
+  assert.deepEqual(exprRefs('k_2', has), ['k_2']); // una variable llamada asi no es un indice
+  assert.deepEqual(exprRefs('x_2'), ['x_2']); // sin saber que existe, tal cual
+  const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'y{=2*x_2+A_(2,1)}\nx{=[10, 20, 30]}\nA{=[1,2;3,4]}\n[=y] [=x_3] [=A_(1,2)] [=sum(x)] [=norm([3,4])] [=det(A)]' }; // y se define antes que x y A
+  const s = plainText(textValue(doc, doc.texts.t1));
+  assert.match(s, /43 30 2 60 5 -2$/); assert.equal(s.includes('⚠'), false);
+  // una cota lee un elemento de un vector de texto
+  const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 20, 0);
+  addLine(d, a, b, {});
+  const k = addCon(d, { t: 'DIST', refs: [a, b], v: 5, name: 'D1', expr: 'x_2' });
+  d.texts.t1 = { pt: a, h: 1, font: '', text: 'x{=[10, 20, 30]}', ang: 0, anchor: 'bl', color: 'auto', readable: true };
+  const r = recompute(d);
+  assert.ok(r.ok, r.error);
+  assert.equal(d.cons[k].v, 20);
+  assert.ok(pruneFormulas(d).length === 0 && d.cons[k].expr === 'x_2'); // la formula sigue viva: x_2 depende de la variable x
 });
 
 console.log(`\n${passed} pruebas de vectores y matrices pasaron`);

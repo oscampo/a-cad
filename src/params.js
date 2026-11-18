@@ -63,8 +63,8 @@ export const textVarNames = (doc) => (hasDefs(doc) ? textVars(doc).names : new S
 const srcOf = (k) => (k.scaleExpr ? `${k.expr ?? ''};${k.scaleExpr}` : k.expr);
 // Cotas (por nombre) de las que depende una formula, directamente o a traves de variables de texto.
 function dimRefs(doc, expr, st = tvOf(doc), seen = new Set()) {
-  const out = new Set();
-  for (const n of exprRefs(expr)) {
+  const out = new Set(), dn = new Set(named(doc).map(([, k]) => k.name)), has = (q) => st.win.has(q) || dn.has(q) || isGeoName(doc, q);
+  for (const n of exprRefs(expr, has)) {
     if (st.win.has(n)) { if (seen.has(n)) continue; seen.add(n); for (const m of dimRefs(doc, st.win.get(n).expr, st, seen)) out.add(m); } else out.add(n);
   }
   return out;
@@ -73,7 +73,7 @@ function dimRefs(doc, expr, st = tvOf(doc), seen = new Set()) {
 export function usesTextVars(doc) {
   if (!hasDefs(doc)) return false;
   const st = tvOf(doc);
-  return drivers(doc).some(([, k]) => k.expr && exprRefs(srcOf(k)).some((n) => st.names.has(n)));
+  return drivers(doc).some(([, k]) => k.expr && exprRefs(srcOf(k), (q) => st.names.has(q)).some((n) => st.names.has(n)));
 }
 // Problemas de las definiciones de los textos: [{ key, msg }] (repetidas, que chocan con una cota, que fallan o se piden en circulo).
 export function textVarErrors(doc) {
@@ -110,7 +110,7 @@ export function recompute(doc, omega = 1, hook = null) {
   const deps = new Map(), tv = tvOf(doc);
   for (const [id, k] of f) {
     const ids = [];
-    for (const n of exprRefs(srcOf(k))) {
+    for (const n of exprRefs(srcOf(k), (q) => byName.has(q) || tv.names.has(q) || isGeoName(doc, q))) {
       if (n === k.name) return { ok: false, error: `${k.name} no puede usarse en su propia fórmula` };
       if (!byName.has(n) && !tv.names.has(n) && !isGeoName(doc, n)) return { ok: false, error: `En la fórmula de ${k.name}: «${n}» no es una cota ni una variable` };
     }
@@ -164,7 +164,7 @@ export function pruneFormulas(doc) {
   const names = new Set([...named(doc).map(([, k]) => k.name), ...textVarNames(doc)]), out = [];
   for (const k of Object.values(doc.cons)) {
     if (!k.expr) continue;
-    if (!isNamedDim(k) || k.ref || exprRefs(srcOf(k)).some((n) => !(names.has(n) || isGeoName(doc, n)) || n === k.name)) { delete k.expr; delete k.scaleExpr; if (k.name) out.push(k.name); }
+    if (!isNamedDim(k) || k.ref || exprRefs(srcOf(k), (q) => names.has(q) || isGeoName(doc, q)).some((n) => !(names.has(n) || isGeoName(doc, n)) || n === k.name)) { delete k.expr; delete k.scaleExpr; if (k.name) out.push(k.name); }
   }
   return out;
 }
