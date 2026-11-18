@@ -34,3 +34,4 @@ Este manual explica cada herramienta y concepto en detalle, para quien empieza o
 
 - [Historial de cambios](../CHANGELOG.md): qué trae cada versión.
 - [Página principal del proyecto](../README.md): instalar la app, ejemplos y desarrollo.
+- [Licencia de la documentación](LICENSE.md): CC BY 4.0. El código es MIT.

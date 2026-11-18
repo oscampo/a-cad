@@ -65,3 +65,10 @@ npm run build    # compilación en dist/
 - [PlaneGCS](https://github.com/FreeCAD/FreeCAD), solver geométrico 2D del Sketcher de FreeCAD, mediante el paquete [@salusoft89/planegcs](https://github.com/Salusoft89/planegcs) (WebAssembly).
 - Íconos [Lucide](https://lucide.dev) (licencia ISC). Empaquetado con [Vite](https://vite.dev) (licencia MIT).
 - Inspirado en Updraw.
+
+## Licencia
+
+- **Código**: [MIT](LICENSE). Puedes usarlo, modificarlo y redistribuirlo, conservando el aviso de copyright.
+- **Documentación** (`docs/`, este README y el CHANGELOG): [CC BY 4.0](docs/LICENSE.md). Puedes reutilizarla y adaptarla, también en cursos, dando el crédito correspondiente.
+
+© 2026 Oscar Campo
