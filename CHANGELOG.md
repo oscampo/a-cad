@@ -1,7 +1,8 @@
 # Historial de cambios
 
-## Sin publicar
+## v1.8.0 (2026-11-18)
 
+- Actualización automática: la web app de pantalla de inicio del iPad se quedaba con un `index.html` viejo (la cache HTTP de GitHub Pages dura 10 minutos y la web app guarda la suya). El service worker (`sw.js`, ahora `ipad-cad-v2`) pide la página siempre con revalidación, solo atiende lo del mismo origen (las llamadas a la API de GitHub con el token ya no pasan por su cache) y borra las caches viejas al activarse. Además, al volver a la app se comprueba si hay una compilación nueva publicada y, si la hay, se recarga (el dibujo se restaura del autoguardado; como mucho una vez cada 5 minutos y nunca con una ventana, una entrada de texto o una simulación abiertas). La primera vez que llegue a un dispositivo con la web app vieja hay que limpiar los datos del sitio una última vez.
 - Gráficas: un toque la selecciona (resaltada), se arrastra para moverla y sus bordes o esquinas cambian su tamaño; doble toque abre sus propiedades.
 - Gráficas: ejes x1, x2, y1 e y2 (los secundarios con «@x2» o «@y2» al final de la relación), cada uno con nombre libre, escala lineal o logarítmica, límites y divisiones mayores y menores.
 - Gráficas: las relaciones admiten operaciones y funciones («p1.x/p1.y vs t», «ML1.d-p1.x vs t»).

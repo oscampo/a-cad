@@ -28,12 +28,13 @@ import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from
 import { iconSvg } from './icons.js';
 import { buildTree, kindOf, conLabel } from './tree.js';
 import { cleanFileBase } from './files.js';
+import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
 import { parseValue, isPlainNumber } from './expr.js';
 import { HELP_HTML } from './help.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
 
-const VERSION = '1.7.1';
+const VERSION = '1.8.0';
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev'; // commit de la compilacion: junto a la version, abajo a la izquierda del dibujo
 const STORE = 'ipad-cad-v1';
 const $ = (id) => document.getElementById(id);
@@ -4581,6 +4582,22 @@ new ResizeObserver(resize).observe(cv);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readTheme(); syncPanel(); draw(); });
 
 // ---------------------------------------------------------------- arranque
+// Actualizacion automatica: al volver a la app (la web app de pantalla de inicio del iPad puede llevar dias suspendida) se mira si hay una
+// compilacion nueva publicada y, si la hay, se recarga: el dibujo se restaura del autoguardado. Como mucho una vez cada 5 minutos, y nunca
+// con una ventana abierta, una entrada de texto o una simulacion en marcha.
+async function checkNewBuild() {
+  try {
+    if (document.hidden || location.protocol !== 'https:' || sim || txState || document.querySelector('dialog[open]')) return;
+    const mine = [...document.scripts].map((s) => s.getAttribute('src') || '').find((s) => /assets\/index-/.test(s));
+    const html = await (await fetch(new URL('./', location.href), { cache: 'no-store' })).text();
+    const last = Number(localStorage.getItem('ipad-cad-reload')) || 0;
+    if (!needsReload(mine, html) || !reloadAllowed(last, Date.now())) return;
+    localStorage.setItem('ipad-cad-reload', String(Date.now()));
+    persist(); toast('Hay una versión nueva: actualizando…');
+    setTimeout(() => location.reload(), 700);
+  } catch { /* sin conexion: se queda como esta */ }
+}
+
 async function boot() {
   $('ver').textContent = VERSION;
   $('relTag').textContent = `v${VERSION} ${BUILD}`;
@@ -4602,7 +4619,10 @@ async function boot() {
   syncPanel(); updateButtons(); resize();
   if (graphHold) toast(`La página se cerró al calcular una gráfica (avance ${Math.round((graphHold.p || 0) * 100)} %, ${Math.round((graphHold.ms || 0) / 100) / 10} s). Las gráficas quedan en pausa: toca una para calcularla.`);
   if (!Object.keys(doc.pts).length) fitView();
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').then((reg) => reg.update()).catch(() => {}); // reg.update(): mira si hay un service worker nuevo en cada arranque
+    document.addEventListener('visibilitychange', checkNewBuild);
+  }
   window.__cad = { hitTest, get doc() { return doc; }, get view() { return view; }, solve, setTool, toScreen, toModel, applyCon, get sel() { return sel; }, set sel(v) { sel = v; afterChange(); } };
 }
 boot();
