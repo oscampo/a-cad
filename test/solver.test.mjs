@@ -2959,7 +2959,7 @@ t('formulas: redondeo, comparacion y trigonometria extra', () => {
   assert.deepEqual(textVarErrors(dt).map((e) => e.msg), ['«t» está reservada para el tiempo']);
   assert.equal(varsOf(dt).T.v, 2); assert.ok(!('t' in varsOf(dt)));
 });
-t('variables de texto: x{=valor} se lee en salidas, en cursiva, y no se puede repetir ni chocar con una cota', () => {
+t('variables de texto: x{=valor} se lee en salidas, en cursiva, se puede redefinir y no puede chocar con una cota', () => {
   const d = newDoc();
   const a = addPoint(d, 0, 0), b = addPoint(d, 4, 0); d.pts[a].fixed = true;
   const l = addLine(d, a, b, {}); addCon(d, { t: 'H', refs: [l] });
@@ -2985,13 +2985,14 @@ t('variables de texto: x{=valor} se lee en salidas, en cursiva, y no se puede re
   const multi = addText(d, P, 'r1{=1}\nr2{=2}', {});
   assert.equal(varsOf(d).r1.v + varsOf(d).r2.v, 3);
   assert.equal(textValue(d, d.texts[multi]).split('\n').length, 2);
-  // repetida: la segunda es la mala y el texto lo marca con ⚠; la primera sigue valiendo
+  // redefinida (orden de lectura): la que se lee despues manda a partir de ahi; no es un error
   const dup = addText(d, P, 'n{=99}', {});
-  assert.equal(varsOf(d).n.v, 3);
-  assert.ok(textVarErrors(d).some((e) => /más de una vez/.test(e.msg)));
-  assert.ok(plainText(textValue(d, d.texts[dup])).endsWith('⚠'));
+  assert.equal(varsOf(d).n.v, 99); // al final de la pagina
+  assert.equal(textVarErrors(d).length, 0);
+  assert.ok(!plainText(textValue(d, d.texts[dup])).includes('⚠'));
   assert.ok(!plainText(textValue(d, d.texts[mix])).includes('⚠'));
   delete d.texts[dup];
+  assert.equal(varsOf(d).n.v, 3);
   assert.equal(textVarErrors(d).length, 0);
   // choca con una cota: gana la cota
   const clash = addText(d, P, 'D1{=5}', {});
@@ -3007,9 +3008,10 @@ t('variables de texto: x{=valor} se lee en salidas, en cursiva, y no se puede re
   // un nombre de cota no puede coincidir con una variable de texto
   assert.match(checkName(d, 'k', null), /variable de texto/);
   assert.equal(checkName(d, 'Ancho', null), null);
-  // en un ciclo todas fallan
+  // un uso antes de definir falla (no hay ciclos: se lee en orden) y lo que depende de lo que fallo tambien
   const cyc = addText(d, P, 'c1{=c2+1}  c2{=c1+1}', {});
-  assert.ok(textVarErrors(d).length >= 2); assert.ok(!('c1' in varsOf(d)));
+  assert.ok(textVarErrors(d).length >= 2); assert.ok(!('c1' in varsOf(d))); assert.ok(!('c2' in varsOf(d)));
+  assert.match(textVarErrors(d)[0].msg, /se define más abajo/);
   delete d.texts[cyc];
   assert.equal(textVarErrors(d).length, 0);
 });
@@ -3207,9 +3209,9 @@ t('variables de texto: x{=valor} se ve, se lee, se renombra y valida; la sintaxi
   assert.equal(plainText(textValue(d, d.texts[tx])), 'w:=D1*2  z:=w+1  8 9');
   renameDim(d, k, 'Ancho');
   assert.equal(d.texts[tx].text, 'w{=Ancho*2}  z{=w+1}  [=w] [=z]');
-  // mismos errores que la otra forma: repetida y choque con una cota
+  // redefinir una variable vale (orden de lectura); chocar con el nombre de una cota no
   const dup = addText(d, P, 'w{=1}  Ancho{=2}', {});
-  assert.equal(plainText(textValue(d, d.texts[dup])), 'w:=1 ⚠  Ancho:=2 ⚠');
+  assert.equal(plainText(textValue(d, d.texts[dup])), 'w:=1  Ancho:=2 ⚠');
   // llaves sin nombre delante o sin "=" son texto normal
   assert.equal(textValue(d, d.texts[addText(d, P, '{=3} y {5} y x{4}', {})]), '{=3} y {5} y x{4}');
   assert.equal(textValue(d, d.texts[addText(d, P, 'q[:=3]', {})]), 'q[:=3]');
@@ -3509,8 +3511,8 @@ t('rangos: x{=a..b;n} y x{=a..paso..b} son vectores', () => {
   assert.deepEqual(vs.w.vec, [1, 3, 5, 7, 9]);
   assert.deepEqual(vs.u.vec, [10, 7, 4, 1]);
   assert.deepEqual(vs.s.vec, [4, 9]);
-  const o = addText(d, P, 'a [=v] b [=w+1]', {});
-  assert.equal(textValue(d, d.texts[o]), 'a [0, 0.25, 0.5, 0.75, 1] b ⚠');
+  const o = addText(d, P, 'a [=v] b [=w+1] c [=w*w]', {});
+  assert.equal(textValue(d, d.texts[o]), 'a [0, 0.25, 0.5, 0.75, 1] b [2, 4, 6, 8, 10] c ⚠'); // un numero se suma a cada elemento; vector por vector (1×5 por 1×5) no cuadra
   const e = newDoc(), Q = addPoint(e, 0, 0);
   addText(e, Q, 'a{=1..2..0}  b{=1..0;3.5}  c{=1..2..3..4}  d{=1..0..5}', {});
   assert.equal(Object.keys(varsOf(e)).filter((k) => !k.includes('.')).length, 0);

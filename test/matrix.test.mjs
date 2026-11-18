@@ -37,6 +37,11 @@ t('suma, resta y escalares', () => {
   assert.deepEqual(mat('-[1,-2]'), [[-1, 2]]);
   assert.deepEqual(mat('[1,2]+[3,4]*2'), [[7, 10]]);
   assert.deepEqual(mat('([1,2]+[3,4])*2'), [[8, 12]]);
+  assert.deepEqual(mat('[1,2,3]+10'), [[11, 12, 13]]); // un numero se suma a cada elemento
+  assert.deepEqual(mat('10+[1,2;3,4]'), [[11, 12], [13, 14]]);
+  assert.deepEqual(mat('[1,2,3]-1'), [[0, 1, 2]]);
+  assert.deepEqual(mat('10-[1,2]'), [[9, 8]]); // y el numero menos cada elemento
+  assert.deepEqual(mat('3*[1,2]+2'), [[5, 8]]);
 });
 
 t('producto matricial y producto punto', () => {
@@ -59,8 +64,6 @@ t('transpuesta: ^T', () => {
 
 t('errores claros', () => {
   fails('[1,2]+[1,2,3]', /mismo tamaño/);
-  fails('1+[1,2]', /un número y un vector fila/);
-  fails('[1,2]-3', /un número/);
   fails('[1,2]*[3,4]', /v\*w\^T/);
   fails('[1,2;3,4]*[1,2,3]', /columnas de la primera \(2\)/);
   fails('[1,2]/[1,2]', /dividir entre/);
@@ -281,7 +284,7 @@ t('indices: dependencias (variables de texto y cotas leen elementos de otros vec
   assert.deepEqual(exprRefs('k_2', has), ['k_2']); // una variable llamada asi no es un indice
   assert.deepEqual(exprRefs('x_2'), ['x_2']); // sin saber que existe, tal cual
   const doc = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
-  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'y{=2*x_2+A_(2,1)}\nx{=[10, 20, 30]}\nA{=[1,2;3,4]}\n[=y] [=x_3] [=A_(1,2)] [=sum(x)] [=norm([3,4])] [=det(A)]' }; // y se define antes que x y A
+  doc.texts.t1 = { pt: 'p', h: 1, font: '', text: 'x{=[10, 20, 30]}\nA{=[1,2;3,4]}\ny{=2*x_2+A_(2,1)}\n[=y] [=x_3] [=A_(1,2)] [=sum(x)] [=norm([3,4])] [=det(A)]' }; // en orden de lectura: x y A antes que y
   const s = plainText(textValue(doc, doc.texts.t1));
   assert.match(s, /43 30 2 60 5 -2$/); assert.equal(s.includes('⚠'), false);
   // una cota lee un elemento de un vector de texto

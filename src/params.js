@@ -27,7 +27,7 @@ export function textVars(doc, exceptId = null) {
   return textVarState(doc, dimVars, new Set(named(doc).map(([, k]) => k.name)));
 }
 const hasDefs = (doc) => Object.values(doc.texts || {}).some((t) => hasDefMark(t.text));
-const NO_TV = { win: new Map(), names: new Set(), vals: {}, errs: new Map() };
+const NO_TV = { win: new Map(), byName: new Map(), names: new Set(), vals: {}, errs: new Map() };
 const tvOf = (doc) => (hasDefs(doc) ? textVars(doc) : NO_TV);
 // Variables disponibles (sin la cota exceptId, que no puede usarse a si misma): las de las cotas y las de los textos.
 export function varsOf(doc, exceptId = null) {
@@ -67,8 +67,8 @@ function dimRefs(doc, expr, st = tvOf(doc), seen = new Set()) {
   const walk = (src, skip) => { // una funcion de texto cuenta por lo que lee su cuerpo (menos sus parametros)
     for (const n of exprRefs(src, has)) {
       if (skip.includes(n)) continue;
-      const e = st.win.get(n);
-      if (e) { if (seen.has(n)) continue; seen.add(n); walk(e.expr, e.params || []); } else out.add(n);
+      const es = st.byName?.get(n); // una variable puede tener varias definiciones (se redefine): depende de todo lo que leen
+      if (es) { if (seen.has(n)) continue; seen.add(n); for (const e of es) walk(e.expr, e.params || []); } else out.add(n);
     }
   };
   walk(expr, []);

@@ -110,10 +110,13 @@ t('funciones de usuario: los parametros ocultan a las variables de igual nombre;
   assert.match(s, /2 100 12 101$/);
 });
 
-t('funciones de usuario: orden de calculo (variables y funciones definidas despues)', () => {
-  const s = show('y{=f(2)+z}\nf(x){=x+c}\nc{=10}\nz{=g(c)}\ng(q){=q*2}\n[=y] [=z]');
-  assert.match(s, /32 20$/); // f(2) = 12; z = g(10) = 20; y = 12 + 20
+t('funciones de usuario: leen las variables que valen al llamarlas (orden de lectura)', () => {
+  const s = show('f(x){=x+c}\ng(q){=q*2}\nc{=10}\nz{=g(c)}\ny{=f(2)+z}\n[=y] [=z]');
+  assert.match(s, /32 20$/); // f(2) = 12; z = g(10) = 20; y = 12 + 20 (f se define antes que c, pero se llama despues)
   assert.equal(s.includes('⚠'), false);
+  // lo que se llama antes de definirse no existe todavia
+  const late = show('y{=f(2)}\nf(x){=x+1}\n[=f(1)]');
+  assert.match(late, /^y:=f\(2\) ⚠\nf\(x\):=x\+1\n2$/);
 });
 
 t('funciones de usuario: vectores y matrices como argumentos y resultados', () => {
@@ -145,8 +148,10 @@ t('funciones de usuario: errores claros', () => {
 t('funciones de usuario: definiciones invalidas y nombres que chocan', () => {
   const doc = mk('sin(x){=x}\nf(x; x){=x}\nf2(1x){=x}\nf3(){=5}\nok(x){=x}\nok(y){=y}\nr{=1}\nr(x){=x}\nsum(a){=a}');
   const bad = plainText(textValue(doc, doc.texts.t1)).split('\n');
-  for (const i of [0, 1, 2, 3, 5, 7, 8]) assert.ok(bad[i].includes('⚠'), `línea ${i}: ${bad[i]}`);
-  assert.ok(!bad[4].includes('⚠')); // la primera «ok» vale; la repetida no
+  for (const i of [0, 1, 2, 3, 8]) assert.ok(bad[i].includes('⚠'), `línea ${i}: ${bad[i]}`);
+  for (const i of [4, 5, 6, 7]) assert.ok(!bad[i].includes('⚠'), `línea ${i}: ${bad[i]}`); // redefinir (incluso una variable como funcion) vale
+  const f = mk('f(x){=x+1}\n[=f(1)]\nf(x){=x*10}\n[=f(1)]\nf{=7}\n[=f]');
+  assert.match(plainText(textValue(f, f.texts.t1)), /\n2\n.*\n10\n.*\n7$/); // la ultima definicion leida es la que vale
 });
 
 t('funciones de usuario: se listan, se leen desde cotas y siguen el renombrado de cotas', () => {

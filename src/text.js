@@ -28,8 +28,9 @@ export function textValue(doc, t) {
   const s = String(t.text ?? '');
   const hasDef = hasDefMark(s), hasOut = s.includes('[='), hasSub = s.includes('$') && s.includes('_(');
   if (!hasDef && !hasOut && !hasSub) return s;
-  let vars = null, st = null, tid = null, idx = 0;
-  if (hasDef) { tid = Object.keys(doc.texts || {}).find((k) => doc.texts[k] === t); st = textVars(doc); }
+  let vars = null, st = null, tid = null, idx = 0, oidx = 0;
+  // Orden de lectura: cada salida y cada definicion ve las variables tal como estaban en ese punto de la pagina (ver textVarState)
+  if (hasDef || (hasOut && Object.values(doc.texts || {}).some((x) => hasDefMark(x.text)))) { tid = Object.keys(doc.texts || {}).find((k) => doc.texts[k] === t); st = textVars(doc); }
   // Nombres con subindice («var_(texto)») dentro de una formula: se marcan para dibujarlos como nombre con subindice de texto
   // (sin marcar, AsciiMath leeria «texto» como letras y simbolos sueltos: «to» seria una flecha).
   let subNames = null;
@@ -48,15 +49,15 @@ export function textValue(doc, t) {
       const [, name0, params0, ex, out] = mt;
       if (name0 !== undefined) { // definicion x{=valor}
         const name = normName(name0), shown = math && name.includes('_(') ? NM0 + name + NM1 : name;
-        const bad = st.bad.has(tid + ':' + idx++);
-        const val = math && !bad ? st.vals?.[name] : null, mx = val?.vec ? [val.vec] : val?.mat;
+        const dk = tid + ':' + idx++, bad = st.bad.has(dk);
+        const val = math && !bad ? st.defVal.get(dk) : null, mx = val?.vec ? [val.vec] : val?.mat;
         const call = params0 !== undefined ? '(' + params0.trim() + ')' : ''; // funcion: f(x; y):=...
         res += mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 : IT0 + shown + call + ':=' + gap(ex) + (bad ? ' ⚠' : '') + IT1;
         continue;
       }
       try {
-        vars ||= varsOf(doc);
-        const r = evalExpr(out, { vars, allowMat: true });
+        const env = st?.outEnv.get(tid + ':' + oidx++) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
+        const r = evalExpr(out, { vars: env, allowMat: true });
         if (r.mat) res += math ? VB0 + matText(r.mat) + VB1 : matText(r.mat); // vector o matriz: sus elementos
         else res += fmtNum(r.value);
       } catch (e) { res += '⚠'; }

@@ -153,7 +153,7 @@ const nameM = (a) => (a.m.length === 1 ? `un vector fila de ${a.m[0].length}` : 
 const mapM = (a, f) => ({ m: a.m.map((r) => r.map(f)) });
 const transposeM = (a) => ({ m: a.m[0].map((_, k) => a.m.map((r) => r[k])) });
 function addM(a, b, s) {
-  if (!isM(a) || !isM(b)) throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} un número y ${nameM(isM(a) ? a : b)}`);
+  if (!isM(a) || !isM(b)) return isM(a) ? mapM(a, (x) => x + s * b.v) : mapM(b, (y) => a.v + s * y); // un numero se suma a (o se resta de) cada elemento
   if (a.m.length !== b.m.length || a.m[0].length !== b.m[0].length) throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} ${nameM(a)} y ${nameM(b)}: deben tener el mismo tamaño`);
   return { m: a.m.map((r, i) => r.map((x, k) => x + s * b.m[i][k])) };
 }
