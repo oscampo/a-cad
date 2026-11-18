@@ -207,7 +207,7 @@ function renderTree() {
     nm.className = 'nm'; nm.textContent = n.label; nm.title = n.label;
     head.appendChild(nm);
     if (n.act) nm.onclick = (e) => { e.preventDefault(); e.stopPropagation(); treeEditAct(n.act); };
-    if (n.sel) {
+    if (n.sel || n.selMany) {
       nm.onclick = (e) => { e.preventDefault(); e.stopPropagation(); treeSelect(n); };
     }
     const act = (svg, title, fn) => {
@@ -270,8 +270,8 @@ function elementBounds(items) {
 // Selecciona un nodo del arbol y, si queda fuera de la vista, centra el lienzo en el.
 function treeSelect(n) {
   const s0 = n.sel;
-  let items = [s0];
-  if (s0.k === 'co') {
+  let items = n.selMany ? n.selMany.filter(exists) : [s0]; // un contorno selecciona todos sus elementos
+  if (s0?.k === 'co') {
     const refs = (doc.cons[s0.id]?.refs || []).map((r) => { const k = kindOf(doc, r); return k ? { k, id: r } : null; }).filter(Boolean);
     items = [s0, ...refs];
   }

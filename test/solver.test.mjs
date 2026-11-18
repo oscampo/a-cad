@@ -5,7 +5,7 @@ import { layoutDim, dragDim, dimValue, dimText, angSector, angTrue, initAngle, t
 import { textFrame, textCorners, textHit, textPose, rawAngle, textValue, shownText, lineWidth } from '../src/text.js';
 import { exportSVG, exportSVGLaser, exportDXF, dimLayouts, extraExtents, laserClasses, styleKey } from '../src/export.js';
 import { splitElement } from '../src/split.js';
-import { buildTree, conLabel } from '../src/tree.js';
+import { buildTree, conLabel, contours } from '../src/tree.js';
 import { cleanFileBase } from '../src/files.js';
 import { parseValue, evalExpr, isPlainNumber, exprRefs, renameInExpr } from '../src/expr.js';
 import { makeVector, unmakeVector, syncVectors, isVector, vecArrow, vecEnds } from '../src/vectors.js';
@@ -1664,6 +1664,46 @@ t('arbol por capa: capas primero, cada una con sus grupos por tipo; sin capas, p
   assert.equal(buildTree(d, { by: 'layer' })[2].label, 'Sin capa (1)');
   // por tipo, las capas no cambian nada
   assert.deepEqual(buildTree(d).map((g) => g.key), ['g:ln', 'g:ci', 'g:co']);
+});
+
+t('contornos: cerrado, abierto y ramificado; coincidencias, uniones sin restriccion, constructivas y vectores', () => {
+  const d = newDoc();
+  const P = (x, y) => addPoint(d, x, y);
+  // cuadrado cerrado con una esquina hecha de dos puntos atados por COI
+  const a = P(0, 0), b = P(10, 0), c = P(10, 10), e = P(0, 10), e2 = P(0, 10);
+  const sq = [addLine(d, a, b, {}), addLine(d, b, c, {}), addLine(d, c, e, {}), addLine(d, e2, a, {})];
+  addCon(d, { t: 'COI', refs: [e, e2] });
+  // abierto: linea y arco encadenados
+  const f = P(30, 0), g = P(40, 0), cen = P(45, 0), h = P(50, 0);
+  const ol = addLine(d, f, g, {}), oa = addArc(d, cen, g, h, 5, {});
+  // ramificado: tres lineas en un mismo punto
+  const o = P(80, 0), r1 = P(90, 0), r2 = P(80, 10), r3 = P(70, 0);
+  const br = [addLine(d, o, r1, {}), addLine(d, o, r2, {}), addLine(d, o, r3, {})];
+  // sueltos que no forman contorno: una linea sola, una constructiva y un vector pegados al cuadrado, un circulo
+  addLine(d, P(100, 100), P(110, 100), {});
+  addLine(d, b, P(20, 0), { ltype: 'constructiva' });
+  const v = addLine(d, c, P(20, 20), {}); d.lines[v].vec = { m: null };
+  addCircle(d, P(60, 60), 3, {});
+  // dos lineas que se tocan en el mismo lugar con puntos distintos y sin COI: se unen, pero contadas aparte
+  const lz = [addLine(d, P(200, 0), P(210, 0), {}), addLine(d, P(210, 0), P(210, 10), {})];
+  const cs = contours(d);
+  assert.equal(cs.length, 4);
+  assert.deepEqual(cs[3].items.map((i) => i.id), lz); assert.equal(cs[3].loose, 1);
+  assert.equal(cs[0].loose, 0, 'la esquina con COI no cuenta como suelta');
+  const [cq, co, cb] = cs;
+  assert.ok(cq.closed && !cq.branched);
+  assert.deepEqual(cq.items.map((i) => i.id), sq, 'el cuadrado se recorre en orden y la esquina por COI lo cierra');
+  assert.ok(!co.closed && !co.branched);
+  assert.deepEqual(co.items.map((i) => i.k), ['ln', 'ar']);
+  assert.ok(cb.branched && !cb.closed);
+  assert.deepEqual(cb.items.map((i) => i.id).sort(), [...br].sort());
+  // en el arbol
+  const g0 = buildTree(d).find((x) => x.key === 'g:ct');
+  assert.deepEqual(g0.children.map((n) => n.label), ['Contorno 1 · cerrado · 4 líneas', 'Contorno 2 · abierto · 1 línea, 1 arco', 'Contorno 3 · ramificado · 3 líneas', 'Contorno 4 · abierto · 1 unión sin restricción · 2 líneas']);
+  assert.deepEqual(g0.children[0].selMany.map((i) => i.id), sq, 'tocar el contorno selecciona sus elementos');
+  assert.ok(g0.children[0].children.every((n) => n.link && !n.children));
+  assert.ok(buildTree(d, { by: 'layer' }).some((x) => x.key === 'g:ct'), 'tambien en la vista por capa');
+  assert.deepEqual(contours(newDoc()), []);
 });
 
 t('operaciones: las relaciones automaticas guardan su origen y el arbol las agrupa', () => {

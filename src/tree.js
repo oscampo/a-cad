@@ -46,13 +46,86 @@ export function autoOrigin(doc, k) {
 }
 export const conCategory = (k) => (k.hidden ? 'auto' : DIM_T.has(k.t) ? 'dim' : MECH_T.has(k.t) ? 'mech' : 'geo');
 
+// Contornos: elementos de trazo encadenados por sus extremos (lineas y arcos no constructivos, arcos elipticos y splines
+// abiertas). Dos extremos se tocan si son el mismo punto, puntos atados por una coincidencia (COI) o puntos en el mismo
+// lugar sin nada que los ate (loose: cuantas uniones asi tiene el contorno). Cada grupo conectado
+// de dos o mas elementos es un contorno: cerrado si cada nudo junta exactamente dos extremos, ramificado si alguno junta
+// tres o mas, abierto si no. Devuelve [{ items: [{k,id}] en el orden en que se recorren, closed, branched, loose }].
+export function contours(doc) {
+  const solid = (o) => o.ltype !== 'constructiva';
+  const edges = [];
+  for (const [id, l] of Object.entries(doc.lines)) if (solid(l) && !l.vec) edges.push({ k: 'ln', id, ends: [l.a, l.b] });
+  for (const [id, a] of Object.entries(doc.arcs)) if (solid(a)) edges.push({ k: 'ar', id, ends: [a.a, a.b] });
+  for (const [id, e] of Object.entries(doc.ellipses || {})) if (solid(e) && e.p1 && e.p2) edges.push({ k: 'el', id, ends: [e.p1, e.p2] });
+  for (const [id, sp] of Object.entries(doc.splines || {})) if (solid(sp) && !sp.closed && sp.pts.length > 1) edges.push({ k: 'sp', id, ends: [sp.pts[0], sp.pts[sp.pts.length - 1]] });
+  if (edges.length < 2) return [];
+  // puntos atados por COI: union-find en una sola pasada por las relaciones
+  const up = new Map();
+  const root = (p) => { let r = p; while (up.has(r)) r = up.get(r); while (up.has(p)) { const n = up.get(p); up.set(p, r); p = n; } return r; };
+  for (const k of Object.values(doc.cons)) {
+    if (k.t !== 'COI' || k.ref || k.refs.length !== 2 || !(k.refs[0] in doc.pts) || !(k.refs[1] in doc.pts)) continue;
+    const a = root(k.refs[0]), b = root(k.refs[1]);
+    if (a !== b) up.set(a, b);
+  }
+  // extremos en el mismo lugar sin relacion que los ate (tolerancia: una millonesima del tamaño del dibujo): se unen
+  // igual, porque asi se ve el contorno, pero se cuentan aparte; al mover el dibujo esas uniones se pueden abrir
+  const ends = [...new Set(edges.flatMap((e) => e.ends))].filter((p) => doc.pts[p]);
+  const xs = ends.map((p) => doc.pts[p].x), ys = ends.map((p) => doc.pts[p].y);
+  const tol = 1e-6 * Math.max(1, Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  const cell = new Map(), loose = [];
+  const ck = (x, y) => `${Math.floor(x / tol)},${Math.floor(y / tol)}`;
+  for (const p of ends) {
+    const q = doc.pts[p], cx = Math.floor(q.x / tol), cy = Math.floor(q.y / tol);
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const o of cell.get(`${cx + i},${cy + j}`) || []) {
+      const w = doc.pts[o];
+      if (Math.hypot(w.x - q.x, w.y - q.y) > tol) continue;
+      const a = root(p), b = root(o);
+      if (a !== b) { up.set(a, b); loose.push(p); }
+    }
+    const k = ck(q.x, q.y); if (!cell.has(k)) cell.set(k, []); cell.get(k).push(p);
+  }
+  for (const e of edges) e.ends = e.ends.map(root);
+  const looseAt = new Map(); for (const p of loose) { const r = root(p); looseAt.set(r, (looseAt.get(r) || 0) + 1); }
+  const at = new Map(); // nudo -> aristas que llegan (una arista cerrada sobre si misma llega dos veces)
+  for (const e of edges) for (const n of e.ends) { if (!at.has(n)) at.set(n, []); at.get(n).push(e); }
+  const seen = new Set(), out = [];
+  for (const e0 of edges) {
+    if (seen.has(e0)) continue;
+    // grupo conectado
+    const comp = [], nodes = new Set(), stack = [e0];
+    seen.add(e0);
+    while (stack.length) {
+      const e = stack.pop(); comp.push(e);
+      for (const n of e.ends) { nodes.add(n); for (const f of at.get(n)) if (!seen.has(f)) { seen.add(f); stack.push(f); } }
+    }
+    if (comp.length < 2) continue;
+    const deg = [...nodes].map((n) => at.get(n).length);
+    const branched = deg.some((d) => d > 2), closed = !branched && deg.every((d) => d === 2);
+    // orden de recorrido: desde un extremo libre (abierto) o desde cualquiera (cerrado); ramificado, en el orden del dibujo
+    let items = comp;
+    if (!branched) {
+      let cur = closed ? comp[0].ends[0] : [...nodes].find((n) => at.get(n).length === 1);
+      const used = new Set(); items = [];
+      for (;;) {
+        const e = at.get(cur).find((f) => !used.has(f));
+        if (!e) break;
+        used.add(e); items.push(e);
+        cur = e.ends[0] === cur ? e.ends[1] : e.ends[0];
+      }
+    }
+    const looseN = [...nodes].reduce((n, x) => n + (looseAt.get(x) || 0), 0);
+    out.push({ items: items.map(({ k, id }) => ({ k, id })), closed, branched, loose: looseN });
+  }
+  return out;
+}
+
 // Nodo: { key, label, sel?: {k,id}, con?: id, lock?: boolean|undefined, link?: true, sub?: true, group?: true, children?: [] }
 // Cada cosa tiene un solo lugar propio en el arbol; en los demas aparece como enlace (link: true, sin hijos).
 // - Una relacion vive en «Relaciones y cotas»; bajo un elemento hay una sola fila «Relaciones (n)» con enlaces.
 // - Un punto vive en el primer elemento que lo usa (circulos, lineas, arcos, elipses, splines, textos, actuadores);
 //   en los demas es un enlace y en «Puntos» solo quedan los sueltos, que no son de nadie.
 // Con { by: 'layer' } el primer nivel son las capas («Sin capa» al final) y dentro de cada una los mismos grupos por tipo;
-// relaciones, actuadores, graficas y trazados no tienen capa y van despues. Un punto con dueño sigue a su elemento.
+// contornos, relaciones, actuadores, graficas y trazados no tienen capa y van despues. Un punto con dueño sigue a su elemento.
 export function buildTree(doc, { by = 'type' } = {}) {
   const compact = (a) => a.filter(Boolean);
   const group = (key, label, items) => ({ key, label: `${label} (${items.length})`, group: true, children: items });
@@ -169,7 +242,19 @@ export function buildTree(doc, { by = 'type' } = {}) {
       : compact([ptNode(a.p1, 'Cola:', 'ac', id), ptNode(a.p2, 'Cabeza:', 'ac', id)]),
   }));
   const graphs = Object.entries(doc.graphs || {}).map(([id, g]) => ({ key: `gr:${id}`, act: id, label: `Gráfica ${id} · ${(g.series || []).join(', ') || 'sin relaciones'}` }));
-  const rest = [group('g:ac', 'Actuadores', acts), group('g:gr', 'Gráficas', graphs), { key: 'g:co', label: `Relaciones y cotas (${nCons})`, group: true, children: cons }, group('g:tr', 'Trazados', traces)];
+  // contornos: el contorno selecciona todos sus elementos; dentro, sus elementos como enlaces en el orden del recorrido
+  const KN = { ln: ['línea', 'líneas'], ar: ['arco', 'arcos'], el: ['arco elíptico', 'arcos elípticos'], sp: ['spline', 'splines'] };
+  const ctNodes = contours(doc).map((c, i) => {
+    const cnt = {}; for (const it of c.items) cnt[it.k] = (cnt[it.k] || 0) + 1;
+    const what = Object.entries(cnt).map(([k, n]) => `${n} ${KN[k][n > 1 ? 1 : 0]}`).join(', ');
+    return {
+      key: `ct:${c.items[0].k}:${c.items[0].id}`, selMany: c.items,
+      // el aviso va antes de la composicion: en el panel angosto la etiqueta se corta por el final
+      label: `Contorno ${i + 1} · ${c.closed ? 'cerrado' : c.branched ? 'ramificado' : 'abierto'}${c.loose ? ` · ${c.loose} ${c.loose > 1 ? 'uniones' : 'unión'} sin restricción` : ''} · ${what}`,
+      children: c.items.map((it) => ({ key: `lk:${it.k}:${it.id}`, label: `↗ ${KIND_NAME[it.k]} ${it.id}`, sel: it, link: true })),
+    };
+  });
+  const rest = [group('g:ct', 'Contornos', ctNodes), group('g:ac', 'Actuadores', acts), group('g:gr', 'Gráficas', graphs), { key: 'g:co', label: `Relaciones y cotas (${nCons})`, group: true, children: cons }, group('g:tr', 'Trazados', traces)];
   const nonEmpty = (a) => a.filter((g) => g.children.length);
   if (by !== 'layer' || !Object.keys(doc.layers || {}).length) return nonEmpty([...typeGroups(null), ...rest]);
   // por capa: todas las capas (tambien las vacias, para verlas y encenderlas) y «Sin capa» si tiene algo
