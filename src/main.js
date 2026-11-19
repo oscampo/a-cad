@@ -4143,7 +4143,12 @@ function openProps(h) {
   if (k === 'tx') {
     body.appendChild(propRow('Color', textColors()));
     const ta = document.createElement('textarea');
-    ta.rows = 2; ta.value = o.text; attachAutoPair(ta); // lo guardado: texto con Markdown y formulas entre $...$ ta.style.cssText = 'flex:1 1 100%;min-height:56px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);font:inherit';
+    // el cuadro ocupa todo el ancho de la ventana (en su propia linea, bajo «Texto») y crece con las lineas del texto (de 3 a 14)
+    ta.value = o.text;
+    ta.style.cssText = 'flex:1 1 100%;width:100%;box-sizing:border-box;min-height:56px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);font:inherit;resize:vertical';
+    const taRows = () => { ta.rows = Math.max(3, Math.min(14, ta.value.split('\n').length + 1)); };
+    taRows(); ta.addEventListener('input', taRows);
+    attachAutoPair(ta); // lo guardado: texto con Markdown y formulas entre $...$
     ta.onchange = () => {
       if (!ta.value.trim()) { ta.value = propObj().text; return; }
       const before = textVarErrors(doc);
