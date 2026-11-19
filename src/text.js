@@ -200,11 +200,11 @@ export function textFrame(t, measure, anchor = t.anchor) {
 }
 
 // Primitivas de un texto con formulas en el sistema local del texto (x a la derecha, y arriba, unidades del modelo):
-// { k:'t', s, x, y (linea base), size, it, font } y { k:'p', pts, lw }. Vacio si el texto no lleva formulas.
+// { k:'t', s, x, y (linea base), size, w (ancho medido; al dibujar no se pasa de el), it, font } y { k:'p', pts, lw }. Vacio si el texto no lleva formulas.
 export function framePrims(f, t) {
   if (!f.math) return [];
   const h = t.h, X = (x) => f.xmin + x * h, Y = (y) => f.ymax - y * h;
-  return f.math.prims.map((p) => (p.k === 't' ? { k: 't', s: p.s, x: X(p.x), y: Y(p.y), size: p.sz * h, it: p.it, font: p.font, bold: p.bold, col: p.col } : { k: 'p', pts: p.pts.map(([x, y]) => [X(x), Y(y)]), lw: p.lw * h, col: p.col }));
+  return f.math.prims.map((p) => (p.k === 't' ? { k: 't', s: p.s, x: X(p.x), y: Y(p.y), size: p.sz * h, ...(p.w > 0 ? { w: p.w * h } : {}), it: p.it, font: p.font, bold: p.bold, col: p.col } : { k: 'p', pts: p.pts.map(([x, y]) => [X(x), Y(y)]), lw: p.lw * h, col: p.col }));
 }
 
 // Esquinas de la caja en coordenadas del modelo (antihorario).

@@ -1141,7 +1141,9 @@ function drawTexts(c, o) {
       const base = c.fillStyle;
       for (const p of framePrims(f, t)) {
         c.fillStyle = c.strokeStyle = p.col || base; // color(red)(x)
-        if (p.k === 't') { c.font = `${p.it ? 'italic ' : ''}${p.bold ? 'bold ' : ''}${p.size * sc * dpr}px ${fontCss(p.font)}`; c.fillText(p.s, p.x * sc * dpr, -p.y * sc * dpr); } else {
+        // con el ancho medido como tope: en el iPad la letra del sistema (SF) cambia de proporciones con el tamaño (se mide a 100 px y se
+        // dibuja a otro), y sin tope un tramo se monta sobre el siguiente; el tope solo lo estrecha un poco si se pasaria
+        if (p.k === 't') { c.font = `${p.it ? 'italic ' : ''}${p.bold ? 'bold ' : ''}${p.size * sc * dpr}px ${fontCss(p.font)}`; if (p.w > 0) c.fillText(p.s, p.x * sc * dpr, -p.y * sc * dpr, p.w * sc * dpr); else c.fillText(p.s, p.x * sc * dpr, -p.y * sc * dpr); } else {
           c.lineWidth = Math.max(p.lw * sc * dpr, dpr); c.beginPath();
           p.pts.forEach(([x, y], k) => (k ? c.lineTo(x * sc * dpr, -y * sc * dpr) : c.moveTo(x * sc * dpr, -y * sc * dpr)));
           c.stroke();
@@ -1151,8 +1153,9 @@ function drawTexts(c, o) {
       let x = f.xmin; // las definiciones de variables («x:=valor») van en cursiva: cada tramo con su fuente
       for (const r of runsOf(ln)) {
         c.font = `${r.it ? 'italic ' : ''}${t.h * sc * dpr}px ${fontCss(t.font)}`;
-        c.fillText(r.s, x * sc * dpr, (-f.ymax * sc + (i * LINE_SPACING + 0.1) * t.h * sc) * dpr);
-        x += measureRel(r.s, t.font, r.it) * t.h;
+        const rw = measureRel(r.s, t.font, r.it) * t.h; // tope: el ancho medido (ver el caso con formulas)
+        c.fillText(r.s, x * sc * dpr, (-f.ymax * sc + (i * LINE_SPACING + 0.1) * t.h * sc) * dpr, Math.max(rw * sc * dpr, 1e-3));
+        x += rw;
       }
     });
     if (o.ui && isSel('tx', id)) {

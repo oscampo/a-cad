@@ -26,6 +26,10 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 - Página: la rueda del mouse (o el trackpad) recorre la hoja en vez de hacer zoom; Shift+rueda mueve en horizontal y Ctrl+rueda (o pellizcar en el trackpad) sigue haciendo zoom. El desplazamiento lateral queda limitado al ancho de la página (en el mouse, el dedo y el pellizco): si la página cabe en la pantalla queda centrada.
 - Textos con página: la altura se escribe en puntos tipográficos, como en un editor de texto (**Altura (pt)**, 12 pt = 4,23 mm), y un texto nuevo arranca en 12 pt. Los textos que ya existían no cambian de tamaño: uno de altura 12 mm aparece como 34 pt. Sin página la altura sigue en mm.
 
+### Corregido
+
+- Textos en el iPad: en algunas líneas un tramo se montaba sobre el siguiente (el final de «se usa» quedaba debajo del `["]` en letra de código, o una negrita sobre lo que seguía). Los textos se miden a 100 px y se dibujan a otro tamaño, y la letra del sistema del iPad (SF) cambia de proporciones con el tamaño, así que lo dibujado salía más ancho que lo medido. Ahora cada tramo se dibuja con su ancho medido como tope (si se pasaría, se estrecha un poco), en los textos con Markdown o fórmulas y en los simples. No cambia ninguna medida, caja, ajuste de línea ni exportación.
+
 ## v2.9.0 (2026-11-18)
 
 ### Nuevo

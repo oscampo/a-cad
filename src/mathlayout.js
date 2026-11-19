@@ -74,7 +74,8 @@ function glyph(ctx, s, it = false, sz = ctx.sz) {
   const font = ctx.fam || MF, br = BR.test(s);
   const a = XH.test(s) ? 0.46 : br ? 0.75 : 0.7;
   const d = br ? 0.25 : DESC.test(s) ? 0.22 : 0;
-  return { w: ctx.measure(s, font, it) * sz * (ctx.bold ? 1.06 : 1), a: a * sz, d: d * sz, ops: s ? [{ k: 't', s, x: 0, y: 0, sz, it, font, ...(ctx.bold ? { bold: true } : {}) }] : [] };
+  const w = ctx.measure(s, font, it) * sz * (ctx.bold ? 1.06 : 1);
+  return { w, a: a * sz, d: d * sz, ops: s ? [{ k: 't', s, x: 0, y: 0, sz, w, it, font, ...(ctx.bold ? { bold: true } : {}) }] : [] };
 }
 const shift = (ops, dx, dy) => ops.map((o) => (o.k === 't' ? { ...o, x: o.x + dx, y: o.y + dy } : { ...o, pts: o.pts.map(([x, y]) => [x + dx, y + dy]) }));
 const pad = (b, l, r) => ({ ...b, w: b.w + l + r, ops: shift(b.ops, l, 0) });
@@ -560,7 +561,7 @@ function compute(text, measure, font, opt = {}) {
         let xx = x;
         for (const u of it.runs) {
           const uw = runW(u, sz), col = u.col || (u.link ? LINK_COLOR : u.img ? MUTED_COLOR : undefined);
-          prims.push({ k: 't', s: u.s, x: xx, y: u.sup ? base - 0.4 * sz : base, sz: runSz(u, sz), it: u.it, font: u.code ? 'mono' : font, ...(u.b ? { bold: true } : {}), ...(col ? { col } : {}) });
+          prims.push({ k: 't', s: u.s, x: xx, y: u.sup ? base - 0.4 * sz : base, sz: runSz(u, sz), w: uw, it: u.it, font: u.code ? 'mono' : font, ...(u.b ? { bold: true } : {}), ...(col ? { col } : {}) });
           if (u.st) prims.push({ k: 'p', pts: [[xx, base - 0.3 * sz], [xx + uw, base - 0.3 * sz]], lw: 0.06 * sz });
           if (u.link) {
             prims.push({ k: 'p', pts: [[xx, base + 0.1 * sz], [xx + uw, base + 0.1 * sz]], lw: 0.05 * sz, col: LINK_COLOR });
