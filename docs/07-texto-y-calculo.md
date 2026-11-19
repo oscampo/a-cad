@@ -76,12 +76,22 @@ En un texto normal (el que empieza con `"` o un espacio), lo que va fuera de las
 | `***ambas***` | <b>*Negrita y cursiva*</b>. |
 | `~~tachado~~` | Tachado. |
 | `` `código` `` | Letra monoespaciada. En una ecuación, en cambio, las comillas invertidas hacen un literal. |
-| `# `, `## `, `### ` al empezar la línea | Título, en negrita y más grande (1.6, 1.35 y 1.15 veces la altura del texto). |
+| `# `, `## `, `### `, `#### `, `##### `, `###### ` al empezar la línea | Título, en negrita y más grande (1.6, 1.35, 1.15, 1.05, 1 y 0.9 veces la altura del texto). |
+| Una línea y debajo `===` | También es un título de nivel 1. En cambio `---` debajo de un texto es siempre una raya, no un título. |
 | `- `, `* `, `+ ` al empezar la línea | Viñeta. Dos espacios antes por cada nivel de sangría. |
+| `- [ ] `, `- [x] ` al empezar la línea | Tarea: ☐ pendiente, ☑ hecha. |
 | `1. `, `1) ` al empezar la línea | Lista numerada (el número se dibuja tal como se escribe). |
 | `> ` al empezar la línea | Cita, con una raya a la izquierda; `>> ` es una cita dentro de otra. |
+| `> [!note] Título` | **Aviso** (callout), con la raya y el título en color; las líneas `> ` que siguen son su cuerpo. Sin título se ve el tipo: `note`, `info`, `tip`, `important`, `warning`, `caution`, `danger`, `example`, `question`, `success`, `quote`… |
 | `---` sola en la línea | Raya horizontal del ancho del texto (sirven también `***` y `___`). |
-| `\*` | Deja el signo tal cual: `\*`, `\_`, `\#`, `\-`… Un `*` entre espacios (`2 * 3`) ya va tal cual, pero `2*3*4` pone el 3 en cursiva. |
+| `` ``` `` antes y después | **Bloque de código**: monoespaciado, en un recuadro, sin Markdown ni fórmulas dentro (sirve también `~~~`). Cuatro espacios al comienzo de las líneas, tras una línea en blanco, hacen lo mismo. |
+| `\| a \| b \|` y debajo `\|---\|:-:\|` | **Tabla**: la primera fila es el encabezado (en negrita); la segunda dice la alineación de cada columna (`:--` izquierda, `:-:` centro, `--:` derecha). Las celdas admiten fórmulas; `\\|` es una barra dentro de una celda. |
+| `[texto](url)` | Enlace, en azul y subrayado (el dibujo no lo abre). También `[texto][ref]` con `[ref]: url` en otra línea (esa línea no se dibuja) y `<https://…>` o `<correo@dominio>`. |
+| `![texto](imagen.png)` | Imagen: el dibujo no carga imágenes, muestra ▣ y su texto alternativo. |
+| `texto[^1]` y `[^1]: la nota` | **Nota al pie**: la llamada va en superíndice, numerada en orden, y las notas se juntan al final del texto en letra más pequeña. |
+| `<!-- … -->` | Comentario: no se dibuja (puede abarcar varias líneas). |
+| `\*` | Deja el signo tal cual (sirve con cualquier signo de puntuación): `\*`, `\_`, `\#`, `\[`… Un `*` entre espacios (`2 * 3`) ya va tal cual, pero `2*3*4` pone el 3 en cursiva. |
+| Saltos de línea | Sin límites, cada salto de línea es un salto de línea. Con la página (Documento → Página), como en Markdown: las líneas seguidas de un párrafo se unen y se reparten en el ancho de la página, una línea en blanco empieza otro párrafo, y dos espacios o `\` al final de una línea la cortan ahí. |
 
 ## Escritura matemática (AsciiMath)
 
