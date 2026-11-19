@@ -27,12 +27,12 @@ export const FUNC_GROUPS = [
   },
   {
     title: 'Trigonometría',
-    note: 'Los ángulos van en <b>grados</b>, salvo que el argumento lleve π o sea un ángulo del dibujo (una cota angular como <code>A1</code> o <code>l3.ang</code>): entonces van en radianes. En una cota angular en radianes, todo va en radianes.',
+    note: 'Los ángulos de los <b>textos de cálculo y las gráficas</b> van según la opción del dibujo <b>Documento → Ángulos en</b>: en <b>radianes</b> (los dibujos nuevos: <code>sin(π/2)</code> da 1) o en <b>grados</b> (los dibujos anteriores, que no tienen la opción: <code>sin(30)</code> da 0.5). En grados, si el argumento lleva π o es un ángulo del dibujo (una cota angular como <code>A1</code> o <code>l3.ang</code>) va en radianes. Las <b>cotas</b> y los actuadores siempre van en grados; en una cota angular en radianes, todo va en radianes.',
     rows: [
       ['<code>sin</code> (<code>sen</code>), <code>cos</code>, <code>tan</code>', 'Seno, coseno y tangente.', 'sin(30)', '0.5', 'n'],
       ['', 'Con π, en radianes.', 'cos(π/3)', '0.5', 'n'],
       ['<code>sec</code>, <code>csc</code>, <code>cot</code>', 'Secante, cosecante y cotangente, con la misma regla.', 'sec(60)', '2', 'n'],
-      ['<code>asin</code>, <code>acos</code>, <code>atan</code>', 'Inversas: devuelven grados.', 'asin(0.5)', '30', 'n'],
+      ['<code>asin</code>, <code>acos</code>, <code>atan</code>', 'Inversas: devuelven grados (radianes si el dibujo está en radianes).', 'asin(0.5)', '30', 'n'],
       ['<code>atan2(y; x)</code>', 'Ángulo del punto (x, y) en grados, de −180 a 180.', 'atan2(1; -1)', '135', 'n'],
       ['<code>sinh</code>, <code>cosh</code>, <code>tanh</code>, <code>asinh</code>, <code>acosh</code>, <code>atanh</code>', 'Hiperbólicas (no usan ángulos).', 'cosh(0)', '1', 'n'],
       ['<code>deg(x)</code>', 'De radianes a grados.', 'deg(π)', '180', 'n'],

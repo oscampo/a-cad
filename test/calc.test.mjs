@@ -9,8 +9,8 @@ let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
 
 const stmts = (s) => calcStmts(s).map((p) => (p.k === 'def' ? p.name + (p.params !== undefined ? '(' + p.params + ')' : '') + ':' + p.expr : p.expr + '='));
-const page = (text) => {
-  const d = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
+const page = (text, angles) => {
+  const d = { angles, pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
   d.texts.t1 = { pt: 'p', h: 1, font: '', text };
   return plainText(textValue(d, d.texts.t1));
 };
@@ -130,6 +130,16 @@ t('migracion del dibujo: una sola vez, y los dibujos nuevos ya nacen en la v2', 
   const fresh = newDoc();
   fresh.texts.t = { text: '$$x:1$$' };
   assert.equal(migrateCalcDoc(fresh), 0);
+});
+
+t('angulos del dibujo: «angles: rad» lee sin/cos en radianes y asin en radianes; sin el campo, en grados', () => {
+  assert.equal(page('$sin(30)=$'), '$sin(30)=0.5$');
+  assert.equal(page('$sin(π/2)=$', 'rad'), '$sin(π/2)=1$');
+  assert.equal(page('$sin(1)=$', 'rad'), '$sin(1)=0.841$');
+  assert.equal(page('$asin(1)=$', 'rad'), '$asin(1)=1.571$');
+  assert.equal(page('$asin(1)=$'), '$asin(1)=90$');
+  assert.equal(page('$$x:2\nf(x):sin(x)./x\nf(x)=$$', 'rad').split('\n').at(-1), 'f(x)=0.455$$');
+  assert.equal(page('$sin(90)=$'), '$sin(90)=1$'); // otro dibujo, sin el campo: vuelve a grados
 });
 
 console.log(`\n${passed} pruebas de la sintaxis de calculo`);

@@ -3724,6 +3724,20 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   const rv = computeGraph(fv, fv.graphs[k], solve);
   assert.equal(rv.error, null);
   assert.deepEqual(rv.series.map((s) => s.pts), [[[0, 0], [0.5, 0.25], [1, 1]], [[0, 0], [0.5, 0.25], [1, 1]], [[1, 1], [4, 2], [9, 3]]]);
+  // dibujo en radianes (doc.angles): sin(x)./x es la funcion sinc, como en el tutorial; en grados (por defecto) seria sin(x°)/x
+  const sc = newDoc(), S0 = addPoint(sc, 0, 0);
+  addText(sc, S0, '$$x:1..3;3\nf(x):sin(x)./x$$', {});
+  const ks = addGraph(sc, 0, 0, 100, 60, ['f(x) vs x']);
+  const ys = (r) => r.series[0].pts.map((q) => Number(q[1].toFixed(4)));
+  assert.deepEqual(ys(computeGraph(sc, sc.graphs[ks], solve)), [0.0175, 0.0174, 0.0174]);
+  sc.angles = 'rad';
+  assert.deepEqual(ys(computeGraph(sc, sc.graphs[ks], solve)), [0.8415, 0.4546, 0.047]);
+  // un angulo suelto (con π) se grafica en radianes en un dibujo en radianes, en grados en uno en grados
+  addText(sc, S0, '$$a:0..π;3$$', {});
+  sc.graphs[ks].series = ['a vs a'];
+  assert.deepEqual(computeGraph(sc, sc.graphs[ks], solve).series[0].pts.map((q) => Number(q[0].toFixed(4))), [0, 1.5708, 3.1416]);
+  delete sc.angles;
+  computeGraph(sc, sc.graphs[ks], solve); // deja el modo en grados para lo que sigue
   fv.graphs[k].series = ['f(x) vs t'];
   assert.match(computeGraph(fv, fv.graphs[k], solve).error, /otro vector/);
   fv.graphs[k].series = ['x.^2 + [1, 2] vs x'];

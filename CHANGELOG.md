@@ -11,6 +11,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Cambia el comportamiento
 
+- Textos de cálculo: nueva opción del dibujo **Documento → Ángulos en** (radianes / grados). Un dibujo nuevo calcula en radianes (`sin(π/2)=1`, `asin(1)=1.571`, y `sin(x)./x` es la función sinc); los dibujos anteriores siguen en grados y se pueden cambiar ahí. Aplica a los textos de cálculo y a las gráficas (un ángulo se grafica en la unidad del dibujo); las cotas y los actuadores siguen en grados.
 - Textos: un texto normal que ya tuviera esos signos se ve distinto: `2*3*4` pone el 3 en cursiva, una línea que empieza con `- ` lleva viñeta y las comillas invertidas fuera de una fórmula ya no se dibujan. Para dejarlos tal cual, `\*`, `\-`, etc.
 
 ## v2.9.0 (2026-11-18)

@@ -52,7 +52,7 @@ Una cota angular ya no se queda entre 0° y 180°. Escribe 250° y la geometría
 
 ## Grados o radianes
 
-En cotas angulares hay un selector de unidad. En grados, sin/cos/tan usan grados (radianes si el argumento lleva π); en radianes, todo va en radianes.
+En cotas angulares hay un selector de unidad. En grados, sin/cos/tan usan grados (radianes si el argumento lleva π); en radianes, todo va en radianes. Las fórmulas de las cotas siempre leen grados; los **textos de cálculo** y las gráficas siguen la opción **Documento → Ángulos en** (radianes en los dibujos nuevos, grados en los anteriores).
 
 ## Color de los puntos
 

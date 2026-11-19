@@ -29,14 +29,14 @@ Sirven en cotas, textos (`x:…` y `expr=`), actuadores y gráficas.
 
 ## Trigonometría
 
-Los ángulos van en **grados**, salvo que el argumento lleve π o sea un ángulo del dibujo (una cota angular como `A1` o `l3.ang`): entonces van en radianes. En una cota angular en radianes, todo va en radianes.
+Los ángulos de los **textos de cálculo y las gráficas** van según la opción del dibujo **Documento → Ángulos en**: en **radianes** (los dibujos nuevos: `sin(π/2)` da 1) o en **grados** (los dibujos anteriores, que no tienen la opción: `sin(30)` da 0.5). En grados, si el argumento lleva π o es un ángulo del dibujo (una cota angular como `A1` o `l3.ang`) va en radianes. Las **cotas** y los actuadores siempre van en grados; en una cota angular en radianes, todo va en radianes.
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
 | `sin` (`sen`), `cos`, `tan` | Seno, coseno y tangente. | `sin(30)` | `0.5` |
 |  | Con π, en radianes. | `cos(π/3)` | `0.5` |
 | `sec`, `csc`, `cot` | Secante, cosecante y cotangente, con la misma regla. | `sec(60)` | `2` |
-| `asin`, `acos`, `atan` | Inversas: devuelven grados. | `asin(0.5)` | `30` |
+| `asin`, `acos`, `atan` | Inversas: devuelven grados (radianes si el dibujo está en radianes). | `asin(0.5)` | `30` |
 | `atan2(y; x)` | Ángulo del punto (x, y) en grados, de −180 a 180. | `atan2(1; -1)` | `135` |
 | `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh` | Hiperbólicas (no usan ángulos). | `cosh(0)` | `1` |
 | `deg(x)` | De radianes a grados. | `deg(π)` | `180` |

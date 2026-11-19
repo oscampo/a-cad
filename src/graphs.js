@@ -5,7 +5,7 @@
 // (D1, A1...), las variables de los textos y los vectores de rangos (x:0..1;5). Si una grafica usa variables que cambian con el tiempo,
 // se simula el dibujo (en una copia) de t = 0 a t1; si solo usa vectores, se grafican tal cual.
 import { varsOf } from './params.js';
-import { evalExpr, exprRefs } from './expr.js';
+import { evalExpr, exprRefs, setAngleMode, angleRad } from './expr.js';
 import { actDisp, simBegin, simStep } from './actuators.js';
 import { autoUnit, sameDim } from './units.js';
 
@@ -49,6 +49,8 @@ export function graphVarNames(doc) {
 // Calcula los datos: { series: [{ label, pts: [[x, y]...], color, ax, ay, tx }], error, tEnd }. solveFn: el solver del dibujo.
 const bareRe = /^[A-Za-zα-ωΑ-Ω_][\wα-ωΑ-Ω]*(\.[A-Za-zα-ωΑ-Ω]\w*)?$/;
 function* graphGen(doc, g, solveFn) {
+  setAngleMode(doc);
+  const deg = angleRad() ? 1 : DEG; // con el dibujo en radianes, un angulo se grafica en radianes
   const out = { series: [], error: null };
   let specs;
   try { specs = g.series.map(parseSeries); } catch (e) { out.error = e.message; return out; }
@@ -100,8 +102,8 @@ function* graphGen(doc, g, solveFn) {
   // valor de una variable o expresion con el entorno env: un angulo suelto se muestra en grados
   const value = (src, env) => {
     let v, d;
-    if (bareRe.test(src) && src in env) { const x = env[src]; if (x.r) return x.v * DEG; v = x.v; d = x.d; }
-    else { const r = evalExpr(src, { vars: env }); if (r.rad) return r.value * DEG; v = r.value; d = r.dim; }
+    if (bareRe.test(src) && src in env) { const x = env[src]; if (x.r) return x.v * deg; v = x.v; d = x.d; }
+    else { const r = evalExpr(src, { vars: env }); if (r.rad) return r.value * deg; v = r.value; d = r.dim; }
     return d && Number.isFinite(v) ? v / unitOf(src, d, v).f : v;
   };
   if (needSim) {

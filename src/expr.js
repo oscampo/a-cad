@@ -309,7 +309,13 @@ function matFn(name, A) {
   }
 }
 
-export function evalExpr(src, { radians = false, vars = null, allowMat = false, depth = 0, globals = null } = {}) {
+// Ángulos del dibujo (opción «Ángulos en: grados / radianes» del documento, doc.angles): los textos de cálculo y las gráficas
+// evalúan con este valor por defecto; las cotas y los actuadores lo fijan explícito (siempre en grados).
+let DEF_RAD = false;
+export const setAngleMode = (doc) => { DEF_RAD = doc?.angles === 'rad'; };
+export const angleRad = () => DEF_RAD;
+
+export function evalExpr(src, { radians = DEF_RAD, vars = null, allowMat = false, depth = 0, globals = null } = {}) {
   const toks = tokenize(String(src ?? ''), vars);
   if (!toks.length) throw new Error('Escribe un valor');
   let p = 0;

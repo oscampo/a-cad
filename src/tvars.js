@@ -1,7 +1,7 @@
 // Variables definidas en los textos: «nombre:valor» (dentro de una formula) asigna a «nombre» el valor de una expresion (sin DOM).
 // Se leen en el orden de la pagina (arriba a abajo, izquierda a derecha; ver textOrder): una variable vale lo de su ultima definicion anterior,
 // y las cotas ven lo que valen al final. El valor puede usar cotas y variables definidas antes. El texto la muestra en cursiva como «nombre:=valor».
-import { evalExpr, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName } from './expr.js';
+import { evalExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName } from './expr.js';
 import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg } from './units.js';
 
@@ -279,10 +279,11 @@ export function evalRangeDef(rg, unit, vars) {
 }
 let memoKey = null, memoSt = null;
 export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = []) {
+  setAngleMode(doc);
   const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map() };
   const events = readingEvents(doc, probes);
   if (!events.some((e) => e.kind !== 'dim')) return st; // sin definiciones ni salidas: nada que leer
-  const key = JSON.stringify([events, dimVars, [...dimNames]]);
+  const key = JSON.stringify([events, dimVars, [...dimNames], angleRad()]);
   if (key === memoKey) return memoSt; // las mismas definiciones, posiciones y cotas: el mismo resultado
   const check = (d) => { // ¿vale la definicion? (motivo si no)
     if (isReservedName(d.name)) return reservedWhy(d.name);

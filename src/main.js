@@ -44,7 +44,8 @@ const cv = $('cv');
 const ctx = cv.getContext('2d');
 
 // ---------------------------------------------------------------- estado
-let doc = newDoc();
+const freshDoc = () => ({ ...newDoc(), angles: 'rad' }); // un dibujo nuevo calcula en radianes; los anteriores (sin «angles») siguen en grados
+let doc = freshDoc();
 const globalDoc = () => doc;
 let view = { ox: 200, oy: 300, s: 3 }; // px por unidad; y del modelo hacia arriba
 let tool = 'select';
@@ -2840,6 +2841,7 @@ function drawSample(canvas, pattern, color) {
 }
 
 function syncPanel() {
+  $('docAngles').value = doc.angles === 'rad' ? 'rad' : 'deg';
   const first = sel.map((s) => (s.k === 'ln' ? doc.lines[s.id] : s.k === 'ci' ? doc.circles[s.id] : s.k === 'ar' ? doc.arcs[s.id] : s.k === 'sp' ? doc.splines[s.id] : s.k === 'el' ? doc.ellipses[s.id] : null)).find(Boolean);
   const hat = sel.map((s) => (s.k === 'ha' ? doc.hatches[s.id] : null)).find(Boolean);
   const txt = sel.map((s) => (s.k === 'tx' ? doc.texts[s.id] : null)).find(Boolean);
@@ -4391,6 +4393,7 @@ function applyLabels() {
   document.body.classList.toggle('nolabels', !opts.labels);
   $('tLabels').setAttribute('aria-pressed', String(opts.labels));
 }
+$('docAngles').onchange = (e) => { pushUndo(); if (e.target.value === 'rad') doc.angles = 'rad'; else delete doc.angles; afterChange(); toast(e.target.value === 'rad' ? 'Textos de cálculo en radianes: sin(π/2)=1' : 'Textos de cálculo en grados: sin(90)=1'); };
 $('ltScale').oninput = (e) => { opts.ltScale = Number(e.target.value); draw(); syncPanel(); persist(); };
 
 function previewNew() {
@@ -4422,7 +4425,7 @@ $('ltDel').onclick = () => {
   fillLtypes(); afterChange();
 };
 
-$('fNew').onclick = () => { if (confirm('¿Empezar un dibujo nuevo? Se pierde lo no guardado.')) { loadDoc(newDoc()); opts.fileBase = ''; fitView(); afterChange(); } };
+$('fNew').onclick = () => { if (confirm('¿Empezar un dibujo nuevo? Se pierde lo no guardado.')) { loadDoc(freshDoc()); opts.fileBase = ''; fitView(); afterChange(); } };
 $('fSave').onclick = () => saveFile('json', '', () => new Blob([JSON.stringify({ app: 'ipad-cad', version: VERSION, doc }, null, 1)], { type: 'application/json' }));
 $('fLoad').onclick = () => $('fileIn').click();
 $('fileIn').onchange = async (e) => {

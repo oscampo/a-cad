@@ -70,7 +70,7 @@ function funcOf(doc, a) {
     return { f: (t) => { if (t <= T[0][0]) return T[0][1]; for (let i = 1; i < T.length; i++) if (t <= T[i][0]) return T[i - 1][1] + ((T[i][1] - T[i - 1][1]) * (t - T[i - 1][0])) / (T[i][0] - T[i - 1][0]); return T[T.length - 1][1]; }, T };
   }
   const env = { ...varsOf(doc), t: { v: 0, r: false } }; // un solo entorno que se reutiliza: copiarlo en cada evaluacion era el mayor costo
-  return { f: (t) => { env.t.v = t; return evalExpr(a.expr, { vars: env }).value; } };
+  return { f: (t) => { env.t.v = t; return evalExpr(a.expr, { vars: env, radians: false }).value; } };
 }
 const PANEL = 0.01; // la integral de una velocidad en expresion se acumula por paneles de Simpson de 0.01 s y se reutiliza
 // Una expresion que solo depende de t se puede guardar en cache (si lee cotas o medidas, cambia con el dibujo y no).

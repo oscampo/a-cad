@@ -1,7 +1,7 @@
 // Geometria de los textos: caja imaginaria, punto de insercion y orientacion. Sin DOM.
 // measure(linea) -> ancho de la linea para una altura de texto de 1 (en el navegador sale
 // de measureText; en las pruebas puede ser una aproximacion).
-import { evalExpr } from './expr.js';
+import { evalExpr, setAngleMode } from './expr.js';
 import { varsOf, textVars } from './params.js';
 import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts } from './tvars.js';
 import { normName, exprRefs } from './expr.js';
@@ -54,6 +54,7 @@ function matQ(m, dim, env, src, want, math) {
   return u ? box(matText(m.map((r) => r.map((x) => x / u.f)), fmtQ)) + tailOf(want || u.name, math) : '⚠';
 }
 export function textValue(doc, t) {
+  setAngleMode(doc);
   const s = String(t.text ?? '');
   const hasSub = s.includes('$') && s.includes('_(');
   if (!hasSub && !(s.includes('$') && /[:=`]/.test(s))) return s;
