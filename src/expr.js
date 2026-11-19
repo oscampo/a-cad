@@ -360,7 +360,16 @@ let DEF_RAD = false;
 export const setAngleMode = (doc) => { DEF_RAD = doc?.angles === 'rad'; setDecimal(doc?.decimal); }; // el indicador decimal del dibujo va con la opcion de angulos: se activan juntos
 export const angleRad = () => DEF_RAD;
 
-export function evalExpr(src, { radians = DEF_RAD, vars = null, allowMat = false, depth = 0, globals = null } = {}) {
+// Dibujos anteriores (sin indicador decimal) leen «0,0» como un decimal: «f(0.7,0,0)» daba error. Si la lectura de siempre falla y la expresion
+// tiene comas, se reintenta con punto decimal (la coma separa); lo que ya funcionaba no cambia.
+export function evalExpr(src, opts = {}) {
+  try { return evalExpr1(src, opts); } catch (e) {
+    if (decimalMode() !== null || typeof src !== 'string' || !src.includes(',')) throw e;
+    setDecimal('.');
+    try { return evalExpr1(src, opts); } catch (e2) { throw e; } finally { setDecimal(null); }
+  }
+}
+function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, depth = 0, globals = null } = {}) {
   const toks = tokenize(String(src ?? ''), vars);
   if (!toks.length) throw new Error('Escribe un valor');
   let p = 0;
