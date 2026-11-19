@@ -43,6 +43,14 @@ t('parser: operadores de varios signos y funciones', () => {
   assert.equal(parse('oo').c[0].s, '∞');
 });
 
+t('parser: operadores elemento a elemento en notacion matematica', () => {
+  assert.deepEqual(parse('sin(x)./x'), parse('sin(x)/x')); // ./ es una fraccion normal
+  assert.deepEqual(parse('x.^2'), parse('x^2')); // .^ es una potencia normal
+  assert.equal(parse('a.*b').c[1].s, '∘'); // .* es el producto de Hadamard
+  assert.deepEqual(parse('2./3'), parse('2/3')); // el punto no se pega al numero
+  assert.equal(parse('1.5').c[0].s, '1.5');
+});
+
 t('parser: nunca lanza y un grupo sin cierre se acepta', () => {
   for (const s of ['', '(', '((a', 'sqrt', 'a/', '/a', '^', '_2', ')', 'frac', 'x^', '"abc', 'sum_', '{: a :}', '\u{1F600}']) assert.doesNotThrow(() => parse(s), s);
   const g = parse('(a+b').c[0];
