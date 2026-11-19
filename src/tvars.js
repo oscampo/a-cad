@@ -3,6 +3,7 @@
 // y las cotas ven lo que valen al final. El valor puede usar cotas y variables definidas antes. El texto la muestra en cursiva como «nombre:=valor».
 import { evalExpr, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName } from './expr.js';
 import { splitMath } from './mathlayout.js';
+import { parseUnit, sameDim, unitMsg } from './units.js';
 
 // Marcas de cursiva dentro de un texto ya expandido (caracteres de uso privado: no se escriben a mano).
 export const IT0 = '', IT1 = '';
@@ -41,8 +42,11 @@ const OUT_LINE = /^(\s*)([\s\S]*?\S)(\s*)=(\s*)$/;
 // Un trozo de codigo: { k:'def', pre, name, params, sep, expr, eq, post } | { k:'out', pre, expr, mid, post } | { k:'code', s }.
 // eq: en «x:expr=», lo que sigue a la expresion («=» con sus espacios); asigna y ademas muestra el valor.
 const EQ_TAIL = /^([\s\S]*?\S)(\s*=)$/;
-// «x:valor'unidad»: la unidad es una etiqueta que acompaña al valor (no se convierte ni se propaga en los calculos). uq: «'unidad» tal como se escribio.
+// «x:valor'unidad»: el valor (sin unidades) va en esa unidad; si ya trae unidades, se muestra en ella (deben ser de la misma magnitud).
+// Tambien en una salida: «F='kN». uq: «'unidad» tal como se escribio. Si lo de antes ya lleva «'» («2'kN+300'N»), no es una cola: son unidades dentro de la expresion.
+const OUT_UNIT = /^(\s*)([\s\S]*?\S)(\s*)=(\s*'\s*([^'"`=\s](?:[^'"`=]*[^'"`=\s])?))(\s*)$/;
 const UNIT_TAIL = /^([\s\S]*?\S)(\s*'\s*([^'"`=\s](?:[^'"`=]*[^'"`=\s])?))$/;
+const unitOk = (u) => { try { parseUnit(u); return true; } catch (e) { return false; } }; // «(250'N)/m» no es «(250» en «N)/m»
 function stmtOf(s) {
   let m = DEF_LINE.exec(s);
   if (m && m[5].trim()) {
@@ -50,9 +54,11 @@ function stmtOf(s) {
     const e = EQ_TAIL.exec(m[5]); // tambien en una funcion: «f(x):x^2=» define f y muestra f(x) con las variables de ese punto
     if (e && !/[<>=!:≤≥≠]$/.test(e[1])) { d.expr = e[1]; d.eq = e[2]; }
     const u = d.params === undefined ? UNIT_TAIL.exec(d.expr) : null;
-    if (u) { d.expr = u[1]; d.uq = u[2]; d.unit = u[3]; }
+    if (u && !u[1].includes("'") && unitOk(u[3])) { d.expr = u[1]; d.uq = u[2]; d.unit = u[3]; }
     return d;
   }
+  m = OUT_UNIT.exec(s);
+  if (m) return { k: 'out', pre: m[1], expr: m[2], mid: m[3], uq: m[4], unit: m[5], post: m[6] };
   m = OUT_LINE.exec(s);
   if (m && !/[<>=!:≤≥≠]$/.test(m[2])) return { k: 'out', pre: m[1], expr: m[2], mid: m[3], post: m[4] };
   return { k: 'code', s };
@@ -74,7 +80,7 @@ export function calcPieces(line) {
   return out;
 }
 export const pieceSrc = (p) => (p.k === 'lit' ? '`' + p.s + (p.closed ? '`' : '') : p.k === 'code' ? p.s
-  : p.k === 'def' ? p.pre + p.name + (p.params !== undefined ? '(' + p.params + ')' : '') + p.sep + p.expr + (p.uq ?? '') + (p.eq ?? '') + p.post : p.pre + p.expr + p.mid + '=' + p.post);
+  : p.k === 'def' ? p.pre + p.name + (p.params !== undefined ? '(' + p.params + ')' : '') + p.sep + p.expr + (p.uq ?? '') + (p.eq ?? '') + p.post : p.pre + p.expr + p.mid + '=' + (p.uq ?? '') + p.post);
 // Filtro rapido: ¿puede llevar enunciados?
 export const hasCalc = (s) => typeof s === 'string' && s.includes('$') && /[:=]/.test(s);
 // Un texto partido en tramos: { t:'txt', raw } y { t:'math', disp, lines: [[trozo]] }. calcSrc lo vuelve a escribir tal cual.
@@ -234,6 +240,24 @@ export const textDefs = (doc) => readingEvents(doc).filter((e) => e.kind === 'de
 //  defVal: Map('tid:idx' -> valor que esa definicion dio); outEnv: Map('tid:idx' -> variables que ve esa salida «expr=»)
 //  fnEnv: Map('tid:idx' -> variables que ve «f(x):expr=», para mostrar f(x) ahi mismo)
 //  dimEnv: Map(id de cota -> variables de texto que ve esa cota en su lugar de la pagina)
+// «x:expr'unidad»: si expr no lleva unidades, vale expr en esa unidad; si las lleva, deben ser de la misma magnitud y se muestra en ella (pu, pf: unidad y su factor al SI).
+// Si no cuadran, se prueba la unidad como parte de la expresion («L1+3'mm» es L1 + 3 mm). Las unidades no van en vectores ni matrices.
+export function evalDef(expr, unit, vars) {
+  if (!unit) return evalExpr(expr, { vars, allowMat: true });
+  const u = parseUnit(unit);
+  let r;
+  try { r = evalExpr(expr, { vars, allowMat: true }); } catch (e) {
+    try { return finish(evalExpr(expr + "'" + unit, { vars })); } catch (e2) { throw e; } // «L1+3'mm»: 3 sin unidades no se suma a L1, 3 mm si
+  }
+  function finish(w) { return w.dim && sameDim(w.dim, u.d) ? { ...w, pu: unit, pf: u.f } : w; }
+  if (r.mat) throw new Error('Las unidades todavía no funcionan con vectores ni matrices');
+  if (!r.dim) return { value: r.value * u.f, rad: r.rad || !!u.r, dim: u.d, pu: unit, pf: u.f };
+  if (sameDim(r.dim, u.d)) return { ...r, pu: unit, pf: u.f };
+  let w = null;
+  try { w = evalExpr(expr + "'" + unit, { vars }); } catch (e) { /* no cuadra de ninguna forma */ }
+  if (w && w.dim) return sameDim(w.dim, u.d) ? { ...w, pu: unit, pf: u.f } : w;
+  throw new Error(`da ${unitMsg(r.dim)}, que no se puede expresar en ${unit} (${unitMsg(u.d)})`);
+}
 let memoKey = null, memoSt = null;
 export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = []) {
   const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map() };
@@ -272,14 +296,14 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
     else {
       try {
         const rg = parseRange(e.expr);
+        if (rg && e.unit) throw new Error('Las unidades todavía no funcionan con vectores ni matrices');
         if (rg) val = { vec: rangeValues(rg, (s) => evalExpr(s, { vars: cur }).value), r: false };
         else {
-          const r = evalExpr(e.expr, { vars: cur, allowMat: true });
-          val = r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false } : { mat: r.mat, r: false }) : { v: r.value, r: r.rad }; // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
+          const r = evalDef(e.expr, e.unit, cur);
+          val = r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false } : { mat: r.mat, r: false }) : { v: r.value, r: r.rad, ...(r.dim ? { d: r.dim } : {}), ...(r.pu ? { pu: r.pu, pf: r.pf } : {}) }; // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
         }
       } catch (err) { st.bad.add(k); st.errs.set(e.name, `«${e.name}»: ${hint(err.message)}`); }
     }
-    if (val && e.unit) val.u = e.unit;
     if (val) { cur[e.name] = val; env[e.name] = val; st.defVal.set(k, val); if (e.eq) st.fnEnv.set(k, { ...cur }); } else { delete cur[e.name]; delete env[e.name]; } // una definicion que falla deja la variable sin definir
   }
   memoKey = key; memoSt = st;

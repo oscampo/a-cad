@@ -4,6 +4,8 @@
 // Variables: las cotas con nombre (D1, A1, R2, O3 o el que les des) se pueden usar en las formulas: vars = { nombre: { v, r } }.
 // Un angulo vale su medida en radianes (r = true), igual que π: sin(A1) funciona y R*A1 es la longitud de arco.
 
+import { parseUnit, sameDim, mulDim, powDim, unitMsg } from './units.js';
+
 const TAU_DEG = 180 / Math.PI;
 const FUNCS = {
   sin: (x, r) => Math.sin(r ? x : x / TAU_DEG), sen: (x, r) => Math.sin(r ? x : x / TAU_DEG),
@@ -17,6 +19,7 @@ const FUNCS = {
   // redondeo
   floor: Math.floor, piso: Math.floor, ceil: Math.ceil, techo: Math.ceil, trunc: Math.trunc, sign: Math.sign, signo: Math.sign,
 };
+const KEEP_U = new Set(['abs', 'floor', 'piso', 'ceil', 'techo', 'trunc']); // con unidades, conservan las del argumento
 const KEEP_RAD = new Set(['sqrt', 'raiz', 'abs', 'floor', 'piso', 'ceil', 'techo', 'trunc']); // conservan la marca de radianes del argumento
 const MAKE_RAD = new Set(['rad']); // su resultado es un angulo en radianes
 const CONSTS = { pi: Math.PI, π: Math.PI, e: Math.E };
@@ -87,9 +90,16 @@ function tokenize(src, vars = null, loose = false) {
   while (i < src.length) {
     const c = src[i];
     if (/\s/.test(c)) { i++; continue; }
-    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'idx') || (last.t === 'op' && (last.v === ')' || last.v === ']')));
+    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'idx') || last.t === 'unit' || (last.t === 'op' && (last.v === ')' || last.v === ']')));
     // separador de argumentos: «;», o una coma tras un valor («max(a, 5)»); «2,5» ya lo tomo el numero como decimal
     if (c === ';' || (c === ',' && afterValue)) { toks.push({ t: 'sep', c, i, j: i + 1 }); i++; continue; }
+    if (c === "'") { // unidad: «250'N», «3'(m/s)», «20'°»
+      const um = /^'\s*(\([^()]*\)|[A-Za-zµμΩ°%áéíóú]+[²³]?)/.exec(src.slice(i));
+      if (!um) throw new Error("Después de «'» va una unidad, p. ej. 250'N o 3'(m/s)");
+      let u;
+      try { u = parseUnit(um[1].replace(/^\((.*)\)$/, '$1')); } catch (e) { if (!loose) throw e; u = { f: 1 }; }
+      toks.push({ t: 'unit', u, i, j: i + um[0].length }); i += um[0].length; continue;
+    }
     const cm = /^(<=|>=|==|!=|<|>|≤|≥|≠)/.exec(src.slice(i));
     if (cm) { toks.push({ t: 'cmp', v: { '≤': '<=', '≥': '>=', '≠': '!=' }[cm[0]] || cm[0], i, j: i + cm[0].length }); i += cm[0].length; continue; }
     let m = (depth > 0 ? /^(\d+(\.\d+)?|\.\d+)/ : /^(\d+([.,]\d+)?|[.,]\d+)/).exec(src.slice(i));
@@ -303,8 +313,12 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
   let p = 0;
   const peek = () => toks[p];
   const isOp = (v) => peek()?.t === 'op' && peek().v === v;
-  const startsFactor = () => { const k = peek(); return k && (k.t === 'num' || k.t === 'id' || k.t === 'var' || k.t === 'ufn' || k.t === 'idx' || k.t === 'sqrt' || (k.t === 'op' && (k.v === '(' || k.v === '['))); };
+  const startsFactor = () => { const k = peek(); return k && (k.t === 'num' || k.t === 'id' || k.t === 'var' || k.t === 'ufn' || k.t === 'idx' || k.t === 'unit' || k.t === 'sqrt' || (k.t === 'op' && (k.v === '(' || k.v === '['))); };
   const bin = (a, b, v) => ({ v, r: a.r || b.r });
+  // Unidades: d es la dimension de un escalar (sin d, un numero sin unidades). Sumar pide la misma; multiplicar y dividir las combinan.
+  const noU = (...xs) => { if (xs.some((x) => x?.d)) throw new Error('Las unidades todavía no funcionan con vectores ni matrices'); };
+  const addU = (a, b, s) => { if (!sameDim(a.d, b.d)) throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} ${unitMsg(a.d)} y ${unitMsg(b.d)}`); return a.d || b.d; };
+  const mulU = (a, b, s, v) => ({ v, r: a.r || b.r, d: mulDim(a.d, b.d, s) });
 
   // comparacion (la de menor precedencia): da 1 si se cumple y 0 si no. «==» y «!=» toleran el error de redondeo.
   function cmp() {
@@ -313,7 +327,8 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
     p++;
     const b = expr();
     if (isM(a) || isM(b)) throw new Error('No se pueden comparar vectores o matrices');
-    const x = a.v, y = b.v, eq = Math.abs(x - y) <= 1e-9 * Math.max(1, Math.abs(x), Math.abs(y));
+    if (!sameDim(a.d, b.d)) throw new Error(`No se puede comparar ${unitMsg(a.d)} con ${unitMsg(b.d)}`);
+    const x = a.v, y = b.v, eq = Math.abs(x - y) <= 1e-9 * Math.max(a.d ? 0 : 1, Math.abs(x), Math.abs(y)); // con unidades, la tolerancia es relativa (3'pF no es 0)
     const ok = { '<': x < y && !eq, '>': x > y && !eq, '<=': x < y || eq, '>=': x > y || eq, '==': eq, '!=': !eq }[k.v];
     return { v: ok ? 1 : 0, r: false };
   }
@@ -342,12 +357,14 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
   }
   function call(name, A) {
     const sep = ' (sepáralos con «;»: «2,5» es un solo número)';
-    if (MATFN.has(name)) return matFn(name, A);
+    if (MATFN.has(name)) { noU(...A); return matFn(name, A); }
     if ((name === 'min' || name === 'max') && A.length === 1) { // min(x), max(x): el menor o el mayor de todos los elementos
       if (!isM(A[0])) throw new Error(`«${name}» recibe dos valores (${name}(a; b)) o un vector`);
+      noU(...A);
       return { v: Math[name](...A[0].m.flat()), r: false };
     }
     if (A.some((a) => isM(a))) { // funciones sobre vectores y matrices: a cada elemento (los escalares se extienden)
+      noU(...A);
       if (name in FUNCS) {
         if (A.length !== 1) throw new Error(`«${name}» recibe un solo valor`);
         return mapM(A[0], (x) => FUNCS[name](x, radians, radians));
@@ -360,10 +377,23 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
     }
     if (name in FUNCS) {
       if (A.length !== 1) throw new Error(`«${name}» recibe un solo valor`);
+      const a = A[0];
+      if (a.d) { // con unidades: la raiz las parte a la mitad, el redondeo y abs las conservan, signo no las lleva; el resto pide un numero sin unidades
+        if (name === 'sqrt' || name === 'raiz') return { v: Math.sqrt(a.v), r: false, d: powDim(a.d, 0.5) };
+        if (KEEP_U.has(name)) return { v: FUNCS[name](a.v), r: false, d: a.d };
+        if (name === 'sign' || name === 'signo') return { v: Math.sign(a.v), r: false };
+        throw new Error(`«${name}» necesita un número sin unidades (recibió ${unitMsg(a.d)})`);
+      }
       return { v: FUNCS[name](A[0].v, A[0].r || radians, radians), r: MAKE_RAD.has(name) || (KEEP_RAD.has(name) && A[0].r) };
     }
     const M = MULTI[name], [lo, hi] = [M.n[0], M.n[1] ?? Infinity];
     if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === Infinity ? `${lo} valores o más` : lo === hi ? `${lo} valores` : `${lo} o ${hi} valores`}${sep}`);
+    if (A.some((x) => x.d)) { // con unidades: los valores deben tener la misma dimension; el resultado la conserva (atan2 da un angulo)
+      if (name === 'round' || name === 'redondear') { if (A[1]?.d) throw new Error('round(x; n): n es un número sin unidades'); return { ...M.f(A, radians), d: A[0].d }; }
+      if (A.some((x) => !sameDim(x.d, A[0].d))) throw new Error(`«${name}» necesita valores con las mismas unidades (recibió ${A.map((x) => unitMsg(x.d)).join(', ')})`);
+      const r = M.f(A, radians);
+      return name === 'atan2' ? r : { ...r, d: A[0].d };
+    }
     return M.f(A, radians);
   }
 
@@ -373,10 +403,10 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
     if (A.length !== f.params.length) throw new Error(`«${name}» recibe ${f.params.length === 1 ? 'un valor' : `${f.params.length} valores separados por «;»`}: ${name}(${f.params.join('; ')})`);
     if (depth >= 200) throw new Error(`«${name}» se llama a sí misma demasiadas veces (200 niveles)`);
     const g = globals || vars, local = { ...g };
-    f.params.forEach((q, i) => { local[q] = isM(A[i]) ? { mat: A[i].m } : { v: A[i].v, r: !!A[i].r }; });
+    f.params.forEach((q, i) => { local[q] = isM(A[i]) ? { mat: A[i].m } : { v: A[i].v, r: !!A[i].r, d: A[i].d }; });
     try {
       const r = evalExpr(f.body, { radians, vars: local, allowMat: true, depth: depth + 1, globals: g });
-      return r.mat ? { m: r.mat } : { v: r.value, r: r.rad };
+      return r.mat ? { m: r.mat } : { v: r.value, r: r.rad, d: r.dim };
     } catch (e) {
       if (/^En «/.test(e.message)) throw e;
       const ne = new Error(`En «${name}»: ${e.message}`); ne.rt = e.rt; throw ne;
@@ -385,7 +415,7 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
 
   function expr() {
     let a = term();
-    while (isOp('+') || isOp('-')) { const o = toks[p++].v, s = o === '+' ? 1 : -1; const b = term(); a = isM(a) || isM(b) ? addM(a, b, s) : bin(a, b, a.v + s * b.v); }
+    while (isOp('+') || isOp('-')) { const o = toks[p++].v, s = o === '+' ? 1 : -1; const b = term(); a = isM(a) || isM(b) ? (noU(a, b), addM(a, b, s)) : { v: a.v + s * b.v, r: a.r || b.r, d: addU(a, b, s) }; }
     return a;
   }
   function term() {
@@ -393,20 +423,20 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
     for (;;) {
       if (isOp('.*') || isOp('./')) { // elemento a elemento
         const o = toks[p++].v, b = unary();
-        if (!isM(a) && !isM(b)) { if (o === './' && b.v === 0) throw rt('División entre cero'); a = bin(a, b, o === '.*' ? a.v * b.v : a.v / b.v); } else a = o === '.*' ? elementwise(a, b, (x, y) => x * y, 'multiplicar elemento a elemento') : elementwise(a, b, divEl, 'dividir elemento a elemento');
+        if (!isM(a) && !isM(b)) { if (o === './' && b.v === 0) throw rt('División entre cero'); a = mulU(a, b, o === '.*' ? 1 : -1, o === '.*' ? a.v * b.v : a.v / b.v); } else noU(a, b), a = o === '.*' ? elementwise(a, b, (x, y) => x * y, 'multiplicar elemento a elemento') : elementwise(a, b, divEl, 'dividir elemento a elemento');
       } else if (isOp('*') || isOp('/')) {
         const o = toks[p++].v; const b = unary();
         if (o === '/') {
           if (isM(b)) throw new Error('No se puede dividir entre un vector o una matriz');
           if (b.v === 0) throw rt('División entre cero');
-          a = isM(a) ? mapM(a, (x) => x / b.v) : bin(a, b, a.v / b.v);
-        } else a = isM(a) || isM(b) ? mulM(a, b) : bin(a, b, a.v * b.v);
-      } else if (startsFactor()) { const b = unary(); a = isM(a) || isM(b) ? mulM(a, b) : bin(a, b, a.v * b.v); } // multiplicacion implicita: 2π, 3(4+1)
+          a = isM(a) ? (noU(b), mapM(a, (x) => x / b.v)) : mulU(a, b, -1, a.v / b.v);
+        } else a = isM(a) || isM(b) ? (noU(a, b), mulM(a, b)) : mulU(a, b, 1, a.v * b.v);
+      } else if (startsFactor()) { const b = unary(); a = isM(a) || isM(b) ? (noU(a, b), mulM(a, b)) : mulU(a, b, 1, a.v * b.v); } // multiplicacion implicita: 2π, 3(4+1)
       else return a;
     }
   }
   function unary() {
-    if (isOp('-')) { p++; const a = unary(); return isM(a) ? mapM(a, (x) => -x) : { v: -a.v, r: a.r }; }
+    if (isOp('-')) { p++; const a = unary(); return isM(a) ? mapM(a, (x) => -x) : { v: -a.v, r: a.r, d: a.d }; }
     if (isOp('+')) { p++; return unary(); }
     return power();
   }
@@ -416,14 +446,16 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
       p++;
       if (peek()?.t === 'tr') { p++; return isM(a) ? transposeM(a) : a; } // x^T
       const b = unary();
+      if (b.d) throw new Error(`El exponente no puede llevar unidades (lleva ${unitMsg(b.d)})`);
       if (isM(a) && !isM(b)) return powM(a, b.v); // A^2, A^(-1)
       if (isM(b)) throw new Error('El exponente no puede ser un vector ni una matriz (para elevar elemento a elemento usa .^)');
-      return { v: Math.pow(a.v, b.v), r: a.r };
+      return { v: Math.pow(a.v, b.v), r: a.r, d: powDim(a.d, b.v) };
     }
     if (isOp('.^')) { // elemento a elemento
       p++;
       const b = unary();
-      return !isM(a) && !isM(b) ? { v: Math.pow(a.v, b.v), r: a.r } : elementwise(a, b, Math.pow, 'elevar elemento a elemento');
+      if (b.d) throw new Error(`El exponente no puede llevar unidades (lleva ${unitMsg(b.d)})`);
+      return !isM(a) && !isM(b) ? { v: Math.pow(a.v, b.v), r: a.r, d: powDim(a.d, b.v) } : (noU(a), elementwise(a, b, Math.pow, 'elevar elemento a elemento'));
     }
     return a;
   }
@@ -431,6 +463,7 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
     const k = toks[p++];
     if (!k) throw new Error('Expresión incompleta');
     if (k.t === 'num') return { v: k.v, r: false };
+    if (k.t === 'unit') return { v: k.u.f, r: !!k.u.r, d: k.u.d }; // 'N, 'mm: vale su factor al SI, con su dimension
     if (k.t === 'idx') { // v_2, A_(i,j), A_(i,:), A_(:,j): un elemento, una fila o una columna (los indices empiezan en 1)
       const x = vars[k.base], m = x.mat || [x.vec], R = m.length, C = m[0].length, name = `${k.base}_(${k.src})`;
       const ix = splitIdx(k.src).map((s) => {
@@ -465,15 +498,16 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
       if (x.fn) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
       if (x.mat) return { m: x.mat };
       if (x.vec) return { m: [x.vec] };
-      return { v: x.v, r: !!x.r };
+      return { v: x.v, r: !!x.r, d: x.d };
     }
-    if (k.t === 'sqrt') { const a = primary(); if (isM(a)) { if (a.m.some((r) => r.some((x) => x < 0))) throw rt('Raíz de un número negativo'); return mapM(a, Math.sqrt); } if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r }; }
+    if (k.t === 'sqrt') { const a = primary(); if (isM(a)) { if (a.m.some((r) => r.some((x) => x < 0))) throw rt('Raíz de un número negativo'); return mapM(a, Math.sqrt); } if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r, d: powDim(a.d, 0.5) }; }
     if (k.t === 'op' && k.v === '[') { // matriz: [1, 2, 3] (fila) o [1, 2; 3, 4] (filas separadas por «;»)
       if (isOp(']')) throw new Error('Una matriz no puede estar vacía');
       const rows = [[]];
       for (;;) {
         const a = cmp();
         if (isM(a)) throw new Error('Los elementos de una matriz son números');
+        noU(a);
         rows.at(-1).push(a.v);
         const s = peek();
         if (s?.t === 'sep') { p++; if (s.c === ';') rows.push([]); continue; }
@@ -517,7 +551,7 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
     return { mat: res.m, value: NaN, rad: false };
   }
   if (!Number.isFinite(res.v)) throw new Error('El resultado no es un número');
-  return { value: res.v, rad: res.r };
+  return { value: res.v, rad: res.r, dim: res.d };
 }
 
 // ¿El texto es un numero sin mas? (entonces no se guarda como formula)
@@ -526,6 +560,7 @@ export const isPlainNumber = (s) => /^\s*[-+]?(\d+([.,]\d+)?|[.,]\d+)\s*$/.test(
 // Valor numerico de lo que escribio el usuario; angle: lo que viene de π se pasa de radianes a grados.
 // radians: la cota angular se escribe en radianes (los numeros y sin/cos/tan van en radianes); si no, en grados.
 export function parseValue(src, { angle = false, radians = false, vars = null } = {}) {
-  const { value, rad } = evalExpr(src, { radians: angle && radians, vars });
+  let { value, rad, dim } = evalExpr(src, { radians: angle && radians, vars });
+  if (dim && dim[0] === 1 && dim.slice(1).every((x) => x === 0)) value *= 1000; // una longitud con unidades («2'cm») va al dibujo en mm; otras magnitudes, en el SI
   return Number((angle && (rad || radians) ? value * TAU_DEG : value).toPrecision(12));
 }

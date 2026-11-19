@@ -4,7 +4,8 @@
 import { evalExpr } from './expr.js';
 import { varsOf, textVars } from './params.js';
 import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts } from './tvars.js';
-import { normName } from './expr.js';
+import { normName, exprRefs } from './expr.js';
+import { parseUnit, sameDim, autoUnit } from './units.js';
 export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
 import { hasMath, layoutText, splitMath } from './mathlayout.js';
@@ -24,6 +25,20 @@ const matText = (m) => {
 };
 // Una unidad dentro de una formula: texto recto separado del valor («^2» y «^3» como superindices).
 const unitMath = (u) => ' " ' + u.split('^2').join('²').split('^3').join('³') + '"';
+// Unidades escritas dentro de una expresion («250'N», «3'(m/s)»): se dibujan como unidad, no como «'».
+const showU = (seg) => (seg.includes("'") ? seg.replace(/'\s*(\([^()]*\)|[A-Za-zµμΩ°%áéíóú]+[²³]?)/g, (m, u) => unitMath(u.replace(/^\(|\)$/g, ''))) : seg);
+// Un numero en una unidad: los muy pequeños con 4 cifras significativas (fmtNum los dejaria en 0); sin el «.0» de fmtNum en los miles.
+const fmtQ = (x) => (x !== 0 && Math.abs(x) < 1e-3 ? String(Number(x.toPrecision(4))) : String(Number(x.toFixed(Math.abs(x) >= 1000 ? 1 : 3))));
+// Una cantidad con unidades: en la unidad pedida («F='kN»), si no en la de la variable («F:250'N»), en la de una variable de la expresion
+// con la misma magnitud, o en la del SI con prefijo (autoUnit). ⚠ si la unidad pedida no es de la misma magnitud.
+function qty(r, env, src, want, math) {
+  const tail = (n) => (math ? unitMath(n) : ' ' + n);
+  if (want) { const u = parseUnit(want); return sameDim(r.dim, u.d) ? fmtQ(r.value / u.f) + tail(want) : '⚠'; }
+  if (!r.dim) return fmtNum(r.value);
+  for (const n of [normName(String(src).trim()), ...exprRefs(src)]) { const x = env?.[n]; if (x?.pu && sameDim(x.d, r.dim)) return fmtQ(r.value / x.pf) + tail(x.pu); }
+  const a = autoUnit(r.value, r.dim);
+  return fmtQ(r.value / a.f) + tail(a.name);
+}
 export function textValue(doc, t) {
   const s = String(t.text ?? '');
   const hasSub = s.includes('$') && s.includes('_(');
@@ -48,8 +63,7 @@ export function textValue(doc, t) {
     try {
       const env = st?.outEnv.get(tid + ':' + oidx++) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
       const r = evalExpr(p.expr, { vars: env, allowMat: true });
-      const u = env[normName(p.expr.trim())]?.u; // «F=» de una variable con unidad la muestra; una expresion no (la unidad no se propaga)
-      return (r.mat ? (math ? VB0 + matText(r.mat) + VB1 : matText(r.mat)) : fmtNum(r.value)) + (u ? (math ? unitMath(u) : ' ' + u) : '');
+      return r.mat ? (p.unit ? '⚠' : math ? VB0 + matText(r.mat) + VB1 : matText(r.mat)) : qty(r, env, p.expr, p.unit, math);
     } catch (e) { return '⚠'; }
   };
   // La magnitud de un vector («$D3=$», ver vectors.js) muestra solo el valor, como texto.
@@ -59,21 +73,22 @@ export function textValue(doc, t) {
     if (!env || params.split(/[;,]/).some((q) => !(normName(q.trim()) in env))) return '';
     try {
       const r = evalExpr(callSrc, { vars: env, allowMat: true });
-      return '=' + (r.mat ? VB0 + matText(r.mat) + VB1 : fmtNum(r.value));
+      return '=' + (r.mat ? VB0 + matText(r.mat) + VB1 : qty(r, env, '', null, true));
     } catch (e) { return '=⚠'; }
   };
   const piece = (p) => {
     if (p.k === 'lit') return p.closed ? p.s : '`' + p.s + ' ⚠'; // literal: se dibuja, no se calcula
     if (p.k === 'code') return wrapNames(p.s);
-    if (p.k === 'out') return p.pre + wrapNames(p.expr) + '=' + outVal(p, true) + p.post; // expr= -> expr=valor
+    if (p.k === 'out') return p.pre + showU(wrapNames(p.expr)) + '=' + outVal(p, true) + p.post; // expr= -> expr=valor
     const name = normName(p.name), shown = name.includes('_(') ? NM0 + name + NM1 : name; // x:valor -> x:=valor (en cursiva)
     const dk = tid + ':' + idx++, bad = st.bad.has(dk);
     const val = !bad ? st.defVal.get(dk) : null, mx = val?.vec ? [val.vec] : val?.mat;
     const call = p.params !== undefined ? '(' + p.params.trim() + ')' : ''; // funcion: f(x; y):=...
     // «x:expr=»: ademas del valor asignado, «=valor» (un vector o una matriz ya muestran su valor)
-    const shownVal = p.eq === undefined || mx ? '' : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? fmtNum(val.v) : '⚠');
-    const un = p.unit ? unitMath(p.unit) : ''; // «x:valor'unidad»: la unidad va detras del valor (detras de «=valor» si se muestra)
-    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 + un : IT0 + shown + call + ':=' + wrapNames(p.expr.trim()) + (bad && !shownVal ? ' ⚠' : '') + IT1 + (shownVal && !shownVal.endsWith('⚠') ? shownVal + un : un + shownVal)) + p.post;
+    const shownVal = p.eq === undefined || mx ? '' : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? qty({ value: val.v, dim: val.d }, { [name]: val }, name, null, true) : '⚠');
+    // «x:valor'unidad»: la unidad va detras del valor; con «=valor», el valor ya sale en esa unidad
+    const un = p.unit && !(shownVal && !shownVal.endsWith('⚠')) ? unitMath(p.unit.replace(/^\((.*)\)$/, '$1')) : '';
+    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 + un : IT0 + shown + call + ':=' + showU(wrapNames(p.expr.trim())) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;
   };
   return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + tk.lines.map((l) => l.map(piece).join('')).join('\n') + (tk.disp ? '$$' : '$'))).join('');
 }

@@ -32,8 +32,13 @@ Cada línea de una ecuación es un enunciado. El valor se actualiza solo cuando 
 | `x:=valor` | Lo mismo, tecleando `:=`. | `k:=4` | `k:=4` |
 | `expr=` | Un **=** al final de la línea muestra el valor, con hasta 3 decimales. | `2/3=` | `2/3=0.667` |
 | `x:expr=` | Asigna y muestra el valor en la misma línea. | `x:2*3=`<br>`y:x+1=` | `x:=2*3=6`<br>`y:=x+1=7` |
-| `x:valor'unidad` | **Unidad**: una etiqueta que acompaña al valor y se dibuja detrás de él. `x=` la muestra; una expresión con x no (la unidad no se convierte ni se propaga). | `F:250'N`<br>`F=`<br>`F*2=` | `F:=250 N`<br>`F=250 N`<br>`F*2=500` |
-| `x:expr'unidad=` | Con `=` la unidad va detrás del valor calculado. | `a:2*3'm/s^2=` | `a:=2*3=6 m/s²` |
+| `x:valor'unidad` | **Unidad**: el valor va en esa unidad. Las unidades se convierten y se propagan: `F*2` sigue en N. Hay unidades del SI con prefijo (m, g, s, A, K, mol, N, Pa, J, W, V, Ω, Hz, L, bar; k, M, G, c, m, µ, n...) y otras usuales (min, h, rpm, atm, psi, kgf, in, ft, lb, hp, gal, deg, rad, %). Si el valor ya trae unidades, solo dice en qué unidad mostrarlo. | `F:250'N`<br>`F=`<br>`F*2=` | `F:=250 N`<br>`F=250 N`<br>`F*2=500 N` |
+| `x:expr'unidad=` | Con `=` el valor calculado se muestra en esa unidad. | `a:2*3'm/s^2=` | `a:=2*3=6 m/s²` |
+| `valor'unidad` | Unidades dentro de una expresión. Una unidad compuesta va entre paréntesis: `3'(m/s)`. | `L:2'm+30'cm`<br>`L=` | `L:=2 m+30 cm`<br>`L=2.3 m` |
+| `expr='unidad` | Muestra el valor en la unidad pedida (de la misma magnitud; si no, ⚠). | `F:2'kN`<br>`F='N` | `F:=2 kN`<br>`F=2000 N` |
+| Unidad automática | Sin unidad pedida, el resultado sale en la unidad de una variable de la expresión o en la del SI con prefijo. | `F:5000'N`<br>`A:2'cm^2`<br>`F/A=` | `F:=5000 N`<br>`A:=2 cm²`<br>`F/A=25 MPa` |
+| Unidades que no cuadran | Sumar, restar o comparar magnitudes distintas da ⚠, igual que un número sin unidades sumado a uno con unidades. Las funciones (sin, ln...) piden números sin unidades; sqrt, abs y round las conservan. | `2'N+3=` | `2 N+3=⚠` |
+| Ángulo con unidad | `deg`, `°` y `rad` hacen un ángulo. En una cota, una longitud con unidades se convierte a mm. | `sin(30'deg)=` | `sin(30 deg)=0.5` |
 | `x:a..b;n` | **Rango**: n valores de a hasta b, un vector fila. | `x:1..5;5` | `x:=[1, 2, 3, 4, 5]` |
 | `x:a..paso..b` | Rango con paso. | `x:0..0.5..2` | `x:=[0, 0.5, 1, 1.5, 2]` |
 | Ángulos | Un valor con π es un ángulo en radianes; uno sin π es un número a secas. | `a:30`<br>`sin(a)=` | `a:=30`<br>`sin(a)=0.5` |

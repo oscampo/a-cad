@@ -53,13 +53,25 @@ t('«f(x):expr=» define la funcion y muestra f(x) con las variables de ese punt
   for (const s of ['$$f(x):x^2=$$', '$$g(a; b):a+b = $$']) assert.equal(calcSrc(calcParse(s)), s);
 });
 
-t("«x:valor'unidad»: la unidad acompaña al valor, «x=» la muestra, una expresion no", () => {
+t("«x:valor'unidad»: unidades reales, se convierten y se propagan", () => {
   const u = (s) => page(s).replace(/ " ([^"]*)"/g, ' $1'); // la unidad va como texto «" N"» dentro de la formula
   assert.deepEqual(stmts("$$F:250'N$$"), ['F:250']);
-  assert.equal(u("$$F:250'N\nF=\nF*2=$$"), '$$F:=250 N\nF=250 N\nF*2=500$$');
+  assert.equal(u("$$F:250'N\nF=\nF*2=$$"), '$$F:=250 N\nF=250 N\nF*2=500 N$$'); // F*2 sigue en la unidad de F
   assert.equal(u("$$a:2*3 ' m/s^2=$$"), '$$a:=2*3=6 m/s²$$'); // con «=», detras del valor; «^2» como superindice
-  assert.equal(u("$$v:1..3;3'mm\nv=$$"), '$$v:=[1, 2, 3] mm\nv=[1, 2, 3] mm$$');
   assert.equal(u("$$q:sqrt(-1)'N=$$"), '$$q:=sqrt(-1) N=⚠$$');
+  assert.equal(u("$$F:2'kN+300'N\nF=\nF='N\nF='m$$"), '$$F:=2 kN+300 N\nF=2.3 kN\nF=2300 N\nF=⚠$$'); // en la unidad pedida; ⚠ si no es de la misma magnitud
+  assert.equal(u("$$m:2'kg\nF:250'N\na:F/m\na=\nb:(250'N)/m\nb=$$"), '$$m:=2 kg\nF:=250 N\na:=F/m\na=125 m/s²\nb:=(250 N)/m\nb=125 m/s²$$'); // sin unidad propia: la del SI
+  assert.equal(u("$$k:250'N/m\nk=$$"), '$$k:=250 N/m\nk=250 N/m$$'); // «'N/m» al final es la unidad entera
+  assert.equal(u("$$x:5'foo=$$").includes('⚠'), true); // unidad desconocida
+  assert.equal(u("$$L:1.2'm\nd:L/4\nd=\nd='m\nL/4=$$"), '$$L:=1.2 m\nd:=L/4\nd=300 mm\nd=0.3 m\nL/4=0.3 m$$'); // la de una variable de la expresion (d no tiene unidad propia: SI con prefijo)
+  assert.equal(u("$$F:5000'N\nA:2'cm^2\nF/A=$$"), '$$F:=5000 N\nA:=2 cm²\nF/A=25 MPa$$'); // prefijo automatico
+  assert.equal(u("$$v:3'(m/s)\ndt:2'min\nv*dt=$$"), '$$v:=3 m/s\ndt:=2 min\nv*dt=360 m$$');
+  assert.equal(u("$$L:1'm\nM:L'mm\nM=$$"), '$$L:=1 m\nM:=L mm\nM=1000 mm$$'); // con unidades, la cola solo dice en que unidad mostrarla
+  assert.equal(u("$$L:1'm\nM:L+3'mm\nM=$$"), '$$L:=1 m\nM:=L+3 mm\nM=1003 mm$$'); // L+3 no cuadra: «3'mm» es parte de la expresion (y M se muestra en mm)
+  assert.equal(u("$$x:2'N+3=$$").includes('⚠'), true); // N mas un numero sin unidades
+  assert.equal(u("$$x:sin(30'deg)=$$"), '$$x:=sin(30 deg)=0.5$$'); // un ángulo con unidad
+  assert.equal(u("$$v:1..3;3'mm$$").includes('⚠'), true); // todavía no hay unidades en vectores
+  for (const s of ["$$F='kN$$", "$$F = 'kN $$"]) assert.equal(calcSrc(calcParse(s)), s);
   assert.equal(page("$$f'(x)$$"), "$$f'(x)$$"); // fuera de una asignacion «'» sigue siendo la prima
   assert.deepEqual(stmts("$$g(x):x'N$$"), ["g(x):x'N"]); // una funcion no lleva unidad
   for (const s of ["$$F:250'N$$", "$$a:2*3 ' m/s^2=$$"]) assert.equal(calcSrc(calcParse(s)), s);

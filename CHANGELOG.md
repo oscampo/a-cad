@@ -2,6 +2,22 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## v2.5.0 (2026-11-18)
+
+### Nuevo
+
+- Textos: **unidades reales**. `x:valor'unidad` guarda el valor en esa unidad, y las unidades se convierten y se propagan: `F:250'N` y `F*2=` da `500 N`. Tabla propia con las unidades del SI y sus prefijos (m, g, s, A, K, mol, N, Pa, J, W, V, Ω, Hz, L, bar...) y otras usuales (min, h, rpm, atm, psi, kgf, in, ft, lb, hp, gal, deg, rad, %).
+- Unidades dentro de una expresión: `L:2'm+30'cm`, `v:3'(m/s)`, `sin(30'deg)=`.
+- `expr='unidad` muestra el resultado en la unidad pedida (`F='kN`); ⚠ si no es de la misma magnitud.
+- Sin unidad pedida, el resultado sale en la unidad de una variable de la expresión o en la del SI con prefijo (`F/A=` da `25 MPa`).
+- Comprobación de dimensiones: sumar, restar o comparar magnitudes distintas, o pasar una cantidad con unidades a sin, ln, etc., da ⚠.
+- En una cota, una longitud con unidades se convierte a mm (`2'cm` es 20).
+
+### Cambia el comportamiento
+
+- La unidad ya no es una etiqueta: se propaga a las expresiones (`F*2=` muestra `500 N`) y si el valor ya trae unidades, `'unidad` solo dice en qué unidad mostrarlo.
+- Un vector, una matriz o un rango con unidades ahora da ⚠ (antes la unidad se dibujaba como etiqueta).
+
 ## v2.4.0 (2026-11-18)
 
 ### Nuevo
