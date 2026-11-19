@@ -3653,7 +3653,7 @@ function drawGraphs(c, o) {
       c.fillStyle = o.fg; c.font = F(fs, 'italic ');
       if (nm('x1')) { c.textAlign = 'center'; c.fillText(nm('x1'), px + pw / 2, y0 + H - 8 * dpr); }
       if (hasX2 && nm('x2')) { c.textAlign = 'center'; c.fillText(nm('x2'), px + pw / 2, py - 21 * dpr); }
-      for (const [k, cx, ang] of [['y1', x0 + 9 * dpr, -Math.PI / 2], ['y2', x0 + W - 9 * dpr, Math.PI / 2]]) {
+      for (const [k, cx, ang] of [['y1', x0 + 9 * dpr, -Math.PI / 2], ['y2', x0 + W - 9 * dpr, -Math.PI / 2]]) {
         if (!nm(k) || (k === 'y2' && !hasY2)) continue;
         c.save(); c.translate(cx, py + ph / 2); c.rotate(ang); c.textAlign = 'center'; c.fillText(nm(k), 0, 0); c.restore();
       }
