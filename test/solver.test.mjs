@@ -3075,7 +3075,8 @@ t('formulas: redondeo, comparacion y trigonometria extra', () => {
   near(v('si(1<2; 10; 20)'), 10); near(v('si(0; 1/0; 7)'), 7); near(v('if(2>1; 3; sqrt(-1)/0)'), 3);
   assert.throws(() => evalExpr('si(1; 1/0; 7)'), /cero/);
   // errores
-  assert.throws(() => evalExpr('max(2,5)'), /valores/); // «2,5» es un decimal: un solo valor
+  near(evalExpr('max(2,5)').value, 5); // «2,5» se lee decimal (un solo valor, error) y se reintenta con punto: max(2; 5)
+  assert.throws(() => evalExpr('max(2,5,)'), /./);
   assert.throws(() => evalExpr('min(4)'), /valores/); assert.throws(() => evalExpr('atan2(1)'), /2 valores/); assert.throws(() => evalExpr('round(1;2;3)'), /valores/);
   assert.throws(() => evalExpr('mod(7; 0)'), /cero/); assert.throws(() => evalExpr('round(1; 1.5)'), /entero/); assert.throws(() => evalExpr('1<2<3'), /Sobra/);
   assert.throws(() => evalExpr('sin(30; 5)'), /solo valor/);

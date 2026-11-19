@@ -167,7 +167,7 @@ t('sin indicador: «f(0.7,0,0)» da error con «0,0» decimal y se reintenta con
   const defs = 'fsin(x,a,n):if((x>a)*(n>=0)!=0, (x-a)^n, 0)\nM(x):0.5*fsin(x,0,1)-1*fsin(x,0.5,1)+0.5*fsin(x,1,1)\n';
   assert.match(val('$$' + defs + 'fsin(0.7,0,0)=$$'), /fsin\(0\.7,0,0\)=1/);
   assert.match(val('$$' + defs + 'M(0.75)=$$'), /M\(0\.75\)=0\.125/);
-  assert.match(val('$$sin(0,5)=$$').replace('sin(0,5)=', ''), /0\.479/); // la coma decimal de siempre
+  assert.match(val('$$sin(0,5)=$$').replace('sin(0,5)=', ''), /0\.009/); // la coma decimal de siempre (sin(0,5) en grados)
   assert.equal(num('max(2,5; 3)'), 3);
   assert.equal(decimalMode(), null); // el reintento no deja el modo cambiado
 });
