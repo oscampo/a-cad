@@ -15,6 +15,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 - Ajustar vista: con página, el ancho de la página llena la pantalla y la vista arranca arriba del contenido, como una hoja, en vez de encoger todo el dibujo a una miniatura.
 - Gráficas: **Ángulos en** en las propiedades de la gráfica (Del documento, Radianes o Grados) decide cómo lee esa gráfica sin, cos, tan y en qué unidad dibuja un ángulo, sin cambiar la opción del dibujo. Las variables que vienen de los textos siguen la opción del documento.
 - Página: la hoja tiene alto (Carta 279,4 mm, A4 297 mm, o **Alto (mm)** en «Otro tamaño») y los márgenes se aplican también arriba y abajo. El lienzo muestra el borde superior de la primera hoja (lo de encima queda sombreado) y, hacia abajo, cada salto de página con sus márgenes, repetidos sin fin. Es solo una guía en pantalla: un texto que cruza un salto no pasa solo a la hoja siguiente. Una página de antes toma el alto de su formato y su borde superior queda un margen por encima de lo dibujado; **Ajustar vista** arranca en ese borde.
+- Página: barra de desplazamiento vertical a la derecha del lienzo. Recorre desde el borde superior de la primera hoja hasta el final de la última hoja con contenido; se arrastra con el mouse o el dedo, y un toque en el canal salta una pantalla arriba o abajo. Con «Sin límites» no aparece.
 
 ### Cambia el comportamiento
 

@@ -59,6 +59,7 @@ function pageTop(pg) {
   return pg.y0;
 }
 let doc = freshDoc();
+let pageExt = null, pageExtDoc = null; // lo que ocupa el dibujo en y, para la barra de desplazamiento de la pagina
 const globalDoc = () => doc;
 let view = { ox: 200, oy: 300, s: 3 }; // px por unidad; y del modelo hacia arriba
 let tool = 'select';
@@ -148,7 +149,7 @@ function updateFileTag() {
   const el = $('fileTag'), t = opts.fileBase ? opts.fileBase + '.json' : 'sin nombre';
   if (el && el.textContent !== t) el.textContent = t;
 }
-function afterChange() { scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = JSON.parse(bak); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); persist(); draw(); renderTree(); }
+function afterChange() { pageExt = null; scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = JSON.parse(bak); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); persist(); draw(); renderTree(); }
 
 // Un boton de restriccion solo se activa si la seleccion actual le sirve (mismas reglas que applyCon).
 function updateEnabled() {
@@ -749,6 +750,7 @@ function strokeArc(c, cx, cy, r, a0, sweep, dash) {
 function draw() {
   render(ctx, cv.width, cv.height, view, { fg: theme.fg, bg: theme.bg, grid: opts.grid, cons: opts.cons, dims: opts.dims, texts: opts.texts, ui: true });
   drawHud();
+  syncScrollbar();
 }
 
 // ---- encima del dibujo (solo en pantalla, nunca en lo exportado): la lupa del dedo
@@ -3063,13 +3065,61 @@ function contentBounds(withGraphs = false) {
   if (!xs.length) return null;
   return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
 }
-// y mas alta de lo dibujado, contando los textos (-Infinity si no hay nada)
-function contentTop() {
+// y mas alta y mas baja de lo dibujado, contando los textos (-Infinity/Infinity si no hay nada)
+function contentYs() {
   const b = contentBounds(true), vd = visibleDoc(globalDoc());
-  let top = b ? b.y1 : -Infinity;
-  for (const t of Object.values(vd.texts || {})) if (vd.pts[t.pt]) for (const q of textCorners(vd, t, measureRel)) top = Math.max(top, q.y);
-  return top;
+  let top = b ? b.y1 : -Infinity, bot = b ? b.y0 : Infinity;
+  for (const t of Object.values(vd.texts || {})) if (vd.pts[t.pt]) for (const q of textCorners(vd, t, measureRel)) { top = Math.max(top, q.y); bot = Math.min(bot, q.y); }
+  return { top, bot };
 }
+const contentTop = () => contentYs().top;
+
+// ---- barra de desplazamiento vertical (solo con pagina): recorre desde el borde superior de la primera hoja hasta el
+// final de la ultima hoja con contenido. Arrastrar la barra mueve la vista; tocar el canal salta una pantalla.
+// Lo que ocupa el dibujo se recalcula solo cuando cambia (afterChange o cambio de dibujo), no en cada cuadro.
+function pageRange(pg) {
+  if (!pageExt || pageExtDoc !== globalDoc()) { pageExt = contentYs(); pageExtDoc = globalDoc(); }
+  const top = pageTop(pg), ph = pageH(pg);
+  const n = Math.max(1, isFinite(pageExt.bot) ? Math.ceil((top - pageExt.bot) / ph - 1e-9) : 1);
+  return { top: Math.max(top, pageExt.top) + PAGE_PAD / view.s, bot: top - n * ph - PAGE_PAD / view.s };
+}
+const sbar = $('pgScroll'), sthumb = $('pgThumb');
+function syncScrollbar() {
+  const sbar = $('pgScroll'), sthumb = $('pgThumb'); // tambien sirve si se dibuja antes de que el modulo termine de cargar
+  const pg = globalDoc().page;
+  sbar.hidden = !pg;
+  if (!pg) return;
+  const H = cv.getBoundingClientRect().height, vTop = view.oy / view.s, vBot = (view.oy - H) / view.s;
+  const r = pageRange(pg), top = Math.max(r.top, vTop), bot = Math.min(r.bot, vBot), tot = top - bot;
+  const th = sbar.clientHeight, len = Math.max(28, (th * (vTop - vBot)) / tot);
+  const at = ((top - vTop) / Math.max(tot - (vTop - vBot), 1e-9)) * (th - len);
+  sthumb.style.height = len + 'px'; sthumb.style.transform = `translateY(${Math.max(0, Math.min(th - len, at || 0))}px)`;
+  sbar.dataset.top = top; sbar.dataset.bot = bot;
+}
+let sdrag = null;
+sthumb.addEventListener('pointerdown', (e) => {
+  e.preventDefault(); e.stopPropagation(); sthumb.setPointerCapture(e.pointerId);
+  const vis = cv.getBoundingClientRect().height / view.s; // lo que se ve, en mm: la barra recorre el total menos esto
+  sdrag = { y: e.clientY, oy: view.oy, k: (+sbar.dataset.top - +sbar.dataset.bot - vis) / Math.max(sbar.clientHeight - sthumb.offsetHeight, 1) };
+  sbar.classList.add('drag');
+});
+sthumb.addEventListener('pointermove', (e) => {
+  if (!sdrag) return;
+  const r = pageRange(globalDoc().page), H = cv.getBoundingClientRect().height;
+  // y del modelo en el borde superior de la pantalla, sin pasarse de los extremos del recorrido
+  const yv = Math.min(r.top, Math.max(r.bot + H / view.s, sdrag.oy / view.s - (e.clientY - sdrag.y) * sdrag.k));
+  view.oy = yv * view.s; draw(); persist();
+});
+const sEnd = () => { sdrag = null; sbar.classList.remove('drag'); };
+sthumb.addEventListener('pointerup', sEnd); sthumb.addEventListener('pointercancel', sEnd);
+sbar.addEventListener('pointerdown', (e) => {
+  if (e.target !== sbar) return;
+  e.preventDefault();
+  const H = cv.getBoundingClientRect().height, tr = sthumb.getBoundingClientRect(), r = pageRange(globalDoc().page);
+  const step = (H - 40) / view.s * (e.clientY < tr.top ? 1 : -1);
+  const yv = Math.min(r.top, Math.max(r.bot + H / view.s, view.oy / view.s + step));
+  view.oy = yv * view.s; draw(); persist();
+});
 function fitView() {
   const b = contentBounds(true);
   const r = cv.getBoundingClientRect();
