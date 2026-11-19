@@ -13,4 +13,6 @@ export const localNum = (s) => (DEC === ',' ? String(s).replace('.', ',') : Stri
 export const elemChar = (m = DEC) => (m === ',' ? ';' : ',');
 export const rowChar = (m = DEC) => (m === ',' ? '|' : ';');
 export const argChar = (m = DEC) => (m === ',' ? ';' : ',');
+// Como se escribe el separador de argumentos en un mensaje: «,» con punto decimal; «;» con coma decimal o sin indicador.
+export const argText = (m = DEC) => (m === '.' ? ',' : ';');
 export const decChar = (m = DEC) => (m === ',' ? ',' : '.');

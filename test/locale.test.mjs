@@ -147,4 +147,19 @@ t('rangos: «n» se separa segun el indicador', () => {
   setDocDecimal(d, '.'); assert.equal(d.texts[id].text, '$$x:0.5..2,4=\ny:0..0.5..2=$$');
 });
 
+t('if() y funciones de varios valores: separador y mensajes segun el indicador', () => {
+  setDecimal('.');
+  assert.equal(num('if(1>0, 2.5, 3)'), 2.5);
+  assert.equal(num('si(0>1; 2; 3)'), 3); // «;» tambien vale
+  fails('if(1>0, 2)', /lleva 3 valores separados por «,»/);
+  fails('dot([1, 2])', /separados por «,»: dot\(a, b\)/);
+  setDecimal(',');
+  assert.equal(num('if(1>0; 2,5; 3)'), 2.5);
+  assert.equal(num('if(2,5>2; 1; 0)'), 1);
+  fails('if(1>0, 2; 3)', /Con coma decimal los argumentos se separan con «;»/);
+  fails('if(1>0; 2)', /lleva 3 valores separados por «;»/);
+  fails('atan2(1, 1)', /Con coma decimal/);
+  fails('dot([1; 2])', /separados por «;»: dot\(a; b\)/);
+});
+
 console.log(`\n${passed} pruebas de indicador decimal pasaron`);

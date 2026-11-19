@@ -6,7 +6,7 @@
 
 import { parseUnit, sameDim, mulDim, powDim, unitMsg } from './units.js';
 import { GREEK, GREEK_UP } from './asciimath.js';
-import { setDecimal, decimalMode, elemChar, rowChar, argChar } from './locale.js';
+import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText } from './locale.js';
 
 const TAU_DEG = 180 / Math.PI;
 const FUNCS = {
@@ -147,6 +147,7 @@ function tokenize(src, vars = null, loose = false) {
     if (c === '.' && '*/^'.includes(src[i + 1] ?? ' ')) { toks.push({ t: 'op', v: '.' + src[i + 1], i, j: i + 2 }); i += 2; continue; } // elemento a elemento: .* ./ .^
     if (c === '[') depth++; else if (c === ']') depth = Math.max(0, depth - 1);
     if ('+-*/^()[]×÷·−'.includes(c)) { toks.push({ t: 'op', v: c === '×' || c === '·' ? '*' : c === '÷' ? '/' : c === '−' ? '-' : c, i, j: i + 1 }); i++; continue; }
+    if (c === ',' && decimalMode() === ',') throw new Error('Con coma decimal los argumentos se separan con «;» (la coma es el decimal)');
     throw new Error(`Carácter no válido «${c}»`);
   }
   return toks;
@@ -292,9 +293,10 @@ function vectorOf(a, name) {
 const likeVec = (a, arr) => (isM(a) && a.m.length > 1 && a.m[0].length === 1 ? { m: arr.map((x) => [x]) } : { m: [arr] });
 const sum = (arr) => arr.reduce((s, x) => s + x, 0);
 // Funciones de vectores y matrices (MATFN).
+const dotArgs = () => argText() === ','; // los mensajes nombran el separador del modo
 function matFn(name, A) {
   const need = name === 'dot' || name === 'cross' ? 2 : 1;
-  if (A.length !== need) throw new Error(need === 1 ? `«${name}» recibe un valor (un vector o una matriz)` : `«${name}» recibe dos vectores separados por «;»: ${name}(a; b)`);
+  if (A.length !== need) throw new Error(need === 1 ? `«${name}» recibe un valor (un vector o una matriz)` : dotArgs() ? `«${name}» recibe dos vectores separados por «,»: ${name}(a, b)` : `«${name}» recibe dos vectores separados por «;»: ${name}(a; b)`);
   const [a, b] = A, flat = flatOf(a);
   switch (name) {
     case 'inv': // inversa de una matriz cuadrada (de un numero, su inverso)
@@ -417,7 +419,7 @@ export function evalExpr(src, { radians = DEF_RAD, vars = null, allowMat = false
     return { v: ok ? 1 : 0, r: false };
   }
   // if(condicion; si_verdadero; si_falso) (o si): solo se evalua la rama elegida (la otra se salta sin evaluarla; asi una funcion de usuario puede llamarse a si misma)
-  const SI_MSG = 'if(condición; si_verdadero; si_falso) lleva 3 valores separados por «;»';
+  const SI_MSG = () => (dotArgs() ? 'if(condición, si_verdadero, si_falso) lleva 3 valores separados por «,»' : 'if(condición; si_verdadero; si_falso) lleva 3 valores separados por «;»');
   function skipArg() { // avanza hasta el final del argumento actual (una «;» o un «)» fuera de parentesis y corchetes)
     let d = 0;
     for (; p < toks.length; p++) {
@@ -430,20 +432,20 @@ export function evalExpr(src, { radians = DEF_RAD, vars = null, allowMat = false
     if (isOp(')')) throw new Error(`«${name}» necesita al menos un valor`);
     const c = cmp();
     if (isM(c)) throw new Error('La condición de if() es un número, no un vector ni una matriz');
-    const sep = () => { if (peek()?.t !== 'sep') throw new Error(SI_MSG); p++; };
+    const sep = () => { if (peek()?.t !== 'sep') throw new Error(SI_MSG()); p++; };
     const yes = c.v !== 0;
     let pick;
     sep();
     if (yes) { pick = cmp(); sep(); skipArg(); } else { skipArg(); sep(); pick = cmp(); }
-    if (!isOp(')')) throw new Error(peek()?.t === 'sep' ? SI_MSG : 'Falta cerrar un paréntesis');
+    if (!isOp(')')) throw new Error(peek()?.t === 'sep' ? SI_MSG() : 'Falta cerrar un paréntesis');
     p++;
     return pick;
   }
   function call(name, A) {
-    const sep = ' (sepáralos con «;»: «2,5» es un solo número)';
+    const sep = decimalMode() === '.' ? ' (sepáralos con «,»)' : decimalMode() === ',' ? ' (sepáralos con «;»)' : ' (sepáralos con «;»: «2,5» es un solo número)';
     if (MATFN.has(name)) { const d = matDim(name, A); return wd({ ...matFn(name, A) }, d); }
     if ((name === 'min' || name === 'max') && A.length === 1) { // min(x), max(x): el menor o el mayor de todos los elementos
-      if (!isM(A[0])) throw new Error(`«${name}» recibe dos valores (${name}(a; b)) o un vector`);
+      if (!isM(A[0])) throw new Error(dotArgs() ? `«${name}» recibe dos valores (${name}(a, b)) o un vector` : `«${name}» recibe dos valores (${name}(a; b)) o un vector`);
       return wd({ v: Math[name](...A[0].m.flat()), r: false }, A[0].d);
     }
     if (A.some((a) => isM(a))) { // funciones sobre vectores y matrices: a cada elemento (los escalares se extienden)
@@ -473,7 +475,7 @@ export function evalExpr(src, { radians = DEF_RAD, vars = null, allowMat = false
   // Funcion definida en un texto: sus parametros valen lo que se le pasa; lo demas (cotas y variables) es lo de todo el dibujo, no lo del que la llama.
   function callUser(name, A) {
     const f = vars[name].fn;
-    if (A.length !== f.params.length) throw new Error(`«${name}» recibe ${f.params.length === 1 ? 'un valor' : `${f.params.length} valores separados por «;»`}: ${name}(${f.params.join('; ')})`);
+    if (A.length !== f.params.length) throw new Error(`«${name}» recibe ${f.params.length === 1 ? 'un valor' : dotArgs() ? `${f.params.length} valores separados por «,»` : `${f.params.length} valores separados por «;»`}: ${name}(${f.params.join(argText() + ' ')})`);
     if (depth >= 200) throw new Error(`«${name}» se llama a sí misma demasiadas veces (200 niveles)`);
     const g = globals || vars, local = { ...g };
     f.params.forEach((q, i) => { local[q] = isM(A[i]) ? wd({ mat: A[i].m }, A[i].d) : { v: A[i].v, r: !!A[i].r, d: A[i].d }; });

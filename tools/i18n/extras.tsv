@@ -1,3 +1,10 @@
 Se guarda solo en este navegador: usa Archivo → Guardar para respaldar en un .json. v	Saved only in this browser: use File → Save to back up to a .json. v
 ~… y {0} más	… and {0} more
 toca de nuevo o mantén presionado para ver más herramientas	tap again or press and hold to see more tools
+if(condición, si_verdadero, si_falso) lleva 3 valores separados por «,»	if(condition, if_true, if_false) takes 3 values separated by «,»
+«{0}» recibe dos valores ({1}(a, b)) o un vector	«{0}» takes two values ({1}(a, b)) or a vector
+«{0}» recibe dos vectores separados por «,»: {1}(a, b)	«{0}» takes two vectors separated by «,»: {1}(a, b)
+{0} valores separados por «,»	{0} values separated by «,»
+ (sepáralos con «,»)	 (separate them with «,»)
+ (sepáralos con «;»)	 (separate them with «;»)
+Con coma decimal los argumentos se separan con «;» (la coma es el decimal)	With a decimal comma, arguments are separated with «;» (the comma is the decimal)
