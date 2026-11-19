@@ -111,8 +111,13 @@ export const contBack = (tk, s) => { let i = 0; return tk.conts ? s.replace(/　
 export const calcStmts = (s) => (hasCalc(s) ? calcParse(s).flatMap((tk) => (tk.t === 'math' ? tk.lines.flat().filter((p) => p.k === 'def' || p.k === 'out') : [])) : []);
 
 // ---- Cambio de indicador decimal (doc.decimal): reescribe las expresiones de un texto de calculo ----
-// Un rango «x:0.5..2;10» se convierte parte por parte (los «..» y el «;» no cambian); los parametros de una funcion se separan con el separador nuevo.
-const convRange = (expr, from, to) => (expr.includes('..') ? expr.split(/(\.\.|;)/).map((q, i) => (i % 2 ? q : convertExpr(q, from, to))).join('') : convertExpr(expr, from, to));
+// Un rango «x:0.5..2,10» (punto) o «x:0,5..2;10» (coma) se convierte parte por parte, con el separador de «n» del indicador nuevo; los parametros de una funcion se separan con el separador nuevo.
+const convRange = (expr, from, to) => {
+  if (!expr.includes('..')) return convertExpr(expr, from, to);
+  const p = expr.split('..'), cv = (q) => convertExpr(q, from, to);
+  if (p.length === 2) { const q = splitRangeN(p[1], from); return q.length === 2 ? cv(p[0]) + '..' + cv(q[0]) + rangeSep(to) + cv(q[1]) : expr; }
+  return p.map(cv).join('..');
+};
 export function convertCalcText(s, from, to) {
   if (!hasCalc(s) || from === to) return s;
   const piece = (p) => (p.k === 'def' ? { ...p, expr: convRange(p.expr, from, to), ...(p.params !== undefined ? { params: p.params.split(from === ',' ? /;/ : /[;,]/).map((q) => q.trim()).join(argChar(to) + ' ') } : {}) }
@@ -175,18 +180,28 @@ export function migrateCalcDoc(doc) {
 // Rangos (vectores de numeros igualmente espaciados): «x:inicio..fin;n» (n elementos entre inicio y fin, ambos incluidos) y
 // «x:inicio..paso..fin» (inicio, inicio+paso, ... sin pasar de fin). Cada parte puede ser una formula.
 // Devuelve { kind: 'n'|'step', parts } o null si la definicion no es un rango. Un decimal «1.5» no cuenta como «..».
+// El separador de «fin» y «n»: «;» siempre; «,» tambien con punto decimal (la coma, a nivel de la expresion, no es parte de un parentesis ni de un decimal).
+export const rangeSep = (m = decimalMode()) => (m === '.' ? ',' : ';');
+export function splitRangeN(s, mode = decimalMode()) {
+  const out = []; let d = 0, cur = '';
+  for (const ch of s) {
+    if ('([{'.includes(ch)) d++; else if (')]}'.includes(ch)) d--;
+    if (d === 0 && (ch === ';' || (ch === ',' && mode === '.'))) { out.push(cur); cur = ''; } else cur += ch;
+  }
+  return [...out, cur];
+}
 export function parseRange(src) {
   const s = String(src ?? '');
   if (!s.includes('..')) return null;
   const p = s.split('..');
-  if (p.length === 2) { const q = p[1].split(';'); return q.length === 2 ? { kind: 'n', parts: [p[0], q[0], q[1]] } : { kind: 'bad', parts: [] }; }
+  if (p.length === 2) { const q = splitRangeN(p[1]); return q.length === 2 ? { kind: 'n', parts: [p[0], q[0], q[1]] } : { kind: 'bad', parts: [] }; }
   if (p.length === 3) return { kind: 'step', parts: p };
   return { kind: 'bad', parts: [] };
 }
 export const MAX_RANGE = 10000;
 // Elementos del rango; ev evalua cada parte a un numero.
 export function rangeValues(rg, ev) {
-  if (rg.kind === 'bad') throw new Error('un rango se escribe inicio..fin;n o inicio..paso..fin');
+  if (rg.kind === 'bad') throw new Error(`un rango se escribe inicio..fin${rangeSep(decimalMode() ?? ',')}n o inicio..paso..fin`);
   const [a, b, c] = rg.parts.map(ev);
   const out = [];
   if (rg.kind === 'n') { // a..b;c  ->  c elementos

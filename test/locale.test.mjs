@@ -134,4 +134,17 @@ t('definicion y llamada de funciones: los argumentos siguen el indicador', () =>
   setDocDecimal(d, '.'); assert.equal(d.texts[id].text, '$$f(x, y):=x*0.5\nf(1, 2)=$$');
 });
 
+t('rangos: «n» se separa segun el indicador', () => {
+  const val = (dec, src) => { const d = newDoc(); if (dec) d.decimal = dec; const id = addText(d, addPoint(d, 0, 0), src, {}); return plainText(textValue(d, d.texts[id])); };
+  assert.match(val('.', '$$x:0..2,3=$$'), /\[0, 1, 2\]/);
+  assert.match(val('.', '$$x:0..2;3=$$'), /\[0, 1, 2\]/); // «;» tambien vale
+  assert.match(val('.', '$$x:0..max(1,2),3=$$'), /\[0, 1, 2\]/); // la coma de un parentesis no separa
+  assert.match(val(',', '$$x:0..2;3=$$'), /\[0; 1; 2\]/);
+  assert.doesNotMatch(val(',', '$$x:0..2,3=$$'), /\[0/); // con coma decimal, «2,3» es un decimal: no hay «n»
+  assert.match(val(null, '$$x:0..2;3=$$'), /\[0[,;] 1[,;] 2\]/);
+  const d = newDoc(); d.decimal = '.'; const id = addText(d, addPoint(d, 0, 0), '$$x:0.5..2,4=\ny:0..0.5..2=$$', {});
+  setDocDecimal(d, ','); assert.equal(d.texts[id].text, '$$x:0,5..2;4=\ny:0..0,5..2=$$');
+  setDocDecimal(d, '.'); assert.equal(d.texts[id].text, '$$x:0.5..2,4=\ny:0..0.5..2=$$');
+});
+
 console.log(`\n${passed} pruebas de indicador decimal pasaron`);

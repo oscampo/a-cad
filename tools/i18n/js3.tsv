@@ -197,7 +197,7 @@ unión	join
 Gráficas	Graphs
 Relaciones y cotas ({0})	Relations and dimensions ({0})
 Sin capa ({0})	No layer ({0})
-un rango se escribe inicio..fin;n o inicio..paso..fin	a range is written start..end;n or start..step..end
+un rango se escribe inicio..fin{0}n o inicio..paso..fin	a range is written start..end{0}n or start..step..end
 n debe ser un entero de 1 o más	n must be an integer of 1 or more
 un rango admite hasta {0} elementos	a range accepts up to {0} elements
 el paso no puede ser 0	the step cannot be 0
