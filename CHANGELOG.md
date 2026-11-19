@@ -28,6 +28,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Corregido
 
+- Dirección: el repositorio pasó a llamarse `a-cad`, y la app vive ahora en <https://oscampo.github.io/a-cad/> (la anterior, `.../ipad-cad/`, da «no encontrado»). El README, el manual y la ayuda apuntan a la nueva. Una app ya instalada en la pantalla de inicio con la dirección vieja no se actualiza sola: hay que quitarla e instalarla de nuevo desde la nueva (en el iPad, una web app de pantalla de inicio guarda sus datos aparte, así que la configuración de GitHub se vuelve a escribir). Íconos: el de la pantalla de inicio de iOS declara su tamaño (180×180) y el manifiesto lista primero los PNG (iOS no usa el SVG).
 - Textos en el iPad: en algunas líneas un tramo se montaba sobre el siguiente (el final de «se usa» quedaba debajo del `["]` en letra de código, o una negrita sobre lo que seguía). Los textos se miden a 100 px y se dibujan a otro tamaño, y la letra del sistema del iPad (SF) cambia de proporciones con el tamaño, así que lo dibujado salía más ancho que lo medido. Ahora cada tramo se dibuja con su ancho medido como tope (si se pasaría, se estrecha un poco), en los textos con Markdown o fórmulas y en los simples. No cambia ninguna medida, caja, ajuste de línea ni exportación.
 
 ## v2.9.0 (2026-11-18)

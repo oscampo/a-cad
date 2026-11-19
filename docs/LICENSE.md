@@ -4,7 +4,7 @@ La documentación de A-CAD (los archivos de esta carpeta `docs/`, el `README.md`
 
 © 2026 Oscar Campo
 
-Puedes copiarla, redistribuirla, adaptarla y usarla con cualquier fin, también en cursos y materiales propios, siempre que **des el crédito correspondiente** (por ejemplo: «A-CAD, de Oscar Campo, https://github.com/oscampo/ipad-cad»), **enlaces la licencia** e **indiques si hiciste cambios**.
+Puedes copiarla, redistribuirla, adaptarla y usarla con cualquier fin, también en cursos y materiales propios, siempre que **des el crédito correspondiente** (por ejemplo: «A-CAD, de Oscar Campo, https://github.com/oscampo/a-cad»), **enlaces la licencia** e **indiques si hiciste cambios**.
 
 - Resumen: <https://creativecommons.org/licenses/by/4.0/deed.es>
 - Texto legal completo: <https://creativecommons.org/licenses/by/4.0/legalcode.es>

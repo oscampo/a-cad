@@ -16,7 +16,7 @@ Otros componentes: íconos **Lucide** (licencia ISC) y empaquetado con **Vite** 
 
 ## Historial de versiones
 
-El detalle de cada versión está en [CHANGELOG.md](https://github.com/oscampo/ipad-cad/blob/main/CHANGELOG.md), y el manual completo en [docs/](https://github.com/oscampo/ipad-cad/tree/main/docs).
+El detalle de cada versión está en [CHANGELOG.md](https://github.com/oscampo/a-cad/blob/main/CHANGELOG.md), y el manual completo en [docs/](https://github.com/oscampo/a-cad/tree/main/docs).
 
 ---
 

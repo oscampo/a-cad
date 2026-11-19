@@ -2,13 +2,13 @@
 
 A-CAD es un editor de dibujo 2D **paramétrico** para iOS, Android y el navegador. Dibujas puntos, líneas, círculos, arcos, elipses y splines, los relacionas con **restricciones** (horizontal, paralela, tangente...) y **cotas**, y un solver geométrico mantiene todo consistente: si mueves un punto o cambias una medida, el resto del dibujo se reacomoda. Los textos del dibujo **calculan** (variables, fórmulas, vectores y matrices) y pueden gobernar las cotas, y los mecanismos se mueven a mano o con **simulaciones gráficas** en el tiempo, con actuadores y gráficas. Sirve para croquis, geometría descriptiva, estática gráfica, mecanismos y piezas para corte láser.
 
-**Abrir la app:** <https://oscampo.github.io/ipad-cad/>
+**Abrir la app:** <https://oscampo.github.io/a-cad/>
 
 Es una aplicación web instalable (PWA): no necesita tienda de aplicaciones ni servidor propio, funciona sin conexión una vez abierta y guarda el dibujo en el dispositivo. Se usa con Apple Pencil o el dedo en tableta y teléfono, y con ratón y teclado en el computador. Las restricciones las resuelve **PlaneGCS**, el solver geométrico del Sketcher de FreeCAD, compilado a WebAssembly.
 
 ## Instalar
 
-- **iPad o iPhone**: abre <https://oscampo.github.io/ipad-cad/> en **Safari**, toca **Compartir** y luego **Añadir a pantalla de inicio**.
+- **iPad o iPhone**: abre <https://oscampo.github.io/a-cad/> en **Safari**, toca **Compartir** y luego **Añadir a pantalla de inicio**.
 - **Android**: abre el enlace en **Chrome**, toca el menú **⋮** y luego **Instalar app** (o **Añadir a pantalla de inicio**).
 - **Computador**: basta con abrir el enlace en el navegador. Chrome y Edge también ofrecen instalarla desde la barra de direcciones.
 
@@ -42,7 +42,7 @@ En [`ejemplos/`](ejemplos/) hay dibujos listos para abrir (descárgalos y usa **
 
 - **[Manual](docs/README.md)**: cada herramienta y concepto en detalle, con un capítulo por tema. Es la referencia para quien empieza o quiere entender cómo funciona algo.
 - **Ayuda dentro de la app** (botón **?**): la misma información, compacta y con buscador.
-- **[Historial de cambios](CHANGELOG.md)** y [Releases](https://github.com/oscampo/ipad-cad/releases): qué trae cada versión.
+- **[Historial de cambios](CHANGELOG.md)** y [Releases](https://github.com/oscampo/a-cad/releases): qué trae cada versión.
 - **Límites conocidos**: al final del manual y de la ayuda.
 
 ## Desarrollo
