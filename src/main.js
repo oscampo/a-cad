@@ -22,7 +22,7 @@ import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
 import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, genericRange, GEN_X, AXES } from './graphs.js';
-import { panWin, zoomWin, zoomPos, zoomFromPos, winCenter, setWindow, clearWindow } from './graphview.js';
+import { panWin, zoomStep, setWindow, clearWindow } from './graphview.js';
 import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD, textLinkAt, textLinkBoxes } from './text.js';
 import { linkTarget, resolveRepoPath, findAnchor } from './links.js';
 import { attachAutoPair } from './autopair.js';
@@ -3496,7 +3496,7 @@ function graphAt(sx, sy) {
   return null;
 }
 // Zoom y paneo de una grafica: botones y deslizadores fuera de su rectangulo (graphCtl: zonas tocables de este dibujo; gview: ventana actual y de partida de cada eje).
-const graphCtl = [], gview = {};
+const graphCtl = [], gview = {}, gspring = {}; // gspring: desplazamiento (-1..1) de cada deslizador de zoom respecto del centro
 const CTL = 14, CTL_GAP = 14; // tamaño de un control y separacion al borde de la grafica (px)
 function drawGraphCtl(c, id, A, B, o) {
   const v = gview[id], x = A.x, y = A.y, w = B.x - A.x, h = B.y - A.y;
@@ -3511,7 +3511,7 @@ function drawGraphCtl(c, id, A, B, o) {
   const zx = { id, kind: 'zx', x, y: y + h + G, w, h: S }, zy = { id, kind: 'zy', x: x - S - G, y, w: S, h };
   graphCtl.push(zx, zy);
   for (const [z, k, horiz] of [[zx, 'x1', true], [zy, 'y1', false]]) {
-    const s = zoomPos(v[k].lo, v[k].hi, v[k].home, v[k].log);
+    const s = gspring[id + '|' + k] || 0; // elastico: en reposo el mando esta al centro
     box(z.x, z.y, z.w, z.h, o.fg + '14');
     c.strokeStyle = o.fg + '55'; c.beginPath();
     if (horiz) { c.moveTo((z.x + S / 2) * dpr, (z.y + S / 2) * dpr); c.lineTo((z.x + z.w - S / 2) * dpr, (z.y + S / 2) * dpr); } else { c.moveTo((z.x + S / 2) * dpr, (z.y + S / 2) * dpr); c.lineTo((z.x + S / 2) * dpr, (z.y + z.h - S / 2) * dpr); }
@@ -3534,9 +3534,9 @@ function graphPan(id, k, dir) {
   const [lo, hi] = graphWin(id, k), w = panWin(lo, hi, dir * 0.15, g.axes?.[k]?.scale === 'log');
   setWindow(g, k, w[0], w[1]); scheduleGraphs(); draw();
 }
-function graphZoomTo(id, k, s, center) {
+function graphZoomStep(id, k, s, dt) { // un instante de zoom continuo: s > 0 acerca, s < 0 aleja
   const g = doc.graphs[id], v = gview[id]?.[k]; if (!g || !v) return;
-  const w = zoomFromPos(center, v.home, s, v.log);
+  const [lo, hi] = graphWin(id, k), w = zoomStep(lo, hi, s, dt, v.log);
   setWindow(g, k, w[0], w[1]); scheduleGraphs(); draw();
 }
 function ctlDown(z, p) {
@@ -3550,9 +3550,13 @@ function ctlDown(z, p) {
     d.timer = setTimeout(() => { d.iv = setInterval(() => { if (drag !== d) return clearInterval(d.iv); graphPan(z.id, k, dir); }, 110); }, 380);
     return;
   }
-  const [lo, hi] = graphWin(z.id, k), v = gview[z.id][k];
-  d.center = winCenter(lo, hi, v.log); d.zoom = true;
+  d.zoom = true; d.s = 0; d.t0 = performance.now(); d.tdown = d.t0;
   ctlMove(p);
+  d.iv = setInterval(() => { // mientras el mando siga desplazado, el zoom sigue
+    if (drag !== d) return clearInterval(d.iv);
+    const now = performance.now(), dt = Math.min(0.1, (now - d.t0) / 1000); d.t0 = now;
+    if (Math.abs(d.s) > 0.04 && now - d.tdown > 160) graphZoomStep(z.id, k, d.s, dt); // un toque corto no acerca (cuenta para el doble toque)
+  }, 40);
 }
 function ctlMove(p) {
   const d = drag, z = d.ctl;
@@ -3560,13 +3564,22 @@ function ctlMove(p) {
   const horiz = z.kind === 'zx', S = CTL;
   const s = horiz ? ((p.x - z.x - S / 2) / (z.w - S)) * 2 - 1 : 1 - ((p.y - z.y - S / 2) / (z.h - S)) * 2;
   if (dist(p, d.p0) > 3) d.moved = true;
-  graphZoomTo(z.id, d.k, Math.max(-1, Math.min(1, s)), d.center);
+  d.s = Math.max(-1, Math.min(1, s)); gspring[z.id + '|' + d.k] = d.s; draw();
 }
 let lastCtlTap = null;
+function springBack(key) { // el mando vuelve al centro con un rebote suave
+  const step = () => {
+    const s = (gspring[key] || 0) * 0.78;
+    if (Math.abs(s) < 0.01) { delete gspring[key]; draw(); return; }
+    gspring[key] = s; draw(); setTimeout(step, 16);
+  };
+  setTimeout(step, 16);
+}
 function ctlUp(d) {
   clearTimeout(d.timer); clearInterval(d.iv);
   const z = d.ctl, now = performance.now();
-  if (d.zoom && !d.moved && lastCtlTap && lastCtlTap.kind === z.kind && lastCtlTap.id === z.id && now - lastCtlTap.t < 450) { // doble toque en un zoom: limites automaticos
+  if (d.zoom) springBack(z.id + '|' + d.k);
+  if (d.zoom && !d.moved && now - d.tdown < 300 && lastCtlTap && lastCtlTap.kind === z.kind && lastCtlTap.id === z.id && now - lastCtlTap.t < 450) { // doble toque en un zoom: limites automaticos
     clearWindow(doc.graphs[z.id], d.k); lastCtlTap = null; toast('Eje con límites automáticos');
   } else lastCtlTap = d.zoom ? { kind: z.kind, id: z.id, t: now } : null;
   afterChange();

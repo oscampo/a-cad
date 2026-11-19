@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { newDoc, addPoint, addText } from '../src/model.js';
 import { addGraph, computeGraph, genericRange, genericX, GEN_X } from '../src/graphs.js';
-import { panWin, zoomWin, zoomPos, zoomFromPos, winCenter, setWindow, clearWindow, ZOOM_R } from '../src/graphview.js';
+import { panWin, zoomWin, zoomStep, zoomPos, zoomFromPos, winCenter, setWindow, clearWindow, ZOOM_R, ZOOM_RATE } from '../src/graphview.js';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
@@ -75,6 +75,15 @@ t('zoom y paneo: ventanas lineales y logaritmicas', () => {
   const w = zoomFromPos(3, [0, 20], 0.5); near(w[1] - w[0], 2); near(winCenter(w[0], w[1]), 3);
   for (const s of [-1, -0.3, 0, 0.7, 1]) { const [a, b] = zoomFromPos(3, [0, 20], s); near(zoomPos(a, b, [0, 20]), s); }
   assert.equal(ZOOM_R, 100);
+});
+
+t('zoom elastico: con el mando desplazado la ventana cambia de forma continua y centrada', () => {
+  assert.deepEqual(zoomStep(0, 10, 0, 1), [0, 10]); // mando en el centro: nada
+  const [a, b] = zoomStep(0, 10, 1, 1); near(b - a, 10 * Math.exp(-ZOOM_RATE)); near((a + b) / 2, 5); // acerca, sin mover el centro
+  const [c, d] = zoomStep(0, 10, -1, 1); near(d - c, 10 * Math.exp(ZOOM_RATE)); // aleja
+  let w = [0, 10]; for (let i = 0; i < 10; i++) w = zoomStep(w[0], w[1], 0.5, 0.1); // 10 pasos de 0,1 s = un paso de 1 s
+  const one = zoomStep(0, 10, 0.5, 1); near(w[1] - w[0], one[1] - one[0], 1e-9);
+  const l = zoomStep(1, 1000, 1, 0.2, true); near(Math.sqrt(l[0] * l[1]), Math.sqrt(1000), 1e-6); // en log el centro es geometrico
 });
 
 t('setWindow y clearWindow guardan y quitan los limites sin tocar el resto del eje', () => {

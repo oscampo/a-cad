@@ -17,6 +17,11 @@ export function zoomWin(lo, hi, factor, log = false, at = 0.5) {
   const [a, b] = toW(lo, hi, log), w = (b - a) / factor, c = a + (b - a) * at;
   return fromW(c - w * at, c + w * (1 - at), log);
 }
+// Zoom «elastico»: el deslizador, mientras se mantiene desplazado s (-1..1) del centro, acerca (s > 0) o aleja la ventana de forma continua;
+// al soltarlo vuelve al centro y se puede seguir. A deflexion completa la ventana cambia ZOOM_RATE e-veces por segundo (~12x/s).
+export const ZOOM_RATE = 2.5;
+export const zoomStep = (lo, hi, s, dt, log = false) => zoomWin(lo, hi, Math.exp(s * ZOOM_RATE * dt), log);
+
 // Posicion del deslizador de zoom (-1..1) de una ventana respecto del ancho de partida.
 export function zoomPos(lo, hi, home, log = false) {
   const [a, b] = toW(lo, hi, log), [h0, h1] = toW(home[0], home[1], log);
