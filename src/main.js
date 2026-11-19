@@ -383,14 +383,22 @@ function fillIconRef() {
   document.querySelectorAll('[data-icon]').forEach((el) => {
     const n = el.dataset.icon;
     if (!ICONS[n] || el.closest('#helpBody')) return;
-    const lb = (el.querySelector(':scope > span')?.textContent || el.title || el.getAttribute('aria-label') || '').split(/:| · /)[0].trim(); // sin la explicacion ni la pista de mantener presionado
+    const lb = (el.querySelector(':scope > span')?.textContent || el.title || el.getAttribute('aria-label') || el.textContent || '').split(/:| · /)[0].replace(/\s+/g, ' ').trim(); // sin la explicacion ni la pista de mantener presionado; un titulo de seccion, por su texto
     if (!used.has(n)) used.set(n, []);
     if (lb && !used.get(n).includes(lb)) used.get(n).push(lb);
   });
+  // las herramientas de los botones desplegables (solo una esta a la vista) y los iconos que pone el arbol de elementos
+  const more = [...Object.values(GROUPS).flat().map(([, n, lb]) => [n, lb]), ['eye-off', 'Encender capa (árbol de elementos)'], ['unlock', 'Fijar punto (árbol de elementos)']];
+  for (const [n, raw] of more) {
+    const lb = raw.split(/:| · /)[0].trim();
+    if (!ICONS[n]) continue;
+    if (!used.has(n)) used.set(n, []);
+    if (!used.get(n).includes(lb)) used.get(n).push(lb);
+  }
   const names = [...used.keys(), ...Object.keys(ICONS).filter((n) => !used.has(n)).sort()];
   const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const line = (n) => `![${(used.get(n)?.[0] || n).replace(/[[\]]/g, '')}](icon:${n})`;
-  box.innerHTML = `<table class="fref"><thead><tr><th></th><th>Escribe</th><th>Botón</th></tr></thead><tbody>${names.map((n) => `<tr data-copy="${esc(line(n))}" style="cursor:pointer"><td><span style="display:inline-block;width:22px;height:22px">${ICONS[n]}</span></td><td><code>${esc(line(n))}</code></td><td>${esc((used.get(n) || []).join(', ') || '(sin botón)')}</td></tr>`).join('')}</tbody></table>`;
+  box.innerHTML = `<table class="fref"><thead><tr><th></th><th>Escribe</th><th>Botón</th></tr></thead><tbody>${names.map((n) => `<tr data-copy="${esc(line(n))}" style="cursor:pointer"><td><span style="display:inline-block;width:22px;height:22px">${ICONS[n]}</span></td><td><code>${esc(line(n))}</code></td><td>${esc((used.get(n) || []).join(', ') || '(sin uso en la interfaz)')}</td></tr>`).join('')}</tbody></table>`;
   box.querySelectorAll('svg').forEach((s) => { s.setAttribute('width', '22'); s.setAttribute('height', '22'); });
   box.onclick = (e) => {
     const tr = e.target.closest('tr[data-copy]');
