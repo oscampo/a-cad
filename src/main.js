@@ -25,6 +25,7 @@ import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLa
 import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD, textLinkAt, textLinkBoxes } from './text.js';
 import { linkTarget, resolveRepoPath, findAnchor } from './links.js';
 import { attachAutoPair } from './autopair.js';
+import { attachGreek } from './greek.js';
 import { migrateCalcDoc } from './tvars.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder } from './params.js';
@@ -2450,6 +2451,7 @@ txLive.addEventListener('keydown', (e) => {
 });
 txLive.addEventListener('input', txLayout);
 attachAutoPair(txLive, () => !TX_MARK.test(txLive.value)); // [] () {} $$ <> `` se cierran solos (ver autopair.js)
+attachGreek(document, '#dlgGc'); // «\a» -> α y Ctrl+G en todos los campos de texto, menos la configuracion de GitHub (ver greek.js)
 function placeText(sUp) { startTextLive(sUp); }
 
 function finishEdit(keepPending) {

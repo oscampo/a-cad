@@ -36,7 +36,7 @@ export function runsOf(line) {
 //  trozo de codigo entre literales es un enunciado aparte. Un acento grave sin cierre queda tal cual con ⚠.
 // El texto plano (lo que va fuera de $...$) se dibuja caracter por caracter: ahi nada se calcula.
 // Nombre: letras, numeros y _, con un subindice de texto opcional «var_(texto)».
-export const NAME_SRC = '[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?(?:_\\([^(){}\\n]+\\))?';
+export const NAME_SRC = '[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?(?:_\\([^(){}\\n]+\\))?';
 const DEF_LINE = new RegExp('^(\\s*)(' + NAME_SRC + ')(?:\\(([^()\\n]*)\\))?(\\s*:=?)([\\s\\S]*?)(\\s*)$');
 const OUT_LINE = /^(\s*)([\s\S]*?\S)(\s*)=(\s*)$/;
 // Un trozo de codigo: { k:'def', pre, name, params, sep, expr, eq, post } | { k:'out', pre, expr, mid, post } | { k:'code', s }.
@@ -231,7 +231,7 @@ function readingEvents(doc, probes = []) {
     if (it.probe !== undefined) { out.push({ kind: 'dim', id: it.probe }); continue; }
     let di = 0, oi = 0;
     for (const p of calcStmts(it.t.text)) {
-      if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(/[;,]/).map((q) => q.trim()), ...(p.eq !== undefined && p.params !== undefined ? { eq: true } : {}), ...(p.unit ? { unit: p.unit } : {}) });
+      if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(/[;,]/).map((q) => normName(q.trim())), ...(p.eq !== undefined && p.params !== undefined ? { eq: true } : {}), ...(p.unit ? { unit: p.unit } : {}) });
       else out.push({ kind: 'out', tid: it.tid, idx: oi++, expr: p.expr });
     }
   }

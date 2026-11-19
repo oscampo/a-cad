@@ -71,7 +71,7 @@ export function textValue(doc, t) {
     if (!seg.includes('_(')) return seg;
     subNames ||= new Set([...(st ||= textVars(doc)).names].filter((n) => n.includes('_(')));
     if (!subNames.size) return seg;
-    return seg.replace(/(?<![A-Za-z0-9α-ωΑ-Ω_])[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?_\([^(){}\n]+\)/g, (m) => (subNames.has(normName(m)) ? NM0 + normName(m) + NM1 : m));
+    return seg.replace(/(?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_])[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?_\([^(){}\n]+\)/g, (m) => (subNames.has(normName(m)) ? NM0 + normName(m) + NM1 : m));
   };
   // Valor de una salida: dentro de una formula un vector sale entre marcas VB0/VB1 y se dibuja como vector fila (sin comas); fuera, como texto «[1, 2, 3]».
   const outVal = (p, math) => {

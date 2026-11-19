@@ -67,7 +67,7 @@ export function pairDelete(v, s, e) {
 // como al escribir, para quien escuche ese evento (la entrada del lienzo se redimensiona con el).
 export function attachAutoPair(ta, isMath = () => false) {
   ta.addEventListener('beforeinput', (ev) => {
-    if (ev.isComposing) return;
+    if (ev.isComposing || ev.defaultPrevented) return; // ya lo atendio otro (la letra griega de greek.js)
     let r = null;
     if (ev.inputType === 'insertText' && ev.data && ev.data.length === 1) r = pairInsert(ta.value, ta.selectionStart, ta.selectionEnd, ev.data, isMath());
     else if (ev.inputType === 'deleteContentBackward') r = pairDelete(ta.value, ta.selectionStart, ta.selectionEnd);

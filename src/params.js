@@ -5,7 +5,7 @@
 // resolver y recalcular se repite hasta que ya nada cambia (settle). Si no se estabiliza se avisa y se deshace.
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
 import { dimPos, dimValue, angTrue, initAngle, trackAngles } from './dims.js';
-import { parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE } from './expr.js';
+import { parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE, normName } from './expr.js';
 import { textVarState, calcStmts, calcParse, calcSrc } from './tvars.js';
 import { geoVars, isGeoName, geoPoints } from './geo.js';
 
@@ -97,8 +97,10 @@ export function textVarErrors(doc) {
   return [...textVars(doc).errs].map(([n, msg]) => ({ key: n + '|' + msg, msg }));
 }
 
-export function checkName(doc, name, exceptId) {
-  if (!NAME_RE.test(name)) return 'El nombre usa letras, números y _, y empieza con una letra';
+// El nombre se compara como se guarda: «alpha» es «α» (ver normName).
+export function checkName(doc, raw, exceptId) {
+  if (!NAME_RE.test(raw)) return 'El nombre usa letras, números y _, y empieza con una letra';
+  const name = normName(raw);
   if (isReservedName(name)) return reservedWhy(name);
   if (Object.entries(doc.cons).some(([id, k]) => id !== exceptId && k.name === name)) return `Ya existe una cota llamada «${name}»`;
   if (textVarNames(doc).has(name)) return `Ya existe una variable de texto llamada «${name}»`;
@@ -106,8 +108,8 @@ export function checkName(doc, name, exceptId) {
 }
 
 // Cambia el nombre de una cota y lo actualiza en las formulas de las demas.
-export function renameDim(doc, id, name) {
-  const k = doc.cons[id], old = k.name;
+export function renameDim(doc, id, raw) {
+  const k = doc.cons[id], old = k.name, name = normName(raw); // «alpha» se guarda como «α»
   if (!old || old === name) { k.name = name; return; }
   k.name = name;
   for (const o of Object.values(doc.cons)) { if (o.expr) o.expr = renameInExpr(o.expr, old, name); if (o.scaleExpr) o.scaleExpr = renameInExpr(o.scaleExpr, old, name); }

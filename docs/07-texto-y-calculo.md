@@ -22,6 +22,7 @@ Toca donde va el punto de inserción y escribe ahí mismo, sin ventana. Lo que e
 | `"` o un espacio al empezar | Texto normal en vez de ecuación (sirven también las comillas `“` del teclado del iPad; la comilla o el espacio no se guardan). Ver «Texto normal, fórmulas y literales». |
 | Insignia azul | Junto a la esquina de la entrada: `α` es una ecuación, `A` es texto normal. |
 | `[`, `(`, `{`, `$`, `<`, `` ` `` | **Se cierran solos**: aparece el cierre y el cursor queda en medio (`[\|]`). Teclear el cierre cuando ya está delante solo avanza; borrar en un par vacío borra los dos; con texto seleccionado, lo encierra. `$` dentro de `$\|$` da `$$\|$$`. No se cierran delante de una letra o un número, ni `<` dentro de una fórmula (es «menor que»), ni el `$` o la `` ` `` que cierran algo ya abierto. Vale también en el campo Texto de las propiedades. |
+| `\` y una letra, o Ctrl+G | **Letras griegas** sin teclado griego. `\a` se vuelve α al teclear la letra (Retroceso justo después deja `\a`). Ctrl+G, como en SMath, convierte la letra antes del cursor (otra vez la devuelve) o todo lo seleccionado; en el Mac también es Ctrl, no Cmd. Tabla: `a` α, `b` β, `c` χ, `d` δ, `e` ε, `f` φ, `g` γ, `h` η, `i` ι, `j` ϕ, `k` κ, `l` λ, `m` μ, `n` ν, `p` π, `q` θ, `r` ρ, `s` σ, `t` τ, `u` υ, `v` ϖ, `w` ω, `x` ξ, `y` ψ, `z` ζ; `D` Δ, `F` Φ, `G` Γ, `J` ϑ, `L` Λ, `P` Π, `Q` Θ, `S` Σ, `V` ς, `W` Ω, `X` Ξ, `Y` Ψ. Las mayúsculas que se ven igual que una latina (Α, Β, Ε…) y la ο no se convierten. |
 
 ## Asignar y mostrar valores
 
@@ -132,7 +133,8 @@ Siguen las reglas de los nombres de las cotas: letras, números y _, empiezan co
 | Escribes | Qué hace | Ejemplo | Se ve |
 |---|---|---|---|
 | `masa_(total)` | Nombre con **subíndice de texto**: entre paréntesis, texto libre sin paréntesis ni llaves. Se dibuja con el subíndice en letra recta. | `masa_(total):3`<br>`2*masa_(total)=` | `masa_(total):=3`<br>`2*masa_(total)=6` |
-| Reservados | Un nombre no puede ser una función o constante del programa (`sin`, `pi`…) ni coincidir con el de una cota. | `sin:2` | `sin:=2 ⚠` |
+| Letras griegas | Se escriben con la letra o con su nombre de AsciiMath, y es la **misma variable**: `beta` es `β`, `Delta_1` es `Δ_1` (`phi` es ϕ y `varphi` es φ, como se dibujan). `pi` sigue siendo la constante. Para teclear la letra: `\` y la letra (`\b` → β) o Ctrl+G (ver «Escribir un texto»). | `beta:2`<br>`β*3=` | `β:=2`<br>`β*3=6` |
+| Reservados | Un nombre no puede ser una función o constante del programa (`sin`, `pi`…) ni coincidir con el de una cota. `t` es el tiempo, y `j`, `α`, `θ`, `ω` (también escritas `alpha`, `theta`, `omega`) quedan reservadas para uso futuro. | `sin:2` | `sin:=2 ⚠` |
 
 - Un texto con un nombre no válido, o que usa una variable que aún no existe, se rechaza al escribirlo («se deshizo»). Si llega de otra forma (al pegar un texto, por ejemplo), esa definición queda con ⚠ y la variable sin definir desde ahí.
 - Los nombres se actualizan solos si renombras una cota que usan.

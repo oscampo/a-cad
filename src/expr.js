@@ -5,6 +5,7 @@
 // Un angulo vale su medida en radianes (r = true), igual que π: sin(A1) funciona y R*A1 es la longitud de arco.
 
 import { parseUnit, sameDim, mulDim, powDim, unitMsg } from './units.js';
+import { GREEK, GREEK_UP } from './asciimath.js';
 
 const TAU_DEG = 180 / Math.PI;
 const FUNCS = {
@@ -54,18 +55,18 @@ export const isReservedName = (n) => { const l = String(n).toLowerCase(); return
 export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : `«${n}» es una función o constante`);
 // Todos los nombres de funciones y constantes del evaluador (la referencia de la ayuda debe nombrarlos todos: test/funcref.test.mjs).
 export const FUNC_NAMES = [...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(CONSTS)];
-export const NAME_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*$/;
-const ID_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*/;
+export const NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*$/;
+const ID_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*/;
 // Variables de texto con subindice: «var_(texto-del-subindice)». El subindice es texto libre (sin parentesis ni llaves); espacios sobrantes no cuentan.
-const SUB_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?_\([^(){}\n]+\)/;
-export const TEXT_NAME_RE = /^[A-Za-zα-ωΑ-Ω_][A-Za-z0-9α-ωΑ-Ω_]*?(?:_\([^(){}\n]+\))?$/;
+const SUB_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?_\([^(){}\n]+\)/;
+export const TEXT_NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?(?:_\([^(){}\n]+\))?$/;
 // Indices de vectores y matrices con la notacion matematica: «v_2», «v_i» (un indice) y «A_(fila,columna)», «v_(i+1)» (entre parentesis, con formulas).
 // Un nombre que existe como variable (p. ej. «k_(total)» o «x_1») es esa variable: solo es un indice si el nombre entero no existe y su base si.
 export function indexParts(raw) {
   const k = raw.lastIndexOf('_(');
   if (k > 0 && raw.endsWith(')')) return { base: raw.slice(0, k), src: raw.slice(k + 2, -1) };
   const j = raw.lastIndexOf('_');
-  if (j > 0 && /^[A-Za-z0-9α-ωΑ-Ω]+$/.test(raw.slice(j + 1))) return { base: raw.slice(0, j), src: raw.slice(j + 1) };
+  if (j > 0 && /^[A-Za-z0-9α-ωΑ-Ωϑϕϖɛ]+$/.test(raw.slice(j + 1))) return { base: raw.slice(0, j), src: raw.slice(j + 1) };
   return null;
 }
 function indexOfVar(raw, vars) {
@@ -81,7 +82,12 @@ const splitIdx = (s) => { // «i, j+1» -> ['i', 'j+1'] (las comas de dentro de 
   out.push(cur.trim());
   return out;
 };
-export const normName = (s) => String(s).replace(/_\(\s*([^()]*?)\s*\)$/, '_($1)');
+// Letras griegas: un nombre se escribe con su letra o con su nombre de AsciiMath y es la misma variable («alpha» y «α», «Delta_1» y
+// «Δ_1»): se guarda y se busca con la letra, la misma que se dibuja (phi es ϕ y varphi es φ, como en asciimath.js). «pi» no cambia:
+// es la constante (π ya lo es).
+const GREEK_CHAR = { ...GREEK, ...GREEK_UP };
+export const greekName = (s) => String(s).replace(/^[A-Za-z]+(?=_|$)/, (w) => (w !== 'pi' && Object.prototype.hasOwnProperty.call(GREEK_CHAR, w) ? GREEK_CHAR[w] : w));
+export const normName = (s) => greekName(String(s).replace(/_\(\s*([^()]*?)\s*\)$/, '_($1)'));
 
 // loose: no falla con identificadores desconocidos (para listar las variables de una formula)
 function tokenize(src, vars = null, loose = false) {
@@ -114,7 +120,7 @@ function tokenize(src, vars = null, loose = false) {
       const L = m[0].length; // largo escrito (el nombre se normaliza: «a_( b )» es «a_(b)»)
       let raw = normName(m[0]), name = raw.toLowerCase();
       // propiedad de un elemento: p12.x, l3.len (nombre + «.» + propiedad)
-      const dm = /^[A-Za-z]+\d+$/.test(raw) ? /^\.([A-Za-zα-ωΑ-Ω]\w*)/.exec(src.slice(i + raw.length)) : null; // solo nombres como p12, l3, c1
+      const dm = /^[A-Za-z]+\d+$/.test(raw) ? /^\.([A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*)/.exec(src.slice(i + raw.length)) : null; // solo nombres como p12, l3, c1
       if (dm) {
         const full = raw + '.' + dm[1];
         if (loose || (vars && Object.prototype.hasOwnProperty.call(vars, full))) { toks.push({ t: 'var', v: full, i, j: i + full.length }); i += full.length; continue; }

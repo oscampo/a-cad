@@ -4,7 +4,7 @@
 //   linea:   len (o L: longitud), ang (angulo de a hacia b, en radianes: vale como un angulo)
 //   circulo: r, d (diametro), x, y (centro)
 //   arco:    r, x, y (centro)
-const NAME = /^([A-Za-z]+\d+)\.([A-Za-zα-ωΑ-Ω]\w*)$/;
+const NAME = /^([A-Za-z]+\d+)\.([A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*)$/;
 const num = (v) => ({ v, r: false });
 const ang = (v) => ({ v, r: true });
 

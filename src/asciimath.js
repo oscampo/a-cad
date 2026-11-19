@@ -6,12 +6,12 @@
 //   | 'big' { s, sub, sup } (sum, prod, int, lim...) | 'acc' { k, body } | 'brace' { k:'u'|'o', body, sub, sup }
 //   | 'stack' { k:'over'|'under', top, base } | 'font' { k, body } | 'color' { col, body }.
 
-const GREEK = {
+export const GREEK = {
   alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ɛ', zeta: 'ζ', eta: 'η', theta: 'θ', vartheta: 'ϑ', iota: 'ι',
   kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', rho: 'ρ', sigma: 'σ', tau: 'τ', upsilon: 'υ', phi: 'ϕ', varphi: 'φ',
   chi: 'χ', psi: 'ψ', omega: 'ω',
 };
-const GREEK_UP = { Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Xi: 'Ξ', Pi: 'Π', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω' };
+export const GREEK_UP = { Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Xi: 'Ξ', Pi: 'Π', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω' };
 const FUNCS = ['arcsin', 'arccos', 'arctan', 'sinh', 'cosh', 'tanh', 'sech', 'csch', 'coth', 'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'log', 'ln', 'exp', 'det', 'dim', 'mod', 'gcd', 'lcm', 'lub', 'glb', 'max', 'min'];
 // Palabras que toman argumentos: unarias (S), binarias (SS), operadores grandes y fuentes.
 const KW = {

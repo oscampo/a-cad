@@ -47,7 +47,7 @@ export function graphVarNames(doc) {
 }
 
 // Calcula los datos: { series: [{ label, pts: [[x, y]...], color, ax, ay, tx }], error, tEnd }. solveFn: el solver del dibujo.
-const bareRe = /^[A-Za-zα-ωΑ-Ω_][\wα-ωΑ-Ω]*(\.[A-Za-zα-ωΑ-Ω]\w*)?$/;
+const bareRe = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][\wα-ωΑ-Ωϑϕϖɛ]*(\.[A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*)?$/;
 function* graphGen(doc, g, solveFn) {
   setAngleMode(doc); // las variables de los textos se leen con la opcion del documento
   // La grafica puede tener su propia opcion (g.angles: 'rad' | 'deg'; sin ella, la del documento): con ella evalua sin/cos/tan
