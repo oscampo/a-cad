@@ -318,7 +318,40 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
   const startsFactor = () => { const k = peek(); return k && (k.t === 'num' || k.t === 'id' || k.t === 'var' || k.t === 'ufn' || k.t === 'idx' || k.t === 'unit' || k.t === 'sqrt' || (k.t === 'op' && (k.v === '(' || k.v === '['))); };
   const bin = (a, b, v) => ({ v, r: a.r || b.r });
   // Unidades: d es la dimension de un escalar (sin d, un numero sin unidades). Sumar pide la misma; multiplicar y dividir las combinan.
-  const noU = (...xs) => { if (xs.some((x) => x?.d)) throw new Error('Las unidades todavía no funcionan con vectores ni matrices'); };
+  // Un vector o una matriz lleva una sola dimension para todos sus elementos (d); wd la pone en un resultado.
+  const wd = (x, d) => { if (d) x.d = d; else delete x.d; return x; };
+  // Funciones de un argumento con unidades (escalar o elemento a elemento): la raiz las parte a la mitad, abs y el redondeo las conservan,
+  // signo no las lleva; el resto pide un numero sin unidades.
+  const fnDim = (name, a) => {
+    if (!a.d) return undefined;
+    if (name === 'sqrt' || name === 'raiz') return powDim(a.d, 0.5);
+    if (KEEP_U.has(name)) return a.d;
+    if (name === 'sign' || name === 'signo') return undefined;
+    throw new Error(`«${name}» necesita un número sin unidades (recibió ${unitMsg(a.d)})`);
+  };
+  // Funciones de varios argumentos con unidades: los valores deben tener la misma dimension; el resultado la conserva (atan2 da un angulo).
+  const multiDim = (name, A) => {
+    if (!A.some((x) => x.d)) return undefined;
+    if (name === 'round' || name === 'redondear') { if (A[1]?.d) throw new Error('round(x; n): n es un número sin unidades'); return A[0].d; }
+    if (A.some((x) => !sameDim(x.d, A[0].d))) throw new Error(`«${name}» necesita valores con las mismas unidades (recibió ${A.map((x) => unitMsg(x.d)).join(', ')})`);
+    return name === 'atan2' ? undefined : A[0].d;
+  };
+  // Funciones de vectores y matrices con unidades: la dimension del resultado.
+  const matDim = (name, A) => {
+    const [a, b] = A;
+    if (!a?.d && !b?.d) return undefined;
+    switch (name) {
+      case 'inv': return powDim(a.d, -1);
+      case 'det': return powDim(a.d, isM(a) ? a.m.length : 1);
+      case 'prod': return powDim(a.d, isM(a) ? a.m.flat().length : 1);
+      case 'variance': return powDim(a.d, 2);
+      case 'len': case 'rows': case 'cols': return undefined;
+      case 'dot': case 'cross': return mulDim(a?.d, b?.d);
+      case 'eye': throw new Error('eye(n): n es un número sin unidades');
+      case 'cumprod': throw new Error('«cumprod» todavía no funciona con unidades');
+      default: return a.d; // sum, mean, median, std, norm, trace, diag, cumsum
+    }
+  };
   const addU = (a, b, s) => { if (!sameDim(a.d, b.d)) throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} ${unitMsg(a.d)} y ${unitMsg(b.d)}`); return a.d || b.d; };
   const mulU = (a, b, s, v) => ({ v, r: a.r || b.r, d: mulDim(a.d, b.d, s) });
 
@@ -359,43 +392,32 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
   }
   function call(name, A) {
     const sep = ' (sepáralos con «;»: «2,5» es un solo número)';
-    if (MATFN.has(name)) { noU(...A); return matFn(name, A); }
+    if (MATFN.has(name)) { const d = matDim(name, A); return wd({ ...matFn(name, A) }, d); }
     if ((name === 'min' || name === 'max') && A.length === 1) { // min(x), max(x): el menor o el mayor de todos los elementos
       if (!isM(A[0])) throw new Error(`«${name}» recibe dos valores (${name}(a; b)) o un vector`);
-      noU(...A);
-      return { v: Math[name](...A[0].m.flat()), r: false };
+      return wd({ v: Math[name](...A[0].m.flat()), r: false }, A[0].d);
     }
     if (A.some((a) => isM(a))) { // funciones sobre vectores y matrices: a cada elemento (los escalares se extienden)
-      noU(...A);
       if (name in FUNCS) {
         if (A.length !== 1) throw new Error(`«${name}» recibe un solo valor`);
-        return mapM(A[0], (x) => FUNCS[name](x, radians, radians));
+        const d = fnDim(name, A[0]), u = !!A[0].d; // con unidades, el valor va sin la regla de los angulos
+        return wd(mapM(A[0], (x) => (u ? FUNCS[name](x) : FUNCS[name](x, radians, radians))), d);
       }
       const M = MULTI[name], [lo, hi] = [M.n[0], M.n[1] ?? Infinity];
       if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === Infinity ? `${lo} valores o más` : lo === hi ? `${lo} valores` : `${lo} o ${hi} valores`}${sep}`);
-      const ms = A.filter(isM);
+      const d = multiDim(name, A), ms = A.filter(isM);
       for (const m of ms.slice(1)) sameShape(ms[0], m, `aplicar «${name}» a`);
-      return { m: ms[0].m.map((row, i) => row.map((_, k) => M.f(A.map((a) => ({ v: isM(a) ? a.m[i][k] : a.v, r: false })), radians).v)) };
+      return wd({ m: ms[0].m.map((row, i) => row.map((_, k) => M.f(A.map((a) => ({ v: isM(a) ? a.m[i][k] : a.v, r: false })), radians).v)) }, d);
     }
     if (name in FUNCS) {
       if (A.length !== 1) throw new Error(`«${name}» recibe un solo valor`);
       const a = A[0];
-      if (a.d) { // con unidades: la raiz las parte a la mitad, el redondeo y abs las conservan, signo no las lleva; el resto pide un numero sin unidades
-        if (name === 'sqrt' || name === 'raiz') return { v: Math.sqrt(a.v), r: false, d: powDim(a.d, 0.5) };
-        if (KEEP_U.has(name)) return { v: FUNCS[name](a.v), r: false, d: a.d };
-        if (name === 'sign' || name === 'signo') return { v: Math.sign(a.v), r: false };
-        throw new Error(`«${name}» necesita un número sin unidades (recibió ${unitMsg(a.d)})`);
-      }
+      if (a.d) return wd({ v: FUNCS[name](a.v), r: false }, fnDim(name, a)); // con unidades: ver fnDim
       return { v: FUNCS[name](A[0].v, A[0].r || radians, radians), r: MAKE_RAD.has(name) || (KEEP_RAD.has(name) && A[0].r) };
     }
     const M = MULTI[name], [lo, hi] = [M.n[0], M.n[1] ?? Infinity];
     if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === Infinity ? `${lo} valores o más` : lo === hi ? `${lo} valores` : `${lo} o ${hi} valores`}${sep}`);
-    if (A.some((x) => x.d)) { // con unidades: los valores deben tener la misma dimension; el resultado la conserva (atan2 da un angulo)
-      if (name === 'round' || name === 'redondear') { if (A[1]?.d) throw new Error('round(x; n): n es un número sin unidades'); return { ...M.f(A, radians), d: A[0].d }; }
-      if (A.some((x) => !sameDim(x.d, A[0].d))) throw new Error(`«${name}» necesita valores con las mismas unidades (recibió ${A.map((x) => unitMsg(x.d)).join(', ')})`);
-      const r = M.f(A, radians);
-      return name === 'atan2' ? r : { ...r, d: A[0].d };
-    }
+    if (A.some((x) => x.d)) { const d = multiDim(name, A); return wd({ ...M.f(A, radians) }, d); }
     return M.f(A, radians);
   }
 
@@ -405,10 +427,10 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
     if (A.length !== f.params.length) throw new Error(`«${name}» recibe ${f.params.length === 1 ? 'un valor' : `${f.params.length} valores separados por «;»`}: ${name}(${f.params.join('; ')})`);
     if (depth >= 200) throw new Error(`«${name}» se llama a sí misma demasiadas veces (200 niveles)`);
     const g = globals || vars, local = { ...g };
-    f.params.forEach((q, i) => { local[q] = isM(A[i]) ? { mat: A[i].m } : { v: A[i].v, r: !!A[i].r, d: A[i].d }; });
+    f.params.forEach((q, i) => { local[q] = isM(A[i]) ? wd({ mat: A[i].m }, A[i].d) : { v: A[i].v, r: !!A[i].r, d: A[i].d }; });
     try {
       const r = evalExpr(f.body, { radians, vars: local, allowMat: true, depth: depth + 1, globals: g });
-      return r.mat ? { m: r.mat } : { v: r.value, r: r.rad, d: r.dim };
+      return r.mat ? wd({ m: r.mat }, r.dim) : { v: r.value, r: r.rad, d: r.dim };
     } catch (e) {
       if (/^En «/.test(e.message)) throw e;
       const ne = new Error(`En «${name}»: ${e.message}`); ne.rt = e.rt; throw ne;
@@ -417,7 +439,7 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
 
   function expr() {
     let a = term();
-    while (isOp('+') || isOp('-')) { const o = toks[p++].v, s = o === '+' ? 1 : -1; const b = term(); a = isM(a) || isM(b) ? (noU(a, b), addM(a, b, s)) : { v: a.v + s * b.v, r: a.r || b.r, d: addU(a, b, s) }; }
+    while (isOp('+') || isOp('-')) { const o = toks[p++].v, s = o === '+' ? 1 : -1; const b = term(); a = isM(a) || isM(b) ? wd(addM(a, b, s), addU(a, b, s)) : { v: a.v + s * b.v, r: a.r || b.r, d: addU(a, b, s) }; }
     return a;
   }
   function term() {
@@ -425,20 +447,20 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
     for (;;) {
       if (isOp('.*') || isOp('./')) { // elemento a elemento
         const o = toks[p++].v, b = unary();
-        if (!isM(a) && !isM(b)) { if (o === './' && b.v === 0) throw rt('División entre cero'); a = mulU(a, b, o === '.*' ? 1 : -1, o === '.*' ? a.v * b.v : a.v / b.v); } else noU(a, b), a = o === '.*' ? elementwise(a, b, (x, y) => x * y, 'multiplicar elemento a elemento') : elementwise(a, b, divEl, 'dividir elemento a elemento');
+        if (!isM(a) && !isM(b)) { if (o === './' && b.v === 0) throw rt('División entre cero'); a = mulU(a, b, o === '.*' ? 1 : -1, o === '.*' ? a.v * b.v : a.v / b.v); } else a = wd(o === '.*' ? elementwise(a, b, (x, y) => x * y, 'multiplicar elemento a elemento') : elementwise(a, b, divEl, 'dividir elemento a elemento'), mulDim(a.d, b.d, o === '.*' ? 1 : -1));
       } else if (isOp('*') || isOp('/')) {
         const o = toks[p++].v; const b = unary();
         if (o === '/') {
           if (isM(b)) throw new Error('No se puede dividir entre un vector o una matriz');
           if (b.v === 0) throw rt('División entre cero');
-          a = isM(a) ? (noU(b), mapM(a, (x) => x / b.v)) : mulU(a, b, -1, a.v / b.v);
-        } else a = isM(a) || isM(b) ? (noU(a, b), mulM(a, b)) : mulU(a, b, 1, a.v * b.v);
-      } else if (startsFactor()) { const b = unary(); a = isM(a) || isM(b) ? (noU(a, b), mulM(a, b)) : mulU(a, b, 1, a.v * b.v); } // multiplicacion implicita: 2π, 3(4+1)
+          a = isM(a) ? wd(mapM(a, (x) => x / b.v), mulDim(a.d, b.d, -1)) : mulU(a, b, -1, a.v / b.v);
+        } else a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v);
+      } else if (startsFactor()) { const b = unary(); a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v); } // multiplicacion implicita: 2π, 3(4+1)
       else return a;
     }
   }
   function unary() {
-    if (isOp('-')) { p++; const a = unary(); return isM(a) ? mapM(a, (x) => -x) : { v: -a.v, r: a.r, d: a.d }; }
+    if (isOp('-')) { p++; const a = unary(); return isM(a) ? wd(mapM(a, (x) => -x), a.d) : { v: -a.v, r: a.r, d: a.d }; }
     if (isOp('+')) { p++; return unary(); }
     return power();
   }
@@ -446,10 +468,10 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
     const a = primary();
     if (isOp('^')) {
       p++;
-      if (peek()?.t === 'tr') { p++; return isM(a) ? transposeM(a) : a; } // x^T
+      if (peek()?.t === 'tr') { p++; return isM(a) ? wd(transposeM(a), a.d) : a; } // x^T
       const b = unary();
       if (b.d) throw new Error(`El exponente no puede llevar unidades (lleva ${unitMsg(b.d)})`);
-      if (isM(a) && !isM(b)) return powM(a, b.v); // A^2, A^(-1)
+      if (isM(a) && !isM(b)) return wd(powM(a, b.v), powDim(a.d, b.v)); // A^2, A^(-1)
       if (isM(b)) throw new Error('El exponente no puede ser un vector ni una matriz (para elevar elemento a elemento usa .^)');
       return { v: Math.pow(a.v, b.v), r: a.r, d: powDim(a.d, b.v) };
     }
@@ -457,7 +479,7 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
       p++;
       const b = unary();
       if (b.d) throw new Error(`El exponente no puede llevar unidades (lleva ${unitMsg(b.d)})`);
-      return !isM(a) && !isM(b) ? { v: Math.pow(a.v, b.v), r: a.r, d: powDim(a.d, b.v) } : (noU(a), elementwise(a, b, Math.pow, 'elevar elemento a elemento'));
+      return !isM(a) && !isM(b) ? { v: Math.pow(a.v, b.v), r: a.r, d: powDim(a.d, b.v) } : wd(elementwise(a, b, Math.pow, 'elevar elemento a elemento'), isM(b) ? (a.d ? (() => { throw new Error('Con unidades, el exponente de .^ es un número, no un vector'); })() : undefined) : powDim(a.d, b.v));
     }
     return a;
   }
@@ -467,7 +489,7 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
     if (k.t === 'num') return { v: k.v, r: false };
     if (k.t === 'unit') return { v: k.u.f, r: !!k.u.r, d: k.u.d }; // 'N, 'mm: vale su factor al SI, con su dimension
     if (k.t === 'idx') { // v_2, A_(i,j), A_(i,:), A_(:,j): un elemento, una fila o una columna (los indices empiezan en 1)
-      const x = vars[k.base], m = x.mat || [x.vec], R = m.length, C = m[0].length, name = `${k.base}_(${k.src})`;
+      const x = vars[k.base], xd = x.d, m = x.mat || [x.vec], R = m.length, C = m[0].length, name = `${k.base}_(${k.src})`;
       const ix = splitIdx(k.src).map((s) => {
         if (!s) throw new Error(`Falta un índice en «${name}»`);
         if (s === ':') return ':';
@@ -480,10 +502,10 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
       const [i, j] = ix.length === 2 ? ix : R === 1 ? [1, ix[0]] : [ix[0], 1];
       const out = (q, lim) => q !== ':' && (q < 1 || q > lim);
       if (out(i, R) || out(j, C)) throw new Error(`Índice fuera de rango: «${k.base}» es ${R === 1 ? `un vector de ${C}` : C === 1 ? `un vector de ${R}` : `una matriz de ${R}×${C}`}` + (ix.length === 2 ? ` y pides la fila ${i}, columna ${j}` : ` y pides el elemento ${ix[0]}`));
-      if (i === ':' && j === ':') return { m };
-      if (i === ':') return { m: m.map((r) => [r[j - 1]]) }; // la columna j
-      if (j === ':') return { m: [m[i - 1]] }; // la fila i
-      return { v: m[i - 1][j - 1], r: false };
+      if (i === ':' && j === ':') return wd({ m }, xd);
+      if (i === ':') return wd({ m: m.map((r) => [r[j - 1]]) }, xd); // la columna j
+      if (j === ':') return wd({ m: [m[i - 1]] }, xd); // la fila i
+      return wd({ v: m[i - 1][j - 1], r: false }, xd);
     }
     if (k.t === 'ufn') { // funcion definida en un texto: foo(x; y):...
       if (!isOp('(')) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
@@ -498,18 +520,19 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
     if (k.t === 'var') {
       const x = vars[k.v];
       if (x.fn) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
-      if (x.mat) return { m: x.mat };
-      if (x.vec) return { m: [x.vec] };
+      if (x.mat) return wd({ m: x.mat }, x.d);
+      if (x.vec) return wd({ m: [x.vec] }, x.d);
       return { v: x.v, r: !!x.r, d: x.d };
     }
-    if (k.t === 'sqrt') { const a = primary(); if (isM(a)) { if (a.m.some((r) => r.some((x) => x < 0))) throw rt('Raíz de un número negativo'); return mapM(a, Math.sqrt); } if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r, d: powDim(a.d, 0.5) }; }
+    if (k.t === 'sqrt') { const a = primary(); if (isM(a)) { if (a.m.some((r) => r.some((x) => x < 0))) throw rt('Raíz de un número negativo'); return wd(mapM(a, Math.sqrt), powDim(a.d, 0.5)); } if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r, d: powDim(a.d, 0.5) }; }
     if (k.t === 'op' && k.v === '[') { // matriz: [1, 2, 3] (fila) o [1, 2; 3, 4] (filas separadas por «;»)
       if (isOp(']')) throw new Error('Una matriz no puede estar vacía');
       const rows = [[]];
+      let d0 = null; // todos los elementos con la misma dimension (la de la matriz)
       for (;;) {
         const a = cmp();
         if (isM(a)) throw new Error('Los elementos de una matriz son números');
-        noU(a);
+        if (d0 === null) d0 = a.d; else if (!sameDim(a.d, d0)) throw new Error(`Los elementos de una matriz deben tener las mismas unidades (hay ${unitMsg(d0)} y ${unitMsg(a.d)})`);
         rows.at(-1).push(a.v);
         const s = peek();
         if (s?.t === 'sep') { p++; if (s.c === ';') rows.push([]); continue; }
@@ -519,7 +542,7 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
       p++;
       if (rows.some((r) => r.length !== rows[0].length)) throw new Error('Todas las filas de una matriz deben tener el mismo número de elementos');
       if (rows.length * rows[0].length > 10000) throw new Error('Una matriz admite hasta 10000 elementos');
-      return { m: rows };
+      return wd({ m: rows }, d0);
     }
     if (k.t === 'op' && k.v === '(') {
       const a = cmp();
@@ -550,7 +573,7 @@ export function evalExpr(src, { radians = false, vars = null, allowMat = false, 
   if (isM(res)) {
     if (!allowMat) throw new Error(`El resultado es ${nameM(res)}, no un número`);
     if (!res.m.every((r) => r.every(Number.isFinite))) throw new Error('El resultado no es un número');
-    return { mat: res.m, value: NaN, rad: false };
+    return { mat: res.m, value: NaN, rad: false, dim: res.d };
   }
   if (!Number.isFinite(res.v)) throw new Error('El resultado no es un número');
   return { value: res.v, rad: res.r, dim: res.d };

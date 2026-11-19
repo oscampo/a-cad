@@ -17,8 +17,8 @@ export { hasMath } from './mathlayout.js';
 // definicion no vale (repetida, choca con una cota, falla) lleva un ⚠ al final. Un literal `...` se dibuja sin los acentos y sin calcular.
 // Un vector en un texto: «[1, 2, 3]»; si tiene mas de 8 elementos, los 4 primeros y los 2 ultimos.
 // Una matriz en un texto: «[1, 2, 3]» (fila), «[1; 2; 3]» (columna), «[1, 2; 3, 4]»; con mas de 8 columnas o filas, las 4 primeras y las 2 ultimas.
-const matText = (m) => {
-  const row = (r) => (r.length > 8 ? [...r.slice(0, 4).map(fmtNum), '…', ...r.slice(-2).map(fmtNum)] : r.map(fmtNum));
+const matText = (m, fmt = fmtNum) => {
+  const row = (r) => (r.length > 8 ? [...r.slice(0, 4).map((x) => fmt(x)), '…', ...r.slice(-2).map((x) => fmt(x))] : r.map((x) => fmt(x)));
   let rows = m.map(row);
   if (rows.length > 8) rows = [...rows.slice(0, 4), rows[0].map(() => '⋮'), ...rows.slice(-2)];
   return '[' + rows.map((r) => r.join(', ')).join('; ') + ']';
@@ -31,13 +31,26 @@ const showU = (seg) => (seg.includes("'") ? seg.replace(/'\s*(\([^()]*\)|[A-Za-z
 const fmtQ = (x) => (x !== 0 && Math.abs(x) < 1e-3 ? String(Number(x.toPrecision(4))) : String(Number(x.toFixed(Math.abs(x) >= 1000 ? 1 : 3))));
 // Una cantidad con unidades: en la unidad pedida («F='kN»), si no en la de la variable («F:250'N»), en la de una variable de la expresion
 // con la misma magnitud, o en la del SI con prefijo (autoUnit). ⚠ si la unidad pedida no es de la misma magnitud.
+// La unidad en que se muestra (con su factor al SI); null si la pedida no es de la misma magnitud. v: el valor que decide el prefijo automatico.
+function pickUnit(dim, env, src, want, v) {
+  if (want) { const u = parseUnit(want); return sameDim(dim, u.d) ? { name: want, f: u.f } : null; }
+  for (const n of [normName(String(src).trim()), ...exprRefs(src)]) { const x = env?.[n]; if (x?.pu && sameDim(x.d, dim)) return { name: x.pu, f: x.pf }; }
+  return autoUnit(v, dim);
+}
+const tailOf = (n, math) => (math ? unitMath(n) : ' ' + n);
 function qty(r, env, src, want, math) {
-  const tail = (n) => (math ? unitMath(n) : ' ' + n);
-  if (want) { const u = parseUnit(want); return sameDim(r.dim, u.d) ? fmtQ(r.value / u.f) + tail(want) : '⚠'; }
+  if (want) { const u = pickUnit(r.dim, env, src, want, r.value); return u ? fmtQ(r.value / u.f) + tailOf(want, math) : '⚠'; }
   if (!r.dim) return Math.abs(r.value) > 1e-12 ? (Math.abs(r.value) < 1e-3 ? fmtQ(r.value) : fmtNum(r.value)) : fmtNum(r.value); // 3e-4 no sale como 0; el ruido de redondeo (sin(180)) si
-  for (const n of [normName(String(src).trim()), ...exprRefs(src)]) { const x = env?.[n]; if (x?.pu && sameDim(x.d, r.dim)) return fmtQ(r.value / x.pf) + tail(x.pu); }
-  const a = autoUnit(r.value, r.dim);
-  return fmtQ(r.value / a.f) + tail(a.name);
+  const u = pickUnit(r.dim, env, src, null, r.value);
+  return fmtQ(r.value / u.f) + tailOf(u.name, math);
+}
+// Un vector o una matriz: dentro de una formula entre marcas VB0/VB1 (se dibuja como vector fila, sin comas). Con unidades, todos los
+// elementos en la misma unidad, elegida como en qty (el prefijo automatico, segun el elemento mas grande).
+function matQ(m, dim, env, src, want, math) {
+  const box = (s) => (math ? VB0 + s + VB1 : s);
+  if (!dim) return want ? '⚠' : box(matText(m));
+  const u = pickUnit(dim, env, src, want, Math.max(...m.flat().map(Math.abs)));
+  return u ? box(matText(m.map((r) => r.map((x) => x / u.f)), fmtQ)) + tailOf(want || u.name, math) : '⚠';
 }
 export function textValue(doc, t) {
   const s = String(t.text ?? '');
@@ -63,7 +76,7 @@ export function textValue(doc, t) {
     try {
       const env = st?.outEnv.get(tid + ':' + oidx++) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
       const r = evalExpr(p.expr, { vars: env, allowMat: true });
-      return r.mat ? (p.unit ? '⚠' : math ? VB0 + matText(r.mat) + VB1 : matText(r.mat)) : qty(r, env, p.expr, p.unit, math);
+      return r.mat ? matQ(r.mat, r.dim, env, p.expr, p.unit, math) : qty(r, env, p.expr, p.unit, math);
     } catch (e) { return '⚠'; }
   };
   // La magnitud de un vector («$D3=$», ver vectors.js) muestra solo el valor, como texto.
@@ -73,7 +86,7 @@ export function textValue(doc, t) {
     if (!env || params.split(/[;,]/).some((q) => !(normName(q.trim()) in env))) return '';
     try {
       const r = evalExpr(callSrc, { vars: env, allowMat: true });
-      return '=' + (r.mat ? VB0 + matText(r.mat) + VB1 : qty(r, env, '', null, true));
+      return '=' + (r.mat ? matQ(r.mat, r.dim, env, '', null, true) : qty(r, env, '', null, true));
     } catch (e) { return '=⚠'; }
   };
   const piece = (p) => {
@@ -88,7 +101,7 @@ export function textValue(doc, t) {
     const shownVal = p.eq === undefined || mx ? '' : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? qty({ value: val.v, dim: val.d }, { [name]: val }, name, null, true) : '⚠');
     // «x:valor'unidad»: la unidad va detras del valor; con «=valor», el valor ya sale en esa unidad
     const un = p.unit && !(shownVal && !shownVal.endsWith('⚠')) ? unitMath(p.unit.replace(/^\((.*)\)$/, '$1')) : '';
-    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 + un : IT0 + shown + call + ':=' + showU(wrapNames(p.expr.trim())) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;
+    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + matQ(mx, val.d, { [name]: val }, name, null, true) + (val.d ? '' : un) : IT0 + shown + call + ':=' + showU(wrapNames(p.expr.trim())) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;
   };
   return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + tk.lines.map((l) => l.map(piece).join('')).join('\n') + (tk.disp ? '$$' : '$'))).join('');
 }

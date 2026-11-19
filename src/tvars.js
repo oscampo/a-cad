@@ -241,22 +241,41 @@ export const textDefs = (doc) => readingEvents(doc).filter((e) => e.kind === 'de
 //  fnEnv: Map('tid:idx' -> variables que ve «f(x):expr=», para mostrar f(x) ahi mismo)
 //  dimEnv: Map(id de cota -> variables de texto que ve esa cota en su lugar de la pagina)
 // «x:expr'unidad»: si expr no lleva unidades, vale expr en esa unidad; si las lleva, deben ser de la misma magnitud y se muestra en ella (pu, pf: unidad y su factor al SI).
-// Si no cuadran, se prueba la unidad como parte de la expresion («L1+3'mm» es L1 + 3 mm). Las unidades no van en vectores ni matrices.
+// Si no cuadran, se prueba la unidad como parte de la expresion («L1+3'mm» es L1 + 3 mm). Un vector o una matriz lleva una sola unidad
+// para todos sus elementos («v:[1, 2, 3]'mm»).
 export function evalDef(expr, unit, vars) {
-  if (!unit) return evalExpr(expr, { vars, allowMat: true });
+  const all = (s) => evalExpr(s, { vars, allowMat: true });
+  if (!unit) return all(expr);
   const u = parseUnit(unit);
   let r;
-  try { r = evalExpr(expr, { vars, allowMat: true }); } catch (e) {
-    try { return finish(evalExpr(expr + "'" + unit, { vars })); } catch (e2) { throw e; } // «L1+3'mm»: 3 sin unidades no se suma a L1, 3 mm si
+  try { r = all(expr); } catch (e) {
+    try { return finish(all(expr + "'" + unit)); } catch (e2) { throw e; } // «L1+3'mm»: 3 sin unidades no se suma a L1, 3 mm si
   }
   function finish(w) { return w.dim && sameDim(w.dim, u.d) ? { ...w, pu: unit, pf: u.f } : w; }
-  if (r.mat) throw new Error('Las unidades todavía no funcionan con vectores ni matrices');
-  if (!r.dim) return { value: r.value * u.f, rad: r.rad || !!u.r, dim: u.d, pu: unit, pf: u.f };
-  if (sameDim(r.dim, u.d)) return { ...r, pu: unit, pf: u.f };
+  const fit = withUnit(r, unit, u);
+  if (fit) return fit;
   let w = null;
-  try { w = evalExpr(expr + "'" + unit, { vars }); } catch (e) { /* no cuadra de ninguna forma */ }
-  if (w && w.dim) return sameDim(w.dim, u.d) ? { ...w, pu: unit, pf: u.f } : w;
+  try { w = all(expr + "'" + unit); } catch (e) { /* no cuadra de ninguna forma */ }
+  if (w && w.dim) return finish(w);
   throw new Error(`da ${unitMsg(r.dim)}, que no se puede expresar en ${unit} (${unitMsg(u.d)})`);
+}
+// La cola «'unidad» sobre un valor ya calculado: sin unidades, vale el valor en esa unidad; con la misma magnitud, solo dice en que unidad
+// mostrarlo; si no cuadra, null.
+function withUnit(r, unit, u) {
+  if (!r.dim) return r.mat ? { ...r, mat: r.mat.map((row) => row.map((x) => x * u.f)), dim: u.d, pu: unit, pf: u.f } : { value: r.value * u.f, rad: r.rad || !!u.r, dim: u.d, pu: unit, pf: u.f };
+  return sameDim(r.dim, u.d) ? { ...r, pu: unit, pf: u.f } : null;
+}
+// Un rango, con unidades si las llevan sus extremos («0'mm..10'mm;5») o la cola («0..10;5'mm»).
+export function evalRangeDef(rg, unit, vars) {
+  const dims = [], vec = rangeValues(rg, (s) => { const w = evalExpr(s, { vars }); dims.push(w.dim); return w.value; });
+  const ends = rg.kind === 'n' ? [dims[0], dims[1]] : dims; // en «a..b;n», n es un numero sin unidades
+  if (rg.kind === 'n' && dims[2]) throw new Error('n (el número de elementos) va sin unidades');
+  if (ends.some((d) => !sameDim(d, ends[0]))) throw new Error(`los extremos${rg.kind === 'step' ? ' y el paso' : ''} deben tener las mismas unidades (hay ${ends.map(unitMsg).join(', ')})`);
+  const r = { mat: [vec], value: NaN, rad: false, dim: ends[0] };
+  if (!unit) return r;
+  const u = parseUnit(unit), fit = withUnit(r, unit, u);
+  if (!fit) throw new Error(`da ${unitMsg(r.dim)}, que no se puede expresar en ${unit} (${unitMsg(u.d)})`);
+  return fit;
 }
 let memoKey = null, memoSt = null;
 export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = []) {
@@ -296,12 +315,9 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
     else {
       try {
         const rg = parseRange(e.expr);
-        if (rg && e.unit) throw new Error('Las unidades todavía no funcionan con vectores ni matrices');
-        if (rg) val = { vec: rangeValues(rg, (s) => evalExpr(s, { vars: cur }).value), r: false };
-        else {
-          const r = evalDef(e.expr, e.unit, cur);
-          val = r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false } : { mat: r.mat, r: false }) : { v: r.value, r: r.rad, ...(r.dim ? { d: r.dim } : {}), ...(r.pu ? { pu: r.pu, pf: r.pf } : {}) }; // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
-        }
+        const r = rg ? evalRangeDef(rg, e.unit, cur) : evalDef(e.expr, e.unit, cur);
+        const u = { ...(r.dim ? { d: r.dim } : {}), ...(r.pu ? { pu: r.pu, pf: r.pf } : {}) };
+        val = r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false, ...u } : { mat: r.mat, r: false, ...u }) : { v: r.value, r: r.rad, ...u }; // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
       } catch (err) { st.bad.add(k); st.errs.set(e.name, `«${e.name}»: ${hint(err.message)}`); }
     }
     if (val) { cur[e.name] = val; env[e.name] = val; st.defVal.set(k, val); if (e.eq) st.fnEnv.set(k, { ...cur }); } else { delete cur[e.name]; delete env[e.name]; } // una definicion que falla deja la variable sin definir

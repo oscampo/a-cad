@@ -71,7 +71,19 @@ t("«x:valor'unidad»: unidades reales, se convierten y se propagan", () => {
   assert.equal(u("$$x:2'N+3=$$").includes('⚠'), true); // N mas un numero sin unidades
   assert.equal(u("$$p:2.5e6'Pa\np='MPa\nq:3e-4=\nr:2E-3*1E3=\ns:sin(180)=$$"), '$$p:=2.5e6 Pa\np=2.5 MPa\nq:=3e-4=0.0003\nr:=2E-3*1E3=2\ns:=sin(180)=0$$'); // notacion cientifica; un numero muy pequeño no se muestra como 0, el ruido de redondeo si
   assert.equal(u("$$x:sin(30'deg)=$$"), '$$x:=sin(30 deg)=0.5$$'); // un ángulo con unidad
-  assert.equal(u("$$v:1..3;3'mm$$").includes('⚠'), true); // todavía no hay unidades en vectores
+});
+
+t('vectores y matrices con unidades: una sola unidad para todos los elementos', () => {
+  const u = (s) => page(s).replaceAll(' " ', ' ').replaceAll('"', '');
+  assert.equal(u("$$v:[1,2,3]'mm\nv=\nv*2=\nsum(v)=\nv='m\nv='N$$"), '$$v:=[1, 2, 3] mm\nv=[1, 2, 3] mm\nv*2=[2, 4, 6] mm\nsum(v)=6 mm\nv=[0.001, 0.002, 0.003] m\nv=⚠$$');
+  assert.equal(u("$$w:[1'm,20'cm]\nw=$$"), '$$w:=[1, 0.2] m\nw=[1, 0.2] m$$'); // cada elemento con su unidad, se muestran en una
+  assert.equal(u("$$x:0..10;5'mm\nx=\ny:1'm..3'm;3\ny=$$"), '$$x:=[0, 2.5, 5, 7.5, 10] mm\nx=[0, 2.5, 5, 7.5, 10] mm\ny:=[1, 2, 3] m\ny=[1, 2, 3] m$$'); // rangos
+  assert.equal(u("$$a:[1'm,2'N]$$").includes('⚠'), true); // magnitudes mezcladas
+  assert.equal(u("$$b:[1,2]'m+[1,2]'N=$$").includes('⚠'), true);
+  assert.equal(u("$$F:[1,2,3]'N\nd:[1,0,0]'m\ndot(F;d)=\nmax(F)=$$"), '$$F:=[1, 2, 3] N\nd:=[1, 0, 0] m\ndot(F;d)=1 J\nmax(F)=3 N$$');
+  assert.equal(u("$$M:[1,2;3,4]'m\ndet(M)=\ninv(M)=$$"), '$$M:=[1, 2; 3, 4] m\ndet(M)=-2 m²\ninv(M)=[-2, 1; 1.5, -0.5] 1/m$$');
+  assert.equal(u("$$k:[1,2]\nk='m$$"), '$$k:=[1, 2]\nk=⚠$$'); // sin unidades no se puede pedir una
+  assert.equal(u("$$s:[1,4]'m^2\nsqrt(s)=\nsin(s)=$$"), '$$s:=[1, 4] m²\nsqrt(s)=[1, 2] m\nsin(s)=⚠$$');
   for (const s of ["$$F='kN$$", "$$F = 'kN $$"]) assert.equal(calcSrc(calcParse(s)), s);
   assert.equal(page("$$f'(x)$$"), "$$f'(x)$$"); // fuera de una asignacion «'» sigue siendo la prima
   assert.deepEqual(stmts("$$g(x):x'N$$"), ["g(x):x'N"]); // una funcion no lleva unidad

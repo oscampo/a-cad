@@ -44,6 +44,7 @@ const WORDS = new Map();
 for (const [k, v] of Object.entries(GREEK)) WORDS.set(k, { t: 'var', v });
 for (const [k, v] of Object.entries(GREEK_UP)) WORDS.set(k, { t: 'sym', v });
 for (const k of FUNCS) WORDS.set(k, { t: 'fn', v: k });
+for (const k of ['inv', 'len']) WORDS.set(k, { t: 'fn', v: k }); // funciones del calculo que si no se leerian como «in»+v (∈v) y «le»+n (≤n)
 for (const [k, v] of Object.entries(KW)) WORDS.set(k, { t: 'kw', v });
 for (const [k, v] of Object.entries(SYM)) WORDS.set(k, { t: 'sym', v });
 for (const [k, v] of Object.entries(BIN)) WORDS.set(k, { t: 'op', v, k: 'bin' });

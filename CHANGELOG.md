@@ -2,6 +2,22 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## v2.7.0 (2026-11-18)
+
+### Nuevo
+
+- Textos: **vectores y matrices con unidades**. Una sola unidad para todos los elementos: `v:[1,2,3]'mm`, `[1'm, 20'cm]` (cada elemento con la suya, de la misma magnitud) o un rango `x:0..10;5'mm`. Se muestran todos en la misma unidad (la de la variable, la pedida con `='unidad` o la del SI con prefijo). Las operaciones las propagan: `v*2` sigue en mm, `sum(v)` en mm, `dot(F;d)` en J, `det(M)` en m², `inv(M)` en 1/m, `sqrt` saca la raíz de la unidad.
+- Mezclar magnitudes en un vector (`[1'm, 2'N]`) o sumar vectores de magnitudes distintas da ⚠.
+
+### Corrige
+
+- La fórmula dibujaba `inv(M)` como «∈v(M)» y `len(v)` como «≤n(v)»; ahora salen como funciones.
+
+### Cambia el comportamiento
+
+- Un vector con unidades ya no da ⚠.
+- Las gráficas usan los valores de un vector con unidades en el SI (un vector en mm se grafica en m).
+
 ## v2.6.0 (2026-11-18)
 
 ### Nuevo
