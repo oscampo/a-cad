@@ -3102,7 +3102,7 @@ function drawSample(canvas, pattern, color) {
 }
 
 function syncPanel() {
-  $('cfgLang').value = getLang(); $('cfgDec').value = doc.decimal === ',' ? ',' : '.';
+  $('cfgLang').value = getLang(); $('cfgDec').value = doc.decimal === ',' || doc.decimal === '.' ? doc.decimal : ''; // sin elegir: dibujos anteriores
   $('docAngles').value = doc.angles === 'rad' ? 'rad' : 'deg';
   const pg = doc.page;
   $('docPage').value = !pg ? 'none' : pageKind(pg) || 'custom';
@@ -4731,14 +4731,14 @@ $('tCfg').onclick = () => { syncPanel(); $('dlgCfg').showModal(); };
 $('cfgOk').onclick = () => $('dlgCfg').close();
 $('cfgLang').onchange = (e) => { setLang(e.target.value); syncPanel(); };
 $('cfgDec').onchange = (e) => {
-  const to = e.target.value;
+  const to = e.target.value || null;
   if (to === (doc.decimal ?? null)) return;
   const probe = structuredClone(doc), n = setDocDecimal(probe, to);
-  if (n && !confirm(`Se reescribirán ${n} fórmula${n > 1 ? 's' : ''} del dibujo con el indicador decimal «${to}» (argumentos con «${to === ',' ? ';' : ','}»). ¿Continuar?`)) { syncPanel(); return; }
+  if (n && !confirm(to ? `Se reescribirán ${n} fórmula${n > 1 ? 's' : ''} del dibujo con el indicador decimal «${to}» (argumentos con «${to === ',' ? ';' : ','}»). ¿Continuar?` : `Se reescribirán ${n} fórmula${n > 1 ? 's' : ''} del dibujo sin indicador decimal elegido (como los dibujos anteriores). ¿Continuar?`)) { syncPanel(); return; }
   pushUndo(); setDocDecimal(doc, to); setAngleMode(doc);
-  try { localStorage.setItem('a-cad-decimal', to); } catch (err) { /* sin almacenamiento */ }
+  try { if (to) localStorage.setItem('a-cad-decimal', to); else localStorage.removeItem('a-cad-decimal'); } catch (err) { /* sin almacenamiento */ }
   afterChange(); syncPanel(); draw();
-  toast(`Indicador decimal: ${to === ',' ? 'coma (1,5), argumentos con «;»' : 'punto (1.5), argumentos con «,»'}` + (n ? ` · ${n} fórmula${n > 1 ? 's' : ''} reescrita${n > 1 ? 's' : ''}` : ''));
+  toast(`Indicador decimal: ${to === ',' ? 'coma (1,5), argumentos con «;»' : to === '.' ? 'punto (1.5), argumentos con «,»' : 'sin elegir (se aceptan las dos formas)'}` + (n ? ` · ${n} fórmula${n > 1 ? 's' : ''} reescrita${n > 1 ? 's' : ''}` : ''));
 };
 $('docAngles').onchange = (e) => { pushUndo(); if (e.target.value === 'rad') doc.angles = 'rad'; else delete doc.angles; afterChange(); toast(e.target.value === 'rad' ? 'Textos de cálculo en radianes: sin(π/2)=1' : 'Textos de cálculo en grados: sin(90)=1'); };
 $('ltScale').oninput = (e) => { opts.ltScale = Number(e.target.value); draw(); syncPanel(); persist(); };
