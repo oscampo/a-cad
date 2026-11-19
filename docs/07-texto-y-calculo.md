@@ -45,7 +45,8 @@ Cada línea de una ecuación es un enunciado. El valor se actualiza solo cuando 
 | `x:a..b;n` | **Rango**: n valores de a hasta b, un vector fila. | `x:1..5;5` | `x:=[1, 2, 3, 4, 5]` |
 | `x:a..paso..b` | Rango con paso. | `x:0..0.5..2` | `x:=[0, 0.5, 1, 1.5, 2]` |
 | Vector con unidades | Una unidad para todos los elementos: `[1,2,3]'mm`, `[1'm, 20'cm]` o un rango `0..10;5'mm`. Se muestran todos en la misma unidad, y una gráfica los usa en esa unidad (la leyenda la dice). Mezclar magnitudes en un vector da ⚠. | `v:[1,2,3]'mm`<br>`v*2=`<br>`sum(v)=` | `v:=[1, 2, 3] mm`<br>`v*2=[2, 4, 6] mm`<br>`sum(v)=6 mm` |
-| Ángulos | Según **Documento → Ángulos en**. En grados (los dibujos anteriores), un valor con π es un ángulo en radianes y uno sin π es un número a secas: `sin(30)` va en grados. En radianes (los dibujos nuevos), todo va en radianes: `sin(π/6)=0.5`. El ejemplo, en un dibujo en grados. | `a:30`<br>`sin(a)=` | `a:=30`<br>`sin(a)=0.5` |
+| Ángulos | Según **Configuración → Ángulos en**. En grados (los dibujos anteriores), un valor con π es un ángulo en radianes y uno sin π es un número a secas: `sin(30)` va en grados. En radianes (los dibujos nuevos), todo va en radianes: `sin(π/6)=0.5`. El ejemplo, en un dibujo en grados. | `a:30`<br>`sin(a)=` | `a:=30`<br>`sin(a)=0.5` |
+| Indicador decimal | Según **Configuración → Indicador decimal**. Con **punto** (`1.5`) los argumentos de una función van con coma, `max(2.5, 3)`, y en una matriz los elementos con coma y las filas con `;`: `[1, 2; 3, 4]`. Con **coma** (`1,5`) los argumentos van con `;`, `max(2,5; 3)`, y en una matriz los elementos con `;` y las filas con `\|`: `[1; 2 \| 3; 4]`; los índices también, `A_(1;2)`. Al cambiarlo se reescriben las fórmulas que ya tiene el dibujo; los dibujos anteriores, sin la opción, aceptan las dos formas. |  |  |
 | `...` | **Sigue en la línea siguiente**, como en Python: `...` al final de una línea y, si quieres, al comienzo de la siguiente. Las dos líneas son un solo enunciado y se ven así, partidas. Sirve para una ecuación que se sale del margen de la página. | `F:1+2+...`<br>`...3=` | `F:=1+2+...`<br>`...3=6` |
 | Error | Si la expresión no se puede calcular, en lugar del valor aparece ⚠. | `sqrt(-1)=` | `sqrt(-1)=⚠` |
 
@@ -98,7 +99,7 @@ En un texto normal (el que empieza con `"` o un espacio), lo que va fuera de las
 | `texto[^1]` y `[^1]: la nota` | **Nota al pie**: la llamada va en superíndice, numerada en orden, y las notas se juntan al final del texto en letra más pequeña. |
 | `<!-- … -->` | Comentario: no se dibuja (puede abarcar varias líneas). |
 | `\*` | Deja el signo tal cual (sirve con cualquier signo de puntuación): `\*`, `\_`, `\#`, `\[`… Un `*` entre espacios (`2 * 3`) ya va tal cual, pero `2*3*4` pone el 3 en cursiva. |
-| Saltos de línea | Cada salto de línea es un salto de línea, con página o sin ella (a diferencia de Markdown, las líneas seguidas no se unen). Con la página (Documento → Página), una línea que no cabe se parte en el margen. Una `\` al final de una línea no se dibuja. |
+| Saltos de línea | Cada salto de línea es un salto de línea, con página o sin ella (a diferencia de Markdown, las líneas seguidas no se unen). Con la página (Configuración → Página), una línea que no cabe se parte en el margen. Una `\` al final de una línea no se dibuja. |
 
 ## Escritura matemática (AsciiMath)
 

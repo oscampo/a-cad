@@ -1,0 +1,213 @@
+Distribuir ↔	Distribute ↔
+Distribuir ↕	Distribute ↕
+Punto medio	Midpoint
+Concéntrica	Concentric
+Fijar / soltar	Fix / release
+Cotas, intersección, división y copias	Dimensions, intersection, split and copies
+Ángulo	Angle
+Radio / ⌀	Radius / ⌀
+Intersección	Intersection
+Matriz lineal	Linear array
+Matriz circular	Circular array
+Copia espejo	Mirror copy
+Estilo (selección y nuevos)	Style (selection and new)
+Tipo de línea	Line type
+Escala del patrón	Pattern scale
+Nuevo tipo de línea	New line type
+Patrón	Pattern
++ trazo, − hueco, 0 punto. Ej.:	+ dash, − gap, 0 dot. E.g.:
+es eje.	is an axis line.
+Crear tipo	Create type
+Quitar tipo	Remove type
+Relleno / achurado	Fill / hatch
+Líneas	Lines
+Sólido	Solid
+Ángulo °	Angle °
+Separación	Spacing
+Crear relleno	Create fill
+Cuadrícula	Grid
+Imán	Magnet
+Bloqueo suave	Soft lock
+Dedo dibuja	Finger draws
+Etiquetas del panel	Panel labels
+Escala de trazos	Dash scale
+Bloqueo suave cada (°)	Soft lock every (°)
+Imán a intersecciones (ms)	Snap to intersections (ms)
+SVG para corte láser	SVG for laser cutting
+1 unidad del dibujo =	1 drawing unit =
+Grosor de línea (mm)	Line width (mm)
+Color de corte	Cut color
+Color de marcado	Mark color
+Qué se hace con cada clase de línea	What to do with each line class
+(tipo, color y grosor)	(type, color and width)
+Corte = color de corte; Marcado = color de marcado (p. ej. pliegues); Omitir = no sale. Se exportan líneas, círculos, arcos y splines (como curvas Bézier) en dos grupos, "corte" y "marcado". No salen cotas, textos, puntos ni rellenos.	Cut = cut color; Mark = mark color (e.g. folds); Skip = not exported. Lines, circles, arcs and splines (as Bézier curves) are exported in two groups, "cut" and "mark". Dimensions, texts, points and fills are not exported.
+Dirección 1	Direction 1
+Elegir línea	Pick line
+Número total	Total number
+Invertir sentido	Reverse direction
+Dirección 2 (opcional)	Direction 2 (optional)
+El número total incluye el original. Si solo escribes el espaciado, el total es 2 (el original y 1 copia). Con dos direcciones se llena la cuadrícula completa. La dirección sale de la línea elegida (de su inicio a su fin); sin línea, la 1 es horizontal y la 2 perpendicular a la 1.	The total number includes the original. If you only type the spacing, the total is 2 (the original and 1 copy). With two directions the whole grid is filled. The direction comes from the chosen line (from its start to its end); with no line, direction 1 is horizontal and direction 2 is perpendicular to it.
+Vincular las copias al original (restricciones automáticas: distancia, dirección e igualdad)	Link the copies to the original (automatic constraints: distance, direction and equality)
+Mostrar las cotas de la matriz	Show the array dimensions
+Crear copias	Create copies
+Elegir punto	Pick point
+Ángulo total (°)	Total angle (°)
+Separación igual (reparte el ángulo total entre las instancias)	Equal spacing (splits the total angle among the instances)
+Ángulo entre instancias (°)	Angle between instances (°)
+Invertir sentido (horario)	Reverse direction (clockwise)
+Omitir instancias	Skip instances
+El número total incluye el original (instancia 1); el sentido por defecto es antihorario. Con 360° las instancias se reparten en toda la vuelta; con menos, el original y la última quedan en los extremos. Los puntos sobre el centro se comparten. Sin centro elegido se usa el origen.	The total number includes the original (instance 1); the default direction is counterclockwise. With 360° the instances are spread around the full turn; with less, the original and the last one sit at the ends. Points on the center are shared. With no center chosen, the origin is used.
+Vincular las copias al original (restricciones automáticas: igual distancia al centro y ángulo)	Link the copies to the original (automatic constraints: equal distance to the center and angle)
+Mostrar la cota angular	Show the angular dimension
+Polígono regular	Regular polygon
+Número de lados	Number of sides
+Inscrito (el radio llega a un vértice)	Inscribed (the radius reaches a vertex)
+Circunscrito (el radio llega al medio de un lado)	Circumscribed (the radius reaches the middle of a side)
+El ángulo del radio con la horizontal define la orientación del polígono.	The angle of the radius with the horizontal sets the polygon's orientation.
+GitHub: dónde se guardan los dibujos	GitHub: where drawings are saved
+Usa un repositorio	Use a repository
+y un	and a
+token de acceso personal de grano fino	fine-grained personal access token
+(GitHub → Settings → Developer settings) limitado a ese repositorio, con el permiso «Contents: Read and write». El token se guarda solo en este navegador y nunca entra en los archivos. Repite esta configuración en cada dispositivo.	(GitHub → Settings → Developer settings) limited to that repository, with the «Contents: Read and write» permission. The token is stored only in this browser and never enters the files. Repeat this setup on each device.
+Probar y guardar	Test and save
+Elementos en este lugar	Elements at this spot
+Archivos de GitHub	GitHub files
+La capa marcada es la actual: lo que dibujes queda en ella. Apagar una capa oculta sus elementos; borrarla deja sus elementos sin capa.	The checked layer is the current one: what you draw goes on it. Turning a layer off hides its elements; deleting it leaves its elements without a layer.
+Crear capa	Create layer
+Configuración	Settings
+Indicador decimal	Decimal separator
+Punto (1.5)	Dot (1.5)
+Coma (1,5)	Comma (1,5)
+Ángulos en	Angles in
+Página	Page
+Sin límites	Unbounded
+Carta (215,9 × 279,4 mm)	Letter (215.9 × 279.4 mm)
+A4 (210 × 297 mm)	A4 (210 × 297 mm)
+Otro tamaño	Other size
+Ancho (mm)	Width (mm)
+Alto (mm)	Height (mm)
+Márgenes (mm)	Margins (mm)
+Restricciones y cotas	Constraints and dimensions
+Filtrar la selección	Filter the selection
+Solo se podrá seleccionar (al tocar o con el cuadro) lo que esté marcado.	Only what is checked can be selected (by tapping or with the box).
+Tipos de línea	Line types
+(líneas, círculos, arcos, splines y elipses)	(lines, circles, arcs, splines and ellipses)
+Qué se define	What is defined
+Desplazamiento respecto al tiempo	Displacement over time
+Cómo	How
+Expresión o función de t	Expression or function of t
+Tabla contra el tiempo	Table against time
+Sentido horario (por defecto, antihorario)	Clockwise (default is counterclockwise)
+Gráfica	Graph
+Título (opcional)	Title (optional)
+Relaciones, una por línea: «variable1 vs variable2» (la 1.ª va en el eje vertical). Admiten operaciones, p. ej. «p1.x/p1.y vs t»; al final, «@y2», «@x2» o «@x2 y2» las lleva a los ejes secundarios	Relations, one per line: «variable1 vs variable2» (the 1st goes on the vertical axis). They accept operations, e.g. «p1.x/p1.y vs t»; at the end, «@y2», «@x2» or «@x2 y2» sends them to the secondary axes
+Tiempo final	End time
+Del documento	From the document
+Nombre del archivo	File name
+Grados (°)	Degrees (°)
+Radianes (rad)	Radians (rad)
+Ayuda de fórmulas	Formula help
+Admite fórmulas: 3π/4, 10*sin(30), 10+1/3, √2, 2^3. Con la unidad en grados, sin/cos/tan usan grados (radianes si el argumento lleva π); con radianes, todo va en radianes. También puedes usar el nombre de otra cota (D1, A1, R2, O3 o el que le hayas puesto): D1*sin(A1). Un ángulo vale su medida en radianes (como π), así que R*A1 es una longitud de arco. La cota se recalcula sola cuando cambia aquella de la que depende. Las cotas de solo lectura (referencia) también se pueden leer: la cota se recalcula con la medida y se repite hasta que concuerden.	Formulas are accepted: 3π/4, 10*sin(30), 10+1/3, √2, 2^3. With the unit in degrees, sin/cos/tan use degrees (radians if the argument has π); with radians, everything is in radians. You can also use the name of another dimension (D1, A1, R2, O3 or the one you gave it): D1*sin(A1). An angle is worth its measure in radians (like π), so R*A1 is an arc length. The dimension recalculates itself when the one it depends on changes. Read-only (reference) dimensions can also be read: the dimension is recalculated with the measurement and repeated until they agree.
+Solo lectura (referencia): mide y muestra el valor en cursiva, sin restringir la geometría	Read-only (reference): measures and shows the value in italics, without constraining the geometry
+Escala (×)	Scale (×)
+Árbol de elementos	Element tree
+Punto (P)	Point (P)
+Punto	Point
+Polígono regular: centro, radio y número de lados (G)	Regular polygon: center, radius and number of sides (G)
+Polígono	Polygon
+Texto (T)	Text (T)
+Texto	Text
+Acotar: elige la cota según lo que toques o tengas seleccionado (D)	Dimension: picks the dimension from what you touch or have selected (D)
+Acotar	Dimension
+Recortar: arrastra sobre los tramos a quitar (X)	Trim: drag over the sections to remove (X)
+Recortar	Trim
+Extender hasta otro elemento (E)	Extend to another element (E)
+Extender	Extend
+Deshacer (Ctrl+Z)	Undo (Ctrl+Z)
+Deshacer	Undo
+Rehacer (Ctrl+Y)	Redo (Ctrl+Y)
+Rehacer	Redo
+Borrar selección (Supr)	Delete selection (Del)
+Borrar	Delete
+Ajustar vista	Fit view
+Mostrar u ocultar el menú de herramientas	Show or hide the tools menu
+Menú	Menu
+Ayuda y documentación	Help and documentation
+Ayuda	Help
+Recorrer la página	Browse the page
+Entrada de texto	Text input
+Enlaces del texto	Text links
+Paso atrás (1/100 del tiempo total)	Step back (1/100 of the total time)
+Reproducir o pausar	Play or pause
+Paso adelante (1/100 del tiempo total)	Step forward (1/100 of the total time)
+Tiempo	Time
+Repetir en ciclo (loop)	Repeat in a loop
+Vaivén (ping-pong)	Back and forth (ping-pong)
+Velocidad de reproducción	Playback speed
+Detener la simulación y volver al dibujo	Stop the simulation and return to the drawing
+Capas: crear, encender, apagar y borrar	Layers: create, turn on, turn off and delete
+Capas	Layers
+Agrupar por capa	Group by layer
+Cerrar	Close
+líneas, o 2 puntos	lines, or 2 points
+Horizontal: líneas, o 2 puntos	Horizontal: lines, or 2 points
+Vertical: líneas, o 2 puntos	Vertical: lines, or 2 points
+3 o más puntos o textos	3 or more points or texts
+Distribuir en horizontal: 3 o más puntos o textos (su punto de inserción) quedan igualmente espaciados en x, entre el de más a la izquierda y el de más a la derecha	Distribute horizontally: 3 or more points or texts (their insertion point) end up evenly spaced in x, between the leftmost and the rightmost
+Distribuir en vertical: 3 o más puntos o textos (su punto de inserción) quedan igualmente espaciados en y, entre el de más abajo y el de más arriba	Distribute vertically: 3 or more points or texts (their insertion point) end up evenly spaced in y, between the lowest and the highest
+2 o más líneas	2 or more lines
+Paralela: 2 o más líneas	Parallel: 2 or more lines
+Perpendic.: 2 o más líneas	Perpendicular: 2 or more lines
+2 o más puntos; punto(s) + 1 línea, arco, círculo, elipse o spline; o líneas/arcos + 1 elipse o spline	2 or more points; point(s) + 1 line, arc, circle, ellipse or spline; or lines/arcs + 1 ellipse or spline
+Coincidente: 2 o más puntos; punto(s) sobre 1 línea, arco, círculo, elipse o spline; o el extremo más cercano de líneas/arcos sobre 1 elipse o spline	Coincident: 2 or more points; point(s) on 1 line, arc, circle, ellipse or spline; or the nearest end of lines/arcs on 1 ellipse or spline
+Colineal: 2 o más líneas	Collinear: 2 or more lines
+1 punto + 1 línea	1 point + 1 line
+Punto medio: 1 punto + 1 línea	Midpoint: 1 point + 1 line
+2 líneas, o 2 círculos/arcos	2 lines, or 2 circles/arcs
+Igual: 2 líneas, o 2 círculos/arcos	Equal: 2 lines, or 2 circles/arcs
+2 o más círculos/arcos	2 or more circles/arcs
+Concéntrica: 2 o más círculos/arcos (mismo centro)	Concentric: 2 or more circles/arcs (same center)
+línea, círculo o arco + otro, una elipse o un spline; o 2 elipses	line, circle or arc + another, an ellipse or a spline; or 2 ellipses
+Tangente: línea + círculo/arco, 2 círculos/arcos, elipse o spline + línea/círculo/arco, o 2 elipses	Tangent: line + circle/arc, 2 circles/arcs, ellipse or spline + line/circle/arc, or 2 ellipses
+puntos, líneas o círculos	points, lines or circles
+Fijar / soltar: puntos, líneas o círculos	Fix / release: points, lines or circles
+2 líneas, una rígida con cada engranaje	2 lines, one rigid with each gear
+Engranaje: 2 líneas (una rígida con cada engranaje, por ejemplo la radial). El giro de la 2.ª es la razón por el giro de la 1.ª, desde la postura actual	Gear: 2 lines (one rigid with each gear, e.g. the radial one). The rotation of the 2nd is the ratio times the rotation of the 1st, from the current pose
+1.º la línea radial de la rueda, 2.º la línea de la cremallera (o el suelo) y 1 punto que avanza	1st the radial line of the wheel, 2nd the rack line (or the ground) and 1 point that advances
+Rueda y cremallera: selecciona primero la línea radial de la rueda, luego la línea de la cremallera (o el suelo) y el punto que avanza (el centro de una rueda que rueda, o un punto de la cremallera). El avance es la razón por el giro	Wheel and rack: select first the radial line of the wheel, then the rack line (or the ground) and the point that advances (the center of a rolling wheel, or a point on the rack). The advance is the ratio times the rotation
+Revisar restricciones redundantes: no agregan información y hacen más lento el solver	Check redundant constraints: they add no information and slow the solver down
+2 puntos, 1 línea, punto + línea, 2 líneas paralelas, o arco/círculo + otro elemento (distancia al centro)	2 points, 1 line, point + line, 2 parallel lines, or arc/circle + another element (distance to the center)
+Distancia: 2 puntos, 1 línea, punto + línea, 2 líneas paralelas, o arco/círculo + otro elemento (distancia al centro)	Distance: 2 points, 1 line, point + line, 2 parallel lines, or arc/circle + another element (distance to the center)
+2 líneas	2 lines
+Ángulo: 2 líneas	Angle: 2 lines
+arco(s) → R, círculo(s) → ⌀	arc(s) → R, circle(s) → ⌀
+Radio de arco (R) o diámetro de círculo (⌀)	Arc radius (R) or circle diameter (⌀)
+2 elementos (líneas, arcos o círculos)	2 elements (lines, arcs or circles)
+Intersección: 2 elementos (líneas, arcos o círculos)	Intersection: 2 elements (lines, arcs or circles)
+1 segmento, arco o círculo + los puntos sobre él	1 segment, arc or circle + the points on it
+Dividir: 1 segmento, arco o círculo + los puntos que están sobre él	Split: 1 segment, arc or circle + the points that are on it
+lo que quieres copiar (puntos, líneas, arcos, círculos, splines, textos)	what you want to copy (points, lines, arcs, circles, splines, texts)
+Matriz lineal: copias en una o dos direcciones, con espaciado y número de copias	Linear array: copies in one or two directions, with spacing and number of copies
+lo que quieres copiar; eliges centro, ángulo y número	what you want to copy; you pick the center, angle and number
+Matriz circular: copias alrededor de un centro	Circular array: copies around a center
+lo que quieres reflejar; luego toca la línea eje	what you want to mirror; then tap the axis line
+Copia espejo: refleja una copia de la selección respecto de una línea	Mirror copy: mirrors a copy of the selection about a line
+mi tipo	my type
+contorno cerrado (líneas o círculo)	closed outline (lines or circle)
+Crear relleno: contorno cerrado	Create fill: closed outline
+Al dibujar líneas, se ajustan a horizontal, vertical y 45° (cada 45°, configurable) y a paralela, perpendicular o tangente	When drawing lines, they snap to horizontal, vertical and 45° (every 45°, configurable) and to parallel, perpendicular or tangent
+Tiempo que el cursor debe quedarse cerca de una intersección para tomarla (0 = al instante)	Time the cursor must stay near an intersection to snap to it (0 = instantly)
+ej. 10 o 2*5	e.g. 10 or 2*5
+vacío = sin 2.ª dirección	empty = no 2nd direction
+ej. 3, 5	e.g. 3, 5
+Cancelar	Cancel
+Abre las propiedades del elemento marcado (debe haber uno solo)	Opens the properties of the checked element (there must be only one)
+Nombre de la nueva capa	Name of the new layer
+Idioma de la interfaz (se guarda en este dispositivo). La ayuda y el manual siguen en español.	Interface language (saved on this device). Help and the manual stay in Spanish.
+Cómo se escriben los decimales en este dibujo. Con punto los argumentos se separan con «,» (max(2.5, 3)); con coma, con «;» (max(2,5; 3)) y las matrices llevan «;» entre elementos y «|» entre filas ([1; 2 | 3; 4]). Al cambiarlo se reescriben las fórmulas que ya tiene el dibujo.	How decimals are written in this drawing. With a dot, arguments are separated with «,» (max(2.5, 3)); with a comma, with «;» (max(2,5; 3)) and matrices use «;» between elements and «|» between rows ([1; 2 | 3; 4]). Changing it rewrites the formulas the drawing already has.
+Cómo leen los ángulos los textos de cálculo y las gráficas: sin(1) en radianes o sin(30) en grados. Las cotas siguen en grados.	How calculation texts and graphs read angles: sin(1) in radians or sin(30) in degrees. Dimensions stay in degrees.
+Con página, los textos se ajustan a sus márgenes y unen las líneas de cada párrafo (una línea en blanco separa párrafos; dos espacios o «\» al final fuerzan el salto). «Sin límites»: lienzo infinito, cada salto de línea se respeta.	With a page, texts fit within its margins and join the lines of each paragraph (a blank line separates paragraphs; two spaces or «\» at the end force the break). «Unbounded»: infinite canvas, every line break is kept.
+p. ej. 90*t, 30*sin(2π*t)	e.g. 90*t, 30*sin(2π*t)
+Cómo lee la gráfica sin, cos, tan y en qué unidad dibuja un ángulo. Las variables de los textos siguen la opción del documento.	How the graph reads sin, cos, tan and in which unit it plots an angle. Text variables follow the document option.
+Buscar en la ayuda	Search the help
+vacío = sin escala; 10, k, 2*D1	empty = no scale; 10, k, 2*D1

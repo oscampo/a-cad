@@ -29,7 +29,7 @@ Sirven en cotas, textos (`x:…` y `expr=`), actuadores y gráficas.
 
 ## Trigonometría
 
-Los ángulos de los **textos de cálculo y las gráficas** van según la opción del dibujo **Documento → Ángulos en**: en **radianes** (los dibujos nuevos: `sin(π/2)` da 1) o en **grados** (los dibujos anteriores, que no tienen la opción: `sin(30)` da 0.5). En grados, si el argumento lleva π o es un ángulo del dibujo (una cota angular como `A1` o `l3.ang`) va en radianes. Las **cotas** y los actuadores siempre van en grados; en una cota angular en radianes, todo va en radianes.
+Los ángulos de los **textos de cálculo y las gráficas** van según la opción del dibujo **Configuración → Ángulos en**: en **radianes** (los dibujos nuevos: `sin(π/2)` da 1) o en **grados** (los dibujos anteriores, que no tienen la opción: `sin(30)` da 0.5). En grados, si el argumento lleva π o es un ángulo del dibujo (una cota angular como `A1` o `l3.ang`) va en radianes. Las **cotas** y los actuadores siempre van en grados; en una cota angular en radianes, todo va en radianes.
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|

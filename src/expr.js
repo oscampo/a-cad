@@ -6,6 +6,7 @@
 
 import { parseUnit, sameDim, mulDim, powDim, unitMsg } from './units.js';
 import { GREEK, GREEK_UP } from './asciimath.js';
+import { setDecimal, decimalMode, elemChar, rowChar, argChar } from './locale.js';
 
 const TAU_DEG = 180 / Math.PI;
 const FUNCS = {
@@ -73,11 +74,11 @@ function indexOfVar(raw, vars) {
   const ip = indexParts(raw), x = ip && Object.prototype.hasOwnProperty.call(vars, ip.base) ? vars[ip.base] : null;
   return x && (x.vec || x.mat) ? ip : null;
 }
-const splitIdx = (s) => { // «i, j+1» -> ['i', 'j+1'] (las comas de dentro de parentesis no separan)
+const splitIdx = (s, mode = decimalMode()) => { // «i, j+1» -> ['i', 'j+1'] (las comas de dentro de parentesis no separan)
   const out = []; let d = 0, cur = '';
   for (const ch of s) {
     if ('([' .includes(ch)) d++; else if (')]'.includes(ch)) d--;
-    if ((ch === ',' || ch === ';') && d === 0) { out.push(cur.trim()); cur = ''; } else cur += ch;
+    if (((ch === ',' && mode !== ',') || ch === ';') && d === 0) { out.push(cur.trim()); cur = ''; } else cur += ch;
   }
   out.push(cur.trim());
   return out;
@@ -89,6 +90,11 @@ const GREEK_CHAR = { ...GREEK, ...GREEK_UP };
 export const greekName = (s) => String(s).replace(/^[A-Za-z]+(?=_|$)/, (w) => (w !== 'pi' && Object.prototype.hasOwnProperty.call(GREEK_CHAR, w) ? GREEK_CHAR[w] : w));
 export const normName = (s) => greekName(String(s).replace(/_\(\s*([^()]*?)\s*\)$/, '_($1)'));
 
+// Numeros segun el indicador decimal del dibujo: «.» solo punto; «,» punto o coma (la coma decimal vale tambien dentro de corchetes);
+// sin indicador (dibujos anteriores) los dos, y dentro de corchetes solo el punto.
+const SCI = '([eE][+-]?\\d+(?![A-Za-z_\\d]))?';
+const RE_DOT = new RegExp('^(\\d+(\\.\\d+)?|\\.\\d+)' + SCI), RE_ANY = new RegExp('^(\\d+([.,]\\d+)?|[.,]\\d+)' + SCI);
+const numRe = (depth) => { const m = decimalMode(); return m === '.' ? RE_DOT : m === ',' ? RE_ANY : depth > 0 ? RE_DOT : RE_ANY; };
 // loose: no falla con identificadores desconocidos (para listar las variables de una formula)
 function tokenize(src, vars = null, loose = false) {
   const toks = [];
@@ -98,7 +104,8 @@ function tokenize(src, vars = null, loose = false) {
     if (/\s/.test(c)) { i++; continue; }
     const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'idx') || last.t === 'unit' || (last.t === 'op' && (last.v === ')' || last.v === ']')));
     // separador de argumentos: «;», o una coma tras un valor («max(a, 5)»); «2,5» ya lo tomo el numero como decimal
-    if (c === ';' || (c === ',' && afterValue)) { toks.push({ t: 'sep', c, i, j: i + 1 }); i++; continue; }
+    if (c === ';' || (c === ',' && afterValue)) { toks.push({ t: 'sep', c, d: depth, i, j: i + 1 }); i++; continue; }
+    if (c === '|' && depth > 0 && decimalMode() === ',') { toks.push({ t: 'sep', c, d: depth, i, j: i + 1 }); i++; continue; } // con coma decimal, «|» separa las filas de una matriz
     if (c === "'") { // unidad: «250'N», «3'(m/s)», «20'°»
       const um = /^'\s*(\([^()]*\)|[A-Za-zµμΩ°%áéíóú]+[²³]?)/.exec(src.slice(i));
       if (!um) throw new Error("Después de «'» va una unidad, p. ej. 250'N o 3'(m/s)");
@@ -110,7 +117,7 @@ function tokenize(src, vars = null, loose = false) {
     if (cm) { toks.push({ t: 'cmp', v: { '≤': '<=', '≥': '>=', '≠': '!=' }[cm[0]] || cm[0], i, j: i + cm[0].length }); i += cm[0].length; continue; }
     // Notacion cientifica: 2.5e6, 3e-4, 1E3 («e» y «E» no pueden ser nombres de variable: son la constante e). «2E3» es 2000 aunque
     // exista una variable E3: para multiplicar, «2*E3».
-    let m = (depth > 0 ? /^(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+(?![A-Za-z_\d]))?/ : /^(\d+([.,]\d+)?|[.,]\d+)([eE][+-]?\d+(?![A-Za-z_\d]))?/).exec(src.slice(i));
+    let m = numRe(depth).exec(src.slice(i));
     if (m) { toks.push({ t: 'num', v: Number(m[0].replace(',', '.')), i, j: i + m[0].length }); i += m[0].length; continue; }
     if (c === '√') { toks.push({ t: 'sqrt', i, j: i + 1 }); i++; continue; }
     if (c === 'π') { toks.push({ t: 'id', v: 'π', i, j: i + 1 }); i++; continue; }
@@ -142,6 +149,35 @@ function tokenize(src, vars = null, loose = false) {
     throw new Error(`Carácter no válido «${c}»`);
   }
   return toks;
+}
+
+// Reescribe una expresion de un indicador decimal a otro (null: dibujos anteriores): decimales, separadores de argumentos y, dentro de corchetes,
+// de elementos y de filas. Devuelve la misma cadena si no se puede leer.
+export function convertExpr(src, from, to) {
+  src = String(src ?? '');
+  if (from === to) return src;
+  const prev = decimalMode();
+  let toks;
+  setDecimal(from);
+  try { toks = tokenize(src, null, true); } catch (e) { return src; } finally { setDecimal(prev); }
+  const dc = to === ',' ? ',' : '.';
+  let out = '', at = 0;
+  for (const k of toks) {
+    let rep = null;
+    if (k.t === 'num') rep = src.slice(k.i, k.j).replace(/[.,]/, dc);
+    else if (k.t === 'sep') rep = k.d > 0 ? (k.c === rowChar(from) ? rowChar(to) : elemChar(to)) : argChar(to);
+    else if (k.t === 'var' && /_\(.*\)$/.test(src.slice(k.i, k.j))) { // A_(i,j): los separadores del indice
+      const w = src.slice(k.i, k.j), a = w.lastIndexOf('_(') + 2;
+      rep = w.slice(0, a) + splitIdx(w.slice(a, -1), from).join(argChar(to)) + ')';
+    }
+    if (rep !== null && rep !== src.slice(k.i, k.j)) {
+      let pre = src.slice(at, k.i);
+      if (k.t === 'sep' && k.d > 0 && k.c === rowChar(from) && from === ',') pre = pre.replace(/ $/, ''); // «2 | 3» -> «2; 3»
+      else if (k.t === 'sep' && k.d > 0 && k.c === rowChar(from) && to === ',' && !/\s$/.test(pre)) rep = ' ' + rep; // «2; 3» -> «2 | 3»
+      out += pre + rep; at = k.j;
+    }
+  }
+  return out + src.slice(at);
 }
 
 // Variables que usa una formula (nombres que no son numeros, funciones ni constantes).
@@ -318,7 +354,7 @@ function matFn(name, A) {
 // Ángulos del dibujo (opción «Ángulos en: grados / radianes» del documento, doc.angles): los textos de cálculo y las gráficas
 // evalúan con este valor por defecto; las cotas y los actuadores lo fijan explícito (siempre en grados).
 let DEF_RAD = false;
-export const setAngleMode = (doc) => { DEF_RAD = doc?.angles === 'rad'; };
+export const setAngleMode = (doc) => { DEF_RAD = doc?.angles === 'rad'; setDecimal(doc?.decimal); }; // el indicador decimal del dibujo va con la opcion de angulos: se activan juntos
 export const angleRad = () => DEF_RAD;
 
 export function evalExpr(src, { radians = DEF_RAD, vars = null, allowMat = false, depth = 0, globals = null } = {}) {
@@ -547,7 +583,7 @@ export function evalExpr(src, { radians = DEF_RAD, vars = null, allowMat = false
         if (d0 === null) d0 = a.d; else if (!sameDim(a.d, d0)) throw new Error(`Los elementos de una matriz deben tener las mismas unidades (hay ${unitMsg(d0)} y ${unitMsg(a.d)})`);
         rows.at(-1).push(a.v);
         const s = peek();
-        if (s?.t === 'sep') { p++; if (s.c === ';') rows.push([]); continue; }
+        if (s?.t === 'sep') { p++; if (s.c === rowChar()) rows.push([]); continue; } // filas: «;» (o «|» con coma decimal); elementos: «,» (o «;»)
         break;
       }
       if (!isOp(']')) throw new Error('Falta cerrar un corchete');

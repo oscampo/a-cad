@@ -28,7 +28,7 @@ import { attachAutoPair } from './autopair.js';
 import { attachGreek } from './greek.js';
 import { migrateCalcDoc } from './tvars.js';
 import * as gh from './github.js';
-import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder } from './params.js';
+import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder, setDocDecimal } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg, ICONS } from './icons.js';
 import { setIconSource } from './iconpaths.js';
@@ -37,7 +37,9 @@ import { buildTree, kindOf, conLabel } from './tree.js';
 import { cleanFileBase } from './files.js';
 import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
-import { parseValue, isPlainNumber } from './expr.js';
+import { parseValue, isPlainNumber, setAngleMode } from './expr.js';
+import { localNum } from './locale.js';
+import { getLang, setLang, initLang } from './i18n.js';
 import { HELP_HTML } from './help.js';
 import { colorPicker } from './colorpicker.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
@@ -53,7 +55,9 @@ const ctx = cv.getContext('2d');
 // Un dibujo nuevo calcula en radianes (los anteriores, sin «angles», siguen en grados) y trae pagina carta con margenes de 25 mm
 // (los anteriores, sin «page», siguen «Sin limites»).
 const PAGES = { letter: { w: 215.9, h: 279.4 }, a4: { w: 210, h: 297 } };
-const freshDoc = () => ({ ...newDoc(), angles: 'rad', page: { w: PAGES.letter.w, h: PAGES.letter.h, m: 25, x0: 0, y0: 0 } });
+// El indicador decimal de un dibujo nuevo es el ultimo que se eligio en este dispositivo (sin eleccion: como los dibujos anteriores, se leen los dos).
+const decPref = () => { try { const v = localStorage.getItem('a-cad-decimal'); return v === ',' || v === '.' ? v : null; } catch (e) { return null; } };
+const freshDoc = () => ({ ...newDoc(), angles: 'rad', ...(decPref() ? { decimal: decPref() } : {}), page: { w: PAGES.letter.w, h: PAGES.letter.h, m: 25, x0: 0, y0: 0 } });
 const pageKind = (pg) => Object.keys(PAGES).find((k) => Math.abs(PAGES[k].w - pg.w) < 1e-6 && (pg.h == null || Math.abs(PAGES[k].h - pg.h) < 1e-6));
 // Alto de la pagina: una pagina guardada antes de que existiera toma el de su formato, o la proporcion de A4 si el ancho es otro.
 const pageH = (pg) => pg.h ?? PAGES[pageKind(pg)]?.h ?? +((pg.w * 297) / 210).toFixed(1);
@@ -101,7 +105,7 @@ const toScreen = (p) => ({ x: p.x * view.s + view.ox, y: view.oy - p.y * view.s 
 const toModel = (sx, sy) => ({ x: (sx - view.ox) / view.s, y: (view.oy - sy) / view.s });
 const same = (a, b) => a.k === b.k && a.id === b.id;
 const isSel = (k, id) => sel.some((s) => s.k === k && s.id === id);
-const fmt = (v) => (Math.abs(v) >= 1000 ? v.toFixed(1) : String(Math.round(v * 1000) / 1000));
+const fmt = (v) => localNum(Math.abs(v) >= 1000 ? v.toFixed(1) : String(Math.round(v * 1000) / 1000)); // con el indicador decimal del dibujo
 let toastTimer = 0;
 function toast(msg) {
   const t = $('toast');
@@ -788,6 +792,7 @@ function strokeArc(c, cx, cy, r, a0, sweep, dash) {
 }
 
 function draw() {
+  setAngleMode(doc); // angulos e indicador decimal del dibujo activos para todo lo que se lea o se escriba
   render(ctx, cv.width, cv.height, view, { fg: theme.fg, bg: theme.bg, grid: opts.grid, cons: opts.cons, dims: opts.dims, texts: opts.texts, ui: true });
   drawHud();
   syncScrollbar();
@@ -3097,6 +3102,7 @@ function drawSample(canvas, pattern, color) {
 }
 
 function syncPanel() {
+  $('cfgLang').value = getLang(); $('cfgDec').value = doc.decimal === ',' ? ',' : '.';
   $('docAngles').value = doc.angles === 'rad' ? 'rad' : 'deg';
   const pg = doc.page;
   $('docPage').value = !pg ? 'none' : pageKind(pg) || 'custom';
@@ -3323,6 +3329,7 @@ function loadDoc(d) {
   if (nMig) setTimeout(() => toast(`Sintaxis de cálculo actualizada en ${nMig} texto${nMig > 1 ? 's' : ''}: x:valor asigna, expr= muestra el valor`), 1200);
   if (!(doc.tEnd > 0)) { const m = Math.max(0, ...Object.values(doc.graphs || {}).map((g) => Number(g.t1) || 0)); if (m > 0) doc.tEnd = m; } // dibujos anteriores: el tiempo final de sus graficas
   undoStack = []; redoStack = []; sel = []; pending = null;
+  setAngleMode(doc);
 }
 async function exportPNG() {
   const b = contentBounds();
@@ -4719,6 +4726,20 @@ const pageNum = (key, min) => (e) => {
 $('docPageW').onchange = pageNum('w', 20);
 $('docPageH').onchange = pageNum('h', 20);
 $('docMargin').onchange = pageNum('m', 0);
+// Configuracion: idioma (de este dispositivo), indicador decimal (del dibujo) y las opciones del documento.
+$('tCfg').onclick = () => { syncPanel(); $('dlgCfg').showModal(); };
+$('cfgOk').onclick = () => $('dlgCfg').close();
+$('cfgLang').onchange = (e) => { setLang(e.target.value); syncPanel(); };
+$('cfgDec').onchange = (e) => {
+  const to = e.target.value;
+  if (to === (doc.decimal ?? null)) return;
+  const probe = structuredClone(doc), n = setDocDecimal(probe, to);
+  if (n && !confirm(`Se reescribirán ${n} fórmula${n > 1 ? 's' : ''} del dibujo con el indicador decimal «${to}» (argumentos con «${to === ',' ? ';' : ','}»). ¿Continuar?`)) { syncPanel(); return; }
+  pushUndo(); setDocDecimal(doc, to); setAngleMode(doc);
+  try { localStorage.setItem('a-cad-decimal', to); } catch (err) { /* sin almacenamiento */ }
+  afterChange(); syncPanel(); draw();
+  toast(`Indicador decimal: ${to === ',' ? 'coma (1,5), argumentos con «;»' : 'punto (1.5), argumentos con «,»'}` + (n ? ` · ${n} fórmula${n > 1 ? 's' : ''} reescrita${n > 1 ? 's' : ''}` : ''));
+};
 $('docAngles').onchange = (e) => { pushUndo(); if (e.target.value === 'rad') doc.angles = 'rad'; else delete doc.angles; afterChange(); toast(e.target.value === 'rad' ? 'Textos de cálculo en radianes: sin(π/2)=1' : 'Textos de cálculo en grados: sin(90)=1'); };
 $('ltScale').oninput = (e) => { opts.ltScale = Number(e.target.value); draw(); syncPanel(); persist(); };
 
@@ -5040,6 +5061,7 @@ async function boot() {
   for (const [id, key] of [['tGrid', 'grid'], ['tSnap', 'snap'], ['tCons', 'cons'], ['tTouch', 'touch'], ['tPts', 'pts'], ['tDims', 'dims'], ['tTexts', 'texts'], ['tLock', 'lock']]) $(id).setAttribute('aria-pressed', String(opts[key]));
   $('ltScale').value = String(opts.ltScale);
   hydrateIcons(); wireGroups(); wireLongPressHints(); wireSections(); applyLabels(); applyChrome(); updateEnabled();
+  initLang(); // idioma guardado en este dispositivo: traduce la interfaz ya escrita
   setTool('select');
   try { await initSolver(wasmUrl); } catch (err) { toast('No cargó el solver: ' + err.message); }
   syncPanel(); updateButtons(); resize();

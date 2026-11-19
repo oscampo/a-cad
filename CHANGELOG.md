@@ -2,6 +2,19 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## Sin publicar
+
+### Nuevo
+
+- Configuración: botón **Configuración** (engranaje) en la barra, entre el árbol de elementos y la herramienta de selección. Reúne el idioma, el indicador decimal y las opciones que estaban en la sección **Documento** del menú de herramientas (Ángulos en, Página, Ancho, Alto, Márgenes), que desaparece del panel.
+- Idioma: la interfaz completa (barra, menús, paneles, diálogos, ayudas al pasar y mensajes) se puede pasar a **English**. Se guarda en el dispositivo (`a-cad-lang`) y cambia al instante. La ayuda y el manual siguen en español por ahora, y el contenido de los dibujos (textos, nombres de capas y de cotas) nunca se traduce. El catálogo está en `tools/i18n/*.tsv` (el generado es `src/i18n-en.js`, `node tools/build-catalog.mjs`) y `test/i18n.test.mjs` falla si aparece un texto de la interfaz sin traducción.
+- Indicador decimal: opción del dibujo **Punto** (`1.5`) o **Coma** (`1,5`). Con punto, los argumentos de una función se separan con `,` (`max(2.5, 3)`); con coma, con `;` (`max(2,5; 3)`), y en una matriz los elementos van con `;` y las filas con `|` (`[1; 2 | 3; 4]`), y los índices con `;` (`A_(1;2)`). Vale para las cotas, los textos de cálculo, los actuadores y las gráficas, y también para lo que se muestra (las cotas se leen `0,333`). Al cambiarlo se pide confirmación y se reescriben las fórmulas que ya tiene el dibujo (los decimales, los separadores y las matrices). Un dibujo nuevo empieza con el último indicador elegido en el dispositivo. Pruebas en `test/locale.test.mjs`.
+
+### Cambia el comportamiento
+
+- Los dibujos anteriores, que no tienen la opción, siguen aceptando las dos formas como siempre (`2,5` y `2.5`; separadores `;` o `, `); solo un dibujo con el indicador elegido es estricto: con punto, `2,5*2` ya no es un número.
+- La opción **Documento → Ángulos en** (y **Página**, **Ancho**, **Alto**, **Márgenes**) ahora está en **Configuración**.
+
 ## v2.9.1 (2026-11-19)
 
 ### Nuevo

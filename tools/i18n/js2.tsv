@@ -1,0 +1,224 @@
+Cota «{0}» (subrayada) · medida {1} ÷ {2}	Dimension «{0}» (underlined) · measured {1} ÷ {2}
+Cota «{0}» (subrayada) · dibujo = {1} × {2} = {3}	Dimension «{0}» (underlined) · drawing = {1} × {2} = {3}
+Selecciona líneas o 2 puntos	Select lines or 2 points
+Selecciona 3 o más puntos o textos	Select 3 or more points or texts
+Ya están distribuidos así	They are already distributed this way
+Selecciona 2 líneas	Select 2 lines
+Selecciona 2 líneas: una rígida con cada engranaje (por ejemplo la radial de cada uno)	Select 2 lines: one rigid with each gear (e.g. the radial one of each)
+Esas dos líneas ya tienen una relación de engranaje	Those two lines already have a gear relation
+Giro de la 2.ª línea por cada giro de la 1.ª (negativo si giran en sentido contrario; admite fórmula, ej. -17/34)	Rotation of the 2nd line per rotation of the 1st (negative if they turn in opposite directions; accepts a formula, e.g. -17/34)
+Engranaje: la postura actual es el punto de partida; arrastra cualquiera de los dos	Gear: the current pose is the starting point; drag either one
+Selecciona la línea radial de la rueda, luego la línea de la cremallera (o el suelo) y el punto que avanza (el centro de la rueda, o un punto de la cremallera)	Select the radial line of the wheel, then the rack line (or the ground) and the point that advances (the center of the wheel, or a point on the rack)
+Avance del punto por cada radián que gira la rueda (con signo: radio de la rueda; una rueda que rueda hacia la derecha por el suelo, −radio; admite fórmula)	Advance of the point per radian the wheel turns (signed: wheel radius; a wheel rolling to the right on the ground, −radius; accepts a formula)
+El punto que avanza debe ser el centro de la rueda (a {0} de la línea de la cremallera) o un punto de la cremallera; el elegido está a {1}. Un punto del borde no sirve	The advancing point must be the center of the wheel ({0} from the rack line) or a point on the rack; the chosen one is {1} away. A point on the rim does not work
+Se usó el otro extremo de la línea de la rueda ({0}): es su centro, y el punto del borde no avanza a ritmo uniforme	The other end of the wheel line ({0}) was used: it is its center, and a point on the rim does not advance at a uniform rate
+Rueda y cremallera: arrastra la rueda, la cremallera o el punto; el otro se mueve con la razón	Wheel and rack: drag the wheel, the rack or the point; the other moves with the ratio
+Selecciona 2 o más líneas	Select 2 or more lines
+Selecciona 2 líneas, o 2 círculos/arcos	Select 2 lines, or 2 circles/arcs
+Selecciona 2 o más círculos o arcos	Select 2 or more circles or arcs
+Ya son concéntricos (comparten el centro)	They are already concentric (they share the center)
+Ese extremo ya es un punto del spline	That end is already a point of the spline
+Selecciona 2 o más puntos; punto(s) y una línea, arco, círculo, elipse o spline; o líneas/arcos y una elipse o spline	Select 2 or more points; point(s) and a line, arc, circle, ellipse or spline; or lines/arcs and an ellipse or spline
+Selecciona 1 punto y 1 línea	Select 1 point and 1 line
+Selecciona una elipse + línea/círculo/arco, 2 elipses, o un spline + línea/círculo/arco	Select an ellipse + line/circle/arc, 2 ellipses, or a spline + line/circle/arc
+Selecciona línea + círculo/arco, 2 círculos/arcos, o una elipse o spline + línea/círculo/arco	Select line + circle/arc, 2 circles/arcs, or an ellipse or spline + line/circle/arc
+Selecciona puntos o elementos a fijar	Select points or elements to fix
+Con un arco o círculo, selecciona un solo elemento más	With an arc or circle, select just one more element
+Hay una línea sin longitud	There is a line with no length
+Las dos líneas no son paralelas (más de 1° de diferencia). Hazlas paralelas con la restricción Paralela	The two lines are not parallel (more than 1° apart). Make them parallel with the Parallel constraint
+Selecciona 2 puntos, 1 línea, 1 punto + 1 línea, o 2 líneas paralelas	Select 2 points, 1 line, 1 point + 1 line, or 2 parallel lines
+La distancia es cero (coinciden o comparten el centro): no hay nada que acotar	The distance is zero (they coincide or share the center): there is nothing to dimension
+Se agregó también la restricción Paralela entre las dos líneas	The Parallel constraint between the two lines was also added
+Ángulo entre las dos líneas (sin límite: 400° = una vuelta y 40°)	Angle between the two lines (no limit: 400° = one turn and 40°)
+Selecciona un círculo o arco	Select a circle or arc
+Selecciona solo círculos o solo arcos	Select only circles or only arcs
+Diámetro ({0})	Diameter ({0})
+ángulo	angle
+distancia a recta	distance to line
+Número de partes iguales	Number of equal parts
+Escribe un entero entre 2 y 500	Type an integer between 2 and 500
+No se pudo dividir: conflicto con las restricciones	Could not split: conflict with the constraints
+Dividido en {0} partes iguales	Split into {0} equal parts
+ (las restricciones de igual ángulo entre arcos no existen: si mueves el centro o los extremos, las partes ya no serán iguales)	 (equal-angle constraints between arcs do not exist: if you move the center or the ends, the parts will no longer be equal)
+Selecciona 1 segmento, arco o círculo (y, si quieres, los puntos que lo dividen)	Select 1 segment, arc or circle (and, if you want, the points that divide it)
+Dividido en {0}	Split into {0}
+. No se pudo heredar: {0}	. Could not inherit: {0}
+No se pudo: entra en conflicto con otras restricciones. Si solo quieres medir, usa «Solo lectura»	Could not do it: it conflicts with other constraints. If you only want to measure, use «Read-only»
+Esta cota es de una matriz circular: para cambiarla, rehaz la matriz	This dimension belongs to a circular array: to change it, redo the array
+Ángulo (°)	Angle (°)
+Imposible con las restricciones actuales (con las cotas que dependen de esta). Usa «Solo lectura» para solo medirla	Impossible with the current constraints (with the dimensions that depend on this one). Use «Read-only» to just measure it
+Valor imposible con las restricciones actuales. Usa «Solo lectura» para solo medirla	Impossible value with the current constraints. Use «Read-only» to just measure it
+Borrar cota o restricción (Supr)	Delete dimension or constraint (Del)
+Selecciona las líneas, arcos o círculos que forman el contorno	Select the lines, arcs or circles that form the outline
+El contorno debe ser cerrado (líneas y arcos encadenados) o un círculo	The outline must be closed (chained lines and arcs) or a circle
+Toca para seleccionar (varios). Arrastra puntos, líneas o el borde de un círculo para moverlos (con varios seleccionados, arrastrar uno mueve todos); arrastra desde un lugar vacío para seleccionar con un cuadro.	Tap to select (several). Drag points, lines or the edge of a circle to move them (with several selected, dragging one moves all); drag from an empty spot to select with a box.
+Toca para colocar un punto (sobre una línea o círculo queda restringido a él).	Tap to place a point (on a line or circle it is constrained to it).
+Toca inicio y fin (encadena); o arrastra un segmento. Esc/Seleccionar termina.	Tap start and end (chains); or drag a segment. Esc/Select ends.
+Toca el centro y luego un punto del borde.	Tap the center and then a point on the edge.
+Línea de punto medio: toca el punto medio y luego un extremo (o arrastra); la línea crece igual hacia el otro lado. Hay bloqueo suave.	Midpoint line: tap the midpoint and then an end (or drag); the line grows equally to the other side. There is a soft lock.
+Gráfica: toca donde va su esquina inferior izquierda. Escribe las relaciones como «variable1 vs variable2» (una por línea): t, actuadores (MR1, MR1.v), cotas, variables y vectores de rangos.	Graph: tap where its lower left corner goes. Type the relations as «variable1 vs variable2» (one per line): t, actuators (MR1, MR1.v), dimensions, variables and range vectors.
+Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes); define su desplazamiento o velocidad angular respecto al tiempo (t).	Rotary actuator (MR): tap the line and its end that will be the center of rotation (or select them first); it defines its displacement or angular velocity over time (t).
+Actuador lineal (ML): toca el punto de la cola y el de la cabeza; define su desplazamiento o velocidad respecto al tiempo (t).	Linear actuator (ML): tap the tail point and the head point; it defines its displacement or velocity over time (t).
+Vector: como Línea, con cabeza de flecha en el punto final y su magnitud como texto en el punto medio. Con una línea (y uno de sus extremos, que será la cola) seleccionada, pulsar Vector la convierte en vector.	Vector: like Line, with an arrowhead at the end point and its magnitude as text at the midpoint. With a line selected (and one of its ends, which will be the tail), pressing Vector turns it into a vector.
+Línea constructiva (gris, fina, con un punto en cada extremo): toca inicio y fin, o arrastra. No sale en el SVG de corte láser salvo que lo elijas.	Construction line (gray, thin, with a point at each end): tap start and end, or drag. It is not in the laser-cut SVG unless you choose so.
+Círculo perimetral: toca 3 puntos no colineales por donde pasa la circunferencia.	Circle through 3 points: tap 3 non-collinear points the circle passes through.
+Rectángulo: toca (o arrastra entre) dos esquinas opuestas de la diagonal.	Rectangle: tap (or drag between) two opposite corners of the diagonal.
+Rectángulo de centro: toca el centro y luego una esquina (o arrastra del centro a la esquina).	Center rectangle: tap the center and then a corner (or drag from the center to the corner).
+Polígono: toca el centro y el radio (el ángulo del radio da la orientación; hay bloqueo suave); luego eliges el número de lados.	Polygon: tap the center and the radius (the angle of the radius sets the orientation; there is a soft lock); then you pick the number of sides.
+Pegar: toca el punto donde va el centro del cuadro de lo copiado. Esc o Seleccionar termina.	Paste: tap the point where the center of the copied box goes. Esc or Select ends.
+Acotar: toca 2 puntos (distancia), punto y línea (distancia), 2 líneas (paralelas: distancia; si no, ángulo), un arco (radio), un círculo (diámetro), o un arco/círculo y otro elemento (distancia al centro). Si ya había algo seleccionado, acota eso.	Dimension: tap 2 points (distance), point and line (distance), 2 lines (parallel: distance; otherwise, angle), an arc (radius), a circle (diameter), or an arc/circle and another element (distance to the center). If something was already selected, it dimensions that.
+Toca dos elementos (línea, arco o círculo) para crear su punto de intersección.	Tap two elements (line, arc or circle) to create their intersection point.
+Toca donde va el punto de insercion del texto (puede ser un punto existente).	Tap where the text's insertion point goes (it can be an existing point).
+Spline por puntos: toca los puntos por donde pasa la curva. Tocar de nuevo el último (o Esc) termina; tocar el primero la cierra.	Spline through points: tap the points the curve passes through. Tapping the last one again (or Esc) ends; tapping the first closes it.
+Arco por centro y extremos: toca el centro, el inicio y el fin. El sentido (horario o antihorario) sale de hacia dónde mueves el cursor o arrastras; con un toque directo, el arco corto.	Arc by center and ends: tap the center, the start and the end. The direction (clockwise or counterclockwise) comes from where you move the cursor or drag; with a direct tap, the short arc.
+Arco por 3 puntos: toca el inicio, un punto intermedio y el fin.	Arc by 3 points: tap the start, an intermediate point and the end.
+Elipse parcial: toca el centro, el extremo del primer eje y un punto del segundo eje; después arrastra sobre la elipse punteada para marcar el tramo (o toca el inicio y luego el fin). El sentido es el de tu movimiento.	Partial ellipse: tap the center, the end of the first axis and a point of the second axis; then drag over the dotted ellipse to mark the section (or tap the start and then the end). The direction is that of your movement.
+Elipse: toca el centro; luego toca (o arrastra hasta) el extremo del primer eje y, por último, un punto del segundo eje. Se puede arrastrar desde el centro.	Ellipse: tap the center; then tap (or drag to) the end of the first axis and, last, a point of the second axis. You can drag from the center.
+Recortar: mantén presionado y arrastra sobre los tramos que quieres quitar (entre cruces con otros elementos). Un toque recorta un solo tramo.	Trim: press and hold and drag over the sections you want to remove (between crossings with other elements). A tap trims a single section.
+Extender: toca un segmento o arco cerca del extremo que quieres alargar hasta el primer elemento que encuentre.	Extend: tap a segment or arc near the end you want to lengthen up to the first element it finds.
+Redondeo: toca el punto de una esquina (donde se juntan dos líneas) y teclea el radio. Con varias esquinas seleccionadas antes de elegir la herramienta, las redondea todas con el mismo radio. Con dos elementos seleccionados antes de elegir la herramienta, los redondea (o achaflana) conservando la parte central de cada uno. También redondea dos elementos que no se tocan en una esquina (segmentos, arcos o arcos elípticos): toca uno y luego el otro, del lado que quieres conservar. El radio queda como cota editable.	Fillet: tap the point of a corner (where two lines meet) and type the radius. With several corners selected before choosing the tool, it rounds them all with the same radius. With two elements selected before choosing the tool, it rounds (or chamfers) them keeping the middle part of each. It also rounds two elements that do not meet at a corner (segments, arcs or elliptical arcs): tap one and then the other, on the side you want to keep. The radius stays as an editable dimension.
+Chaflán: toca el punto de una esquina (donde se juntan dos líneas) y teclea la distancia desde la esquina. Con varias esquinas seleccionadas antes de elegir la herramienta, las achaflana todas. También achaflana dos elementos que se cortan sin compartir esquina (segmentos, arcos o arcos elípticos): toca uno y luego el otro, del lado que quieres conservar, o selecciónalos antes de elegir la herramienta. Cada tramo queda como cota editable.	Chamfer: tap the point of a corner (where two lines meet) and type the distance from the corner. With several corners selected before choosing the tool, it chamfers them all. It also chamfers two elements that cross without sharing a corner (segments, arcs or elliptical arcs): tap one and then the other, on the side you want to keep, or select them before choosing the tool. Each section stays as an editable dimension.
+línea {0}{1}	line {0}{1}
+Elipse parcial: arrastra sobre la elipse punteada desde donde empieza el tramo hasta donde termina (o toca el inicio y luego el fin). Esc cancela.	Partial ellipse: drag over the dotted ellipse from where the section starts to where it ends (or tap the start and then the end). Esc cancels.
+~ · marca de referencia en 	 · reference mark at
+{0}: {1} {2}, ángulo {3}°, {4}	{0}: {1} {2}, angle {3}°, {4}
+Línea	Line
+Círculo: radio {0}, {1}	Circle: radius {0}, {1}
+~, alineado con una línea	, aligned with a line
+{0}: semiejes {1} y {2}, {3}	{0}: semi-axes {1} and {2}, {3}
+Arco elíptico de {0}°	Elliptical arc of {0}°
+Restricción/cota seleccionada	Selected constraint/dimension
+sobre línea	on line
+sobre círculo	on circle
+Escribe un nombre	Type a name
+Archivo no válido	Invalid file
+Sintaxis de cálculo actualizada en {0} texto{1}: x:valor asigna, expr= muestra el valor	Calculation syntax updated in {0} text{1}: x:value assigns, expr= shows the value
+No hay nada que exportar	There is nothing to export
+Cola elegida: toca el punto de la cabeza del actuador	Tail chosen: tap the actuator's head point
+Toca el extremo de la línea que será el centro de giro	Tap the end of the line that will be the center of rotation
+Toca la línea que girará	Tap the line that will turn
+Nuevo dibujo	New drawing
+Guardar en GitHub…	Save to GitHub…
+Abrir de GitHub…	Open from GitHub…
+SVG para corte láser…	SVG for laser cutting…
+Spline por puntos (S)	Spline through points (S)
+Trazar punto (activar o quitar)	Trace point (turn on or remove)
+Trazado a spline…	Trace to spline…
+Cerrar o abrir el spline	Close or open the spline
+Seleccionar y arrastrar (V)	Select and drag (V)
+Filtrar la selección…	Filter the selection…
+Línea (L)	Line (L)
+Vector: línea con flecha y magnitud (W). Con una línea seleccionada, la convierte en vector	Vector: line with arrow and magnitude (W). With a line selected, it turns it into a vector
+Línea de punto medio (M)	Midpoint line (M)
+Línea constructiva (K)	Construction line (K)
+Círculo (C)	Circle (C)
+Círculo perimetral (3 puntos)	Circle through 3 points
+Círculo constructivo	Construction circle
+Arco por centro y extremos (R)	Arc by center and ends (R)
+Arco por 3 puntos (A)	Arc by 3 points (A)
+Arco constructivo por centro y extremos	Construction arc by center and ends
+Arco constructivo por 3 puntos	Construction arc by 3 points
+Elipse: centro y dos ejes (O)	Ellipse: center and two axes (O)
+Elipse parcial (arco elíptico)	Partial ellipse (elliptical arc)
+Rectángulo por diagonal (B)	Rectangle by diagonal (B)
+Rectángulo de centro	Center rectangle
+Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes)	Rotary actuator (MR): tap the line and its end that will be the center of rotation (or select them first)
+Actuador lineal (ML): toca el punto de la cola y el de la cabeza	Linear actuator (ML): tap the tail point and the head point
+Gráfica: toca donde va su esquina inferior izquierda; muestra «variable1 vs variable2»	Graph: tap where its lower left corner goes; it shows «variable1 vs variable2»
+Simulación: barra de tiempo para mover los actuadores	Simulation: time bar to move the actuators
+Simulación	Simulation
+Redondeo (F): toca una esquina, o dos elementos, y teclea el radio	Fillet (F): tap a corner, or two elements, and type the radius
+Chaflán: toca una esquina y teclea la distancia	Chamfer: tap a corner and type the distance
+Copiar la selección (Ctrl+C)	Copy the selection (Ctrl+C)
+Pegar: toca el punto donde va el centro de lo copiado (Ctrl+V)	Paste: tap the point where the center of what was copied goes (Ctrl+V)
+Convertida en vector	Turned into a vector
+{0} líneas convertidas en vectores	{0} lines turned into vectors
+Convertido en línea	Turned into a line
+{0} vectores convertidos en líneas	{0} vectors turned into lines
+⏸ Cálculo en pausa: la página se cerró al calcular	⏸ Calculation paused: the page closed while calculating
+Toca la gráfica para calcular	Tap the graph to calculate
+x1 · horizontal inferior	x1 · bottom horizontal
+x2 · horizontal superior	x2 · top horizontal
+y1 · vertical izquierdo	y1 · left vertical
+y2 · vertical derecho	y2 · right vertical
+~Del documento (	From the document (
+~. También p1.x, l1.len, c1.r… y funciones (sin, sqrt…)	. Also p1.x, l1.len, c1.r… and functions (sin, sqrt…)
+Escribe al menos una relación, por ejemplo «MR1 vs t»	Type at least one relation, for example «MR1 vs t»
+Revisa la posición, el tamaño, el tiempo final y las muestras	Check the position, size, end time and samples
+Eje {0}: «{1}» no es un número	Axis {0}: «{1}» is not a number
+Eje {0}: el máximo debe ser mayor que el mínimo	Axis {0}: the maximum must be greater than the minimum
+Eje {0}: en escala logarítmica los límites deben ser positivos	Axis {0}: on a logarithmic scale the limits must be positive
+Eje {0}: divisiones mayores de 1 a 50 y menores de 0 a 20	Axis {0}: major divisions from 1 to 50 and minor from 0 to 20
+Toca la línea que girará y su extremo que será el centro de giro (en cualquier orden)	Tap the line that will turn and its end that will be the center of rotation (in any order)
+Ese punto no es un extremo de la línea: toca uno de sus extremos	That point is not an end of the line: tap one of its ends
+La línea no termina en ese punto: toca el extremo que será el centro de giro	The line does not end at that point: tap the end that will be the center of rotation
+El punto de giro debe ser un extremo de la línea	The pivot point must be an end of the line
+~ en función de t (	 as a function of t (
+~Tabla: una fila por línea, «tiempo; 	Table: one row per line, «time;
+No se pudo mover	Could not move
+Crea antes un actuador (MR o ML)	Create an actuator first (MR or ML)
+Simulación: mueve el tiempo con la barra. El dibujo vuelve a su estado al detenerla	Simulation: move the time with the bar. The drawing returns to its state when you stop it
+Archivo: nuevo, guardar, abrir y exportar	File: new, save, open and export
+~ · toca de nuevo o mantén presionado para ver más herramientas	 · tap again or press and hold to see more tools
+~Capas · capa actual: 	Layers · current layer:
+~Capas, capa actual: 	Layers, current layer:
+Enciende la capa para dibujar en ella	Turn the layer on to draw on it
+Sin capa actual: lo nuevo no pertenece a ninguna capa	No current layer: new things belong to no layer
+«{0}» apagada: ya no es la capa actual, dibujas sin capa	«{0}» turned off: it is no longer the current layer, you draw without a layer
+¿Borrar la capa «{0}»?	Delete the layer «{0}»?
+~ Su único elemento quedará sin capa («ninguna»).	 Its only element will be left without a layer («none»).
+~ Sus {0} elementos quedarán sin capa («ninguna»).	 Its {0} elements will be left without a layer («none»).
+Ninguna (sin capa)	None (no layer)
+Elementos en la capa	Elements on the layer
+Apagar la capa (ocultarla)	Turn the layer off (hide it)
+Encender la capa	Turn the layer on
+Borrar la capa	Delete the layer
+~Borrar la capa 	Delete the layer
+Capa «{0}» creada y activa	Layer «{0}» created and active
+Círculo	Circle
+Sin fondo	No background
+Sin color de fondo (transparente)	No background color (transparent)
+Auto: color del papel (tapa lo que quede debajo)	Auto: paper color (covers what is underneath)
+Color de fuente	Font color
+Color de fondo	Background color
+Quitar esta restricción	Remove this constraint
+La relación solo vale mientras los elementos se tocan gráficamente, dentro de los límites del segmento o del arco; fuera, quedan libres	The relation only holds while the elements touch graphically, within the limits of the segment or arc; outside, they are free
+Solo en los límites	Only within limits
+Al llegar al extremo del segmento o del arco el contacto se detiene ahí (el punto no pasa del extremo; el extremo del segmento o del arco se apoya en el otro elemento) en vez de quedar libre	On reaching the end of the segment or arc, the contact stops there (the point does not go past the end; the end of the segment or arc rests on the other element) instead of being free
+Tope en bordes	Stop at edges
+~ (arco elíptico)	 (elliptical arc)
+El elemento quedó en una capa apagada: se ocultó	The element ended up on a turned-off layer: it was hidden
+Valor imposible con las restricciones actuales	Impossible value with the current constraints
+La magnitud debe ser mayor que cero	The magnitude must be greater than zero
+Magnitud fija (restringe la longitud)	Fixed magnitude (constrains the length)
+Nombre de la magnitud	Magnitude name
+Tipo de línea	Line type
+Escala del patrón	Pattern scale
+La forma fija contradice las restricciones del dibujo	The fixed shape contradicts the drawing's constraints
+Forma fija (no se deforma al mover sus puntos)	Fixed shape (it does not deform when its points are moved)
+Ángulo °	Angle °
+Ninguna (ángulo libre)	None (free angle)
+Alinear con	Align with
+Legible (gira 180° el texto que quedaría boca abajo)	Readable (flips 180° text that would end up upside down)
+~Punto de inserción: 	Insertion point:
+Punto de inserción	Insertion point
+Esa posición contradice las restricciones	That position contradicts the constraints
+Fijo (no se mueve al arrastrar)	Fixed (it does not move when dragged)
+Marca de referencia en	Reference mark at
+Referencia de la marca	Mark reference
+Devuelve la marca a su referencia sobre la línea	Returns the mark to its reference on the line
+Tomar la actual	Take the current one
+La posición actual de la marca pasa a ser su referencia	The current position of the mark becomes its reference
+El patrón del relleno se cambia en el panel (sección Relleno) con el relleno seleccionado.	The fill pattern is changed in the panel (Fill section) with the fill selected.
+Diámetro	Diameter
+~Cambiar la cota de 	Change the dimension of
+~ que ya tiene	 that it already has
+Líneas	Lines
+Círculos	Circles
+Cotas y restricciones	Dimensions and constraints
+Actuadores y gráficas	Actuators and graphs
+Filtro de selección activo	Selection filter on
+Sin filtro: se puede seleccionar todo	No filter: everything can be selected
+Línea {0} · L = {1}	Line {0} · L = {1}
+{0} elemento{1} a copiar	{0} element{1} to copy
+Horizontal (eje X)	Horizontal (X axis)

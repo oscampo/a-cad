@@ -48,7 +48,8 @@ export const CALC_GROUPS = [
       [c('x:a..b;n'), '<b>Rango</b>: n valores de a hasta b, un vector fila.', 'x:1..5;5', 'x:=[1, 2, 3, 4, 5]', 't'],
       [c('x:a..paso..b'), 'Rango con paso.', 'x:0..0.5..2', 'x:=[0, 0.5, 1, 1.5, 2]', 't'],
       ['Vector con unidades', 'Una unidad para todos los elementos: ' + c("[1,2,3]'mm") + ', ' + c("[1'm, 20'cm]") + ' o un rango ' + c("0..10;5'mm") + '. Se muestran todos en la misma unidad, y una gráfica los usa en esa unidad (la leyenda la dice). Mezclar magnitudes en un vector da ⚠.', "v:[1,2,3]'mm\nv*2=\nsum(v)=", 'v:=[1, 2, 3] mm\nv*2=[2, 4, 6] mm\nsum(v)=6 mm', 't'],
-      ['Ángulos', 'Según <b>Documento → Ángulos en</b>. En grados (los dibujos anteriores), un valor con π es un ángulo en radianes y uno sin π es un número a secas: <code>sin(30)</code> va en grados. En radianes (los dibujos nuevos), todo va en radianes: <code>sin(π/6)=0.5</code>. El ejemplo, en un dibujo en grados.', 'a:30\nsin(a)=', 'a:=30\nsin(a)=0.5', 't'],
+      ['Ángulos', 'Según <b>Configuración → Ángulos en</b>. En grados (los dibujos anteriores), un valor con π es un ángulo en radianes y uno sin π es un número a secas: <code>sin(30)</code> va en grados. En radianes (los dibujos nuevos), todo va en radianes: <code>sin(π/6)=0.5</code>. El ejemplo, en un dibujo en grados.', 'a:30\nsin(a)=', 'a:=30\nsin(a)=0.5', 't'],
+      ['Indicador decimal', 'Según <b>Configuración → Indicador decimal</b>. Con <b>punto</b> (' + c('1.5') + ') los argumentos de una función van con coma, ' + c('max(2.5, 3)') + ', y en una matriz los elementos con coma y las filas con ' + c(';') + ': ' + c('[1, 2; 3, 4]') + '. Con <b>coma</b> (' + c('1,5') + ') los argumentos van con ' + c(';') + ', ' + c('max(2,5; 3)') + ', y en una matriz los elementos con ' + c(';') + ' y las filas con ' + c('|') + ': ' + c('[1; 2 | 3; 4]') + '; los índices también, ' + c('A_(1;2)') + '. Al cambiarlo se reescriben las fórmulas que ya tiene el dibujo; los dibujos anteriores, sin la opción, aceptan las dos formas.', '', '', 't'],
       [c('...'), '<b>Sigue en la línea siguiente</b>, como en Python: ' + c('...') + ' al final de una línea y, si quieres, al comienzo de la siguiente. Las dos líneas son un solo enunciado y se ven así, partidas. Sirve para una ecuación que se sale del margen de la página.', 'F:1+2+...\n...3=', 'F:=1+2+...\n...3=6', 't'],
       ['Error', 'Si la expresión no se puede calcular, en lugar del valor aparece ⚠.', 'sqrt(-1)=', 'sqrt(-1)=⚠', 't'],
     ],
@@ -101,7 +102,7 @@ export const CALC_GROUPS = [
       [c('texto[^1]') + ' y ' + c('[^1]: la nota'), '<b>Nota al pie</b>: la llamada va en superíndice, numerada en orden, y las notas se juntan al final del texto en letra más pequeña.'],
       [c('<!-- … -->'), 'Comentario: no se dibuja (puede abarcar varias líneas).'],
       [c('\\*'), 'Deja el signo tal cual (sirve con cualquier signo de puntuación): ' + c('\\*') + ', ' + c('\\_') + ', ' + c('\\#') + ', ' + c('\\[') + '… Un ' + c('*') + ' entre espacios (' + c('2 * 3') + ') ya va tal cual, pero ' + c('2*3*4') + ' pone el 3 en cursiva.'],
-      ['Saltos de línea', 'Cada salto de línea es un salto de línea, con página o sin ella (a diferencia de Markdown, las líneas seguidas no se unen). Con la página (Documento → Página), una línea que no cabe se parte en el margen. Una ' + c('\\') + ' al final de una línea no se dibuja.'],
+      ['Saltos de línea', 'Cada salto de línea es un salto de línea, con página o sin ella (a diferencia de Markdown, las líneas seguidas no se unen). Con la página (Configuración → Página), una línea que no cabe se parte en el margen. Una ' + c('\\') + ' al final de una línea no se dibuja.'],
     ],
   },
   {

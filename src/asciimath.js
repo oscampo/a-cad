@@ -6,6 +6,8 @@
 //   | 'big' { s, sub, sup } (sum, prod, int, lim...) | 'acc' { k, body } | 'brace' { k:'u'|'o', body, sub, sup }
 //   | 'stack' { k:'over'|'under', top, base } | 'font' { k, body } | 'color' { col, body }.
 
+import { commaMode, elemChar, rowChar } from './locale.js';
+
 export const GREEK = {
   alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ɛ', zeta: 'ζ', eta: 'η', theta: 'θ', vartheta: 'ϑ', iota: 'ι',
   kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', rho: 'ρ', sigma: 'σ', tau: 'τ', upsilon: 'υ', phi: 'ϕ', varphi: 'φ',
@@ -80,6 +82,7 @@ const SYMS = [
 ].sort((a, b) => b[0].length - a[0].length);
 
 const NUM_RE = /(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+(?![\p{L}\d_]))?/uy; // con notacion cientifica (2.5e6, 3e-4), como en expr.js
+const NUM_RE_COMMA = /(?:\d+(?:[.,]\d+)?|[.,]\d+)(?:[eE][+-]?\d+(?![\p{L}\d_]))?/uy; // con coma decimal (doc.decimal = «,»): 1,5 es un numero
 const LETTER = /\p{L}/u;
 const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|[A-Za-z]{3,20})$/;
 
@@ -94,8 +97,9 @@ export function tokenize(s) {
     if (ch === '\uE004') { let j = s.indexOf('\uE005', i + 1); if (j < 0) j = n; out.push({ t: 'name', v: s.slice(i + 1, j) }); i = j + 1; continue; } // nombre con subindice de texto
     if (ch === '\uE002') { let j = s.indexOf('\uE003', i + 1); if (j < 0) j = n; out.push({ t: 'vec', v: s.slice(i + 1, j) }); i = j + 1; continue; } // vector de un texto (salida x=)
     if (ch === '"') { let j = s.indexOf('"', i + 1); if (j < 0) j = n; out.push({ t: 'str', v: s.slice(i + 1, j) }); i = j + 1; continue; }
-    NUM_RE.lastIndex = i;
-    const m = NUM_RE.exec(s);
+    const NR = commaMode() ? NUM_RE_COMMA : NUM_RE;
+    NR.lastIndex = i;
+    const m = NR.exec(s);
     if (m) { out.push({ t: 'num', v: m[0].replace('-', '−') }); i += m[0].length; continue; } // 3e−4: el signo del exponente es un menos, sin espacios
     const cp = String.fromCodePoint(s.codePointAt(i));
     if (LETTER.test(cp)) {
@@ -146,11 +150,15 @@ function splitCommas(nodes) {
 // Una columna formada solo por «|» es una linea vertical (matriz aumentada).
 // «[a, b; c, d]», «[a; b]»: entre corchetes, «;» separa filas y «,» columnas (la misma escritura de las matrices calculadas).
 const isSemi = (n) => n.t === 'o' && n.k === 'punct' && n.s === ';';
+const isBar = (n) => n.t === 'sym' && n.s === '|';
 function semiMatrix(g) {
-  if (g.l !== '[' || g.r !== ']' || !g.body.c.some(isSemi)) return null;
+  const comma = commaMode(); // con coma decimal: «;» separa los elementos de una fila y «|» las filas
+  const isRow = comma ? isBar : isSemi, isCell = comma ? isSemi : isComma;
+  if (g.l !== '[' || g.r !== ']' || !g.body.c.some((n) => isRow(n) || (comma && isSemi(n)))) return null;
   const rows = [[]];
-  for (const n of g.body.c) { if (isSemi(n)) rows.push([]); else rows.at(-1).push(n); }
-  const cells = rows.map((r) => splitCommas(r).map((c) => ({ t: 'row', c: c.filter((n) => n.t !== 'space') })));
+  for (const n of g.body.c) { if (isRow(n)) rows.push([]); else rows.at(-1).push(n); }
+  const split = (nodes) => { const o = [[]]; for (const n of nodes) { if (isCell(n)) o.push([]); else o.at(-1).push(n); } return o; };
+  const cells = rows.map((r) => split(r).map((c) => ({ t: 'row', c: c.filter((n) => n.t !== 'space') })));
   if (cells.some((r) => r.length !== cells[0].length || r.some((c) => !c.c.length))) return null;
   return { t: 'mat', l: '[', r: ']', rows: cells, bars: [] };
 }
@@ -188,7 +196,7 @@ function parseS(p) {
       return m ? { t: 'ss', base: { t: 'v', s: m[1] }, sub: { t: 'txt', s: m[2] }, sup: null, nm: true } : { t: 'v', s: k.v };
     }
     case 'vec': { // «[1, 2, 3]», «[1; 2]», «[1, 2; 3, 4]» (viene de una salida x=): matriz sin comas
-      const rows = k.v.trim().replace(/^\[/, '').replace(/\]$/, '').split(';').map((r) => r.split(',').map((e) => parse(e.trim())).filter((c) => c.c.length)).filter((r) => r.length);
+      const rows = k.v.trim().replace(/^\[/, '').replace(/\]$/, '').split(rowChar()).map((r) => r.split(elemChar()).map((e) => parse(e.trim())).filter((c) => c.c.length)).filter((r) => r.length);
       return rows.length && rows.every((r) => r.length === rows[0].length) ? { t: 'mat', l: '[', r: ']', rows, bars: [] } : EMPTY();
     }
     case 'str': return { t: 'txt', s: k.v };

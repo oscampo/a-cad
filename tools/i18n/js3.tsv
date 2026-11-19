@@ -1,0 +1,218 @@
+Perpendicular a la dirección 1	Perpendicular to direction 1
+El espaciado debe ser distinto de 0	The spacing must be different from 0
+Número total	Total number
+La línea de dirección no tiene longitud	The direction line has no length
+Selecciona lo que quieres copiar	Select what you want to copy
+Toca la línea que da la dirección 1	Tap the line that gives direction 1
+Toca la línea que da la dirección 2	Tap the line that gives direction 2
+No se eligió ninguna línea	No line was chosen
+Escribe el espaciado de la dirección 1	Type the spacing of direction 1
+Las dos direcciones no pueden ser paralelas	The two directions cannot be parallel
+Conflicto con las restricciones: se deshizo la matriz	Conflict with the constraints: the array was undone
+Toca el punto (o un lugar libre) que es el centro de la matriz	Tap the point (or a free spot) that is the center of the array
+No se eligió centro	No center was chosen
+~Ángulo total: 	Total angle:
+El ángulo total debe estar entre 0° y 360°	The total angle must be between 0° and 360°
+~Ángulo entre instancias: 	Angle between instances:
+El ángulo entre instancias debe ser distinto de 0	The angle between instances must be different from 0
+~ (el 1 es el original)	 (1 is the original)
+Selecciona lo que quieres reflejar	Select what you want to mirror
+Toca la línea que hace de eje de simetría	Tap the line that serves as the axis of symmetry
+Copia espejo cancelada	Mirror copy canceled
+Conflicto con las restricciones: se deshizo la copia espejo	Conflict with the constraints: the mirror copy was undone
+Copia espejo creada respecto de {0}	Mirror copy created about {0}
+Selecciona 2 elementos (líneas, arcos, círculos o splines)	Select 2 elements (lines, arcs, circles or splines)
+Selecciona un spline	Select a spline
+Equidistante: distancia (positiva = hacia afuera en curvas cerradas)	Offset: distance (positive = outward on closed curves)
+Escribe la distancia (positiva = hacia afuera en curvas cerradas)	Type the distance (positive = outward on closed curves)
+El spline necesita al menos 3 puntos	The spline needs at least 3 points
+La equidistante se socava en {0} tramos: la distancia supera el radio de curvatura (mínimo {1}). Revisa la curva.	The offset is undercut in {0} sections: the distance exceeds the radius of curvature (minimum {1}). Check the curve.
+No hay geometría para exportar	There is no geometry to export
+La escala y el grosor deben ser positivos	The scale and width must be positive
+No hay nada marcado como Corte o Marcado	Nothing is marked as Cut or Mark
+SVG de {0} × {1} mm: {2} de corte y {3} de marcado	SVG of {0} × {1} mm: {2} for cutting and {3} for marking
+Selecciona uno o más puntos	Select one or more points
+Trazado activado: mueve el mecanismo para dibujar la trayectoria	Tracing on: move the mechanism to draw the path
+{0} … y {1} más	{0} … and {1} more
+{0} restricción(es) redundante(s) hacen más lento el solver: botón «Redundantes» en Restricciones	{0} redundant constraint(s) slow the solver down: «Redundant» button in Constraints
+Sin restricciones redundantes	No redundant constraints
+{0} restricción(es) redundante(s): no agregan información (otras ya implican lo mismo) y hacen más lento el solver. {1}	{0} redundant constraint(s): they add no information (others already imply the same) and slow the solver down. {1}
+{0} cota(s) redundante(s) que NO se quitan (pueden alimentar fórmulas; revísalas a mano): {1}	{0} redundant dimension(s) that are NOT removed (they may feed formulas; check them by hand): {1}
+¿Quitar las restricciones? La geometría no cambia; se puede deshacer.	Remove the constraints? The geometry does not change; it can be undone.
+No se pudo: el dibujo no resuelve sin ellas; no se quitó nada	Could not do it: the drawing does not solve without them; nothing was removed
+{0} restricción(es) quitada(s)	{0} constraint(s) removed
+Selecciona un punto con trazado	Select a point with tracing
+Puntos del spline	Spline points
+Aún no hay trayectoria: mueve el mecanismo con el trazado activado	There is no path yet: move the mechanism with tracing on
+Spline cerrado creado a partir del trazado	Closed spline created from the trace
+Spline creado a partir del trazado	Spline created from the trace
+Una curva cerrada necesita al menos 3 puntos	A closed curve needs at least 3 points
+Sin límites: lienzo infinito, los textos respetan cada salto de línea	Unbounded: infinite canvas, texts keep every line break
+~Página de 	Page of
+~ mm: los textos se ajustan a los márgenes	 mm: texts fit within the margins
+Valor no válido	Invalid value
+Se reescribirán {0} fórmula{1} del dibujo con el indicador decimal «{2}» (argumentos con «{3}»). ¿Continuar?	{0} formula{1} in the drawing will be rewritten with the decimal separator «{2}» (arguments with «{3}»). Continue?
+coma (1,5), argumentos con «;»	comma (1,5), arguments with «;»
+punto (1.5), argumentos con «,»	dot (1.5), arguments with «,»
+ · {0} fórmula{1} reescrita{2}	 · {0} formula{1} rewritten
+Textos de cálculo en radianes: sin(π/2)=1	Calculation texts in radians: sin(π/2)=1
+Textos de cálculo en grados: sin(90)=1	Calculation texts in degrees: sin(90)=1
+Patrón no válido. Ej.: 12 -3 2 -3	Invalid pattern. E.g.: 12 -3 2 -3
+El patrón necesita al menos un hueco (número negativo)	The pattern needs at least one gap (negative number)
+Solo se pueden quitar tipos propios	Only custom types can be removed
+¿Empezar un dibujo nuevo? Se pierde lo no guardado.	Start a new drawing? Anything unsaved will be lost.
+~No se pudo abrir: 	Could not open:
+ya hay un token guardado (déjalo vacío para conservarlo)	a token is already saved (leave it empty to keep it)
+Escribe el repositorio como usuario/repositorio y el token	Type the repository as user/repository and the token
+Probando la conexión…	Testing the connection…
+Este navegador no deja guardar la configuración	This browser does not allow saving the settings
+GitHub configurado: {0} dibujo{1} en {2}/{3}	GitHub set up: {0} drawing{1} in {2}/{3}
+¿Olvidar el repositorio y el token en este dispositivo?	Forget the repository and the token on this device?
+Configuración de GitHub olvidada	GitHub settings forgotten
+Primero configura GitHub	Set up GitHub first
+Guardando en GitHub…	Saving to GitHub…
+«{0}» cambió en GitHub desde la última vez que lo abriste o guardaste en este dispositivo (quizá lo editaste en otro). ¿Sobrescribirlo con este dibujo?	«{0}» changed on GitHub since the last time you opened or saved it on this device (maybe you edited it on another). Overwrite it with this drawing?
+Ya existe «{0}» en GitHub. ¿Sobrescribirlo con este dibujo?	«{0}» already exists on GitHub. Overwrite it with this drawing?
+No se guardó	Not saved
+Guardado en GitHub: {0}	Saved to GitHub: {0}
+No se pudo guardar en GitHub: {0}	Could not save to GitHub: {0}
+~. Ábrelo de nuevo y reintenta.	. Open it again and retry.
+Buscar por nombre…	Search by name…
+Buscar por nombre	Search by name
+{0} de {1} listo{2}.	{0} of {1} done{2}.
+~ Con errores: 	 With errors:
+¿Mover {0} a la papelera? {1} Podrás restaurarlos desde la pestaña Papelera.	Move {0} to the trash? {1} You can restore them from the Trash tab.
+este archivo	this file
+PROTEGIDO{0}: {1}. ¿Seguro que quieres moverlo{2} a la papelera?	PROTECTED{0}: {1}. Are you sure you want to move it{2} to the trash?
+Moviendo a la papelera	Moving to the trash
+¿Eliminar DEFINITIVAMENTE {0}? {1} No se puede deshacer desde la app (solo desde el historial de git en GitHub).	Delete {0} PERMANENTLY? {1} This cannot be undone from the app (only from the git history on GitHub).
+PROTEGIDO{0}: {1}. ¿Seguro que quieres eliminarlo{2} para siempre?	PROTECTED{0}: {1}. Are you sure you want to delete it{2} forever?
+ipad-cad: eliminar {0}	ipad-cad: delete {0}
+Nuevo nombre (sin «.json»)	New name (without «.json»)
+Escribe un nombre válido	Type a valid name
+Ya existe «{0}»	«{0}» already exists
+Quitando protección	Removing protection
+«{0}» · {1} puntos, {2} elementos{3}. Solo existe en este dispositivo y se reabre solo al iniciar la app; no está en GitHub hasta que lo guardes.	«{0}» · {1} points, {2} elements{3}. It only exists on this device and reopens by itself when the app starts; it is not on GitHub until you save it.
+~ · guardado a las 	 · saved at
+Descartar y empezar nuevo	Discard and start new
+Borra el guardado automático de este dispositivo y empieza un dibujo en blanco	Deletes the autosave on this device and starts a blank drawing
+Quitar protección	Remove protection
+Ningún nombre coincide con «{0}»	No name matches «{0}»
+No hay dibujos .json en esa carpeta todavía. Guarda uno con «Guardar en GitHub».	There are no .json drawings in that folder yet. Save one with «Save to GitHub».
+La papelera está vacía.	The trash is empty.
+No se pudo leer GitHub: {0}	Could not read GitHub: {0}
+Hay una versión nueva: actualizando…	There is a new version: updating…
+No cargó el solver: {0}	The solver did not load: {0}
+La página se cerró al calcular una gráfica (avance {0} %, {1} s). Las gráficas quedan en pausa: toca una para calcularla.	The page closed while calculating a graph (progress {0} %, {1} s). Graphs are paused: tap one to calculate it.
+Información	Information
+Precaución	Caution
+Atención	Warning
+Traza y punto	Trace and point
+función de {0}	function of {0}
+vector de {0}	vector of {0}
+matriz de {0}×{1}	matrix of {0}×{1}
+{0}({1}) = función	{0}({1}) = function
+{0} = vector de {1}	{0} = vector of {1}
+{0} = matriz de {1}×{2}	{0} = matrix of {1}×{2}
+El nombre usa letras, números y _, y empieza con una letra	The name uses letters, numbers and _, and starts with a letter
+Ya existe una cota llamada «{0}»	A dimension named «{0}» already exists
+Ya existe una variable de texto llamada «{0}»	A text variable named «{0}» already exists
+«{0}» se define después de esta cota en el orden de lectura (más abajo o más a la derecha de su etiqueta)	«{0}» is defined after this dimension in the reading order (further down or further right than its label)
+{0} no puede usarse en su propia fórmula	{0} cannot be used in its own formula
+En la fórmula de {0}: «{1}» no es una cota ni una variable	In the formula of {0}: «{1}» is neither a dimension nor a variable
+{0} no puede usarse en su propia fórmula (la lee a través de una variable de texto)	{0} cannot be used in its own formula (it reads it through a text variable)
+Las cotas se definen en círculo: {0}	The dimensions are defined in a circle: {0}
+debe ser mayor que cero	must be greater than zero
+{0} quedaría en {1}: debe ser mayor que cero	{0} would be {1}: it must be greater than zero
+Las cotas con fórmulas que leen medidas no se estabilizan: una depende de otra que cambia al resolverla (¿se realimentan?)	Dimensions with formulas that read measurements do not settle: one depends on another that changes when solving (do they feed each other?)
+{0}: debe ser un entero de {1} a {2}	{0}: must be an integer from {1} to {2}
+No es un spline	It is not a spline
+Hacen falta al menos 3 puntos	At least 3 points are needed
+Los puntos del spline coinciden	The spline points coincide
+Selecciona un segmento, un arco o un círculo	Select a segment, an arc or a circle
+Hay puntos que no están sobre el segmento	Some points are not on the segment
+Ningún punto cae en el interior del segmento	No point falls inside the segment
+Hay puntos que no están sobre el arco	Some points are not on the arc
+Hay puntos fuera del tramo del arco	Some points are outside the arc's span
+Ningún punto cae en el interior del arco	No point falls inside the arc
+El centro no está sobre la circunferencia	The center is not on the circle
+Hay puntos que no están sobre el círculo	Some points are not on the circle
+Selecciona al menos un punto sobre el círculo	Select at least one point on the circle
+esquina superior izquierda	top left corner
+medio del lado superior	middle of the top side
+esquina superior derecha	top right corner
+medio del lado izquierdo	middle of the left side
+medio del lado derecho	middle of the right side
+esquina inferior izquierda	bottom left corner
+medio del lado inferior	middle of the bottom side
+esquina inferior derecha	bottom right corner
+Marker Felt (manuscrita)	Marker Felt (handwritten)
+Bradley Hand (manuscrita)	Bradley Hand (handwritten)
+Snell Roundhand (cursiva)	Snell Roundhand (script)
+Distribución horizontal	Horizontal distribution
+Distribución vertical	Vertical distribution
+Coincidente (punto sobre línea)	Coincident (point on line)
+Coincidente (punto sobre círculo/arco)	Coincident (point on circle/arc)
+Coincidente (punto sobre spline)	Coincident (point on spline)
+Coincidente (punto sobre elipse)	Coincident (point on ellipse)
+Concéntricos	Concentric
+Tangente en el extremo	Tangent at the end
+Tangente a spline	Tangent to spline
+Tangente a elipse	Tangent to ellipse
+Tangente entre elipses	Tangent between ellipses
+Distancia a recta	Distance to line
+Dirección	Direction
+Simetría	Symmetry
+Rueda y cremallera	Wheel and rack
+~ (solo en los límites, con tope)	 (only within limits, with stop)
+~ (solo en los límites)	 (only within limits)
+~ (magnitud de vector)	 (vector magnitude)
+Chaflán	Chamfer
+División	Split
+Polígono	Polygon
+Forma fija del spline {0}	Fixed shape of spline {0}
+Círculo {0}	Circle {0}
+~, +{0} automática{1}	, +{0} automatic{1}
+Relaciones: solo {0} automática{1}	Relations: only {0} automatic{1}
+{0}↗ Punto {1} (en {2})	{0}↗ Point {1} (on {2})
+Círculo {0} · {1} = {2}	Circle {0} · {1} = {2}
+Puntos de control ({0})	Control points ({0})
+Arco elíptico	Elliptical arc
+Inserción:	Insertion:
+Geométricas	Geometric
+Mecánicas	Mechanical
+Automáticas ({0})	Automatic ({0})
+Trazado del punto {0} · {1} muestras	Trace of point {0} · {1} samples
+↗ Línea {0}	↗ Line {0}
+Gráfica {0} · {1}	Graph {0} · {1}
+sin relaciones	no relations
+entre sus extremos	between its ends
+con el {0}	with the {0}
+línea	line
+líneas	lines
+arco elíptico	elliptical arc
+arcos elípticos	elliptical arcs
+ · {0} {1} sin restricción	 · {0} {1} without constraint
+unión	join
+Gráficas	Graphs
+Relaciones y cotas ({0})	Relations and dimensions ({0})
+Sin capa ({0})	No layer ({0})
+un rango se escribe inicio..fin;n o inicio..paso..fin	a range is written start..end;n or start..step..end
+n debe ser un entero de 1 o más	n must be an integer of 1 or more
+un rango admite hasta {0} elementos	a range accepts up to {0} elements
+el paso no puede ser 0	the step cannot be 0
+el paso lleva el sentido contrario al de inicio a fin	the step goes in the opposite direction to start-to-end
+da {0}, que no se puede expresar en {1} ({2})	gives {0}, which cannot be expressed in {1} ({2})
+n (el número de elementos) va sin unidades	n (the number of elements) has no units
+los extremos{0} deben tener las mismas unidades (hay {1})	the ends{0} must have the same units (there are {1})
+~ y el paso	 and the step
+«{0}» ya es el nombre de una cota	«{0}» is already the name of a dimension
+«{0}» no es un nombre válido	«{0}» is not a valid name
+«{0}(…)»: necesita al menos un parámetro, separados por «;»	«{0}(…)»: needs at least one parameter, separated by «;»
+«{0}(…)»: el parámetro «{1}» no es un nombre válido	«{0}(…)»: the parameter «{1}» is not a valid name
+«{0}(…)»: tiene parámetros repetidos	«{0}(…)»: has repeated parameters
+«{0}» se define más abajo o más a la derecha: en el orden de lectura debe definirse antes	«{0}» is defined further down or further right: in the reading order it must be defined first
+No entiendo la unidad «{0}»	I don't understand the unit «{0}»
+No conozco la unidad «{0}»	I don't know the unit «{0}»
+Falta la unidad	The unit is missing
+un número sin unidades	a number without units

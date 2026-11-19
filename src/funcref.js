@@ -27,7 +27,7 @@ export const FUNC_GROUPS = [
   },
   {
     title: 'Trigonometría',
-    note: 'Los ángulos de los <b>textos de cálculo y las gráficas</b> van según la opción del dibujo <b>Documento → Ángulos en</b>: en <b>radianes</b> (los dibujos nuevos: <code>sin(π/2)</code> da 1) o en <b>grados</b> (los dibujos anteriores, que no tienen la opción: <code>sin(30)</code> da 0.5). En grados, si el argumento lleva π o es un ángulo del dibujo (una cota angular como <code>A1</code> o <code>l3.ang</code>) va en radianes. Las <b>cotas</b> y los actuadores siempre van en grados; en una cota angular en radianes, todo va en radianes.',
+    note: 'Los ángulos de los <b>textos de cálculo y las gráficas</b> van según la opción del dibujo <b>Configuración → Ángulos en</b>: en <b>radianes</b> (los dibujos nuevos: <code>sin(π/2)</code> da 1) o en <b>grados</b> (los dibujos anteriores, que no tienen la opción: <code>sin(30)</code> da 0.5). En grados, si el argumento lleva π o es un ángulo del dibujo (una cota angular como <code>A1</code> o <code>l3.ang</code>) va en radianes. Las <b>cotas</b> y los actuadores siempre van en grados; en una cota angular en radianes, todo va en radianes.',
     rows: [
       ['<code>sin</code> (<code>sen</code>), <code>cos</code>, <code>tan</code>', 'Seno, coseno y tangente.', 'sin(30)', '0.5', 'n'],
       ['', 'Con π, en radianes.', 'cos(π/3)', '0.5', 'n'],

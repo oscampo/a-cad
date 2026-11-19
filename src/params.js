@@ -5,8 +5,8 @@
 // resolver y recalcular se repite hasta que ya nada cambia (settle). Si no se estabiliza se avisa y se deshace.
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
 import { dimPos, dimValue, angTrue, initAngle, trackAngles } from './dims.js';
-import { parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE, normName } from './expr.js';
-import { textVarState, calcStmts, calcParse, calcSrc } from './tvars.js';
+import { convertExpr, parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE, normName } from './expr.js';
+import { convertCalcText, textVarState, calcStmts, calcParse, calcSrc } from './tvars.js';
 import { geoVars, isGeoName, geoPoints } from './geo.js';
 
 const DEG = Math.PI / 180;
@@ -69,6 +69,28 @@ export function varsInfo(doc, exceptId = null) {
   return out;
 }
 // Nombres de las variables definidas en textos (las que alguna definicion valida usa).
+// Una serie «y vs x @y2» con sus dos lados reescritos de un indicador decimal a otro (los ejes no cambian).
+export function convertSeries(s, from, to) {
+  const src = String(s ?? ''), am = /\s@\s*[A-Za-z0-9 ,]*$/.exec(src), tail = am ? src.slice(am.index) : '', body = am ? src.slice(0, am.index) : src;
+  const m = /^(\s*)(.+?)(\s+vs\.?\s+)(.+?)(\s*)$/i.exec(body);
+  return m ? m[1] + convertExpr(m[2], from, to) + m[3] + convertExpr(m[4], from, to) + m[5] + tail : src;
+}
+// Cambia el indicador decimal del dibujo y reescribe lo ya escrito con el nuevo (cotas con formula, textos de calculo, actuadores y graficas).
+// Sin conversion (convert = false) solo cambia la opcion. Devuelve cuantas formulas cambiaron.
+export function setDocDecimal(doc, to, convert = true) {
+  const from = doc.decimal ?? null;
+  to = to === ',' || to === '.' ? to : null;
+  let n = 0;
+  const set = (o, key, f) => { if (typeof o[key] === 'string') { const v = f(o[key]); if (v !== o[key]) { o[key] = v; n++; } } };
+  if (convert && from !== to) {
+    for (const k of Object.values(doc.cons || {})) { set(k, 'expr', (s) => convertExpr(s, from, to)); set(k, 'scaleExpr', (s) => convertExpr(s, from, to)); }
+    for (const t of Object.values(doc.texts || {})) set(t, 'text', (s) => convertCalcText(s, from, to));
+    for (const a of Object.values(doc.acts || {})) set(a, 'expr', (s) => convertExpr(s, from, to));
+    for (const g of Object.values(doc.graphs || {})) if (Array.isArray(g.series)) g.series = g.series.map((s) => { const v = convertSeries(s, from, to); if (v !== s) n++; return v; });
+  }
+  if (to) doc.decimal = to; else delete doc.decimal;
+  return n;
+}
 export const textVarNames = (doc) => (hasDefs(doc) ? textVars(doc).names : new Set());
 // Fuente de las formulas de una cota (el valor y, si la lleva, la escala): de ahi salen sus dependencias.
 const srcOf = (k) => (k.scaleExpr ? `${k.expr ?? ''};${k.scaleExpr}` : k.expr);

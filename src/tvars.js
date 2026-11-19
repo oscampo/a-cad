@@ -1,7 +1,8 @@
 // Variables definidas en los textos: «nombre:valor» (dentro de una formula) asigna a «nombre» el valor de una expresion (sin DOM).
 // Se leen en el orden de la pagina (arriba a abajo, izquierda a derecha; ver textOrder): una variable vale lo de su ultima definicion anterior,
 // y las cotas ven lo que valen al final. El valor puede usar cotas y variables definidas antes. El texto la muestra en cursiva como «nombre:=valor».
-import { evalExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName } from './expr.js';
+import { argChar } from './locale.js';
+import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName } from './expr.js';
 import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg } from './units.js';
 
@@ -107,6 +108,16 @@ export const CONT_MARK = '　';
 export const contBack = (tk, s) => { let i = 0; return tk.conts ? s.replace(/　/g, () => tk.conts[i++] ?? ' ') : s; };
 // Enunciados (asignaciones y salidas) de un texto, en orden.
 export const calcStmts = (s) => (hasCalc(s) ? calcParse(s).flatMap((tk) => (tk.t === 'math' ? tk.lines.flat().filter((p) => p.k === 'def' || p.k === 'out') : [])) : []);
+
+// ---- Cambio de indicador decimal (doc.decimal): reescribe las expresiones de un texto de calculo ----
+// Un rango «x:0.5..2;10» se convierte parte por parte (los «..» y el «;» no cambian); los parametros de una funcion se separan con el separador nuevo.
+const convRange = (expr, from, to) => (expr.includes('..') ? expr.split(/(\.\.|;)/).map((q, i) => (i % 2 ? q : convertExpr(q, from, to))).join('') : convertExpr(expr, from, to));
+export function convertCalcText(s, from, to) {
+  if (!hasCalc(s) || from === to) return s;
+  const piece = (p) => (p.k === 'def' ? { ...p, expr: convRange(p.expr, from, to), ...(p.params !== undefined ? { params: p.params.split(/[;,]/).map((q) => q.trim()).join(argChar(to) + ' ') } : {}) }
+    : p.k === 'out' ? { ...p, expr: convRange(p.expr, from, to) } : p);
+  return calcSrc(calcParse(s).map((tk) => (tk.t === 'math' ? { ...tk, lines: tk.lines.map((l) => l.map(piece)) } : tk)));
+}
 
 // ---- Migracion de la sintaxis anterior (antes de la v2): «x{=valor}» y «[=expr]» ----
 const OLD_RE = () => new RegExp('(' + NAME_SRC + ')(?:\\(([^(){}\\n]*)\\))?\\{=([^}]*)\\}|\\[=((?:[^\\[\\]]|\\[[^\\[\\]]*\\])*)\\]', 'g');

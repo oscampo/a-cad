@@ -1,0 +1,226 @@
+Fila no válida «{0}»: escribe «tiempo; valor»	Invalid row «{0}»: type «time; value»
+La tabla necesita al menos 2 filas	The table needs at least 2 rows
+Dos filas tienen el mismo tiempo	Two rows have the same time
+El resultado no es un número	The result is not a number
+El mecanismo no se puede mover a ese tiempo: el actuador entra en conflicto con las restricciones (por ejemplo, una línea fijada en horizontal o vertical, o una longitud que no puede cambiar)	The mechanism cannot move to that time: the actuator conflicts with the constraints (for example, a line fixed horizontal or vertical, or a length that cannot change)
+Más colores y personalizado	More colors and custom
+Elegir un color con matiz, saturación, luminosidad, RGB o código	Pick a color by hue, saturation, lightness, RGB or code
+Código hexadecimal (#rrggbb)	Hex code (#rrggbb)
+Código hexadecimal	Hex code
+Saturación (%)	Saturation (%)
+No hay punto	There is no point
+Ese punto no es la esquina de dos líneas	That point is not the corner of two lines
+En ese punto se juntan más de dos líneas	More than two lines meet at that point
+Un vector no se redondea ni se achaflana	A vector is not rounded or chamfered
+Líneas sin longitud	Lines with no length
+Las dos líneas van en la misma dirección	Both lines go in the same direction
+Las dos líneas están alineadas: no hay esquina	Both lines are aligned: there is no corner
+El radio debe ser mayor que cero	The radius must be greater than zero
+El radio es demasiado grande para esa esquina (máximo {0})	The radius is too large for that corner (maximum {0})
+La distancia debe ser mayor que cero	The distance must be greater than zero
+La distancia es demasiado grande para esa esquina (máximo {0})	The distance is too large for that corner (maximum {0})
+No hay segmento	There is no segment
+No hay arco	There is no arc
+Un arco de 360° no se redondea	A 360° arc is not rounded
+No hay elipse	There is no ellipse
+Una elipse completa no se redondea: recórtala antes para dejar un arco elíptico	A full ellipse is not rounded: trim it first to leave an elliptical arc
+Un círculo no se redondea: usa un arco	A circle is not rounded: use an arc
+Solo se redondean segmentos, arcos y arcos elípticos	Only segments, arcs and elliptical arcs are rounded
+Elige dos elementos distintos	Pick two different elements
+No hay un redondeo de ese radio entre esos dos elementos: prueba otro radio o toca el otro lado de cada uno	There is no fillet of that radius between those two elements: try another radius or tap the other side of each
+Esos dos elementos no se cortan (ni sus prolongaciones): no hay vértice para el chaflán	Those two elements do not intersect (nor do their extensions): there is no vertex for the chamfer
+La distancia es demasiado grande para esos elementos	The distance is too large for those elements
+La escala debe ser un número mayor que cero, p. ej. 4[*10]	The scale must be a number greater than zero, e.g. 4[*10]
+No se pudo recortar el spline en ese tramo	The spline could not be trimmed at that section
+Solo se recortan segmentos, arcos, círculos, elipses y splines	Only segments, arcs, circles, ellipses and splines are trimmed
+Spline no encontrado	Spline not found
+Un spline cerrado no se extiende	A closed spline is not extended
+Un spline con relaciones no se extiende: quítalas primero	A spline with relations is not extended: remove them first
+Spline sin longitud	Spline with no length
+No hay ningún elemento más allá de ese extremo, en la dirección de su tangente	There is no element beyond that end, in the direction of its tangent
+El spline ya pasa por ese punto	The spline already passes through that point
+Un círculo no se extiende	A circle is not extended
+Solo se extienden segmentos y arcos	Only segments and arcs are extended
+Segmento sin longitud	Segment with no length
+El arco ya es una circunferencia completa	The arc is already a full circle
+No hay ningún elemento más allá de ese extremo	There is no element beyond that end
+No hay nada que copiar	There is nothing to copy
+Demasiadas copias (máximo 400)	Too many copies (maximum 400)
+El eje no tiene longitud	The axis has no length
+No hay nada que reflejar	There is nothing to mirror
+Número de instancias no válido	Invalid number of instances
+Todas las instancias están omitidas	All instances are skipped
+No hay nada copiado	Nothing has been copied
+División entre cero	Division by zero
+round(x; n): n debe ser un entero de 0 a 12	round(x; n): n must be an integer from 0 to 12
+«{0}» está reservada para el tiempo	«{0}» is reserved for time
+«{0}» está reservada para uso futuro	«{0}» is reserved for future use
+«{0}» es una función o constante	«{0}» is a function or constant
+Después de «'» va una unidad, p. ej. 250'N o 3'(m/s)	A unit goes after «'», e.g. 250'N or 3'(m/s)
+No reconozco «{0}» (propiedades: p1.x, p1.y, l1.len, l1.ang, c1.r, c1.d)	I don't recognize «{0}» (properties: p1.x, p1.y, l1.len, l1.ang, c1.r, c1.d)
+{0} (todavía no tiene valor)	{0} (it has no value yet)
+No reconozco «{0}»	I don't recognize «{0}»
+ (no hay una cota con ese nombre)	 (there is no dimension with that name)
+Carácter no válido «{0}»	Invalid character «{0}»
+un vector fila de {0}	a row vector of {0}
+un vector columna de {0}	a column vector of {0}
+una matriz de {0}	a matrix of {0}
+No se puede {0} {1} y {2}: deben tener el mismo tamaño	Cannot {0} {1} and {2}: they must be the same size
+No se puede multiplicar {0} por {1}: las columnas de la primera ({2}) deben ser las filas de la segunda ({3})	Cannot multiply {0} by {1}: the columns of the first ({2}) must equal the rows of the second ({3})
+. Para el producto punto de dos vectores fila usa v*w^T	. For the dot product of two row vectors use v*w^T
+Solo las matrices cuadradas tienen inversa (esta es de {0}×{1})	Only square matrices have an inverse (this one is {0}×{1})
+La matriz es singular: no tiene inversa	The matrix is singular: it has no inverse
+Solo las matrices cuadradas tienen determinante (esta es de {0}×{1})	Only square matrices have a determinant (this one is {0}×{1})
+Solo las matrices cuadradas se elevan a una potencia (esta es de {0}); la potencia elemento a elemento es .^	Only square matrices are raised to a power (this one is {0}); the element-wise power is .^
+La potencia de una matriz debe ser un número entero (A^2, A^(-1)); la potencia elemento a elemento es .^	A matrix power must be an integer (A^2, A^(-1)); the element-wise power is .^
+La potencia de una matriz admite hasta ±1000	A matrix power accepts up to ±1000
+«{0}» es para vectores (fila o columna), no para {1}	«{0}» is for vectors (row or column), not for {1}
+«{0}» recibe un valor (un vector o una matriz)	«{0}» takes one value (a vector or a matrix)
+«{0}» recibe dos vectores separados por «;»: {1}(a; b)	«{0}» takes two vectors separated by «;»: {1}(a; b)
+Solo las matrices cuadradas tienen traza (esta es de {0})	Only square matrices have a trace (this one is {0})
+eye(n): n debe ser un entero de 1 a 100	eye(n): n must be an integer from 1 to 100
+«dot» pide dos vectores del mismo tamaño ({0} y {1})	«dot» takes two vectors of the same size ({0} and {1})
+«cross» (producto vectorial) pide dos vectores de 3 elementos	«cross» (cross product) takes two vectors of 3 elements
+«{0}» no está disponible	«{0}» is not available
+Escribe un valor	Type a value
+«{0}» necesita un número sin unidades (recibió {1})	«{0}» needs a number without units (got {1})
+round(x; n): n es un número sin unidades	round(x; n): n is a number without units
+«{0}» necesita valores con las mismas unidades (recibió {1})	«{0}» needs values with the same units (got {1})
+eye(n): n es un número sin unidades	eye(n): n is a number without units
+«cumprod» todavía no funciona con unidades	«cumprod» does not work with units yet
+No se puede {0} {1} y {2}	Cannot {0} {1} and {2}
+No se pueden comparar vectores o matrices	Vectors or matrices cannot be compared
+No se puede comparar {0} con {1}	Cannot compare {0} with {1}
+if(condición; si_verdadero; si_falso) lleva 3 valores separados por «;»	if(condition; if_true; if_false) takes 3 values separated by «;»
+«{0}» necesita al menos un valor	«{0}» needs at least one value
+La condición de if() es un número, no un vector ni una matriz	The condition of if() is a number, not a vector or a matrix
+Falta cerrar un paréntesis	A parenthesis is not closed
+ (sepáralos con «;»: «2,5» es un solo número)	 (separate them with «;»: «2,5» is a single number)
+«{0}» recibe dos valores ({1}(a; b)) o un vector	«{0}» takes two values ({1}(a; b)) or a vector
+«{0}» recibe un solo valor	«{0}» takes a single value
+{0} valores o más	{0} values or more
+{0} o {1} valores	{0} or {1} values
+un valor	one value
+{0} valores separados por «;»	{0} values separated by «;»
+«{0}» se llama a sí misma demasiadas veces (200 niveles)	«{0}» calls itself too many times (200 levels)
+multiplicar elemento a elemento	multiply element-wise
+dividir elemento a elemento	divide element-wise
+No se puede dividir entre un vector o una matriz	Cannot divide by a vector or a matrix
+El exponente no puede llevar unidades (lleva {0})	The exponent cannot have units (it has {0})
+El exponente no puede ser un vector ni una matriz (para elevar elemento a elemento usa .^)	The exponent cannot be a vector or a matrix (to raise element-wise use .^)
+elevar elemento a elemento	raise element-wise
+Con unidades, el exponente de .^ es un número, no un vector	With units, the exponent of .^ is a number, not a vector
+Expresión incompleta	Incomplete expression
+Falta un índice en «{0}»	An index is missing in «{0}»
+El índice «{0}» de «{1}» debe ser un entero (vale {2})	The index «{0}» of «{1}» must be an integer (it is {2})
+Un elemento lleva un índice (vector) o dos (matriz): A_(fila,columna)	An element takes one index (vector) or two (matrix): A_(row,column)
+Un «:» solo no vale: usa A_(fila,:) o A_(:,columna)	A lone «:» is not valid: use A_(row,:) or A_(:,column)
+«{0}» es una matriz de {1}×{2}: lleva dos índices, {3}_(fila,columna)	«{0}» is a {1}×{2} matrix: it takes two indices, {3}_(row,column)
+Índice fuera de rango: «{0}» es {1}	Index out of range: «{0}» is {1}
+un vector de {0}	a vector of {0}
+una matriz de {0}×{1}	a matrix of {0}×{1}
+ y pides la fila {0}, columna {1}	 and you ask for row {0}, column {1}
+ y pides el elemento {0}	 and you ask for element {0}
+«{0}» es una función: escríbela con paréntesis, p. ej. {1}(…)	«{0}» is a function: write it with parentheses, e.g. {1}(…)
+Raíz de un número negativo	Root of a negative number
+Una matriz no puede estar vacía	A matrix cannot be empty
+Los elementos de una matriz son números	The elements of a matrix are numbers
+Los elementos de una matriz deben tener las mismas unidades (hay {0} y {1})	The elements of a matrix must have the same units (there are {0} and {1})
+Falta cerrar un corchete	A bracket is not closed
+Todas las filas de una matriz deben tener el mismo número de elementos	All rows of a matrix must have the same number of elements
+Una matriz admite hasta 10000 elementos	A matrix accepts up to 10000 elements
+«{0}» necesita paréntesis, p. ej. {1}(30)	«{0}» needs parentheses, e.g. {1}(30)
+Expresión no válida	Invalid expression
+Sobra algo al final de la expresión	Something is left over at the end of the expression
+El resultado es {0}, no un número	The result is {0}, not a number
+Sin conexión con GitHub	Cannot reach GitHub
+El token no es válido o venció	The token is invalid or has expired
+GitHub rechazó la operación (permisos del token o límite de uso)	GitHub rejected the operation (token permissions or usage limit)
+No se encontró (revisa repositorio, rama y que el token tenga acceso)	Not found (check repository, branch and that the token has access)
+Conflicto: el archivo cambió en GitHub	Conflict: the file changed on GitHub
+GitHub respondió {0}	GitHub responded {0}
+Ya existe un archivo con ese nombre	A file with that name already exists
+El archivo ya no está en GitHub	The file is no longer on GitHub
+Se creó «{0}» pero no se pudo borrar el original «{1}»: {2}	«{0}» was created but the original «{1}» could not be deleted: {2}
+«{0}»: los ejes son x1, x2, y1 e y2	«{0}»: the axes are x1, x2, y1 and y2
+«{0}»: escribe «variable1 vs variable2»	«{0}»: type «variable1 vs variable2»
+La gráfica no tiene relaciones	The graph has no relations
+«{0}»: no da un vector	«{0}»: does not give a vector
+«{0}»: da una matriz, no un vector	«{0}»: gives a matrix, not a vector
+Se detuvo en t = {0}	Stopped at t = {0}
+«{0}» y «{1}» tienen distinto número de elementos	«{0}» and «{1}» have a different number of elements
+«{0}»: un vector solo se grafica contra otro vector del mismo tamaño	«{0}»: a vector can only be plotted against another vector of the same size
+(sin destino)	(no target)
+El enlace no tiene destino	The link has no target
+La dirección no es válida	The address is not valid
+El correo no tiene dirección	The email has no address
+El número de teléfono no es válido	The phone number is not valid
+No se abren enlaces «{0}:» (solo web, correo, teléfono, lugares del dibujo y dibujos .json)	Links «{0}:» are not opened (only web, email, phone, places in the drawing and .json drawings)
+Escribe la dirección completa, con https://	Type the full address, with https://
+Solo se abren páginas web (https://…), correo, teléfono, lugares del dibujo (#…) y dibujos .json	Only web pages (https://…), email, phone, places in the drawing (#…) and .json drawings are opened
+sin nombre	unnamed
+{0}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual	{0}: the dimension it depended on no longer exists or is a reference; it keeps its current value
+… {0} más	… {0} more
+Encender capa (árbol de elementos)	Turn layer on (element tree)
+Fijar punto (árbol de elementos)	Fix point (element tree)
+Selección sin los elementos de la lista	Selection without the elements in the list
+El tramo es demasiado corto: arrastra sobre la elipse o toca otro punto	The section is too short: drag over the ellipse or tap another point
+Acota de a uno o dos elementos	Dimension one or two elements at a time
+Un spline no tiene centro: no se puede acotar contra un arco o círculo	A spline has no center: it cannot be dimensioned against an arc or circle
+Con ese par de elementos no hay una cota: usa puntos, líneas, arcos o círculos	There is no dimension for that pair of elements: use points, lines, arcs or circles
+Toca un punto o un elemento para acotarlo	Tap a point or an element to dimension it
+No hay ningún lugar «#{0}» en este dibujo	There is no place «#{0}» in this drawing
+Para abrir «{0}» configura GitHub (Archivo → GitHub)	To open «{0}» set up GitHub (File → GitHub)
+«{0}» queda fuera del repositorio	«{0}» is outside the repository
+¿Abrir «{0}» de GitHub? Se pierde lo no guardado de este dibujo.	Open «{0}» from GitHub? Anything unsaved in this drawing will be lost.
+Abriendo de GitHub…	Opening from GitHub…
+Abierto de GitHub: {0}	Opened from GitHub: {0}
+No se pudo abrir «{0}»: {1}	Could not open «{0}»: {1}
+(el texto dice «{0}»)	(the text says «{0}»)
+No hay elementos en el cuadro	There are no elements in the box
+No se pudo recortar: conflicto con las restricciones	Could not trim: conflict with the constraints
+Se perdieron restricciones sobre el tramo recortado: {0}	Constraints on the trimmed section were lost: {0}
+Detén la simulación para dibujar o editar	Stop the simulation to draw or edit
+No se pudo: queda donde estaba	Could not do it: it stays where it was
+Toca el punto de una esquina, o dos elementos (segmentos, arcos o arcos elípticos) en el lado que quieres conservar	Tap the point of a corner, or two elements (segments, arcs or elliptical arcs) on the side you want to keep
+Ya hay un punto aquí	There is already a point here
+Elige un punto distinto	Pick a different point
+Los 3 puntos no deben ser colineales	The 3 points must not be collinear
+El segundo eje no puede ser nulo	The second axis cannot be zero
+El extremo no puede ser el inicio	The end cannot be the start
+Los 3 puntos deben ser distintos y no colineales	The 3 points must be distinct and not collinear
+Toca una línea, un arco, un círculo o un spline	Tap a line, an arc, a circle or a spline
+Toca el segundo elemento	Tap the second element
+El rectángulo no puede tener ancho o alto nulo	The rectangle cannot have zero width or height
+Número de lados: entero de 3 a 64	Number of sides: integer from 3 to 64
+Selecciona lo que quieres copiar (puntos, líneas, círculos, arcos, splines, elipses o textos)	Select what you want to copy (points, lines, circles, arcs, splines, ellipses or texts)
+Copiado: {0} elemento{1}. Pulsa Pegar y toca el punto donde va su centro	Copied: {0} element{1}. Press Paste and tap the point where its center goes
+Conflicto con las restricciones: se deshizo el pegado	Conflict with the constraints: the paste was undone
+Primero copia algo (selecciona y usa Copiar)	Copy something first (select and use Copy)
+Toca el segmento, arco o spline cerca del extremo que quieres alargar	Tap the segment, arc or spline near the end you want to lengthen
+Las elipses no se extienden	Ellipses are not extended
+Se quitaron las restricciones de longitud del segmento para poder extenderlo	The length constraints of the segment were removed so it could be extended
+No se pudo extender: conflicto con las restricciones	Could not extend: conflict with the constraints
+Un círculo no se redondea ni se achaflana: usa un arco	A circle is not rounded or chamfered: use an arc
+Toca el segundo elemento, del lado que quieres conservar	Tap the second element, on the side you want to keep
+Toca otro elemento	Tap another element
+Radio del redondeo	Fillet radius
+Distancia del chaflán	Chamfer distance
+No se pudo: entra en conflicto con las restricciones del dibujo	Could not do it: it conflicts with the drawing's constraints
+Se quitaron {0} restricciones de longitud de los segmentos recortados	{0} length constraints were removed from the trimmed segments
+Toca el punto de una esquina	Tap the point of a corner
+{0} de {1} esquinas: {2}	{0} of {1} corners: {2}
+No se pudo: entra en conflicto con otras restricciones	Could not do it: it conflicts with other constraints
+Texto normal · Enter dibuja · Shift+Enter otra línea	Plain text · Enter draws · Shift+Enter new line
+Ecuación · x:valor asigna · x:valor'unidad · expr= calcula · " o espacio al empezar = texto	Equation · x:value assigns · x:value'unit · expr= calculates · " or a space at the start = text
+Escribe una ecuación (AsciiMath): Enter la dibuja, Shift+Enter hace otra línea y empezar con " (o un espacio) escribe texto normal	Type an equation (AsciiMath): Enter draws it, Shift+Enter makes a new line and starting with " (or a space) writes plain text
+Restricciones en conflicto: se deshizo la acción	Constraints in conflict: the action was undone
+Las rectas son paralelas	The lines are parallel
+No se intersectan (dentro del tramo del arco)	They do not intersect (within the arc's span)
+No se intersectan	They do not intersect
+No se pudo crear la intersección (conflicto)	Could not create the intersection (conflict)
+Punto de intersección creado	Intersection point created
+{0} puntos de intersección creados	{0} intersection points created
+Ángulos ({0})	Angles ({0})
+(ninguna de este tipo)	(none of this type)
+La escala [*k] solo vale en distancias, radios y diámetros	The [*k] scale only applies to distances, radii and diameters

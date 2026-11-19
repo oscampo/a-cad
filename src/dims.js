@@ -3,10 +3,11 @@
 // posicion de la cota (k.off, k.lt, k.ang, k.lp) sin tocar la geometria ni el solver.
 import { lineLine, signedAngle, norm, TAU, inSweep } from './geom.js';
 import { arcOf } from './model.js';
+import { localNum } from './locale.js';
 
 export const ARROW = 9;
 export const DIAM = '\u2300'; // simbolo de diametro (U+2300)
-export const fmtNum = (v) => (Math.abs(v) >= 1000 ? v.toFixed(1) : String(Math.round(v * 1000) / 1000));
+export const fmtNum = (v) => localNum(Math.abs(v) >= 1000 ? v.toFixed(1) : String(Math.round(v * 1000) / 1000)); // con coma decimal (doc.decimal), «0,333»
 
 const V = (view) => (p) => ({ x: p.x * view.s + view.ox, y: view.oy - p.y * view.s });
 

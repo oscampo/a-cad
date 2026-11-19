@@ -10,6 +10,7 @@ export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
 import { hasMath, layoutText, splitMath } from './mathlayout.js';
 import { hasMd } from './markdown.js';
+import { localNum, elemChar, rowChar } from './locale.js';
 export { hasMath } from './mathlayout.js';
 
 // Calculo en los textos (dentro de una formula, ver tvars.js): una salida «expr=» se dibuja «expr=valor»; la expresion puede usar los nombres
@@ -22,14 +23,14 @@ const matText = (m, fmt = fmtNum) => {
   const row = (r) => (r.length > 8 ? [...r.slice(0, 4).map((x) => fmt(x)), '…', ...r.slice(-2).map((x) => fmt(x))] : r.map((x) => fmt(x)));
   let rows = m.map(row);
   if (rows.length > 8) rows = [...rows.slice(0, 4), rows[0].map(() => '⋮'), ...rows.slice(-2)];
-  return '[' + rows.map((r) => r.join(', ')).join('; ') + ']';
+  return '[' + rows.map((r) => r.join(elemChar() + ' ')).join(rowChar() === ';' ? '; ' : ' | ') + ']'; // «[1, 2; 3, 4]»; con coma decimal «[1; 2 | 3; 4]»
 };
 // Una unidad dentro de una formula: texto recto separado del valor («^2» y «^3» como superindices).
 const unitMath = (u) => ' " ' + u.split('^2').join('²').split('^3').join('³') + '"';
 // Unidades escritas dentro de una expresion («250'N», «3'(m/s)»): se dibujan como unidad, no como «'».
 const showU = (seg) => (seg.includes("'") ? seg.replace(/'\s*(\([^()]*\)|[A-Za-zµμΩ°%áéíóú]+[²³]?)/g, (m, u) => unitMath(u.replace(/^\(|\)$/g, ''))) : seg);
 // Un numero en una unidad: los muy pequeños con 4 cifras significativas (fmtNum los dejaria en 0); sin el «.0» de fmtNum en los miles.
-const fmtQ = (x) => (x !== 0 && Math.abs(x) < 1e-3 ? String(Number(x.toPrecision(4))) : String(Number(x.toFixed(Math.abs(x) >= 1000 ? 1 : 3))));
+const fmtQ = (x) => localNum(x !== 0 && Math.abs(x) < 1e-3 ? String(Number(x.toPrecision(4))) : String(Number(x.toFixed(Math.abs(x) >= 1000 ? 1 : 3))));
 // Una cantidad con unidades: en la unidad pedida («F='kN»), si no en la de la variable («F:250'N»), en la de una variable de la expresion
 // con la misma magnitud, o en la del SI con prefijo (autoUnit). ⚠ si la unidad pedida no es de la misma magnitud.
 // La unidad en que se muestra (con su factor al SI); null si la pedida no es de la misma magnitud. v: el valor que decide el prefijo automatico.

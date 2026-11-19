@@ -251,6 +251,7 @@ body.nopanel #panel { display: none; }
 <body>
 <header id="bar">
   <button id="tTree" data-icon="list-tree" title="Árbol de elementos" aria-label="Árbol de elementos" aria-pressed="false"><i></i></button>
+  <button id="tCfg" data-icon="gear" title="Configuración" aria-label="Configuración"><i></i></button>
   <span class="sep"></span>
   <button class="grp" data-group="sel" data-icon="select"><i></i><b class="chev"></b></button>
   <button class="grp" data-group="clip" data-icon="copy"><i></i><b class="chev"></b></button>
@@ -335,13 +336,6 @@ body.nopanel #panel { display: none; }
     <div class="row"><label for="hSpace">Separación</label><input type="number" id="hSpace" value="8" min="2" step="1"></div>
     <div class="row"><label for="hAlpha">Opacidad</label><input type="range" id="hAlpha" min="0.1" max="1" step="0.05" value="0.45"></div>
     <div class="row"><button id="mkhatch" data-icon="hatch" data-hint="contorno cerrado (líneas o círculo)" title="Crear relleno: contorno cerrado"><i></i><span>Crear relleno</span></button></div>
-</details>
-<details class="sec" data-sec="doc"><summary data-icon="props"><i></i>Documento</summary>
-    <div class="row"><label for="docAngles">Ángulos en</label><select id="docAngles" title="Cómo leen los ángulos los textos de cálculo y las gráficas: sin(1) en radianes o sin(30) en grados. Las cotas siguen en grados."><option value="rad">Radianes</option><option value="deg">Grados</option></select></div>
-    <div class="row"><label for="docPage">Página</label><select id="docPage" title="Con página, los textos se ajustan a sus márgenes y unen las líneas de cada párrafo (una línea en blanco separa párrafos; dos espacios o «\» al final fuerzan el salto). «Sin límites»: lienzo infinito, cada salto de línea se respeta."><option value="none">Sin límites</option><option value="letter">Carta (215,9 × 279,4 mm)</option><option value="a4">A4 (210 × 297 mm)</option><option value="custom">Otro tamaño</option></select></div>
-    <div class="row"><label for="docPageW">Ancho (mm)</label><input type="number" id="docPageW" min="20" step="0.1"></div>
-    <div class="row"><label for="docPageH">Alto (mm)</label><input type="number" id="docPageH" min="20" step="0.1"></div>
-    <div class="row"><label for="docMargin">Márgenes (mm)</label><input type="number" id="docMargin" min="0" step="1"></div>
 </details>
 <details class="sec" data-sec="view"><summary data-icon="eye"><i></i>Vista</summary>
     <div class="grid2">
@@ -461,6 +455,19 @@ body.nopanel #panel { display: none; }
   <div id="lyList" style="margin:8px 0"></div>
   <div class="row"><input type="text" id="lyName" placeholder="Nombre de la nueva capa" autocomplete="off" style="flex:1 1 140px"><button type="button" id="lyAdd" class="on">Crear capa</button></div>
   <div class="actions"><button id="lyOk" class="on">Cerrar</button></div>
+</form></dialog>
+<dialog id="dlgCfg"><form method="dialog">
+  <p style="margin:0 0 6px"><b>Configuración</b></p>
+  <p style="margin:8px 0 2px;font-size:13px"><b>General</b></p>
+  <div class="row"><label for="cfgLang">Idioma</label><select id="cfgLang" title="Idioma de la interfaz (se guarda en este dispositivo). La ayuda y el manual siguen en español."><option value="es">Español</option><option value="en">English</option></select></div>
+  <div class="row"><label for="cfgDec">Indicador decimal</label><select id="cfgDec" title="Cómo se escriben los decimales en este dibujo. Con punto los argumentos se separan con «,» (max(2.5, 3)); con coma, con «;» (max(2,5; 3)) y las matrices llevan «;» entre elementos y «|» entre filas ([1; 2 | 3; 4]). Al cambiarlo se reescriben las fórmulas que ya tiene el dibujo."><option value=".">Punto (1.5)</option><option value=",">Coma (1,5)</option></select></div>
+  <p style="margin:10px 0 2px;font-size:13px"><b>Documento</b></p>
+  <div class="row"><label for="docAngles">Ángulos en</label><select id="docAngles" title="Cómo leen los ángulos los textos de cálculo y las gráficas: sin(1) en radianes o sin(30) en grados. Las cotas siguen en grados."><option value="rad">Radianes</option><option value="deg">Grados</option></select></div>
+  <div class="row"><label for="docPage">Página</label><select id="docPage" title="Con página, los textos se ajustan a sus márgenes y unen las líneas de cada párrafo (una línea en blanco separa párrafos; dos espacios o «\» al final fuerzan el salto). «Sin límites»: lienzo infinito, cada salto de línea se respeta."><option value="none">Sin límites</option><option value="letter">Carta (215,9 × 279,4 mm)</option><option value="a4">A4 (210 × 297 mm)</option><option value="custom">Otro tamaño</option></select></div>
+  <div class="row"><label for="docPageW">Ancho (mm)</label><input type="number" id="docPageW" min="20" step="0.1"></div>
+  <div class="row"><label for="docPageH">Alto (mm)</label><input type="number" id="docPageH" min="20" step="0.1"></div>
+  <div class="row"><label for="docMargin">Márgenes (mm)</label><input type="number" id="docMargin" min="0" step="1"></div>
+  <div class="actions"><button id="cfgOk" class="on">Cerrar</button></div>
 </form></dialog>
 <dialog id="dlgR"><form method="dialog">
   <p style="margin:0 0 6px"><b>Propiedades</b> <span id="prTitle" style="color:var(--muted);font-size:13px"></span></p>
