@@ -102,7 +102,9 @@ function tokenize(src, vars = null, loose = false) {
     }
     const cm = /^(<=|>=|==|!=|<|>|≤|≥|≠)/.exec(src.slice(i));
     if (cm) { toks.push({ t: 'cmp', v: { '≤': '<=', '≥': '>=', '≠': '!=' }[cm[0]] || cm[0], i, j: i + cm[0].length }); i += cm[0].length; continue; }
-    let m = (depth > 0 ? /^(\d+(\.\d+)?|\.\d+)/ : /^(\d+([.,]\d+)?|[.,]\d+)/).exec(src.slice(i));
+    // Notacion cientifica: 2.5e6, 3e-4, 1E3 («e» y «E» no pueden ser nombres de variable: son la constante e). «2E3» es 2000 aunque
+    // exista una variable E3: para multiplicar, «2*E3».
+    let m = (depth > 0 ? /^(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+(?![A-Za-z_\d]))?/ : /^(\d+([.,]\d+)?|[.,]\d+)([eE][+-]?\d+(?![A-Za-z_\d]))?/).exec(src.slice(i));
     if (m) { toks.push({ t: 'num', v: Number(m[0].replace(',', '.')), i, j: i + m[0].length }); i += m[0].length; continue; }
     if (c === '√') { toks.push({ t: 'sqrt', i, j: i + 1 }); i++; continue; }
     if (c === 'π') { toks.push({ t: 'id', v: 'π', i, j: i + 1 }); i++; continue; }

@@ -2,6 +2,18 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## v2.6.0 (2026-11-18)
+
+### Nuevo
+
+- Textos: **notación científica** en las expresiones: `2.5e6`, `3e-4`, `1E3`, también con unidades (`p:2.5e6'Pa`). La fórmula la dibuja compacta (`3e−4`), sin espacios alrededor del signo del exponente.
+- Un número sin unidades muy pequeño (entre 1e-12 y 1e-3) se muestra con 4 cifras significativas en vez de 0 (`3e-4=` da `0.0003`); el ruido de redondeo, como `sin(180)`, sigue saliendo 0.
+
+### Cambia el comportamiento
+
+- `2e-1` ahora es 0.2; antes era 2·e−1 (con la constante e). Para eso, `2*e-1`.
+- `2E3` es 2000 aunque exista una variable `E3`; para multiplicar, `2*E3`.
+
 ## v2.5.0 (2026-11-18)
 
 ### Nuevo

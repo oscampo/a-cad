@@ -34,7 +34,7 @@ const fmtQ = (x) => (x !== 0 && Math.abs(x) < 1e-3 ? String(Number(x.toPrecision
 function qty(r, env, src, want, math) {
   const tail = (n) => (math ? unitMath(n) : ' ' + n);
   if (want) { const u = parseUnit(want); return sameDim(r.dim, u.d) ? fmtQ(r.value / u.f) + tail(want) : '⚠'; }
-  if (!r.dim) return fmtNum(r.value);
+  if (!r.dim) return Math.abs(r.value) > 1e-12 ? (Math.abs(r.value) < 1e-3 ? fmtQ(r.value) : fmtNum(r.value)) : fmtNum(r.value); // 3e-4 no sale como 0; el ruido de redondeo (sin(180)) si
   for (const n of [normName(String(src).trim()), ...exprRefs(src)]) { const x = env?.[n]; if (x?.pu && sameDim(x.d, r.dim)) return fmtQ(r.value / x.pf) + tail(x.pu); }
   const a = autoUnit(r.value, r.dim);
   return fmtQ(r.value / a.f) + tail(a.name);

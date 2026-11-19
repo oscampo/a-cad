@@ -76,7 +76,7 @@ const SYMS = [
   [',', { t: 'punct', v: ',' }], [';', { t: 'punct', v: ';' }], ["'", { t: 'sym', v: '′' }],
 ].sort((a, b) => b[0].length - a[0].length);
 
-const NUM_RE = /(?:\d+(?:\.\d+)?|\.\d+)/y;
+const NUM_RE = /(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+(?![\p{L}\d_]))?/uy; // con notacion cientifica (2.5e6, 3e-4), como en expr.js
 const LETTER = /\p{L}/u;
 const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|[A-Za-z]{3,20})$/;
 
@@ -93,7 +93,7 @@ export function tokenize(s) {
     if (ch === '"') { let j = s.indexOf('"', i + 1); if (j < 0) j = n; out.push({ t: 'str', v: s.slice(i + 1, j) }); i = j + 1; continue; }
     NUM_RE.lastIndex = i;
     const m = NUM_RE.exec(s);
-    if (m) { out.push({ t: 'num', v: m[0] }); i += m[0].length; continue; }
+    if (m) { out.push({ t: 'num', v: m[0].replace('-', '−') }); i += m[0].length; continue; } // 3e−4: el signo del exponente es un menos, sin espacios
     const cp = String.fromCodePoint(s.codePointAt(i));
     if (LETTER.test(cp)) {
       const k = WORD_KEYS.find((w) => s.startsWith(w, i));

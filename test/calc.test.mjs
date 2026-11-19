@@ -69,6 +69,7 @@ t("«x:valor'unidad»: unidades reales, se convierten y se propagan", () => {
   assert.equal(u("$$L:1'm\nM:L'mm\nM=$$"), '$$L:=1 m\nM:=L mm\nM=1000 mm$$'); // con unidades, la cola solo dice en que unidad mostrarla
   assert.equal(u("$$L:1'm\nM:L+3'mm\nM=$$"), '$$L:=1 m\nM:=L+3 mm\nM=1003 mm$$'); // L+3 no cuadra: «3'mm» es parte de la expresion (y M se muestra en mm)
   assert.equal(u("$$x:2'N+3=$$").includes('⚠'), true); // N mas un numero sin unidades
+  assert.equal(u("$$p:2.5e6'Pa\np='MPa\nq:3e-4=\nr:2E-3*1E3=\ns:sin(180)=$$"), '$$p:=2.5e6 Pa\np=2.5 MPa\nq:=3e-4=0.0003\nr:=2E-3*1E3=2\ns:=sin(180)=0$$'); // notacion cientifica; un numero muy pequeño no se muestra como 0, el ruido de redondeo si
   assert.equal(u("$$x:sin(30'deg)=$$"), '$$x:=sin(30 deg)=0.5$$'); // un ángulo con unidad
   assert.equal(u("$$v:1..3;3'mm$$").includes('⚠'), true); // todavía no hay unidades en vectores
   for (const s of ["$$F='kN$$", "$$F = 'kN $$"]) assert.equal(calcSrc(calcParse(s)), s);
