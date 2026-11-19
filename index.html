@@ -105,11 +105,20 @@ dialog.help a { color: var(--accent); }
 .sw { display: flex; flex-wrap: wrap; gap: 6px; }
 .sw button { width: 34px; height: 34px; min-width: 34px; min-height: 34px; padding: 0; border-radius: 17px; border-width: 2px; }
 .sw button.on { outline: 3px solid var(--accent); outline-offset: 1px; }
-.cp { display: flex; flex-direction: column; gap: 8px; min-width: 0; width: 100%; max-width: 360px; }
-.cp-top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.cp-top button { min-height: 32px; padding: 2px 10px; }
-.cp-auto { background: linear-gradient(135deg, #fff 50%, #111 50%) !important; color: transparent; width: 44px; }
-.cp-auto.on { outline: 3px solid var(--accent); outline-offset: 1px; }
+.cp { min-width: 0; width: 100%; }
+.cp-quick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cp-quick > button { min-height: 30px; padding: 2px 10px; flex: none; }
+.cp-quick .cp-sw { width: 30px; height: 30px; min-width: 30px; min-height: 30px; padding: 0; border-radius: 6px; }
+.cp-quick .cp-sw.on { outline: 3px solid var(--accent); outline-offset: 1px; }
+.cp-quick .cp-auto { background: linear-gradient(135deg, #fff 50%, #111 50%); }
+.cp-quick .cp-more { width: 46px; min-width: 46px; border-radius: 8px; }
+.cp-pop { position: fixed; margin: 0; padding: 12px; width: min(360px, calc(100vw - 16px)); box-sizing: border-box; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--fg); box-shadow: 0 10px 40px #0005; }
+.cp-pop::backdrop { background: transparent; }
+.cp-pop[open] { display: flex; flex-direction: column; gap: 10px; }
+.cp-head { display: flex; gap: 8px; align-items: center; }
+.cp-head strong { flex: 1; }
+.cp-head button { min-height: 32px; padding: 2px 10px; }
+.cp-custom-b.on { outline: 2px solid var(--accent); }
 .cp-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0; }
 .cp-grid .cp-cell { min-width: 0; min-height: 0; aspect-ratio: 1; padding: 0; border: 0; border-radius: 0; position: relative; }
 .cp-grid .cp-cell.tl { border-top-left-radius: 8px; } .cp-grid .cp-cell.tr { border-top-right-radius: 8px; }

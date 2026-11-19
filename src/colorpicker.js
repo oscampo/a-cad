@@ -1,6 +1,8 @@
-// Selector de color: una cuadricula escalonada como la pestaña «Cuadrícula» de iOS (una fila de grises y nueve de matices,
-// de oscuro a claro) y «Personalizado», con matiz, saturación y luminosidad, R G B y el código hexadecimal.
+// Selector de color: muestras rapidas y un boton rectangular que abre una ventana con una cuadricula escalonada como la
+// pestaña «Cuadrícula» de iOS (una fila de grises y nueve de matices, de oscuro a claro) y «Personalizado», con matiz,
+// saturación y luminosidad, R G B y el código hexadecimal.
 // Lo usan el panel de estilo, las propiedades de un objeto y el color de un texto.
+import { PALETTE } from './model.js';
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 export const hexToRgb = (h) => {
@@ -37,17 +39,50 @@ export const GRID = [
 
 const el = (tag, cls, props = {}) => Object.assign(document.createElement(tag), cls ? { className: cls } : {}, props);
 
+// Muestras rapidas: las de siempre (Auto y nueve colores) y, al final, un boton rectangular que abre la cuadricula.
+export const QUICK = PALETTE.filter(([v]) => v !== 'auto');
+const RAINBOW = 'conic-gradient(from 90deg,#f33,#fd3,#3d5,#3cf,#36f,#c3f,#f33)';
+
 // value(): color actual ('auto', '#rrggbb' o ''); pick(v): aplica un color. auto: muestra el boton Auto.
-// extra: botones que van junto a Auto (p. ej. «Sin fondo»). Devuelve el elemento, con .refresh() para volver a marcar.
+// extra: botones que van despues de las muestras (p. ej. «Sin fondo»). Devuelve el elemento, con .refresh() para volver a marcar.
 export function colorPicker({ value, pick, auto = true, extra = [], autoTitle = 'Auto' }) {
   const root = el('div', 'cp');
-  const top = el('div', 'cp-top');
-  const autoB = el('button', 'cp-auto', { type: 'button', title: autoTitle, textContent: 'Auto' });
+  const quick = el('div', 'cp-quick');
+  const autoB = el('button', 'cp-sw cp-auto', { type: 'button', title: autoTitle });
+  autoB.dataset.val = 'auto';
   autoB.onclick = () => { pick('auto'); refresh(); };
+  if (auto) quick.append(autoB);
+  for (const [hex, name] of QUICK) {
+    const b = el('button', 'cp-sw', { type: 'button', title: name });
+    b.dataset.val = hex;
+    b.style.background = hex;
+    b.onclick = () => { pick(hex); refresh(); };
+    quick.append(b);
+  }
+  const moreB = el('button', 'cp-sw cp-more', { type: 'button', title: 'Más colores y personalizado' });
+  moreB.setAttribute('aria-haspopup', 'dialog');
+  quick.append(moreB, ...extra);
+
+  // Ventana emergente con la cuadricula y «Personalizado»
+  const pop = el('dialog', 'cp-pop');
+  pop.setAttribute('aria-label', 'Colores');
+  const head = el('div', 'cp-head');
   const customB = el('button', 'cp-custom-b', { type: 'button', textContent: 'Personalizado', title: 'Elegir un color con matiz, saturación, luminosidad, RGB o código' });
   customB.setAttribute('aria-expanded', 'false');
-  if (auto) top.append(autoB);
-  top.append(...extra, customB);
+  const closeB = el('button', 'cp-close', { type: 'button', textContent: 'Listo' });
+  closeB.onclick = () => pop.close();
+  head.append(el('strong', '', { textContent: 'Colores' }), customB, closeB);
+  // tocar fuera de la ventana (en el fondo) la cierra
+  pop.addEventListener('click', (e) => { if (e.target === pop) pop.close(); });
+  moreB.onclick = () => {
+    refresh();
+    pop.showModal();
+    // junto al boton, sin salirse de la pantalla
+    const r = moreB.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    pop.style.left = clamp(r.left + r.width / 2 - w / 2, 8, Math.max(8, vw - w - 8)) + 'px';
+    pop.style.top = (r.bottom + 8 + h <= vh - 8 ? r.bottom + 8 : clamp(r.top - 8 - h, 8, Math.max(8, vh - h - 8))) + 'px';
+  };
   const grid = el('div', 'cp-grid');
   grid.setAttribute('role', 'listbox');
   grid.setAttribute('aria-label', 'Colores');
@@ -59,7 +94,7 @@ export function colorPicker({ value, pick, auto = true, extra = [], autoTitle = 
     if (ri === 0 && ci === 11) b.classList.add('tr');
     if (ri === GRID.length - 1 && ci === 0) b.classList.add('bl');
     if (ri === GRID.length - 1 && ci === 11) b.classList.add('br');
-    b.onclick = () => { pick(hex); refresh(); };
+    b.onclick = () => { pick(hex); refresh(); pop.close(); };
     grid.appendChild(b);
   }));
 
@@ -120,13 +155,18 @@ export function colorPicker({ value, pick, auto = true, extra = [], autoTitle = 
 
   function refresh() {
     const v = String(value() || '').toLowerCase();
-    autoB.classList.toggle('on', v === 'auto');
+    quick.querySelectorAll('.cp-sw[data-val]').forEach((b) => b.classList.toggle('on', b.dataset.val === v));
     grid.querySelectorAll('.cp-cell').forEach((b) => b.classList.toggle('on', b.dataset.val === v));
     const rgb = hexToRgb(v);
+    // el boton rectangular muestra el color elegido cuando no es una de las muestras; si no, el arcoiris
+    const other = !!rgb && !QUICK.some(([q]) => q === v);
+    moreB.style.background = other ? v : RAINBOW;
+    moreB.classList.toggle('on', other);
     if (rgb) { hsl = rgbToHsl(...rgb); }
     paint();
   }
-  root.append(top, grid, cus);
+  pop.append(head, grid, cus);
+  root.append(quick, pop);
   root.refresh = refresh;
   refresh();
   return root;
