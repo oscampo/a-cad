@@ -10,6 +10,8 @@ Seleccionar (con toque, cuadro o filtro), ver y cambiar las propiedades de un el
 
 Selecciona, arrastra puntos, líneas o el borde de un círculo (el mecanismo se mueve según las restricciones) y, arrastrando desde un lugar vacío, selecciona con un cuadro.
 
+Con **varios elementos seleccionados**, arrastrar cualquiera de ellos mueve todos juntos: sus puntos libres (extremos, centros, puntos de control y el punto de inserción de los textos). Los puntos fijos y las marcas de referencia se quedan donde están, y las restricciones siguen valiendo, así que lo que está ligado a algo fijo se acomoda en vez de trasladarse. Con un solo elemento seleccionado, arrastrar es como siempre (el borde de un círculo cambia su radio).
+
 ## Filtrar
 
 **Filtrar** (en el desplegable de Seleccionar): elige qué se puede seleccionar, por entidades (puntos, líneas, círculos, arcos, elipses, splines, textos, rellenos, cotas) y por tipo de línea. Vale para tocar y para el cuadro de selección. Un punto rojo en el botón indica que hay filtro activo.

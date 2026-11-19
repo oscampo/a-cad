@@ -38,6 +38,9 @@ const custom = {
   intersect: S('<path d="M4 4l16 16M4 20 20 4"/><circle cx="12" cy="12" r="3" fill="var(--btn, #fff)"/>'),
   'con-h': S('<path d="M3 12h18"/><circle cx="3.5" cy="12" r="1.5" fill="currentColor"/><circle cx="20.5" cy="12" r="1.5" fill="currentColor"/><path d="M9 6h6M9 18h6" opacity=".35"/>'),
   'con-v': S('<path d="M12 3v18"/><circle cx="12" cy="3.5" r="1.5" fill="currentColor"/><circle cx="12" cy="20.5" r="1.5" fill="currentColor"/><path d="M6 9v6M18 9v6" opacity=".35"/>'),
+  // distribuir: tres marcas con la misma separacion entre ellas (las cotas iguales abajo o a la derecha)
+  'con-dsh': S('<path d="M4 5v10M12 5v10M20 5v10"/><path d="M5.5 19h5M13.5 19h5" opacity=".55"/><path d="M5.5 17.5v3M10.5 17.5v3M13.5 17.5v3M18.5 17.5v3" opacity=".55"/>'),
+  'con-dsv': S('<path d="M5 4h10M5 12h10M5 20h10"/><path d="M19 5.5v5M19 13.5v5" opacity=".55"/><path d="M17.5 5.5h3M17.5 10.5h3M17.5 13.5h3M17.5 18.5h3" opacity=".55"/>'),
   'con-par': S('<path d="M4 15 14 5M10 21 20 11"/>'),
   'con-perp': S('<path d="M5 4v16h16"/><path d="M5 14h6v6"/>'),
   // coincidente: dos lineas de distinta inclinacion que se unen en un punto (V invertida)

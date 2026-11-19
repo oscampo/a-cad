@@ -163,6 +163,7 @@ function updateEnabled() {
   const crv = n.ci + n.ar;
   const rules = {
     H: ln >= 1 || pt >= 2, V: ln >= 1 || pt >= 2,
+    DSH: pt >= 3, DSV: pt >= 3,
     PAR: ln >= 2, PERP: ln >= 2, COL: ln >= 2,
     // 2 puntos coincidentes, puntos sobre un elemento, o lineas/arcos con una elipse o spline (su extremo mas cercano)
     COI: (pt >= 2 && ln + crv + n.sp + n.el === 0) || (pt >= 1 && ln + crv + n.sp + n.el === 1) || (!pt && n.sp + n.el === 1 && ln + n.ar >= 1 && !n.ci),
@@ -1826,6 +1827,20 @@ function syncLinkChip() {
   linkChip.style.top = Math.max(8, Math.min(H - ch - 8, y)) + 'px';
 }
 
+// Puntos que se mueven al arrastrar la seleccion entera: los de cada elemento seleccionado (extremos, centro, puntos de control,
+// punto de insercion del texto), menos los fijos y las marcas de referencia, que se quedan donde estan.
+function selPoints() {
+  const out = new Set();
+  for (const x of sel) {
+    const o = x.k === 'pt' ? { pts: [x.id] } : x.k === 'ln' ? doc.lines[x.id] && { pts: [doc.lines[x.id].a, doc.lines[x.id].b] }
+      : x.k === 'ci' ? doc.circles[x.id] && { pts: [doc.circles[x.id].c] } : x.k === 'ar' ? doc.arcs[x.id] && { pts: [doc.arcs[x.id].c, doc.arcs[x.id].a, doc.arcs[x.id].b] }
+      : x.k === 'sp' ? doc.splines[x.id] && { pts: doc.splines[x.id].pts } : x.k === 'el' ? doc.ellipses?.[x.id] && { pts: ['c', 'a', 'b', 'p1', 'p2'].map((q) => doc.ellipses[x.id][q]) }
+      : x.k === 'tx' ? doc.texts[x.id] && { pts: [doc.texts[x.id].pt] } : null;
+    for (const id of o?.pts || []) if (id && doc.pts[id] && !doc.pts[id].fixed && !isMark(doc, id)) out.add(id);
+  }
+  return out;
+}
+
 function toolDown(p) {
   hover = p;
   if (tool === 'select') {
@@ -1849,6 +1864,12 @@ function toolDown(p) {
       const pid = doc.texts[h.id].pt;
       drag.m0 = toModel(p.x, p.y);
       drag.orig = { [pid]: { ...doc.pts[pid] } };
+    }
+    // arrastrar algo que esta dentro de una seleccion de varios elementos: se mueven todos (sus puntos libres) a la vez
+    const many = h && sel.length > 1 ? selPoints() : null;
+    if (many && many.size && (sel.some((x) => x.k === h.k && x.id === h.id) || (h.k === 'pt' && many.has(h.id)))) {
+      drag.m0 = toModel(p.x, p.y); drag.multi = true; drag.box = false;
+      drag.orig = Object.fromEntries([...many].map((id) => [id, { ...doc.pts[id] }]));
     }
   } else {
     drag = { p0: p, moved: false };
@@ -1926,7 +1947,7 @@ function toolMove(p) {
   }
   const m = toModel(p.x, p.y);
   const h = drag.hit;
-  if (h.k === 'ci' || h.k === 'ar') {
+  if (!drag.multi && (h.k === 'ci' || h.k === 'ar')) {
     const ci = h.k === 'ci' ? doc.circles[h.id] : doc.arcs[h.id], c = doc.pts[ci.c];
     const r0 = ci.r; ci.r = Math.max(0.01, dist(c, m));
     const res = solve(doc, []);
@@ -2678,6 +2699,17 @@ async function applyCon(kind) {
       else if (pts.length >= 2) for (let i = 1; i < pts.length; i++) list.push({ t: kind, refs: [pts[0], pts[i]] });
       else return bad('Selecciona líneas o 2 puntos');
       break;
+    case 'DSH': case 'DSV': { // distribuir: puntos (o textos, por su punto de insercion) igualmente espaciados entre los extremos
+      const c = kind === 'DSH' ? 'x' : 'y', ids = [...new Set(pts)];
+      if (ids.length < 3) return bad('Selecciona 3 o más puntos o textos');
+      const ord = ids.map((id, i) => ({ id, i, v: doc.pts[id][c] })).sort((a, b) => a.v - b.v || a.i - b.i).map((o) => o.id);
+      const key = [...ord].sort().join();
+      if (Object.values(doc.cons).some((k) => k.t === kind && [...k.refs].sort().join() === key)) return bad('Ya están distribuidos así');
+      list.push({ t: kind, refs: ord });
+      // los de en medio se llevan a su lugar antes de resolver: los extremos no se mueven
+      pre = () => { const a = doc.pts[ord[0]][c], b = doc.pts[ord[ord.length - 1]][c]; ord.forEach((id, i) => { if (i && i < ord.length - 1 && !doc.pts[id].fixed) doc.pts[id][c] = a + ((b - a) * i) / (ord.length - 1); }); };
+      break;
+    }
     case 'PAR': case 'PERP':
       if (lns.length < 2) return bad('Selecciona 2 líneas');
       for (let i = 1; i < lns.length; i++) list.push({ t: kind, refs: [lns[0], lns[i]] });
@@ -3075,7 +3107,7 @@ function createHatch() {
 
 // ---------------------------------------------------------------- estado / ayuda
 const HINTS = {
-  select: 'Toca para seleccionar (varios). Arrastra puntos, líneas o el borde de un círculo para moverlos; arrastra desde un lugar vacío para seleccionar con un cuadro.',
+  select: 'Toca para seleccionar (varios). Arrastra puntos, líneas o el borde de un círculo para moverlos (con varios seleccionados, arrastrar uno mueve todos); arrastra desde un lugar vacío para seleccionar con un cuadro.',
   point: 'Toca para colocar un punto (sobre una línea o círculo queda restringido a él).',
   line: 'Toca inicio y fin (encadena); o arrastra un segmento. Esc/Seleccionar termina.',
   circle: 'Toca el centro y luego un punto del borde.',

@@ -12,6 +12,10 @@ Selecciona los elementos y pulsa el botón. Cada botón indica qué selección n
 
 Líneas, o 2 puntos.
 
+## Distribuir ↔ / Distribuir ↕
+
+3 o más puntos o textos (un texto, por su punto de inserción). Quedan **igualmente espaciados** en horizontal (x) o en vertical (y), entre los dos de los extremos (el de más a la izquierda y el de más a la derecha, o el de más abajo y el de más arriba), que no se mueven al aplicarla. La otra coordenada queda libre: para alinearlos además, usa Horizontal o Vertical. Es una restricción como las demás: la separación es una incógnita, así que si arrastras un extremo los de en medio se reparten de nuevo, y si arrastras uno de en medio se mueven todos. Se rotula ↔1, ↕1 junto a cada punto.
+
 ## Paralela / Perpendicular
 
 2 o más líneas.

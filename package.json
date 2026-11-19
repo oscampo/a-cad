@@ -11,7 +11,7 @@
     "docs": "node scripts/funcref-docs.mjs",
     "docs:funciones": "node scripts/funcref-docs.mjs",
     "preview": "vite preview --host",
-    "test": "node test/solver.test.mjs && node test/github.test.mjs && node test/overlap.test.mjs && node test/math.test.mjs && node test/matrix.test.mjs && node test/scale.test.mjs && node test/update.test.mjs && node test/funcs.test.mjs && node test/order.test.mjs && node test/calc.test.mjs && node test/markdown.test.mjs && node test/links.test.mjs && node test/autopair.test.mjs && node test/greek.test.mjs && node test/page.test.mjs &&node test/colorpicker.test.mjs && node test/funcref.test.mjs && node test/calcref.test.mjs"
+    "test": "node test/solver.test.mjs && node test/github.test.mjs && node test/overlap.test.mjs && node test/math.test.mjs && node test/matrix.test.mjs && node test/scale.test.mjs && node test/update.test.mjs && node test/funcs.test.mjs && node test/order.test.mjs && node test/calc.test.mjs && node test/markdown.test.mjs && node test/links.test.mjs && node test/autopair.test.mjs && node test/greek.test.mjs && node test/distribute.test.mjs && node test/page.test.mjs &&node test/colorpicker.test.mjs && node test/funcref.test.mjs && node test/calcref.test.mjs"
   },
   "dependencies": {
     "@salusoft89/planegcs": "^1.3.0"

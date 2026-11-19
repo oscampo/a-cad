@@ -50,6 +50,15 @@ function conPrims(doc, id, k) {
   switch (k.t) {
     case 'H': return r.length === 1 ? [{ ...base, type: 'horizontal_l', l_id: r[0] }] : [{ ...base, type: 'horizontal_pp', p1_id: r[0], p2_id: r[1] }];
     case 'V': return r.length === 1 ? [{ ...base, type: 'vertical_l', l_id: r[0] }] : [{ ...base, type: 'vertical_pp', p1_id: r[0], p2_id: r[1] }];
+    // distribucion igualmente espaciada (DSH en x, DSV en y): refs ordenados por esa coordenada; la separacion entre cada par
+    // seguido es la misma, y es una incognita (los extremos mandan: arrastra uno y los de en medio se reparten)
+    case 'DSH': case 'DSV': {
+      const prop = k.t === 'DSH' ? 'x' : 'y', name = `__ds${id}`, A = doc.pts[r[0]], B = doc.pts[r[r.length - 1]];
+      if (r.length < 3 || !A || !B) return [];
+      const out = [{ type: 'param', name, value: (B[prop] - A[prop]) / (r.length - 1), fixed: false }];
+      for (let i = 1; i < r.length; i++) out.push({ id: `${id}_${i}`, type: 'difference', param1: { o_id: r[i - 1], prop }, param2: { o_id: r[i], prop }, difference: name });
+      return out;
+    }
     case 'PAR': return [{ ...base, type: 'parallel', l1_id: r[0], l2_id: r[1] }];
     case 'PERP': return [{ ...base, type: 'perpendicular_ll', l1_id: r[0], l2_id: r[1] }];
     case 'EQL': return [{ ...base, type: 'equal_length', l1_id: r[0], l2_id: r[1] }];
@@ -895,7 +904,7 @@ function refsOfPrim(p) {
     if (k === 'id') continue;
     if (k.endsWith('_id') && typeof v === 'string') out.push(v);
     else if (k.endsWith('_ids') && Array.isArray(v)) out.push(...v);
-    else if (k === 'distance' && v && typeof v === 'object' && v.o_id) out.push(v.o_id);
+    else if (v && typeof v === 'object' && !Array.isArray(v) && typeof v.o_id === 'string') out.push(v.o_id); // { o_id, prop }: distance, param1, param2...
   }
   return out;
 }
