@@ -3,6 +3,7 @@
 // Unidades: em (altura de texto 1). En una caja: x a la derecha desde su borde, y hacia ABAJO desde su linea base (a: alto sobre ella, d: bajo ella).
 import { parse } from './asciimath.js';
 import { runsOf } from './tvars.js';
+import { hasMd, mdInline, mdBlock, H_SIZE } from './markdown.js';
 const noIT = (s) => s.replace(/[\uE000\uE001]/g, ''); // las marcas de cursiva no van a la formula; las de vector (VB0/VB1) si
 
 const MF = 'serif'; // fuente de la formula (claves de FONTS en text.js)
@@ -319,44 +320,66 @@ export function layoutText(text, measure, font) {
 }
 
 function compute(text, measure, font) {
+  const md = hasMd(text);
   const rows = [];
-  let cur = [], skipNL = false;
+  let cur = [], skipNL = false, blk = null;
+  // un trozo de texto plano; al comienzo de una linea, su forma de bloque (titulo, lista, cita, raya)
+  const addTxt = (p) => {
+    if (!md) { if (p) cur.push({ k: 't', runs: runsOf(p).map((u) => ({ s: u.s, it: u.it })) }); return; }
+    if (!cur.length && !blk) { blk = mdBlock(p); p = blk.rest ?? ''; }
+    if (p) cur.push({ k: 't', runs: mdInline(p).flatMap((r) => runsOf(r.s).map((u) => ({ ...r, s: u.s, it: r.it || u.it }))) });
+  };
+  const endRow = (o = {}) => { rows.push({ items: cur, blk, ...o }); cur = []; blk = null; };
   for (const tk of splitMath(text)) {
     if (tk.t === 'txt') {
       let s = tk.s;
       if (skipNL && s[0] === '\n') s = s.slice(1);
       skipNL = false;
-      s.split('\n').forEach((p, i) => { if (i > 0) { rows.push({ items: cur }); cur = []; } if (p) cur.push({ k: 't', s: p }); });
+      s.split('\n').forEach((p, i) => { if (i > 0) endRow(); addTxt(p); });
     } else if (!tk.disp) {
+      if (!cur.length && !blk) blk = { kind: 'p' };
       cur.push({ k: 'm', box: layoutMath(noIT(tk.src), false, measure) }); skipNL = false;
     } else {
-      if (cur.length) { rows.push({ items: cur }); cur = []; }
+      if (cur.length || blk) endRow();
       const src = noIT(tk.src).replace(/^[ \t]*\n/, '').replace(/\n[ \t]*$/, '');
       for (const ln of src.split('\n')) rows.push({ items: ln.trim() ? [{ k: 'm', box: layoutMath(ln, true, measure) }] : [], center: true });
       skipNL = true;
     }
   }
-  if (!(skipNL && !cur.length)) rows.push({ items: cur });
+  if (!(skipNL && !cur.length)) endRow();
+  const runW = (r, sz) => measure(r.s, r.code ? 'mono' : font, r.it) * sz * (r.b ? 1.06 : 1);
   for (const r of rows) {
-    let w = 0, a = 0.98, d = 0.22;
+    const b = r.blk || { kind: 'p' };
+    r.sz = b.kind === 'h' ? H_SIZE[b.level] : 1;
+    r.x0 = b.kind === 'ul' || b.kind === 'ol' ? b.level * 1.4 : b.kind === 'quote' ? b.level * 0.8 : 0;
+    let w = 0, a = 0.98 * r.sz, d = 0.22 * r.sz;
+    if (b.kind === 'hr') { a = 0.6; d = 0.6; }
     for (const it of r.items) {
-      if (it.k === 't') it.w = runsOf(it.s).reduce((s, x) => s + measure(x.s, font, x.it), 0);
+      if (it.k === 't') { if (b.kind === 'h') it.runs.forEach((u) => { u.b = true; }); it.w = it.runs.reduce((s, u) => s + runW(u, r.sz), 0); }
       else { it.w = it.box.w; a = Math.max(a, it.box.a + 0.04); d = Math.max(d, it.box.d + 0.04); }
       w += it.w;
     }
     if (r.center && r.items.length) { a += 0.06; d += 0.06; }
-    r.w = w; r.a = a; r.d = d;
+    r.w = w + r.x0; r.a = a; r.d = d;
   }
-  const W = Math.max(0.0001, ...rows.map((r) => r.w));
+  const W = Math.max(rows.some((r) => r.blk?.kind === 'hr') ? 2 : 0.0001, ...rows.map((r) => r.w));
   const prims = [];
   let y = 0;
   for (const r of rows) {
-    const base = y + r.a;
-    let x = r.center ? (W - r.w) / 2 : 0;
+    const base = y + r.a, b = r.blk || { kind: 'p' };
+    let x = r.center ? (W - r.w) / 2 : r.x0;
+    if (b.kind === 'hr') prims.push({ k: 'p', pts: [[0, y + r.a], [W, y + r.a]], lw: 0.07 });
+    if (b.kind === 'quote') for (let q = 0; q < b.level; q++) prims.push({ k: 'p', pts: [[0.25 + q * 0.8, y], [0.25 + q * 0.8, y + r.a + r.d]], lw: 0.1 });
+    if (b.mark) prims.push({ k: 't', s: b.mark, x: r.x0 - 0.35 - measure(b.mark, font, false), y: base, sz: 1, it: false, font });
     for (const it of r.items) {
       if (it.k === 't') {
         let xx = x;
-        for (const u of runsOf(it.s)) { prims.push({ k: 't', s: u.s, x: xx, y: base, sz: 1, it: u.it, font }); xx += measure(u.s, font, u.it); }
+        for (const u of it.runs) {
+          const uw = runW(u, r.sz);
+          prims.push({ k: 't', s: u.s, x: xx, y: base, sz: r.sz, it: u.it, font: u.code ? 'mono' : font, ...(u.b ? { bold: true } : {}) });
+          if (u.st) prims.push({ k: 'p', pts: [[xx, base - 0.3 * r.sz], [xx + uw, base - 0.3 * r.sz]], lw: 0.06 * r.sz });
+          xx += uw;
+        }
       } else prims.push(...shift(it.box.ops, x, base));
       x += it.w;
     }

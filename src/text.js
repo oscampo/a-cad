@@ -9,6 +9,7 @@ import { parseUnit, sameDim, autoUnit } from './units.js';
 export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
 import { hasMath, layoutText, splitMath } from './mathlayout.js';
+import { hasMd } from './markdown.js';
 export { hasMath } from './mathlayout.js';
 
 // Calculo en los textos (dentro de una formula, ver tvars.js): una salida «expr=» se dibuja «expr=valor»; la expresion puede usar los nombres
@@ -170,7 +171,7 @@ export const TEXT_BG_PAD = 0.15;
 export function textFrame(t, measure, anchor = t.anchor) {
   const src = String(t.text ?? '');
   const lines = src.split('\n');
-  if (hasMath(src)) { // con formulas ($...$, $$...$$): las lineas tienen alturas propias
+  if (hasMath(src) || hasMd(src)) { // con formulas ($...$, $$...$$) o Markdown: las lineas tienen alturas y estilos propios
     const m = layoutText(src, measure, t.font);
     const w = Math.max(0.0001, m.w * t.h), hh = Math.max(LINE_SPACING * t.h, m.hh * t.h);
     const ax = { l: 0, c: 0.5, r: 1 }[anchor?.[1] ?? 'l'], ay = { t: 0, m: 0.5, b: 1 }[anchor?.[0] ?? 'b'];

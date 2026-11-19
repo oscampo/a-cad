@@ -7,6 +7,11 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 ### Nuevo
 
 - Unidades: psi admite prefijo (`kpsi`, `Mpsi`) y hay `ksi` (1000 psi) y `kip` (1000 lbf): `σ='kpsi` muestra un esfuerzo en kpsi.
+- Textos: el texto normal (el que empieza con `"` o un espacio) admite Markdown fuera de las fórmulas: **negrita**, *cursiva*, ~~tachado~~, `código` (monoespaciada), títulos `#`, `##`, `###`, viñetas `-` con sangría, listas numeradas `1.`, citas `>` y raya horizontal `---`. `\` antes de un signo lo deja tal cual.
+
+### Cambia el comportamiento
+
+- Textos: un texto normal que ya tuviera esos signos se ve distinto: `2*3*4` pone el 3 en cursiva, una línea que empieza con `- ` lleva viñeta y las comillas invertidas fuera de una fórmula ya no se dibujan. Para dejarlos tal cual, `\*`, `\-`, etc.
 
 ## v2.9.0 (2026-11-18)
 

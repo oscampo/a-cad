@@ -65,6 +65,24 @@ Un texto que empieza con `"` (o con un espacio) se dibuja tal cual, salvo lo que
 | `\$` | Un signo de pesos que no abre una fórmula. |  |  |
 | `$` suelto | No es fórmula: `$5 y $6` se dibuja tal cual. Un `$$` sin cierre también, con ⚠. |  |  |
 
+## Markdown en el texto normal
+
+En un texto normal (el que empieza con `"` o un espacio), lo que va fuera de las fórmulas admite Markdown. Las marcas no cruzan una fórmula: `**a $x$ b**` no es negrita; se escribe `**a** $x$ **b**`.
+
+| Escribes | Qué hace |
+|---|---|
+| `**negrita**`, `__negrita__` | **Negrita**. |
+| `*cursiva*`, `_cursiva_` | *Cursiva*. El `_` dentro de una palabra no cuenta (`mi_archivo`). |
+| `***ambas***` | <b>*Negrita y cursiva*</b>. |
+| `~~tachado~~` | Tachado. |
+| `` `código` `` | Letra monoespaciada. En una ecuación, en cambio, las comillas invertidas hacen un literal. |
+| `# `, `## `, `### ` al empezar la línea | Título, en negrita y más grande (1.6, 1.35 y 1.15 veces la altura del texto). |
+| `- `, `* `, `+ ` al empezar la línea | Viñeta. Dos espacios antes por cada nivel de sangría. |
+| `1. `, `1) ` al empezar la línea | Lista numerada (el número se dibuja tal como se escribe). |
+| `> ` al empezar la línea | Cita, con una raya a la izquierda; `>> ` es una cita dentro de otra. |
+| `---` sola en la línea | Raya horizontal del ancho del texto (sirven también `***` y `___`). |
+| `\*` | Deja el signo tal cual: `\*`, `\_`, `\#`, `\-`… Un `*` entre espacios (`2 * 3`) ya va tal cual, pero `2*3*4` pone el 3 en cursiva. |
+
 ## Escritura matemática (AsciiMath)
 
 Las fórmulas siguen la sintaxis de [asciimath.org](https://asciimath.org/). Se dibujan con fracciones, raíces, índices y símbolos de verdad, giran y se exportan (SVG, DXF) como cualquier texto. Los paréntesis crecen con lo que encierran.
