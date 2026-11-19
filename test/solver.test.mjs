@@ -3738,6 +3738,14 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   assert.deepEqual(computeGraph(sc, sc.graphs[ks], solve).series[0].pts.map((q) => Number(q[0].toFixed(4))), [0, 1.5708, 3.1416]);
   delete sc.angles;
   computeGraph(sc, sc.graphs[ks], solve); // deja el modo en grados para lo que sigue
+  // la grafica puede tener su propia opcion (g.angles), por encima de la del documento
+  sc.graphs[ks].series = ['sin(x)./x vs x'];
+  sc.graphs[ks].angles = 'rad';
+  assert.deepEqual(ys(computeGraph(sc, sc.graphs[ks], solve)), [0.8415, 0.4546, 0.047]);
+  sc.angles = 'rad'; sc.graphs[ks].angles = 'deg';
+  assert.deepEqual(ys(computeGraph(sc, sc.graphs[ks], solve)), [0.0175, 0.0174, 0.0174]);
+  delete sc.angles; delete sc.graphs[ks].angles;
+  computeGraph(sc, sc.graphs[ks], solve);
   fv.graphs[k].series = ['f(x) vs t'];
   assert.match(computeGraph(fv, fv.graphs[k], solve).error, /otro vector/);
   fv.graphs[k].series = ['x.^2 + [1, 2] vs x'];

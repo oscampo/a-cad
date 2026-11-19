@@ -13,12 +13,15 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 - Página: nueva opción del dibujo **Documento → Página** (Sin límites, Carta 215,9 mm, A4 210 mm u otro ancho) con márgenes configurables (25 mm por defecto). Con página, el lienzo muestra sus bordes y márgenes, sombrea lo que queda fuera, y los textos horizontales se ajustan solos al margen del lado hacia donde crecen. Una fórmula, una palabra más ancha que la línea, una tabla o un dibujo no se parten: se ven desbordados. «Sin límites» es el lienzo infinito de siempre.
 - Fórmulas: una ecuación larga sigue en la línea siguiente como en Python, con `...` al final de una línea y, si se quiere, al comienzo de la siguiente (`F:1+2+...` / `...3=` da 6). Las dos líneas son un solo enunciado y se dibujan partidas.
 - Ajustar vista: con página, el ancho de la página llena la pantalla y la vista arranca arriba del contenido, como una hoja, en vez de encoger todo el dibujo a una miniatura.
+- Gráficas: **Ángulos en** en las propiedades de la gráfica (Del documento, Radianes o Grados) decide cómo lee esa gráfica sin, cos, tan y en qué unidad dibuja un ángulo, sin cambiar la opción del dibujo. Las variables que vienen de los textos siguen la opción del documento.
 
 ### Cambia el comportamiento
 
 - Textos de cálculo: nueva opción del dibujo **Documento → Ángulos en** (radianes / grados). Un dibujo nuevo calcula en radianes (`sin(π/2)=1`, `asin(1)=1.571`, y `sin(x)./x` es la función sinc); los dibujos anteriores siguen en grados y se pueden cambiar ahí. Aplica a los textos de cálculo y a las gráficas (un ángulo se grafica en la unidad del dibujo); las cotas y los actuadores siguen en grados.
 - Textos: un texto normal que ya tuviera esos signos se ve distinto: `2*3*4` pone el 3 en cursiva, una línea que empieza con `- ` lleva viñeta y las comillas invertidas fuera de una fórmula ya no se dibujan. Para dejarlos tal cual, `\*`, `\-`, etc.
 - Página: un dibujo nuevo empieza con página carta y márgenes de 25 mm; los anteriores siguen «Sin límites». Con página, las líneas seguidas de un párrafo se unen (Markdown estándar): una línea en blanco empieza otro párrafo, y dos espacios o `\` al final de una línea fuerzan el salto. Al activar la página en un dibujo con contenido, su borde izquierdo queda un margen antes de lo dibujado.
+- Página: la rueda del mouse (o el trackpad) recorre la hoja en vez de hacer zoom; Shift+rueda mueve en horizontal y Ctrl+rueda (o pellizcar en el trackpad) sigue haciendo zoom. El desplazamiento lateral queda limitado al ancho de la página (en el mouse, el dedo y el pellizco): si la página cabe en la pantalla queda centrada.
+- Textos con página: la altura se escribe en puntos tipográficos, como en un editor de texto (**Altura (pt)**, 12 pt = 4,23 mm), y un texto nuevo arranca en 12 pt. Los textos que ya existían no cambian de tamaño: uno de altura 12 mm aparece como 34 pt. Sin página la altura sigue en mm.
 
 ## v2.9.0 (2026-11-18)
 

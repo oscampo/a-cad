@@ -49,8 +49,11 @@ export function graphVarNames(doc) {
 // Calcula los datos: { series: [{ label, pts: [[x, y]...], color, ax, ay, tx }], error, tEnd }. solveFn: el solver del dibujo.
 const bareRe = /^[A-Za-zα-ωΑ-Ω_][\wα-ωΑ-Ω]*(\.[A-Za-zα-ωΑ-Ω]\w*)?$/;
 function* graphGen(doc, g, solveFn) {
-  setAngleMode(doc);
-  const deg = angleRad() ? 1 : DEG; // con el dibujo en radianes, un angulo se grafica en radianes
+  setAngleMode(doc); // las variables de los textos se leen con la opcion del documento
+  // La grafica puede tener su propia opcion (g.angles: 'rad' | 'deg'; sin ella, la del documento): con ella evalua sin/cos/tan
+  // de sus relaciones y en esa unidad dibuja un angulo
+  const rad = g.angles === 'rad' ? true : g.angles === 'deg' ? false : angleRad();
+  const deg = rad ? 1 : DEG;
   const out = { series: [], error: null };
   let specs;
   try { specs = g.series.map(parseSeries); } catch (e) { out.error = e.message; return out; }
@@ -79,7 +82,7 @@ function* graphGen(doc, g, solveFn) {
     let v = null, d;
     if (bareRe.test(side) && base[side]?.vec) { v = base[side].vec; d = base[side].d; }
     else if (bareRe.test(side) ? base[side]?.mat : exprRefs(side).some((nm) => base[nm]?.vec || base[nm]?.mat)) {
-      const r = bareRe.test(side) ? { mat: base[side].mat, dim: base[side].d } : evalExpr(side, { vars: base, allowMat: true }), m = r.mat;
+      const r = bareRe.test(side) ? { mat: base[side].mat, dim: base[side].d } : evalExpr(side, { vars: base, allowMat: true, radians: rad }), m = r.mat;
       d = r.dim;
       if (!m) throw new Error('«' + side + '»: no da un vector');
       if (m.length === 1) v = m[0]; else if (m.every((row) => row.length === 1)) v = m.map((row) => row[0]);
@@ -103,7 +106,7 @@ function* graphGen(doc, g, solveFn) {
   const value = (src, env) => {
     let v, d;
     if (bareRe.test(src) && src in env) { const x = env[src]; if (x.r) return x.v * deg; v = x.v; d = x.d; }
-    else { const r = evalExpr(src, { vars: env }); if (r.rad) return r.value * deg; v = r.value; d = r.dim; }
+    else { const r = evalExpr(src, { vars: env, radians: rad }); if (r.rad) return r.value * deg; v = r.value; d = r.dim; }
     return d && Number.isFinite(v) ? v / unitOf(src, d, v).f : v;
   };
   if (needSim) {

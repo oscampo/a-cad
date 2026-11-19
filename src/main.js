@@ -1526,9 +1526,18 @@ function endPointer(e) {
 cv.addEventListener('pointerup', endPointer);
 cv.addEventListener('pointercancel', endPointer);
 cv.addEventListener('pointerleave', () => { if (!pointers.size) { hover = null; draw(); } });
+// Rueda: zoom sin pagina. Con pagina, recorre la hoja como un editor de texto (Mayús o la rueda horizontal, de lado);
+// Ctrl+rueda (y el pellizco del trackpad, que llega asi) sigue siendo zoom.
 cv.addEventListener('wheel', (e) => {
   e.preventDefault();
   const p = pos(e);
+  if (globalDoc().page && !e.ctrlKey && !e.metaKey) {
+    const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? cv.getBoundingClientRect().height : 1; // lineas o paginas -> px
+    const dx = (e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX) * k, dy = e.shiftKey && !e.deltaX ? 0 : e.deltaY * k;
+    view.ox -= dx; view.oy -= dy;
+    clampPage(); draw(); persist();
+    return;
+  }
   zoomAt(p, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
 }, { passive: false });
 
@@ -1536,7 +1545,17 @@ function zoomAt(p, f) {
   const ns = Math.min(2000, Math.max(0.05, view.s * f));
   f = ns / view.s;
   view.ox = p.x - (p.x - view.ox) * f; view.oy = p.y - (p.y - view.oy) * f; view.s = ns;
-  draw(); persist();
+  clampPage(); draw(); persist();
+}
+// Con pagina, el desplazamiento de lado se limita a la hoja: si cabe en la pantalla queda centrada; si no (con zoom), sus
+// bordes no se despegan de los de la pantalla (PAGE_PAD px de holgura, como en Ajustar vista). Hacia arriba y abajo, libre.
+const PAGE_PAD = 12;
+function clampPage() {
+  const pg = globalDoc().page;
+  if (!pg) return;
+  const W = cv.getBoundingClientRect().width, L = (pg.x0 || 0) * view.s, w = pg.w * view.s;
+  if (w + 2 * PAGE_PAD <= W) view.ox = (W - w) / 2 - L;
+  else view.ox = Math.min(PAGE_PAD - L, Math.max(W - PAGE_PAD - L - w, view.ox));
 }
 
 function startGesture() {
@@ -1554,7 +1573,7 @@ function gestureMove() {
     const q = [...pointers.values()][0];
     if (!q) return;
     if (!gesture.moved && dist(q, gesture.last) > 5) gesture.moved = true;
-    if (gesture.moved) { view.ox += q.x - gesture.last.x; view.oy += q.y - gesture.last.y; gesture.last = { x: q.x, y: q.y }; draw(); persist(); }
+    if (gesture.moved) { view.ox += q.x - gesture.last.x; view.oy += q.y - gesture.last.y; gesture.last = { x: q.x, y: q.y }; clampPage(); draw(); persist(); }
   } else {
     const t = [...pointers.values()].filter((q) => q.type === 'touch').slice(0, 2);
     if (t.length < 2) return;
@@ -1562,7 +1581,7 @@ function gestureMove() {
     const ns = Math.min(2000, Math.max(0.05, gesture.s0 * (d / gesture.d0))), f = ns / gesture.s0;
     view.s = ns;
     view.ox = c.x - (gesture.c0.x - gesture.o0.x) * f; view.oy = c.y - (gesture.c0.y - gesture.o0.y) * f;
-    draw(); persist();
+    clampPage(); draw(); persist();
   }
 }
 
@@ -2188,7 +2207,12 @@ function finishSpline(closed) {
   afterChange();
 }
 
+// Con pagina, la altura de un texto se da en puntos, como en un editor de texto (1 pt = 1/72 in; en el modelo sigue en mm,
+// que es la altura de la letra completa, el tamaño de la fuente): un texto nuevo va en 12 pt. Sin pagina, en unidades del dibujo.
+const PT = 25.4 / 72;
+const ptOf = (h) => Math.round((h / PT) * 100) / 100;
 function niceHeight() {
+  if (globalDoc().page) return 12 * PT;
   // altura "redonda" mas cercana a ~16 px en pantalla
   const raw = 16 / view.s, pw = Math.pow(10, Math.floor(Math.log10(raw)));
   const cand = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].map((m) => m * pw);
@@ -3298,7 +3322,7 @@ function scheduleGraphs() {
     const base = JSON.stringify({ ...doc, graphs: undefined, traces: undefined, layers: undefined });
     const ns = {}, todo = [];
     for (const [id, g] of Object.entries(doc.graphs || {})) {
-      ns[id] = base + '|' + JSON.stringify([g.series, g.n, g.t1]);
+      ns[id] = base + '|' + JSON.stringify([g.series, g.n, g.t1, g.angles]);
       if (!(graphData[id] && graphSig[id] === ns[id])) todo.push(id);
     }
     for (const id of Object.keys(graphData)) if (!doc.graphs?.[id]) delete graphData[id];
@@ -3361,6 +3385,8 @@ function editGraph(id, nuevo) {
   if (!g) return;
   const dlg = $('dlgGraph');
   $('grTitle').value = g.title || ''; $('grSeries').value = g.series.join('\n'); $('grT1').value = TE(); $('grN').value = g.n;
+  $('grAng').value = g.angles === 'rad' || g.angles === 'deg' ? g.angles : '';
+  $('grAng').options[0].textContent = 'Del documento (' + (doc.angles === 'rad' ? 'radianes' : 'grados') + ')';
   $('grX').value = fmtG(g.x); $('grY').value = fmtG(g.y); $('grW').value = fmtG(g.w); $('grH').value = fmtG(g.h);
   $('grVars').textContent = 'Variables: ' + graphVarNames(doc).join(', ') + '. También p1.x, l1.len, c1.r… y funciones (sin, sqrt…)';
   buildAxesUI();
@@ -3385,6 +3411,7 @@ function editGraph(id, nuevo) {
     }
     if (!nuevo) pushUndo();
     Object.assign(doc.graphs[id], nv, { title: $('grTitle').value.trim(), series, axes });
+    if ($('grAng').value) doc.graphs[id].angles = $('grAng').value; else delete doc.graphs[id].angles;
     delete graphData[id];
     if (T1 !== TE()) { doc.tEnd = T1; graphData = {}; }
     done = true; dlg.close(); afterChange();
@@ -3930,7 +3957,8 @@ function openProps(h) {
     };
     body.appendChild(propRow('Texto', ta));
     body.appendChild(propRow('Fuente', propSelect(FONTS.map((f) => [f[0], f[1]]), o.font || '', (v) => txSet('font', v))));
-    body.appendChild(propRow('Altura', propNumber(o.h, (v, i) => { const n = Number(v); if (n > 0) txSet('h', n); else i.value = String(propObj().h); }, { min: '0.01' })));
+    if (globalDoc().page) body.appendChild(propRow('Altura (pt)', propNumber(ptOf(o.h), (v, i) => { const n = Number(v); if (n > 0) txSet('h', n * PT); else i.value = String(ptOf(propObj().h)); }, { min: '1', step: '0.5' })));
+    else body.appendChild(propRow('Altura', propNumber(o.h, (v, i) => { const n = Number(v); if (n > 0) txSet('h', n); else i.value = String(propObj().h); }, { min: '0.01' })));
     body.appendChild(propRow(o.ref ? 'Desfase °' : 'Ángulo °', propNumber(o.ang, (v) => txSet('ang', Number(v) || 0))));
     // alinear con una linea (el angulo pasa a ser un desfase); «Ninguna» la suelta conservando la orientacion actual
     const lopts = [['', 'Ninguna (ángulo libre)'], ...Object.entries(doc.lines).map(([id, l]) => [id, `${l.vec ? 'Vector' : 'Línea'} ${id} · L = ${fmt(dist(doc.pts[l.a], doc.pts[l.b]))}`])];
