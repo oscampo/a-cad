@@ -3728,6 +3728,17 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   assert.match(computeGraph(fv, fv.graphs[k], solve).error, /otro vector/);
   fv.graphs[k].series = ['x.^2 + [1, 2] vs x'];
   assert.ok(computeGraph(fv, fv.graphs[k], solve).error);
+  // con unidades, cada lado se grafica en su unidad (la de la variable, o la del SI con prefijo) y la leyenda la dice
+  const fu = newDoc(), U = addPoint(fu, 0, 0);
+  addText(fu, U, "$$x:5..10;3'mm\nF:[1,2,3]'kN\nk:2'N/mm\nL:250'mm$$", {});
+  const ku = addGraph(fu, 0, 0, 100, 60, ['F vs x', 'k*x vs x', 'F./x vs x', 'L vs t']);
+  fu.graphs[ku].t1 = 1; fu.graphs[ku].n = 2;
+  const ru = computeGraph(fu, fu.graphs[ku], solve);
+  assert.equal(ru.error, null);
+  assert.deepEqual(ru.series.map((s) => s.label), ['F (kN) vs x (mm)', 'k*x (N) vs x (mm)', 'F./x (N/m) vs x (mm)', 'L (mm) vs t']);
+  assert.deepEqual(ru.series[0].pts, [[5, 1], [7.5, 2], [10, 3]]);
+  assert.deepEqual(ru.series[1].pts.map((p) => p.map((v) => Math.round(v * 1e9) / 1e9)), [[5, 10], [7.5, 15], [10, 20]]);
+  assert.deepEqual(ru.series[3].pts.map((p) => p[1]), [250, 250]);
   assert.deepEqual(parseSeries('A1  vs  t'), { y: 'A1', x: 't', ax: 'x1', ay: 'y1' });
   const tk = niceTicks(0, 97);
   assert.ok(tk.lo <= 0 && tk.hi >= 97 && tk.ticks.length >= 3);

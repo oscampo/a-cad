@@ -2,6 +2,17 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## v2.8.0 (2026-11-18)
+
+### Nuevo
+
+- Gráficas: un lado con unidades de los textos (variable, vector o expresión) se grafica en su unidad, la de la variable si la tiene (`F:[1,2,3]'kN` va en kN) o la del SI con prefijo, y la leyenda la dice: `F (kN) vs x (mm)`. Las cotas y los actuadores siguen en mm y grados, sin unidad en la leyenda.
+- Una rigidez (fuerza entre longitud) se muestra en `N/m` en vez de `kg/s²`.
+
+### Cambia el comportamiento
+
+- Las gráficas ya no usan el SI para los valores con unidades: `x:5'mm` se grafica como 5, no como 0.005.
+
 ## v2.7.0 (2026-11-18)
 
 ### Nuevo

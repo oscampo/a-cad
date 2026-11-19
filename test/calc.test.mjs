@@ -82,6 +82,7 @@ t('vectores y matrices con unidades: una sola unidad para todos los elementos', 
   assert.equal(u("$$b:[1,2]'m+[1,2]'N=$$").includes('⚠'), true);
   assert.equal(u("$$F:[1,2,3]'N\nd:[1,0,0]'m\ndot(F;d)=\nmax(F)=$$"), '$$F:=[1, 2, 3] N\nd:=[1, 0, 0] m\ndot(F;d)=1 J\nmax(F)=3 N$$');
   assert.equal(u("$$M:[1,2;3,4]'m\ndet(M)=\ninv(M)=$$"), '$$M:=[1, 2; 3, 4] m\ndet(M)=-2 m²\ninv(M)=[-2, 1; 1.5, -0.5] 1/m$$');
+  assert.equal(u("$$F:200'N\nx:4'mm\nF/x=$$"), '$$F:=200 N\nx:=4 mm\nF/x=50000 N/m$$'); // N/m en vez de kg/s²
   assert.equal(u("$$k:[1,2]\nk='m$$"), '$$k:=[1, 2]\nk=⚠$$'); // sin unidades no se puede pedir una
   assert.equal(u("$$s:[1,4]'m^2\nsqrt(s)=\nsin(s)=$$"), '$$s:=[1, 4] m²\nsqrt(s)=[1, 2] m\nsin(s)=⚠$$');
   for (const s of ["$$F='kN$$", "$$F = 'kN $$"]) assert.equal(calcSrc(calcParse(s)), s);

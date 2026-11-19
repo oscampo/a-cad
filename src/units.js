@@ -94,6 +94,7 @@ const sup = (n) => (n === 1 ? '' : Number.isInteger(n) ? [...String(n)].map((c) 
 export function dimName(d) {
   if (zero(d)) return '';
   for (const n of NAMED) if (sameDim(U[n].d, d)) return n;
+  if (sameDim(mulDim(U.N.d, U.m.d, -1), d)) return 'N/m'; // rigidez de un resorte, mejor que «kg/s²»
   const pos = [], neg = [];
   d.forEach((x, i) => { if (x > 0) pos.push(BASE[i] + sup(x)); else if (x < 0) neg.push(BASE[i] + sup(-x)); });
   return (pos.length ? pos.join('·') : '1') + (neg.length ? '/' + (neg.length > 1 ? '(' + neg.join('·') + ')' : neg[0]) : '');

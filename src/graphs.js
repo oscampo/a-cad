@@ -7,6 +7,7 @@
 import { varsOf } from './params.js';
 import { evalExpr, exprRefs } from './expr.js';
 import { actDisp, simBegin, simStep } from './actuators.js';
+import { autoUnit, sameDim } from './units.js';
 
 export const GRAPH_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c', '#0891b2'];
 const DEG = 180 / Math.PI;
@@ -58,18 +59,31 @@ function* graphGen(doc, g, solveFn) {
   const acts = {};
   for (const [id, a] of Object.entries(clone.acts || {})) acts[actKey(a)] = a;
   const base = varsOf(clone);
+  // Un lado con unidades se grafica en una unidad fija: la de la variable, la de una variable de la expresion con la misma magnitud o
+  // la del SI con prefijo (segun el primer valor, o el mayor de un vector). units: lado -> { name, f }; la leyenda la muestra.
+  const units = new Map();
+  const unitOf = (side, dim, v) => {
+    if (units.has(side)) return units.get(side);
+    let u = null;
+    if (dim) for (const nm of [side, ...exprRefs(side)]) { const x = base[nm]; if (x?.pu && sameDim(x.d, dim)) { u = { name: x.pu, f: x.pf }; break; } }
+    if (dim && !u) u = autoUnit(v, dim);
+    units.set(side, u);
+    return u;
+  };
   // Un lado que da un vector: su nombre («x») o una expresion con vectores («f(x)», «x.^2»), que se calcula una vez con todos sus elementos.
   const vecs = new Map();
   const vecOf = (side) => {
     if (vecs.has(side)) return vecs.get(side);
-    let v = null;
-    if (bareRe.test(side) && base[side]?.vec) v = base[side].vec;
+    let v = null, d;
+    if (bareRe.test(side) && base[side]?.vec) { v = base[side].vec; d = base[side].d; }
     else if (bareRe.test(side) ? base[side]?.mat : exprRefs(side).some((nm) => base[nm]?.vec || base[nm]?.mat)) {
-      const m = bareRe.test(side) ? base[side].mat : evalExpr(side, { vars: base, allowMat: true }).mat;
+      const r = bareRe.test(side) ? { mat: base[side].mat, dim: base[side].d } : evalExpr(side, { vars: base, allowMat: true }), m = r.mat;
+      d = r.dim;
       if (!m) throw new Error('«' + side + '»: no da un vector');
       if (m.length === 1) v = m[0]; else if (m.every((row) => row.length === 1)) v = m.map((row) => row[0]);
       else throw new Error('«' + side + '»: da una matriz, no un vector');
     }
+    if (v && d) { const u = unitOf(side, d, Math.max(...v.map(Math.abs))); v = v.map((x) => x / u.f); }
     vecs.set(side, v);
     return v;
   };
@@ -85,9 +99,10 @@ function* graphGen(doc, g, solveFn) {
   const bufs = specs.map(() => []), errs = specs.map(() => null);
   // valor de una variable o expresion con el entorno env: un angulo suelto se muestra en grados
   const value = (src, env) => {
-    if (bareRe.test(src) && src in env) { const x = env[src]; return x.r ? x.v * DEG : x.v; }
-    const r = evalExpr(src, { vars: env });
-    return r.rad ? r.value * DEG : r.value;
+    let v, d;
+    if (bareRe.test(src) && src in env) { const x = env[src]; if (x.r) return x.v * DEG; v = x.v; d = x.d; }
+    else { const r = evalExpr(src, { vars: env }); if (r.rad) return r.value * DEG; v = r.value; d = r.dim; }
+    return d && Number.isFinite(v) ? v / unitOf(src, d, v).f : v;
   };
   if (needSim) {
     let sim = null;
@@ -121,7 +136,7 @@ function* graphGen(doc, g, solveFn) {
       if (X.length !== Y.length) { out.error = '«' + sp.y + '» y «' + sp.x + '» tienen distinto número de elementos'; return; }
       pts = X.map((x, j) => [x, Y[j]]);
     } else if (isVec(sp.x) || isVec(sp.y)) { out.error = '«' + sp.y + ' vs ' + sp.x + '»: un vector solo se grafica contra otro vector del mismo tamaño'; return; }
-    const label = sp.y + ' vs ' + sp.x;
+    const un = (s) => (units.get(s) ? s + ' (' + units.get(s).name + ')' : s), label = un(sp.y) + ' vs ' + un(sp.x);
     if (!pts.length && errs[i] && !out.error) out.error = '«' + label + '»: ' + errs[i];
     out.series.push({ label, pts, color: GRAPH_COLORS[i % GRAPH_COLORS.length], ax: sp.ax, ay: sp.ay, tx: sp.x === 't' });
   });

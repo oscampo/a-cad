@@ -42,7 +42,7 @@ Cada línea de una ecuación es un enunciado. El valor se actualiza solo cuando 
 | Ángulo con unidad | `deg`, `°` y `rad` hacen un ángulo. En una cota, una longitud con unidades se convierte a mm. | `sin(30'deg)=` | `sin(30 deg)=0.5` |
 | `x:a..b;n` | **Rango**: n valores de a hasta b, un vector fila. | `x:1..5;5` | `x:=[1, 2, 3, 4, 5]` |
 | `x:a..paso..b` | Rango con paso. | `x:0..0.5..2` | `x:=[0, 0.5, 1, 1.5, 2]` |
-| Vector con unidades | Una unidad para todos los elementos: `[1,2,3]'mm`, `[1'm, 20'cm]` o un rango `0..10;5'mm`. Se muestran todos en la misma unidad. Mezclar magnitudes en un vector da ⚠. | `v:[1,2,3]'mm`<br>`v*2=`<br>`sum(v)=` | `v:=[1, 2, 3] mm`<br>`v*2=[2, 4, 6] mm`<br>`sum(v)=6 mm` |
+| Vector con unidades | Una unidad para todos los elementos: `[1,2,3]'mm`, `[1'm, 20'cm]` o un rango `0..10;5'mm`. Se muestran todos en la misma unidad, y una gráfica los usa en esa unidad (la leyenda la dice). Mezclar magnitudes en un vector da ⚠. | `v:[1,2,3]'mm`<br>`v*2=`<br>`sum(v)=` | `v:=[1, 2, 3] mm`<br>`v*2=[2, 4, 6] mm`<br>`sum(v)=6 mm` |
 | Ángulos | Un valor con π es un ángulo en radianes; uno sin π es un número a secas. | `a:30`<br>`sin(a)=` | `a:=30`<br>`sin(a)=0.5` |
 | Error | Si la expresión no se puede calcular, en lugar del valor aparece ⚠. | `sqrt(-1)=` | `sqrt(-1)=⚠` |
 
