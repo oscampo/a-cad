@@ -126,15 +126,19 @@ t('titulo subrayado con === y raya con ---', () => {
   assert.equal(L.prims.filter((p) => p.k === 'p').length, 1);
 });
 
-t('saltos de linea: con reflow, las lineas de un parrafo se unen', () => {
-  const src = 'uno\ndos  \ntres\\\ncuatro\n\ncinco\n- a\n  b';
-  const sin = texts(layoutText(src, m, '')).map((p) => p.s);
-  assert.ok(sin.includes('uno') && sin.includes('tres') && !sin.some((s) => s.endsWith('\\')));
-  const con = texts(layoutText(src, m, '', { reflow: true })).map((p) => p.s);
-  assert.ok(con.includes('uno dos'), con.join('|'));
-  assert.ok(con.includes('tres') && con.includes('cuatro'));
-  assert.ok(con.includes('a b'));
-  assert.ok(con.includes('cinco'));
+t('saltos de linea: cada salto de linea es un salto de linea, con pagina o sin ella', () => {
+  const src = 'uno\ndos  \ntres\\\ncuatro\n\ncinco\n- a\n  b\n> c\n> d';
+  for (const opt of [{}, { reflow: true }, { reflow: true, maxW: 40 }]) {
+    const L = layoutText(src, m, '', opt), tx = texts(L), s = tx.map((p) => p.s.trim()).filter(Boolean);
+    for (const w of ['uno', 'dos', 'tres', 'cuatro', 'cinco', 'a', 'b', 'c', 'd']) assert.ok(s.includes(w), JSON.stringify(opt) + ': ' + s.join('|'));
+    assert.ok(!s.some((x) => x.endsWith('\\')), 'la «\\» final no se dibuja');
+    const y = (w) => tx.find((p) => p.s.trim() === w).y;
+    assert.ok(y('uno') < y('dos') && y('dos') < y('tres') && y('tres') < y('cuatro') && y('a') < y('b') && y('c') < y('d'), 'una linea debajo de otra');
+  }
+  // el Texto del ejemplo de Oscar: tres lineas, no «Texto Texto Texto»
+  const T = texts(layoutText('Texto\nTexto\nTexto', m, '', { reflow: true, maxW: 40 }));
+  assert.equal(T.length, 3);
+  assert.equal(new Set(T.map((p) => p.y)).size, 3);
   assert.equal(hasMd('a\\\nb'), true);
 });
 

@@ -313,8 +313,8 @@ export function layoutMath(src, disp, measure) {
 // Devuelve { w, hh, prims } en unidades de altura de texto, con el origen en la esquina superior izquierda de la caja (y hacia abajo):
 //  { k:'t', s, x, y, sz, it, font, bold?, col? } (y = linea base) y { k:'p', pts:[[x,y]...], lw, col? } (trazo abierto).
 // Las lineas sin formulas conservan su altura de siempre (1.2); las que llevan formulas crecen lo que necesiten.
-// opt.reflow: las lineas seguidas de un parrafo se unen en una (Markdown estandar; una linea en blanco separa parrafos y dos
-// espacios o «\» al final de una linea la cortan). Sin reflow, cada salto de linea es un salto de linea.
+// opt.reflow: el texto va en una pagina (con opt.maxW, el ancho hasta el margen: una linea que no cabe se parte en los espacios).
+// Cada salto de linea es siempre un salto de linea (ver joinLines).
 const CACHE = new WeakMap();
 export function layoutText(text, measure, font, opt = {}) {
   let m = CACHE.get(measure);
@@ -402,31 +402,15 @@ function blocks(text) {
   return { chunks, refs, notes };
 }
 
-// Saltos de linea de un bloque de Markdown. Quita la «\» final (corte forzado). Con reflow une cada linea de un parrafo a la
-// anterior (tambien la que sigue a una viñeta o a una cita del mismo nivel), salvo tras una linea en blanco, un titulo, una
-// raya, una formula en bloque o un corte forzado (dos espacios o «\» al final).
-function joinLines(lines, reflow) {
-  const out = [];
-  let inM = false, open = false, prev = null;
-  for (const ln of lines) {
-    const wasM = inM, dd = countDD(ln);
-    if (dd % 2) inM = !inM;
-    const hard = hardEnd(ln), s = hard ? ln.slice(0, -1) : ln;
-    if (reflow && open && !wasM && !dd && ln.trim()) {
-      const b = mdBlock(s);
-      if (b.kind === 'p') { out[out.length - 1] += ' ' + s.trim(); open = !hard && !/ {2,}$/.test(ln); continue; }
-      if (b.kind === 'quote' && !b.callout && prev.kind === 'quote' && prev.level === b.level && b.rest.trim()) { out[out.length - 1] += ' ' + b.rest.trim(); open = !hard && !/ {2,}$/.test(ln); continue; }
-    }
-    out.push(s);
-    prev = mdBlock(s);
-    open = !!ln.trim() && !hard && !/ {2,}$/.test(ln) && !wasM && !inM && !dd && ['p', 'ul', 'ol', 'quote'].includes(prev.kind);
-  }
-  return out;
-}
+// Saltos de linea de un bloque de Markdown: cada salto de linea es un salto de linea, con pagina o sin ella. No se unen las lineas
+// de un parrafo como en Markdown estandar (decision de Oscar, 2026-11-19: en el dibujo se escribe linea por linea, como en papel);
+// con pagina, una linea que no cabe se parte en el margen. Quita la «\» final: el corte forzado de Markdown ya no hace falta, pero
+// los dibujos que lo usan no deben mostrarla.
+const joinLines = (lines) => lines.map((ln) => (hardEnd(ln) ? ln.slice(0, -1) : ln));
 
 const PADC = 0.4; // margen de una celda de tabla y de un bloque de codigo
 function compute(text, measure, font, opt = {}) {
-  const md = hasMd(text) || !!opt.reflow; // con la pagina, un texto sin marcas tambien une las lineas de sus parrafos
+  const md = hasMd(text) || !!opt.reflow; // con la pagina, un texto sin marcas tambien pasa por aqui (para ajustarse al margen)
   const rows = [];
   // notas al pie: numeradas en el orden en que se las llama
   const fnNum = new Map();
@@ -468,7 +452,7 @@ function compute(text, measure, font, opt = {}) {
     const B = blocks(text);
     ictx.refs = B.refs;
     for (const c of B.chunks) {
-      if (c.t === 'md') mdRows(joinLines(c.lines, opt.reflow).join('\n'));
+      if (c.t === 'md') mdRows(joinLines(c.lines).join('\n'));
       else if (c.t === 'code') {
         const ls = c.lines.length ? c.lines : [''];
         ls.forEach((ln, i) => rows.push({ items: ln ? [{ k: 't', runs: [{ s: noIT(ln).replace(/\t/g, '    '), code: true }] }] : [], code: { first: i === 0, last: i === ls.length - 1 } }));

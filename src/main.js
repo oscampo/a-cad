@@ -24,6 +24,7 @@ import { TRACE_STYLE } from './curves.js';
 import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, AXES } from './graphs.js';
 import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD, textLinkAt, textLinkBoxes } from './text.js';
 import { linkTarget, resolveRepoPath, findAnchor } from './links.js';
+import { attachAutoPair } from './autopair.js';
 import { migrateCalcDoc } from './tvars.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder } from './params.js';
@@ -2448,6 +2449,7 @@ txLive.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (txLive.value.trim()) commitTextLive(); else endTextLive(); }
 });
 txLive.addEventListener('input', txLayout);
+attachAutoPair(txLive, () => !TX_MARK.test(txLive.value)); // [] () {} $$ <> `` se cierran solos (ver autopair.js)
 function placeText(sUp) { startTextLive(sUp); }
 
 function finishEdit(keepPending) {
@@ -4141,7 +4143,7 @@ function openProps(h) {
   if (k === 'tx') {
     body.appendChild(propRow('Color', textColors()));
     const ta = document.createElement('textarea');
-    ta.rows = 2; ta.value = o.text; ta.style.cssText = 'flex:1 1 100%;min-height:56px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);font:inherit';
+    ta.rows = 2; ta.value = o.text; attachAutoPair(ta); // lo guardado: texto con Markdown y formulas entre $...$ ta.style.cssText = 'flex:1 1 100%;min-height:56px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);font:inherit';
     ta.onchange = () => {
       if (!ta.value.trim()) { ta.value = propObj().text; return; }
       const before = textVarErrors(doc);

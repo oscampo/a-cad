@@ -21,6 +21,7 @@ Toca donde va el punto de inserción y escribe ahí mismo, sin ventana. Lo que e
 | Tocar en otro sitio | Dibuja lo escrito y mueve la entrada allí. |
 | `"` o un espacio al empezar | Texto normal en vez de ecuación (sirven también las comillas `“` del teclado del iPad; la comilla o el espacio no se guardan). Ver «Texto normal, fórmulas y literales». |
 | Insignia azul | Junto a la esquina de la entrada: `α` es una ecuación, `A` es texto normal. |
+| `[`, `(`, `{`, `$`, `<`, `` ` `` | **Se cierran solos**: aparece el cierre y el cursor queda en medio (`[\|]`). Teclear el cierre cuando ya está delante solo avanza; borrar en un par vacío borra los dos; con texto seleccionado, lo encierra. `$` dentro de `$\|$` da `$$\|$$`. No se cierran delante de una letra o un número, ni `<` dentro de una fórmula (es «menor que»), ni el `$` o la `` ` `` que cierran algo ya abierto. Vale también en el campo Texto de las propiedades. |
 
 ## Asignar y mostrar valores
 
@@ -95,7 +96,7 @@ En un texto normal (el que empieza con `"` o un espacio), lo que va fuera de las
 | `texto[^1]` y `[^1]: la nota` | **Nota al pie**: la llamada va en superíndice, numerada en orden, y las notas se juntan al final del texto en letra más pequeña. |
 | `<!-- … -->` | Comentario: no se dibuja (puede abarcar varias líneas). |
 | `\*` | Deja el signo tal cual (sirve con cualquier signo de puntuación): `\*`, `\_`, `\#`, `\[`… Un `*` entre espacios (`2 * 3`) ya va tal cual, pero `2*3*4` pone el 3 en cursiva. |
-| Saltos de línea | Sin límites, cada salto de línea es un salto de línea. Con la página (Documento → Página), como en Markdown: las líneas seguidas de un párrafo se unen y se reparten en el ancho de la página, una línea en blanco empieza otro párrafo, y dos espacios o `\` al final de una línea la cortan ahí. |
+| Saltos de línea | Cada salto de línea es un salto de línea, con página o sin ella (a diferencia de Markdown, las líneas seguidas no se unen). Con la página (Documento → Página), una línea que no cabe se parte en el margen. Una `\` al final de una línea no se dibuja. |
 
 ## Escritura matemática (AsciiMath)
 

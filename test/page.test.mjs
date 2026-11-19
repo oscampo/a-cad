@@ -1,4 +1,4 @@
-// Modo pagina: ajuste de los textos al margen, union de las lineas de un parrafo y formulas que siguen en otra linea con «...».
+// Modo pagina: ajuste de los textos al margen (cada salto de linea se respeta) y formulas que siguen en otra linea con «...».
 import assert from 'node:assert/strict';
 import { layoutText } from '../src/mathlayout.js';
 import { textFrame, shownText, textValue, pageWrap } from '../src/text.js';
