@@ -4,7 +4,7 @@
 // Cada grupo: { title, note?, head?, rows, rules? }. Una fila: [escribes, qué hace, ejemplo, se ve, modo] (HTML en las
 // dos primeras columnas, texto plano en las otras dos). El modo dice cómo se comprueba el ejemplo:
 //   't'   lo que se teclea en una ecuación (bloque $$…$$); «se ve» es el texto dibujado, línea por línea;
-//   'p'   un texto normal (lo que se teclea tras el «'»); «se ve» es el texto dibujado sin los «$»;
+//   'p'   un texto normal (lo que se teclea tras el «"»); «se ve» es el texto dibujado sin los «$»;
 //   'mig' un texto de un dibujo anterior a la v2.0; «se ve» es como queda al abrirlo;
 //   ''    no se comprueba (depende del dibujo o de cómo se ve en pantalla).
 // head: los títulos de las columnas, si no son los de siempre (una tabla sin ejemplos tiene solo dos).
@@ -23,7 +23,8 @@ export const CALC_GROUPS = [
       ['<b>Esc</b>', 'Descarta lo que escribes.'],
       ['<b>Enter</b> en una entrada vacía', 'Termina. Cambiar de herramienta también termina, y dibuja lo escrito.'],
       ['Tocar en otro sitio', 'Dibuja lo escrito y mueve la entrada allí.'],
-      [c("'") + ' al empezar', 'Texto normal en vez de ecuación (sirve también el ' + c('’') + ' del teclado del iPad; el apóstrofo no se guarda). Ver «Texto normal, fórmulas y literales».'],
+      [c('"') + ' o un espacio al empezar', 'Texto normal en vez de ecuación (sirven también las comillas ' + c('“') + ' del teclado del iPad; la comilla o el espacio no se guardan). Ver «Texto normal, fórmulas y literales».'],
+      ['Insignia azul', 'Junto a la esquina de la entrada: ' + c('α') + ' es una ecuación, ' + c('A') + ' es texto normal.'],
     ],
   },
   {
@@ -34,6 +35,8 @@ export const CALC_GROUPS = [
       [c('x:=valor'), 'Lo mismo, tecleando ' + c(':=') + '.', 'k:=4', 'k:=4', 't'],
       [c('expr='), 'Un <b>=</b> al final de la línea muestra el valor, con hasta 3 decimales.', '2/3=', '2/3=0.667', 't'],
       [c('x:expr='), 'Asigna y muestra el valor en la misma línea.', 'x:2*3=\ny:x+1=', 'x:=2*3=6\ny:=x+1=7', 't'],
+      [c("x:valor'unidad"), '<b>Unidad</b>: una etiqueta que acompaña al valor y se dibuja detrás de él. ' + c('x=') + ' la muestra; una expresión con x no (la unidad no se convierte ni se propaga).', "F:250'N\nF=\nF*2=", 'F:=250 N\nF=250 N\nF*2=500', 't'],
+      [c("x:expr'unidad="), 'Con ' + c('=') + ' la unidad va detrás del valor calculado.', "a:2*3'm/s^2=", 'a:=2*3=6 m/s²', 't'],
       [c('x:a..b;n'), '<b>Rango</b>: n valores de a hasta b, un vector fila.', 'x:1..5;5', 'x:=[1, 2, 3, 4, 5]', 't'],
       [c('x:a..paso..b'), 'Rango con paso.', 'x:0..0.5..2', 'x:=[0, 0.5, 1, 1.5, 2]', 't'],
       ['Ángulos', 'Un valor con π es un ángulo en radianes; uno sin π es un número a secas.', 'a:30\nsin(a)=', 'a:=30\nsin(a)=0.5', 't'],
@@ -49,9 +52,9 @@ export const CALC_GROUPS = [
   },
   {
     title: 'Texto normal, fórmulas y literales',
-    note: 'Un texto que empieza con ' + c("'") + ' se dibuja tal cual, salvo lo que va entre signos de pesos, que es matemático y calcula igual que una ecuación.',
+    note: 'Un texto que empieza con ' + c('"') + ' (o con un espacio) se dibuja tal cual, salvo lo que va entre signos de pesos, que es matemático y calcula igual que una ecuación.',
     rows: [
-      [c('$…$'), 'Fórmula en línea con el texto.', "'Vale $2*3=$ mm", 'Vale 2*3=6 mm', 'p'],
+      [c('$…$'), 'Fórmula en línea con el texto.', '"Vale $2*3=$ mm', 'Vale 2*3=6 mm', 'p'],
       [c('$$…$$'), 'Fórmula en bloque: cada línea de dentro es una ecuación, centrada y a tamaño pleno.', '', '', ''],
       [c('`…`'), '<b>Literal</b>: se dibuja pero nunca se calcula ni se lee como asignación o salida. Sin las comillas, ' + c('f:RR->RR') + ' sería una asignación.', '`f:RR->RR`\n`x =` 3', 'f:RR->RR\nx = 3', 't'],
       [c('`…') + ' sin cerrar', 'Se marca con ⚠.', '`abierto', '`abierto ⚠', 't'],
@@ -167,6 +170,7 @@ export const CALC_GROUPS = [
       ['Punto de inserción', 'Es un punto real: se puede acotar, fijar o relacionar. Se elige su lugar en la caja del texto.'],
       ['Ángulo y altura', 'Gira y escala el texto. También se puede alinear con una línea.'],
       ['<i>Legible</i>', 'Gira 180° el texto que quedaría boca abajo.'],
+      ['Fondo', 'Color de fondo de la caja del texto (con un pequeño margen); tapa lo que quede debajo. <b>Sin fondo</b> lo quita. Se ve en el dibujo y en el SVG; el DXF no lo lleva.'],
     ],
   },
   {

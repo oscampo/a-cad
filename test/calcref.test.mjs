@@ -15,8 +15,8 @@ const draw = (text) => {
   return plainText(textValue(d, d.texts.t1));
 };
 const shown = {
-  t: (ex) => draw('$$' + ex + '$$').replace(/^\$\$|\$\$$/g, ''), // lo que se teclea se guarda como bloque matematico
-  p: (ex) => draw(ex.replace(/^'/, '')).replace(/\$/g, ''), // texto normal: el «'» no se guarda y los «$» no se dibujan
+  t: (ex) => draw('$$' + ex + '$$').replace(/^\$\$|\$\$$/g, '').replace(/ " ([^"]*)"/g, ' $1'), // lo que se teclea se guarda como bloque matematico; una unidad va como texto « " N"»
+  p: (ex) => draw(ex.replace(/^["“” ]/, '')).replace(/\$/g, ''), // texto normal: la «"» no se guarda y los «$» no se dibujan
   mig: (ex) => migrateCalc(ex),
 };
 

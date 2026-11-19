@@ -22,7 +22,7 @@ import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
 import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, AXES } from './graphs.js';
-import { textFrame, textHit, textPose, shownText, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss } from './text.js';
+import { textFrame, textHit, textPose, shownText, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD } from './text.js';
 import { migrateCalcDoc } from './tvars.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder } from './params.js';
@@ -36,7 +36,7 @@ import { parseValue, isPlainNumber } from './expr.js';
 import { HELP_HTML } from './help.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
 
-const VERSION = '2.3.0';
+const VERSION = '2.4.0';
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev'; // commit de la compilacion: junto a la version, abajo a la izquierda del dibujo
 const STORE = 'ipad-cad-v1';
 const $ = (id) => document.getElementById(id);
@@ -1072,6 +1072,10 @@ function drawTexts(c, o) {
     c.save();
     c.translate(S.x * dpr, S.y * dpr);
     c.rotate(-(pose.ang * Math.PI) / 180);
+    if (t.bg) { // color de fondo: un rectangulo bajo la caja del texto, con un margen
+      const pad = TEXT_BG_PAD * t.h;
+      c.fillStyle = t.bg; c.fillRect((f.xmin - pad) * sc * dpr, (-f.ymax - pad) * sc * dpr, (f.w + 2 * pad) * sc * dpr, (f.hh + 2 * pad) * sc * dpr);
+    }
     c.font = `${t.h * sc * dpr}px ${fontCss(t.font)}`;
     c.fillStyle = colorOf(t.color, o); c.textBaseline = 'top'; c.textAlign = 'left';
     if (f.math) { // con formulas ($...$, $$...$$): textos en su linea base y trazos (barras, raices, parentesis grandes)
@@ -2198,12 +2202,12 @@ function textEditOk(before) {
 
 // ---------------------------------------------------------------- entrada directa de texto (herramienta Texto)
 // Se escribe sobre el dibujo, sin ventana. Por defecto es una ecuacion AsciiMath y se guarda como bloque «$$...$$» (los delimitadores quedan
-// en el texto: se ven en sus propiedades); ahi «x:valor» asigna y «expr=» muestra el valor. Si lo primero que se teclea es «'» (o el «’» que pone
-// el teclado de iOS con la puntuacion inteligente), es texto normal: se dibuja tal cual, salvo lo que vaya entre «$...$» o «$$...$$».
+// en el texto: se ven en sus propiedades); ahi «x:valor» asigna y «expr=» muestra el valor. Si lo primero que se teclea es «"» (o las comillas
+// «“ ”» que pone el teclado de iOS con la puntuacion inteligente) o un espacio, es texto normal: se dibuja tal cual, salvo lo que vaya entre «$...$» o «$$...$$».
 // Enter lo dibuja (un texto por Enter) y abre otra entrada una linea mas abajo; Shift+Enter es salto de linea dentro del mismo texto;
 // Esc, Enter en una entrada vacia o cambiar de herramienta terminan (lo ya escrito se dibuja al cambiar de herramienta).
 const txLiveBox = $('txLiveBox'), txLive = $('txLive');
-const TX_MARK = /^['’‘]/;
+const TX_MARK = /^["“” ]/; // «'» queda para las unidades («x:valor'unidad»)
 const txIsText = () => TX_MARK.test(txLive.value);
 function txLayout() {
   if (!txState) return;
@@ -2216,9 +2220,10 @@ function txLayout() {
   const W = Math.min(cv.clientWidth * 0.92, Math.max(170, mx * px * 0.62 + 26)), Hh = lines.length * px * 1.25 + 6;
   txLive.rows = lines.length; txLive.style.height = Hh - 2 + 'px';
   txLiveBox.style.width = W + 'px';
-  txLiveBox.dataset.tag = txIsText() ? "Texto · Enter dibuja · Shift+Enter línea" : "Matemático · x:valor asigna · expr= calcula · ' = texto";
+  txLiveBox.dataset.tag = txIsText() ? 'A' : 'α'; // insignia azul junto a la esquina: α ecuacion, A texto normal
+  txLiveBox.title = txIsText() ? 'Texto normal · Enter dibuja · Shift+Enter otra línea' : 'Ecuación · x:valor asigna · x:valor\'unidad · expr= calcula · " o espacio al empezar = texto';
   const an = cur.tx.anchor || 'bl', ax = { l: 0, c: 0.5, r: 1 }[an[1]], ay = txState.cursor ? 0 : { t: 0, m: 0.5, b: 1 }[an[0]]; // las entradas siguientes cuelgan de la linea anterior
-  txLiveBox.style.left = Math.max(2, Math.min(S.x - ax * W, cv.clientWidth - W - 2)) + 'px';
+  txLiveBox.style.left = Math.max(26, Math.min(S.x - ax * W, cv.clientWidth - W - 2)) + 'px'; // a la izquierda queda sitio para la insignia
   txLiveBox.style.top = Math.max(24, Math.min(S.y - ay * Hh, cv.clientHeight - Hh - 2)) + 'px';
 }
 function endTextLive() { txState = null; txLiveBox.hidden = true; txLive.value = ''; txLive.blur(); }
@@ -2250,7 +2255,7 @@ function commitTextLive() {
 function startTextLive(sUp) {
   if (txState && txLive.value.trim() && !commitTextLive()) return; // lo escrito se dibuja antes de mover la entrada
   txState = { sUp }; txLive.value = ''; txLiveBox.hidden = false; txLayout(); txLive.focus();
-  if (!txHint) { txHint = true; toast("Escribe una ecuación (AsciiMath): Enter la dibuja, Shift+Enter hace otra línea y empezar con ' escribe texto normal"); }
+  if (!txHint) { txHint = true; toast('Escribe una ecuación (AsciiMath): Enter la dibuja, Shift+Enter hace otra línea y empezar con " (o un espacio) escribe texto normal'); }
 }
 txLive.addEventListener('keydown', (e) => {
   e.stopPropagation(); // ningun atajo del dibujo mientras se escribe
@@ -2841,6 +2846,9 @@ function syncTextPanel(txt) {
   $('txFont').value = src.font || '';
   $('txAngleLabel').textContent = txt?.ref ? 'Desfase °' : 'Ángulo °';
   $('txRead').setAttribute('aria-pressed', String(src.readable !== false));
+  if (src.bg) $('txBg').value = src.bg;
+  $('txBgOff').setAttribute('aria-pressed', String(!src.bg));
+  $('txBg').disabled = $('txBgOff').disabled = !txt;
   if (document.activeElement !== $('txContent')) $('txContent').value = src.text;
   if (document.activeElement !== $('txAngle')) $('txAngle').value = String(src.ang ?? 0);
   if (document.activeElement !== $('txSize')) $('txSize').value = src.h === '' ? '' : String(Math.round(src.h * 1000) / 1000);
@@ -4335,6 +4343,8 @@ $('txRead').onclick = () => {
   applyText('readable', !(ts.length ? ts[0].readable !== false : cur.tx.readable !== false));
 };
 $('txFont').onchange = (e) => applyText('font', e.target.value);
+$('txBg').onchange = (e) => applyText('bg', e.target.value); // color de fondo de los textos seleccionados
+$('txBgOff').onclick = () => applyText('bg', undefined); // sin fondo
 $('txAngle').onchange = (e) => applyText('ang', Number(e.target.value) || 0);
 $('txSize').onchange = (e) => { const v = Number(e.target.value); if (v > 0) applyText('h', v); };
 

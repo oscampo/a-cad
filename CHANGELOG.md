@@ -2,6 +2,18 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## v2.4.0 (2026-11-18)
+
+### Nuevo
+
+- Textos: **unidades como etiqueta** con `x:valor'unidad` (por ejemplo `F:250'N`, `a:2*3'm/s^2=`). La unidad se dibuja junto al valor, y `F=` la repite. Es solo una etiqueta: no convierte, no se propaga a `F*2=` ni comprueba dimensiones.
+- Textos: **color de fondo** del cuadro de texto (fila «Fondo» en el panel, con «Sin fondo» para quitarlo). Se exporta a SVG; el DXF no lleva fondo.
+- Entrada de texto en el área gráfica: el texto de ayuda azul sobre el cuadro se reemplaza por una insignia azul a la izquierda, **α** para matemática y **A** para texto.
+
+### Cambia el comportamiento
+
+- Textos: el texto normal ahora empieza con `"` (o `“`/`”`, o un espacio), ya no con `'`. La `'` queda para las unidades.
+
 ## v2.3.0 (2026-11-18)
 
 ### Nuevo

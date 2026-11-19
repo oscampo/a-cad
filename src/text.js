@@ -22,6 +22,8 @@ const matText = (m) => {
   if (rows.length > 8) rows = [...rows.slice(0, 4), rows[0].map(() => '⋮'), ...rows.slice(-2)];
   return '[' + rows.map((r) => r.join(', ')).join('; ') + ']';
 };
+// Una unidad dentro de una formula: texto recto separado del valor («^2» y «^3» como superindices).
+const unitMath = (u) => ' " ' + u.split('^2').join('²').split('^3').join('³') + '"';
 export function textValue(doc, t) {
   const s = String(t.text ?? '');
   const hasSub = s.includes('$') && s.includes('_(');
@@ -46,7 +48,8 @@ export function textValue(doc, t) {
     try {
       const env = st?.outEnv.get(tid + ':' + oidx++) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
       const r = evalExpr(p.expr, { vars: env, allowMat: true });
-      return r.mat ? (math ? VB0 + matText(r.mat) + VB1 : matText(r.mat)) : fmtNum(r.value);
+      const u = env[normName(p.expr.trim())]?.u; // «F=» de una variable con unidad la muestra; una expresion no (la unidad no se propaga)
+      return (r.mat ? (math ? VB0 + matText(r.mat) + VB1 : matText(r.mat)) : fmtNum(r.value)) + (u ? (math ? unitMath(u) : ' ' + u) : '');
     } catch (e) { return '⚠'; }
   };
   // La magnitud de un vector («$D3=$», ver vectors.js) muestra solo el valor, como texto.
@@ -69,7 +72,8 @@ export function textValue(doc, t) {
     const call = p.params !== undefined ? '(' + p.params.trim() + ')' : ''; // funcion: f(x; y):=...
     // «x:expr=»: ademas del valor asignado, «=valor» (un vector o una matriz ya muestran su valor)
     const shownVal = p.eq === undefined || mx ? '' : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? fmtNum(val.v) : '⚠');
-    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 : IT0 + shown + call + ':=' + wrapNames(p.expr.trim()) + (bad && !shownVal ? ' ⚠' : '') + IT1 + shownVal) + p.post;
+    const un = p.unit ? unitMath(p.unit) : ''; // «x:valor'unidad»: la unidad va detras del valor (detras de «=valor» si se muestra)
+    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + VB0 + matText(mx) + VB1 + un : IT0 + shown + call + ':=' + wrapNames(p.expr.trim()) + (bad && !shownVal ? ' ⚠' : '') + IT1 + (shownVal && !shownVal.endsWith('⚠') ? shownVal + un : un + shownVal)) + p.post;
   };
   return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + tk.lines.map((l) => l.map(piece).join('')).join('\n') + (tk.disp ? '$$' : '$'))).join('');
 }
@@ -133,6 +137,8 @@ export function textPose(doc, t) {
 export const lineWidth = (measure, line, font) => runsOf(line).reduce((w, r) => w + measure(r.s, font, r.it), 0);
 
 // Caja en el sistema local del texto (x a la derecha, y arriba, origen en el punto de insercion).
+// Margen del color de fondo de un texto alrededor de su caja (en alturas de letra).
+export const TEXT_BG_PAD = 0.15;
 export function textFrame(t, measure, anchor = t.anchor) {
   const src = String(t.text ?? '');
   const lines = src.split('\n');

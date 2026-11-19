@@ -53,6 +53,18 @@ t('«f(x):expr=» define la funcion y muestra f(x) con las variables de ese punt
   for (const s of ['$$f(x):x^2=$$', '$$g(a; b):a+b = $$']) assert.equal(calcSrc(calcParse(s)), s);
 });
 
+t("«x:valor'unidad»: la unidad acompaña al valor, «x=» la muestra, una expresion no", () => {
+  const u = (s) => page(s).replace(/ " ([^"]*)"/g, ' $1'); // la unidad va como texto «" N"» dentro de la formula
+  assert.deepEqual(stmts("$$F:250'N$$"), ['F:250']);
+  assert.equal(u("$$F:250'N\nF=\nF*2=$$"), '$$F:=250 N\nF=250 N\nF*2=500$$');
+  assert.equal(u("$$a:2*3 ' m/s^2=$$"), '$$a:=2*3=6 m/s²$$'); // con «=», detras del valor; «^2» como superindice
+  assert.equal(u("$$v:1..3;3'mm\nv=$$"), '$$v:=[1, 2, 3] mm\nv=[1, 2, 3] mm$$');
+  assert.equal(u("$$q:sqrt(-1)'N=$$"), '$$q:=sqrt(-1) N=⚠$$');
+  assert.equal(page("$$f'(x)$$"), "$$f'(x)$$"); // fuera de una asignacion «'» sigue siendo la prima
+  assert.deepEqual(stmts("$$g(x):x'N$$"), ["g(x):x'N"]); // una funcion no lleva unidad
+  for (const s of ["$$F:250'N$$", "$$a:2*3 ' m/s^2=$$"]) assert.equal(calcSrc(calcParse(s)), s);
+});
+
 t('un enunciado por linea: lo que sobra en la linea da ⚠', () => {
   assert.equal(page('$$x:2  y:3$$'), '$$x:=2  y:3 ⚠$$');
 });

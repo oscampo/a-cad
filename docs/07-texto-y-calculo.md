@@ -19,7 +19,8 @@ Toca donde va el punto de inserción y escribe ahí mismo, sin ventana. Lo que e
 | **Esc** | Descarta lo que escribes. |
 | **Enter** en una entrada vacía | Termina. Cambiar de herramienta también termina, y dibuja lo escrito. |
 | Tocar en otro sitio | Dibuja lo escrito y mueve la entrada allí. |
-| `'` al empezar | Texto normal en vez de ecuación (sirve también el `’` del teclado del iPad; el apóstrofo no se guarda). Ver «Texto normal, fórmulas y literales». |
+| `"` o un espacio al empezar | Texto normal en vez de ecuación (sirven también las comillas `“` del teclado del iPad; la comilla o el espacio no se guardan). Ver «Texto normal, fórmulas y literales». |
+| Insignia azul | Junto a la esquina de la entrada: `α` es una ecuación, `A` es texto normal. |
 
 ## Asignar y mostrar valores
 
@@ -31,6 +32,8 @@ Cada línea de una ecuación es un enunciado. El valor se actualiza solo cuando 
 | `x:=valor` | Lo mismo, tecleando `:=`. | `k:=4` | `k:=4` |
 | `expr=` | Un **=** al final de la línea muestra el valor, con hasta 3 decimales. | `2/3=` | `2/3=0.667` |
 | `x:expr=` | Asigna y muestra el valor en la misma línea. | `x:2*3=`<br>`y:x+1=` | `x:=2*3=6`<br>`y:=x+1=7` |
+| `x:valor'unidad` | **Unidad**: una etiqueta que acompaña al valor y se dibuja detrás de él. `x=` la muestra; una expresión con x no (la unidad no se convierte ni se propaga). | `F:250'N`<br>`F=`<br>`F*2=` | `F:=250 N`<br>`F=250 N`<br>`F*2=500` |
+| `x:expr'unidad=` | Con `=` la unidad va detrás del valor calculado. | `a:2*3'm/s^2=` | `a:=2*3=6 m/s²` |
 | `x:a..b;n` | **Rango**: n valores de a hasta b, un vector fila. | `x:1..5;5` | `x:=[1, 2, 3, 4, 5]` |
 | `x:a..paso..b` | Rango con paso. | `x:0..0.5..2` | `x:=[0, 0.5, 1, 1.5, 2]` |
 | Ángulos | Un valor con π es un ángulo en radianes; uno sin π es un número a secas. | `a:30`<br>`sin(a)=` | `a:=30`<br>`sin(a)=0.5` |
@@ -44,11 +47,11 @@ Cada línea de una ecuación es un enunciado. El valor se actualiza solo cuando 
 
 ## Texto normal, fórmulas y literales
 
-Un texto que empieza con `'` se dibuja tal cual, salvo lo que va entre signos de pesos, que es matemático y calcula igual que una ecuación.
+Un texto que empieza con `"` (o con un espacio) se dibuja tal cual, salvo lo que va entre signos de pesos, que es matemático y calcula igual que una ecuación.
 
 | Escribes | Qué hace | Ejemplo | Se ve |
 |---|---|---|---|
-| `$…$` | Fórmula en línea con el texto. | `'Vale $2*3=$ mm` | `Vale 2*3=6 mm` |
+| `$…$` | Fórmula en línea con el texto. | `"Vale $2*3=$ mm` | `Vale 2*3=6 mm` |
 | `$$…$$` | Fórmula en bloque: cada línea de dentro es una ecuación, centrada y a tamaño pleno. |  |  |
 | `` `…` `` | **Literal**: se dibuja pero nunca se calcula ni se lee como asignación o salida. Sin las comillas, `f:RR->RR` sería una asignación. | `` `f:RR->RR` ``<br>`` `x =` 3 `` | `f:RR->RR`<br>`x = 3` |
 | `` `… `` sin cerrar | Se marca con ⚠. | `` `abierto `` | `` `abierto ⚠ `` |
@@ -161,6 +164,7 @@ Se usan en cualquier fórmula: cotas, textos (`p12.x=`), actuadores y gráficas.
 | Punto de inserción | Es un punto real: se puede acotar, fijar o relacionar. Se elige su lugar en la caja del texto. |
 | Ángulo y altura | Gira y escala el texto. También se puede alinear con una línea. |
 | *Legible* | Gira 180° el texto que quedaría boca abajo. |
+| Fondo | Color de fondo de la caja del texto (con un pequeño margen); tapa lo que quede debajo. **Sin fondo** lo quita. Se ve en el dibujo y en el SVG; el DXF no lo lleva. |
 
 ## Dibujos anteriores a la v2.0
 

@@ -1,6 +1,6 @@
 import { visibleDoc, hatchLoops, allLtypes, arcOf, arcSamples, splinePolyline, ellipsePolyline } from './model.js';
 import { dashFromPattern, norm, splineBezier } from './geom.js';
-import { textFrame, textCorners, textPose, shownText, runsOf, plainText, framePrims, LINE_SPACING, fontCss } from './text.js';
+import { textFrame, textCorners, textPose, shownText, runsOf, plainText, framePrims, LINE_SPACING, fontCss, TEXT_BG_PAD } from './text.js';
 import { vecArrow } from './vectors.js';
 import { layoutDim } from './dims.js';
 
@@ -155,6 +155,7 @@ export function exportSVG(doc, ltScale = 1, vis = {}) {
     if (!P) continue;
     const pose = textPose(doc, t);
     const f = textFrame(t, approx, pose.anchor);
+    if (t.bg) { const pad = TEXT_BG_PAD * t.h; out.push(`<rect transform="translate(${X(P.x)} ${Y(P.y)}) rotate(${n(-pose.ang)})" x="${n((f.xmin - pad) * K)}" y="${n((-f.ymax - pad) * K)}" width="${n((f.w + 2 * pad) * K)}" height="${n((f.hh + 2 * pad) * K)}" fill="${esc(t.bg)}"/>`); } // color de fondo
     if (f.math) { // formulas: cada primitiva con su posicion (texto en su linea base, trazos como rutas)
       const els = framePrims(f, t).map((p) => (p.k === 't'
         ? `<text x="${n(p.x * K)}" y="${n(-p.y * K)}" font-size="${n(p.size * K)}" font-family="${fontCss(p.font).replace(/"/g, "'")}"${p.it ? ' font-style="italic"' : ''}${p.bold ? ' font-weight="bold"' : ''}${p.col ? ` fill="${esc(p.col)}"` : ''}>${esc(p.s)}</text>`

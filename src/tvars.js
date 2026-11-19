@@ -41,12 +41,16 @@ const OUT_LINE = /^(\s*)([\s\S]*?\S)(\s*)=(\s*)$/;
 // Un trozo de codigo: { k:'def', pre, name, params, sep, expr, eq, post } | { k:'out', pre, expr, mid, post } | { k:'code', s }.
 // eq: en «x:expr=», lo que sigue a la expresion («=» con sus espacios); asigna y ademas muestra el valor.
 const EQ_TAIL = /^([\s\S]*?\S)(\s*=)$/;
+// «x:valor'unidad»: la unidad es una etiqueta que acompaña al valor (no se convierte ni se propaga en los calculos). uq: «'unidad» tal como se escribio.
+const UNIT_TAIL = /^([\s\S]*?\S)(\s*'\s*([^'"`=\s](?:[^'"`=]*[^'"`=\s])?))$/;
 function stmtOf(s) {
   let m = DEF_LINE.exec(s);
   if (m && m[5].trim()) {
     const d = { k: 'def', pre: m[1], name: m[2], params: m[3], sep: m[4], expr: m[5], post: m[6] };
     const e = EQ_TAIL.exec(m[5]); // tambien en una funcion: «f(x):x^2=» define f y muestra f(x) con las variables de ese punto
     if (e && !/[<>=!:≤≥≠]$/.test(e[1])) { d.expr = e[1]; d.eq = e[2]; }
+    const u = d.params === undefined ? UNIT_TAIL.exec(d.expr) : null;
+    if (u) { d.expr = u[1]; d.uq = u[2]; d.unit = u[3]; }
     return d;
   }
   m = OUT_LINE.exec(s);
@@ -70,7 +74,7 @@ export function calcPieces(line) {
   return out;
 }
 export const pieceSrc = (p) => (p.k === 'lit' ? '`' + p.s + (p.closed ? '`' : '') : p.k === 'code' ? p.s
-  : p.k === 'def' ? p.pre + p.name + (p.params !== undefined ? '(' + p.params + ')' : '') + p.sep + p.expr + (p.eq ?? '') + p.post : p.pre + p.expr + p.mid + '=' + p.post);
+  : p.k === 'def' ? p.pre + p.name + (p.params !== undefined ? '(' + p.params + ')' : '') + p.sep + p.expr + (p.uq ?? '') + (p.eq ?? '') + p.post : p.pre + p.expr + p.mid + '=' + p.post);
 // Filtro rapido: ¿puede llevar enunciados?
 export const hasCalc = (s) => typeof s === 'string' && s.includes('$') && /[:=]/.test(s);
 // Un texto partido en tramos: { t:'txt', raw } y { t:'math', disp, lines: [[trozo]] }. calcSrc lo vuelve a escribir tal cual.
@@ -211,7 +215,7 @@ function readingEvents(doc, probes = []) {
     if (it.probe !== undefined) { out.push({ kind: 'dim', id: it.probe }); continue; }
     let di = 0, oi = 0;
     for (const p of calcStmts(it.t.text)) {
-      if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(/[;,]/).map((q) => q.trim()), ...(p.eq !== undefined && p.params !== undefined ? { eq: true } : {}) });
+      if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(/[;,]/).map((q) => q.trim()), ...(p.eq !== undefined && p.params !== undefined ? { eq: true } : {}), ...(p.unit ? { unit: p.unit } : {}) });
       else out.push({ kind: 'out', tid: it.tid, idx: oi++, expr: p.expr });
     }
   }
@@ -275,6 +279,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
         }
       } catch (err) { st.bad.add(k); st.errs.set(e.name, `«${e.name}»: ${hint(err.message)}`); }
     }
+    if (val && e.unit) val.u = e.unit;
     if (val) { cur[e.name] = val; env[e.name] = val; st.defVal.set(k, val); if (e.eq) st.fnEnv.set(k, { ...cur }); } else { delete cur[e.name]; delete env[e.name]; } // una definicion que falla deja la variable sin definir
   }
   memoKey = key; memoSt = st;
