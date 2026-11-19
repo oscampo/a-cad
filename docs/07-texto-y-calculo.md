@@ -44,6 +44,7 @@ Cada línea de una ecuación es un enunciado. El valor se actualiza solo cuando 
 | `x:a..paso..b` | Rango con paso. | `x:0..0.5..2` | `x:=[0, 0.5, 1, 1.5, 2]` |
 | Vector con unidades | Una unidad para todos los elementos: `[1,2,3]'mm`, `[1'm, 20'cm]` o un rango `0..10;5'mm`. Se muestran todos en la misma unidad, y una gráfica los usa en esa unidad (la leyenda la dice). Mezclar magnitudes en un vector da ⚠. | `v:[1,2,3]'mm`<br>`v*2=`<br>`sum(v)=` | `v:=[1, 2, 3] mm`<br>`v*2=[2, 4, 6] mm`<br>`sum(v)=6 mm` |
 | Ángulos | Según **Documento → Ángulos en**. En grados (los dibujos anteriores), un valor con π es un ángulo en radianes y uno sin π es un número a secas: `sin(30)` va en grados. En radianes (los dibujos nuevos), todo va en radianes: `sin(π/6)=0.5`. El ejemplo, en un dibujo en grados. | `a:30`<br>`sin(a)=` | `a:=30`<br>`sin(a)=0.5` |
+| `...` | **Sigue en la línea siguiente**, como en Python: `...` al final de una línea y, si quieres, al comienzo de la siguiente. Las dos líneas son un solo enunciado y se ven así, partidas. Sirve para una ecuación que se sale del margen de la página. | `F:1+2+...`<br>`...3=` | `F:=1+2+...`<br>`...3=6` |
 | Error | Si la expresión no se puede calcular, en lugar del valor aparece ⚠. | `sqrt(-1)=` | `sqrt(-1)=⚠` |
 
 - **Un enunciado por línea**: lo que sobra en la línea se marca con ⚠ (`x:2  y:3`). Para poner dos, Shift+Enter.

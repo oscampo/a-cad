@@ -22,7 +22,7 @@ import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
 import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, AXES } from './graphs.js';
-import { textFrame, textHit, textPose, shownText, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD } from './text.js';
+import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD } from './text.js';
 import { migrateCalcDoc } from './tvars.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder } from './params.js';
@@ -45,7 +45,10 @@ const cv = $('cv');
 const ctx = cv.getContext('2d');
 
 // ---------------------------------------------------------------- estado
-const freshDoc = () => ({ ...newDoc(), angles: 'rad' }); // un dibujo nuevo calcula en radianes; los anteriores (sin «angles») siguen en grados
+// Un dibujo nuevo calcula en radianes (los anteriores, sin «angles», siguen en grados) y trae pagina carta con margenes de 25 mm
+// (los anteriores, sin «page», siguen «Sin limites»).
+const PAGES = { letter: 215.9, a4: 210 };
+const freshDoc = () => ({ ...newDoc(), angles: 'rad', page: { w: PAGES.letter, m: 25, x0: 0 } });
 let doc = freshDoc();
 const globalDoc = () => doc;
 let view = { ox: 200, oy: 300, s: 3 }; // px por unidad; y del modelo hacia arriba
@@ -879,6 +882,7 @@ export function render(c, W, H, v, o) {
   c.save();
   c.fillStyle = o.bg; c.fillRect(0, 0, W, H);
   if (o.grid) drawGrid(c, W, H);
+  if (o.ui && globalDoc().page) drawPage(c, W, H, globalDoc().page);
   labelHits = [];
   // rellenos
   for (const [id, h] of shownEntries(doc, 'hatches')) drawHatch(c, id, h, o);
@@ -984,6 +988,23 @@ function drawGrid(c, W, H) {
     const sy = Math.round(toScreen({ x: 0, y }).y * dpr) + 0.5;
     c.beginPath(); c.moveTo(0, sy); c.lineTo(W, sy); c.stroke();
   }
+}
+
+// La pagina (modo «Límites de página»): fuera de su ancho el lienzo se sombrea; bordes continuos y margenes a trazos.
+// Solo en pantalla; no limita nada: un dibujo o una formula mas ancha se ve desbordada.
+function drawPage(c, W, H, pg) {
+  const X = (x) => Math.round(toScreen({ x, y: 0 }).x * dpr) + 0.5;
+  const x0 = pg.x0 || 0, a = X(x0), b = X(x0 + pg.w);
+  c.save();
+  c.globalAlpha = 0.07; c.fillStyle = theme.fg;
+  if (a > 0) c.fillRect(0, 0, a, H);
+  if (b < W) c.fillRect(b, 0, W - b, H);
+  c.globalAlpha = 1; c.strokeStyle = theme.muted; c.lineWidth = dpr;
+  c.setLineDash([]);
+  for (const x of [a, b]) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
+  c.setLineDash([6 * dpr, 5 * dpr]); c.globalAlpha = 0.6;
+  for (const x of [X(x0 + pg.m), X(x0 + pg.w - pg.m)]) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
+  c.restore();
 }
 
 function drawHatch(c, id, h, o) {
@@ -2839,6 +2860,10 @@ function drawSample(canvas, pattern, color) {
 
 function syncPanel() {
   $('docAngles').value = doc.angles === 'rad' ? 'rad' : 'deg';
+  const pg = doc.page;
+  $('docPage').value = !pg ? 'none' : Object.keys(PAGES).find((k) => Math.abs(PAGES[k] - pg.w) < 1e-6) || 'custom';
+  $('docPageW').value = pg ? +pg.w.toFixed(1) : ''; $('docMargin').value = pg ? pg.m : '';
+  $('docPageW').disabled = $('docMargin').disabled = !pg;
   const first = sel.map((s) => (s.k === 'ln' ? doc.lines[s.id] : s.k === 'ci' ? doc.circles[s.id] : s.k === 'ar' ? doc.arcs[s.id] : s.k === 'sp' ? doc.splines[s.id] : s.k === 'el' ? doc.ellipses[s.id] : null)).find(Boolean);
   const hat = sel.map((s) => (s.k === 'ha' ? doc.hatches[s.id] : null)).find(Boolean);
   const txt = sel.map((s) => (s.k === 'tx' ? doc.texts[s.id] : null)).find(Boolean);
@@ -2984,6 +3009,15 @@ function contentBounds(withGraphs = false) {
 function fitView() {
   const b = contentBounds(true);
   const r = cv.getBoundingClientRect();
+  const pg = globalDoc().page;
+  if (pg) { // con pagina: su ancho llena la pantalla y se ve desde arriba, como una hoja (lo que sobra hacia abajo se recorre)
+    const x0 = pg.x0 || 0, s = Math.min((r.width - 24) / pg.w, 400);
+    const vd = visibleDoc(globalDoc());
+    let top = b ? b.y1 : -Infinity;
+    for (const t of Object.values(vd.texts || {})) if (vd.pts[t.pt]) for (const q of textCorners(vd, t, measureRel)) top = Math.max(top, q.y);
+    view = { s, ox: r.width / 2 - (x0 + pg.w / 2) * s, oy: 24 + (isFinite(top) ? top : 0) * s };
+    draw(); persist(); return;
+  }
   if (!b) { view = { ox: r.width / 2, oy: r.height / 2, s: 5 }; draw(); return; }
   const w = Math.max(b.x1 - b.x0, 1e-6), h = Math.max(b.y1 - b.y0, 1e-6);
   const s = Math.min((r.width - 80) / w, (r.height - 80) / h, 400);
@@ -4360,6 +4394,25 @@ function applyLabels() {
   document.body.classList.toggle('nolabels', !opts.labels);
   $('tLabels').setAttribute('aria-pressed', String(opts.labels));
 }
+// Pagina: al activarla en un dibujo que ya tiene contenido, su borde izquierdo queda un margen antes de lo dibujado.
+$('docPage').onchange = (e) => {
+  const v = e.target.value;
+  pushUndo();
+  if (v === 'none') delete doc.page;
+  else {
+    const b = doc.page ? null : contentBounds(true), m = doc.page?.m ?? 25;
+    doc.page = { w: PAGES[v] ?? doc.page?.w ?? PAGES.letter, m, x0: doc.page?.x0 ?? (b ? b.x0 - m : 0) };
+  }
+  afterChange(); syncPanel(); fitView();
+  toast(v === 'none' ? 'Sin límites: lienzo infinito, los textos respetan cada salto de línea' : 'Página de ' + +doc.page.w.toFixed(1) + ' mm: los textos se ajustan a los márgenes');
+};
+const pageNum = (key, min) => (e) => {
+  const x = parseFloat(e.target.value);
+  if (!doc.page || !(x >= min) || (key === 'm' ? 2 * x >= doc.page.w : 2 * doc.page.m >= x)) { syncPanel(); toast('Valor no válido'); return; }
+  pushUndo(); doc.page = { ...doc.page, [key]: x }; afterChange(); syncPanel();
+};
+$('docPageW').onchange = pageNum('w', 20);
+$('docMargin').onchange = pageNum('m', 0);
 $('docAngles').onchange = (e) => { pushUndo(); if (e.target.value === 'rad') doc.angles = 'rad'; else delete doc.angles; afterChange(); toast(e.target.value === 'rad' ? 'Textos de cálculo en radianes: sin(π/2)=1' : 'Textos de cálculo en grados: sin(90)=1'); };
 $('ltScale').oninput = (e) => { opts.ltScale = Number(e.target.value); draw(); syncPanel(); persist(); };
 

@@ -47,6 +47,7 @@ export const CALC_GROUPS = [
       [c('x:a..paso..b'), 'Rango con paso.', 'x:0..0.5..2', 'x:=[0, 0.5, 1, 1.5, 2]', 't'],
       ['Vector con unidades', 'Una unidad para todos los elementos: ' + c("[1,2,3]'mm") + ', ' + c("[1'm, 20'cm]") + ' o un rango ' + c("0..10;5'mm") + '. Se muestran todos en la misma unidad, y una gráfica los usa en esa unidad (la leyenda la dice). Mezclar magnitudes en un vector da ⚠.', "v:[1,2,3]'mm\nv*2=\nsum(v)=", 'v:=[1, 2, 3] mm\nv*2=[2, 4, 6] mm\nsum(v)=6 mm', 't'],
       ['Ángulos', 'Según <b>Documento → Ángulos en</b>. En grados (los dibujos anteriores), un valor con π es un ángulo en radianes y uno sin π es un número a secas: <code>sin(30)</code> va en grados. En radianes (los dibujos nuevos), todo va en radianes: <code>sin(π/6)=0.5</code>. El ejemplo, en un dibujo en grados.', 'a:30\nsin(a)=', 'a:=30\nsin(a)=0.5', 't'],
+      [c('...'), '<b>Sigue en la línea siguiente</b>, como en Python: ' + c('...') + ' al final de una línea y, si quieres, al comienzo de la siguiente. Las dos líneas son un solo enunciado y se ven así, partidas. Sirve para una ecuación que se sale del margen de la página.', 'F:1+2+...\n...3=', 'F:=1+2+...\n...3=6', 't'],
       ['Error', 'Si la expresión no se puede calcular, en lugar del valor aparece ⚠.', 'sqrt(-1)=', 'sqrt(-1)=⚠', 't'],
     ],
     rules: [

@@ -89,12 +89,22 @@ export function calcParse(s) {
   s = String(s ?? '');
   let r = PARSED.get(s);
   if (r) return r;
-  r = splitMath(s).map((tk) => (tk.t === 'txt' ? { t: 'txt', raw: tk.raw } : { t: 'math', disp: tk.disp, lines: tk.src.split('\n').map(calcPieces) }));
+  r = splitMath(s).map((tk) => {
+    if (tk.t === 'txt') return { t: 'txt', raw: tk.raw };
+    const conts = [], src = tk.src.replace(CONT, (m) => (conts.push(m), CONT_MARK));
+    return { t: 'math', disp: tk.disp, lines: src.split('\n').map(calcPieces), ...(conts.length ? { conts } : {}) };
+  });
   if (PARSED.size > 2000) PARSED.clear();
   PARSED.set(s, r);
   return r;
 }
-export const calcSrc = (toks) => toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + tk.lines.map((l) => l.map(pieceSrc).join('')).join('\n') + (tk.disp ? '$$' : '$'))).join('');
+export const calcSrc = (toks) => toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + contBack(tk, tk.lines.map((l) => l.map(pieceSrc).join('')).join('\n')) + (tk.disp ? '$$' : '$'))).join('');
+// Una formula larga sigue en la linea siguiente como en Python: «...» al final de una linea (y, si se quiere, al comienzo de la
+// siguiente). Para calcular, las dos lineas son un solo enunciado: el corte se cambia por CONT_MARK (un espacio para el calculo);
+// tk.conts guarda los cortes tal como estaban y contBack los devuelve al reescribir o mostrar la formula.
+const CONT = /[ \t]*\.\.\.[ \t]*\n[ \t]*(?:\.\.\.)?[ \t]*/g;
+export const CONT_MARK = '　';
+export const contBack = (tk, s) => { let i = 0; return tk.conts ? s.replace(/　/g, () => tk.conts[i++] ?? ' ') : s; };
 // Enunciados (asignaciones y salidas) de un texto, en orden.
 export const calcStmts = (s) => (hasCalc(s) ? calcParse(s).flatMap((tk) => (tk.t === 'math' ? tk.lines.flat().filter((p) => p.k === 'def' || p.k === 'out') : [])) : []);
 

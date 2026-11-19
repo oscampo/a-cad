@@ -316,7 +316,7 @@ const CACHE = new WeakMap();
 export function layoutText(text, measure, font, opt = {}) {
   let m = CACHE.get(measure);
   if (!m) { m = new Map(); CACHE.set(measure, m); }
-  const key = (font || '') + '\u0001' + (opt.reflow ? 'r' : '') + '\u0001' + text;
+  const key = (font || '') + '\u0001' + (opt.reflow ? 'r' : '') + (opt.maxW > 0 ? Math.round(opt.maxW * 100) : '') + '\u0001' + text;
   let r = m.get(key);
   if (!r) { if (m.size > 300) m.clear(); r = compute(text, measure, font, opt); m.set(key, r); }
   return r;
@@ -423,7 +423,7 @@ function joinLines(lines, reflow) {
 
 const PADC = 0.4; // margen de una celda de tabla y de un bloque de codigo
 function compute(text, measure, font, opt = {}) {
-  const md = hasMd(text);
+  const md = hasMd(text) || !!opt.reflow; // con la pagina, un texto sin marcas tambien une las lineas de sus parrafos
   const rows = [];
   // notas al pie: numeradas en el orden en que se las llama
   const fnNum = new Map();
@@ -487,6 +487,41 @@ function compute(text, measure, font, opt = {}) {
   const runW = (r, sz) => measure(r.s, r.code ? 'mono' : font, r.it) * runSz(r, sz) * (r.b ? 1.06 : 1);
   const itemsW = (items, sz) => items.reduce((w, it) => w + (it.k === 't' ? (it.w = it.runs.reduce((s, u) => s + runW(u, sz), 0)) : (it.w = it.box.w)), 0);
   const vert = (items, a, d) => { for (const it of items) if (it.k === 'm') { a = Math.max(a, it.box.a + 0.04); d = Math.max(d, it.box.d + 0.04); } return [a, d]; };
+  // Ajuste al ancho (opt.maxW, el de la pagina): una linea de texto mas ancha se parte en los espacios; las siguientes van con la misma
+  // sangria y sin viñeta. Una formula no se parte (se sale del margen: para seguirla en otra linea, «...» al final y al comienzo de la
+  // siguiente), ni una palabra mas ancha que la linea, ni las tablas, el codigo y las formulas en bloque.
+  const wrapRow = (r, maxW) => {
+    const b = r.blk || { kind: 'p' };
+    if (r.tbl || r.code || r.center || b.kind === 'hr' || !(r.w > maxW)) return [r];
+    const words = [];
+    let cur = [], gap = null;
+    const push = () => { if (cur.length) words.push({ gap, parts: cur }); cur = []; gap = null; };
+    for (const it of r.items) {
+      if (it.k === 'm') { cur.push(it); continue; }
+      for (const u of it.runs) for (const s of u.s.split(/( +)/)) {
+        if (!s) continue;
+        if (s[0] === ' ') { push(); gap = { ...u, s }; } else cur.push({ k: 'u', u: { ...u, s } });
+      }
+    }
+    push();
+    const pw = (p) => (p.k === 'm' ? p.box.w : runW(p.u, r.sz));
+    const lines = [];
+    let line = null, lw = 0;
+    for (const wd of words) {
+      const ww = wd.parts.reduce((s, p) => s + pw(p), 0), gw = wd.gap ? runW(wd.gap, r.sz) : 0;
+      if (line && line.length && lw + gw + ww > maxW - r.x0) { line = [{ ...wd, gap: null }]; lines.push(line); lw = ww; }
+      else { if (!line) lines.push((line = [])); line.push(wd); lw += gw + ww; }
+    }
+    return lines.map((ln, i) => {
+      const items = [];
+      const addU = (u) => { const l = items.at(-1); if (l?.k === 't') l.runs.push(u); else items.push({ k: 't', runs: [u] }); };
+      for (const wd of ln) { if (wd.gap) addU(wd.gap); for (const p of wd.parts) if (p.k === 'm') items.push(p); else addU(p.u); }
+      let [a, d] = vert(items, 0.98 * r.sz, 0.22 * r.sz);
+      const nr = { ...r, items, a, d, w: itemsW(items, r.sz) + r.x0 };
+      if (i > 0 && r.blk) nr.blk = { ...r.blk, mark: undefined };
+      return nr;
+    });
+  };
   // los avisos (callouts): su color sigue en las lineas de cita que vienen detras
   let co = null;
   for (const r of rows) {
@@ -512,6 +547,7 @@ function compute(text, measure, font, opt = {}) {
     if (r.code?.last) d += 0.25;
     r.w = itemsW(r.items, r.sz) + r.x0 + (r.code ? PADC : 0); r.a = a; r.d = d;
   }
+  if (opt.maxW > 0) rows.splice(0, rows.length, ...rows.flatMap((r) => wrapRow(r, opt.maxW)));
   for (const r of rows) if (r.tbl) { r.w =r.tbl.colW.reduce((s, w) => s + w + 2 * PADC, 0); }
   const W = Math.max(rows.some((r) => r.blk?.kind === 'hr' || r.code) ? 2 : 0.0001, ...rows.map((r) => r.w));
   const prims = [];

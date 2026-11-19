@@ -3,7 +3,7 @@
 // de measureText; en las pruebas puede ser una aproximacion).
 import { evalExpr, setAngleMode } from './expr.js';
 import { varsOf, textVars } from './params.js';
-import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts } from './tvars.js';
+import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack } from './tvars.js';
 import { normName, exprRefs } from './expr.js';
 import { parseUnit, sameDim, autoUnit } from './units.js';
 export { runsOf, plainText } from './tvars.js';
@@ -105,12 +105,24 @@ export function textValue(doc, t) {
     const un = p.unit && !(shownVal && !shownVal.endsWith('⚠')) ? unitMath(p.unit.replace(/^\((.*)\)$/, '$1')) : '';
     return p.pre + (mx ? IT0 + shown + ':=' + IT1 + matQ(mx, val.d, { [name]: val }, name, null, true) + (val.d ? '' : un) : IT0 + shown + call + ':=' + showU(wrapNames(p.expr.trim())) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;
   };
-  return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + tk.lines.map((l) => l.map(piece).join('')).join('\n') + (tk.disp ? '$$' : '$'))).join('');
+  return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + contBack(tk, tk.lines.map((l) => l.map(piece).join('')).join('\n')) + (tk.disp ? '$$' : '$'))).join('');
 }
 // El texto tal como se ve (con sus salidas calculadas): el mismo objeto si no hay ninguna.
 export function shownText(doc, t) {
   const v = textValue(doc, t);
-  return v === t.text ? t : { ...t, text: v };
+  const wrap = pageWrap(doc, t);
+  return v === t.text && !wrap ? t : { ...t, text: v, ...(wrap ? { wrap } : {}) };
+}
+// Con pagina (doc.page = { w, m, x0 }, en mm): el texto une las lineas de sus parrafos y, si va horizontal, se ajusta al margen
+// del lado hacia donde crece (desde su punto de insercion). Sin pagina («Sin limites»): cada salto de linea se respeta, sin ajuste.
+export function pageWrap(doc, t) {
+  const pg = doc?.page, P = pg && doc.pts?.[t.pt];
+  if (!P || t.vecOf) return null;
+  const { ang, anchor } = textPose(doc, t);
+  if (Math.min(ang, 360 - ang) > 0.5) return { reflow: true };
+  const L = (pg.x0 || 0) + pg.m, R = (pg.x0 || 0) + pg.w - pg.m, h = t.h || 1;
+  const maxW = { l: R - P.x, r: P.x - L, c: 2 * Math.min(P.x - L, R - P.x) }[anchor[1]];
+  return maxW > 2 * h ? { reflow: true, maxW: maxW / h } : { reflow: true };
 }
 
 export const ANCHORS = ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'];
@@ -172,8 +184,8 @@ export const TEXT_BG_PAD = 0.15;
 export function textFrame(t, measure, anchor = t.anchor) {
   const src = String(t.text ?? '');
   const lines = src.split('\n');
-  if (hasMath(src) || hasMd(src)) { // con formulas ($...$, $$...$$) o Markdown: las lineas tienen alturas y estilos propios
-    const m = layoutText(src, measure, t.font);
+  if (hasMath(src) || hasMd(src) || t.wrap) { // con formulas ($...$, $$...$$), Markdown o pagina: las lineas tienen alturas y estilos propios
+    const m = layoutText(src, measure, t.font, t.wrap || {});
     const w = Math.max(0.0001, m.w * t.h), hh = Math.max(LINE_SPACING * t.h, m.hh * t.h);
     const ax = { l: 0, c: 0.5, r: 1 }[anchor?.[1] ?? 'l'], ay = { t: 0, m: 0.5, b: 1 }[anchor?.[0] ?? 'b'];
     const xmin = -ax * w, ymax = ay * hh;
