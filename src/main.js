@@ -2,7 +2,7 @@ import wasmUrl from '@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url';
 import { initSolver, solve, solveSteps, reparamSplines, addConsSolved, projectMarks, isMark, assignMark, setMarkRef, resetMarks, ensureMarkRefs, redundantCons, makeGear, makeRack, checkRack, FINITE_TYPES, dragToStops, beginSession, endSession, perfStats } from './solver.js';
 import {
   newDoc, addLayer, deleteLayer, layerCount, shownEntries, shownValues, layerHiddenPoints, consHidden, visibleDoc, isHidden, addPoint, addLine, addCircle, addArc, addText, addSpline, splinePolyline, addCon, cleanup, deleteItems, clone, hatchLoops,
-  allLtypes, PALETTE, arcOf, conTag, ensureNumbers, addEllipse, ellipsePolyline, ellipseOf, ellipsePoint, ellipseParam, ellipseRange, isPartial, DIM_TYPES,
+  allLtypes, arcOf, conTag, ensureNumbers, addEllipse, ellipsePolyline, ellipseOf, ellipsePoint, ellipseParam, ellipseRange, isPartial, DIM_TYPES,
   withOp,
 } from './model.js';
 import {
@@ -34,6 +34,7 @@ import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
 import { parseValue, isPlainNumber } from './expr.js';
 import { HELP_HTML } from './help.js';
+import { colorPicker } from './colorpicker.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
 
 const VERSION = '2.9.0';
@@ -2810,16 +2811,12 @@ function applyStyle(prop, value) {
   afterChange();
 }
 
+let panelColor = 'auto', panelPicker = null; // el color que muestra el panel de estilo (el de la seleccion o el de lo nuevo)
 function buildSwatches() {
   const box = $('swatches');
   box.innerHTML = '';
-  for (const [val, name] of PALETTE) {
-    const b = document.createElement('button');
-    b.title = name; b.dataset.val = val;
-    b.style.background = val === 'auto' ? 'linear-gradient(135deg,#fff 50%,#111 50%)' : val;
-    b.onclick = () => { applyStyle('color', val); };
-    box.appendChild(b);
-  }
+  panelPicker = colorPicker({ value: () => panelColor, pick: (v) => applyStyle('color', v) });
+  box.appendChild(panelPicker);
 }
 
 function fillLtypes(cl = cur.ltype) {
@@ -2855,8 +2852,8 @@ function syncPanel() {
   $('ltEl').value = String(sv.ls ?? 1);
   fillLtypes(sv.ltype);
   $('weight').value = String(sv.w);
-  [...$('swatches').children].forEach((b) => b.classList.toggle('on', b.dataset.val === sv.color));
-  if (/^#/.test(sv.color)) $('colorPick').value = sv.color;
+  panelColor = sv.color || 'auto';
+  panelPicker?.refresh();
   if (hat) { $('hKind').value = hat.kind; $('hAngle').value = hat.angle; $('hSpace').value = hat.spacing; $('hAlpha').value = hat.alpha; }
   drawSample($('ltprev'), (allLtypes(doc)[sv.ltype] || allLtypes(doc).continua).pattern, theme.fg);
   const hasDimOrCon = sel.some((s) => s.k === 'co');
@@ -3712,22 +3709,8 @@ function propNumber(value, onChange, attrs = {}) {
   return i;
 }
 function propColors(o, field) {
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:2 1 180px';
-  const mark = () => wrap.querySelectorAll('button').forEach((b) => { b.style.outline = b.dataset.val === (o[field] || 'auto') ? '3px solid var(--accent)' : ''; });
-  for (const [val, name] of PALETTE) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.title = name; b.dataset.val = val;
-    b.style.cssText = 'width:30px;height:30px;min-width:30px;min-height:30px;padding:0;border-radius:6px;background:' + (val === 'auto' ? 'linear-gradient(135deg,#fff 50%,#111 50%)' : val);
-    b.onclick = () => { propSet((x) => { x[field] = val; }); mark(); };
-    wrap.appendChild(b);
-  }
-  const cp = document.createElement('input');
-  cp.type = 'color'; cp.value = /^#[0-9a-f]{6}$/i.test(o[field] || '') ? o[field] : '#2563eb';
-  cp.style.cssText = 'width:44px;min-height:30px;height:30px;padding:0;flex:none';
-  cp.onchange = () => { propSet((x) => { x[field] = cp.value; }); mark(); };
-  wrap.appendChild(cp);
-  mark();
+  const wrap = colorPicker({ value: () => o[field] || 'auto', pick: (v) => propSet((x) => { x[field] = v; }) });
+  wrap.style.flex = '2 1 220px';
   return wrap;
 }
 // Textos a los que se aplica un cambio en la ventana de propiedades: el abierto y los demas textos seleccionados.
@@ -3753,24 +3736,17 @@ function textColors() {
   wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:2 1 180px';
   const radios = document.createElement('div');
   radios.style.cssText = 'display:flex;gap:14px;flex:1 1 100%';
-  const sw = document.createElement('div');
-  sw.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-items:center';
   const cur0 = () => propObj()?.[txColorField] || (txColorField === 'color' ? 'auto' : '');
   const none = document.createElement('button');
   none.type = 'button'; none.textContent = 'Sin fondo'; none.title = 'Sin color de fondo (transparente)';
-  none.style.cssText = 'min-height:30px;padding:2px 10px;flex:none';
   none.onclick = () => { txSet('bg', undefined); mark(); };
-  const cp = document.createElement('input');
-  cp.type = 'color'; cp.style.cssText = 'width:44px;min-height:30px;height:30px;padding:0;flex:none';
-  cp.onchange = () => { txSet(txColorField, cp.value); mark(); };
+  const sw = colorPicker({ value: cur0, pick: (v) => { txSet(txColorField, v); mark(); }, extra: [none] });
   const mark = () => {
     const v = cur0();
-    sw.querySelectorAll('button[data-val]').forEach((b) => { b.style.outline = b.dataset.val === v ? '3px solid var(--accent)' : ''; });
     none.style.display = txColorField === 'bg' ? '' : 'none';
     none.setAttribute('aria-pressed', String(txColorField === 'bg' && !v));
-    if (/^#[0-9a-f]{6}$/i.test(v)) cp.value = v;
-    const auto = sw.querySelector('button[data-val="auto"]');
-    auto.title = txColorField === 'bg' ? 'Auto: color del papel (tapa lo que quede debajo)' : 'Auto';
+    sw.querySelector('.cp-auto').title = txColorField === 'bg' ? 'Auto: color del papel (tapa lo que quede debajo)' : 'Auto';
+    sw.refresh();
   };
   for (const [field, name] of [['color', 'Color de fuente'], ['bg', 'Color de fondo']]) {
     const lab = document.createElement('label'), r = document.createElement('input');
@@ -3781,14 +3757,6 @@ function textColors() {
     lab.append(r, document.createTextNode(name));
     radios.appendChild(lab);
   }
-  for (const [val, name] of PALETTE) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.title = name; b.dataset.val = val;
-    b.style.cssText = 'width:30px;height:30px;min-width:30px;min-height:30px;padding:0;border-radius:6px;background:' + (val === 'auto' ? 'linear-gradient(135deg,#fff 50%,#111 50%)' : val);
-    b.onclick = () => { txSet(txColorField, val); mark(); };
-    sw.appendChild(b);
-  }
-  sw.append(cp, none);
   wrap.append(radios, sw);
   mark();
   return wrap;
@@ -4223,7 +4191,6 @@ $('del').onclick = () => {
 };
 $('weight').onchange = (e) => applyStyle('w', Number(e.target.value));
 $('ltype').onchange = (e) => applyStyle('ltype', e.target.value);
-$('colorPick').oninput = (e) => applyStyle('color', e.target.value);
 ['hKind', 'hAngle', 'hSpace', 'hAlpha'].forEach((id) => { $(id).onchange = updateHatchFromPanel; });
 $('hAlpha').oninput = updateHatchFromPanel;
 $('mkhatch').onclick = createHatch;
