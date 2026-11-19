@@ -8,6 +8,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 - Unidades: psi admite prefijo (`kpsi`, `Mpsi`) y hay `ksi` (1000 psi) y `kip` (1000 lbf): `σ='kpsi` muestra un esfuerzo en kpsi.
 - Textos: el texto normal (el que empieza con `"` o un espacio) admite Markdown fuera de las fórmulas: **negrita**, *cursiva*, ~~tachado~~, `código` (monoespaciada), títulos `#`, `##`, `###`, viñetas `-` con sangría, listas numeradas `1.`, citas `>` y raya horizontal `---`. `\` antes de un signo lo deja tal cual.
+- Fórmulas: los operadores elemento a elemento se dibujan en notación matemática: `sin(x)./x` como la fracción sin(x)/x, `a.*b` como a∘b (producto de Hadamard) y `x.^2` como una potencia normal.
 
 ### Cambia el comportamiento
 
