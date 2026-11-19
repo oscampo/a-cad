@@ -44,11 +44,22 @@ t('parser: operadores de varios signos y funciones', () => {
 });
 
 t('parser: operadores elemento a elemento en notacion matematica', () => {
-  assert.deepEqual(parse('sin(x)./x'), parse('sin(x)/x')); // ./ es una fraccion normal
+  // ./ es una fraccion marcada (ew): se dibuja con un punto antes de la raya
+  const ew = parse('sin(x)./x'), fr = parse('sin(x)/x');
+  assert.equal(ew.c[1].ew, true);
+  assert.equal(fr.c[1].ew, undefined);
+  assert.deepEqual({ ...ew.c[1], ew: undefined }, { ...fr.c[1], ew: undefined });
   assert.deepEqual(parse('x.^2'), parse('x^2')); // .^ es una potencia normal
-  assert.equal(parse('a.*b').c[1].s, '∘'); // .* es el producto de Hadamard
-  assert.deepEqual(parse('2./3'), parse('2/3')); // el punto no se pega al numero
+  assert.equal(parse('a.*b').c[1].s, '.⋅'); // .*: el punto antes del ⋅ del producto
+  assert.equal(parse('2./3').c[0].a.s, '2'); // el punto no se pega al numero
   assert.equal(parse('1.5').c[0].s, '1.5');
+  // el punto va a la izquierda de la raya, a la altura del eje, y la fraccion se ensancha
+  const bx = (s) => layoutMath(s, false, measure);
+  const A = bx('a./b'), B = bx('a/b');
+  assert.ok(A.w > B.w);
+  const dot = A.ops.find((o) => o.k === 't' && o.s === '⋅'), bar = A.ops.find((o) => o.k === 'p');
+  assert.ok(dot && bar && dot.x < bar.pts[0][0]);
+  assert.ok(!B.ops.some((o) => o.k === 't' && o.s === '⋅'));
 });
 
 t('parser: nunca lanza y un grupo sin cierre se acepta', () => {

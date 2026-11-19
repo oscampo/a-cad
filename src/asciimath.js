@@ -63,7 +63,8 @@ const SYMS = [
   ['!in', op('∉', 'rel')], ['!=', op('≠', 'rel')], ['<=', op('≤', 'rel')], ['>=', op('≥', 'rel')], ['->', op('→', 'rel')], ['=>', op('⇒', 'rel')], ['<-', op('←', 'rel')],
   ['~~', op('≈', 'rel')], ['~=', op('≅', 'rel')], ['-=', op('≡', 'rel')], [':=', op(':=', 'rel')], ['-<=', op('⪯', 'rel')], ['-<', op('≺', 'rel')],
   ['>-=', op('⪰', 'rel')], ['>-', op('≻', 'rel')], ['>->', op('↣', 'rel')], ['->>', op('↠', 'rel')], ['|--', op('⊢', 'rel')], ['|==', op('⊨', 'rel')],
-  ['./', { t: 'slash' }], ['.*', op('∘', 'bin')], ['.^', { t: 'sup' }], // operadores elemento a elemento: fraccion, Hadamard, potencia
+  // operadores elemento a elemento: el punto antecede a la operacion (antes de la raya de la fraccion, antes del ⋅); .^ es una potencia
+  ['./', { t: 'slash', ew: true }], ['.*', op('.⋅', 'bin')], ['.^', { t: 'sup' }],
   ['-:', op('÷', 'bin')], ['+-', op('±', 'bin')], ['-+', op('∓', 'bin')], ['***', op('⋆', 'bin')], ['**', op('∗', 'bin')], ['//', { t: 'sym', v: '/' }],
   ['\\\\', op('∖', 'bin')], ['|><|', op('⋈', 'bin')], ['|><', op('⋉', 'bin')], ['><|', op('⋊', 'bin')], ['o+', op('⊕', 'bin')], ['o.', op('⊙', 'bin')],
   ['^^^', { t: 'kw', v: 'big:bigwedge' }],
@@ -254,9 +255,10 @@ function parseI(p) {
 function parseE(p) {
   let left = parseI(p);
   while (p.toks[p.i]?.t === 'slash') {
+    const ew = !!p.toks[p.i].ew;
     p.i++;
     const right = parseI(p);
-    left = { t: 'frac', a: unwrap(left), b: unwrap(right) };
+    left = { t: 'frac', a: unwrap(left), b: unwrap(right), ...(ew ? { ew } : {}) };
   }
   return left;
 }

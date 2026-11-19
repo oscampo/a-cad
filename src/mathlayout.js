@@ -100,9 +100,11 @@ function frac(n, ctx) {
   // Puntal fijo (como TeX): la posicion de numerador y denominador no depende de si llevan solo letras bajas («x») o cifras y mayusculas.
   const nd = Math.max(N.d, 0.22 * cs.sz), da = Math.max(D.a, 0.7 * cs.sz);
   const yn = -ax - bar / 2 - gap - nd, yd = -ax + bar / 2 + gap + da;
+  // ./ (elemento a elemento): un punto antes de la raya, a su altura (el «⋅» del producto ya va sobre el eje)
+  const dot = n.ew ? glyph({ ...ctx, alpha: null, upright: true }, '⋅') : null, x0 = dot ? dot.w * 0.95 : 0;
   return {
-    w, a: ax + bar / 2 + gap + nd + N.a, d: -ax + bar / 2 + gap + da + D.d,
-    ops: [...shift(N.ops, (w - N.w) / 2, yn), stroke([[0, -ax], [w, -ax]], bar), ...shift(D.ops, (w - D.w) / 2, yd)],
+    w: w + x0, a: ax + bar / 2 + gap + nd + N.a, d: -ax + bar / 2 + gap + da + D.d,
+    ops: [...(dot ? shift(dot.ops, -dot.w * 0.1, 0) : []), ...shift(N.ops, x0 + (w - N.w) / 2, yn), stroke([[x0, -ax], [x0 + w, -ax]], bar), ...shift(D.ops, x0 + (w - D.w) / 2, yd)],
   };
 }
 
