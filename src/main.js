@@ -47,8 +47,17 @@ const ctx = cv.getContext('2d');
 // ---------------------------------------------------------------- estado
 // Un dibujo nuevo calcula en radianes (los anteriores, sin «angles», siguen en grados) y trae pagina carta con margenes de 25 mm
 // (los anteriores, sin «page», siguen «Sin limites»).
-const PAGES = { letter: 215.9, a4: 210 };
-const freshDoc = () => ({ ...newDoc(), angles: 'rad', page: { w: PAGES.letter, m: 25, x0: 0 } });
+const PAGES = { letter: { w: 215.9, h: 279.4 }, a4: { w: 210, h: 297 } };
+const freshDoc = () => ({ ...newDoc(), angles: 'rad', page: { w: PAGES.letter.w, h: PAGES.letter.h, m: 25, x0: 0, y0: 0 } });
+const pageKind = (pg) => Object.keys(PAGES).find((k) => Math.abs(PAGES[k].w - pg.w) < 1e-6 && (pg.h == null || Math.abs(PAGES[k].h - pg.h) < 1e-6));
+// Alto de la pagina: una pagina guardada antes de que existiera toma el de su formato, o la proporcion de A4 si el ancho es otro.
+const pageH = (pg) => pg.h ?? PAGES[pageKind(pg)]?.h ?? +((pg.w * 297) / 210).toFixed(1);
+// Borde superior (y del modelo) de la primera pagina: si falta (pagina de antes), queda un margen por encima de lo mas alto
+// del dibujo y se guarda, para que no se mueva al editar.
+function pageTop(pg) {
+  if (pg.y0 == null) { const t = contentTop(); pg.y0 = isFinite(t) ? +(t + pg.m).toFixed(3) : 0; }
+  return pg.y0;
+}
 let doc = freshDoc();
 const globalDoc = () => doc;
 let view = { ox: 200, oy: 300, s: 3 }; // px por unidad; y del modelo hacia arriba
@@ -990,20 +999,44 @@ function drawGrid(c, W, H) {
   }
 }
 
-// La pagina (modo «Límites de página»): fuera de su ancho el lienzo se sombrea; bordes continuos y margenes a trazos.
-// Solo en pantalla; no limita nada: un dibujo o una formula mas ancha se ve desbordada.
+// La pagina: fuera de su ancho y por encima de la primera hoja el lienzo se sombrea; bordes continuos y margenes a trazos.
+// Las hojas se repiten hacia abajo (cada salto de pagina es un borde inferior, una franja sombreada y el borde superior
+// de la siguiente). Solo en pantalla; no limita nada: un dibujo o una formula mas ancha se ve desbordada, y un texto
+// que cruza un salto no pasa solo a la hoja siguiente.
+const PAGE_GAP = 8; // px de pantalla entre hojas
 function drawPage(c, W, H, pg) {
   const X = (x) => Math.round(toScreen({ x, y: 0 }).x * dpr) + 0.5;
-  const x0 = pg.x0 || 0, a = X(x0), b = X(x0 + pg.w);
+  const Y = (y) => Math.round(toScreen({ x: 0, y }).y * dpr) + 0.5;
+  const x0 = pg.x0 || 0, a = X(x0), b = X(x0 + pg.w), ph = pageH(pg), top = pageTop(pg);
+  const ma = X(x0 + pg.m), mb = X(x0 + pg.w - pg.m), gap = PAGE_GAP * dpr;
+  // hojas visibles: k = 0 es la primera; por encima de ella no hay pagina
+  const k0 = Math.max(0, Math.floor((top - toModel(0, 0).y) / ph));
+  const k1 = Math.max(k0, Math.floor((top - toModel(0, H / dpr).y) / ph));
   c.save();
   c.globalAlpha = 0.07; c.fillStyle = theme.fg;
   if (a > 0) c.fillRect(0, 0, a, H);
   if (b < W) c.fillRect(b, 0, W - b, H);
+  const yTop = Y(top);
+  if (yTop > 0) c.fillRect(Math.max(a, 0), 0, Math.min(b, W) - Math.max(a, 0), yTop);
+  for (let k = Math.max(1, k0); k <= k1 + 1; k++) { // franja entre hojas
+    const y = Y(top - k * ph);
+    c.fillRect(Math.max(a, 0), y - gap / 2, Math.min(b, W) - Math.max(a, 0), gap);
+  }
   c.globalAlpha = 1; c.strokeStyle = theme.muted; c.lineWidth = dpr;
   c.setLineDash([]);
-  for (const x of [a, b]) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
+  const line = (x1, y1, x2, y2) => { c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); };
+  line(a, Math.max(yTop, 0), a, H); line(b, Math.max(yTop, 0), b, H);
+  for (let k = k0; k <= k1 + 1; k++) {
+    const y = Y(top - k * ph);
+    if (k === 0) line(a, y, b, y);
+    else { line(a, y - gap / 2, b, y - gap / 2); line(a, y + gap / 2, b, y + gap / 2); }
+  }
   c.setLineDash([6 * dpr, 5 * dpr]); c.globalAlpha = 0.6;
-  for (const x of [X(x0 + pg.m), X(x0 + pg.w - pg.m)]) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
+  line(ma, Math.max(yTop, 0), ma, H); line(mb, Math.max(yTop, 0), mb, H);
+  for (let k = k0; k <= k1; k++) {
+    line(a, Y(top - k * ph - pg.m), b, Y(top - k * ph - pg.m));
+    line(a, Y(top - (k + 1) * ph + pg.m), b, Y(top - (k + 1) * ph + pg.m));
+  }
   c.restore();
 }
 
@@ -2885,9 +2918,9 @@ function drawSample(canvas, pattern, color) {
 function syncPanel() {
   $('docAngles').value = doc.angles === 'rad' ? 'rad' : 'deg';
   const pg = doc.page;
-  $('docPage').value = !pg ? 'none' : Object.keys(PAGES).find((k) => Math.abs(PAGES[k] - pg.w) < 1e-6) || 'custom';
-  $('docPageW').value = pg ? +pg.w.toFixed(1) : ''; $('docMargin').value = pg ? pg.m : '';
-  $('docPageW').disabled = $('docMargin').disabled = !pg;
+  $('docPage').value = !pg ? 'none' : pageKind(pg) || 'custom';
+  $('docPageW').value = pg ? +pg.w.toFixed(1) : ''; $('docPageH').value = pg ? +pageH(pg).toFixed(1) : ''; $('docMargin').value = pg ? pg.m : '';
+  $('docPageW').disabled = $('docPageH').disabled = $('docMargin').disabled = !pg;
   const first = sel.map((s) => (s.k === 'ln' ? doc.lines[s.id] : s.k === 'ci' ? doc.circles[s.id] : s.k === 'ar' ? doc.arcs[s.id] : s.k === 'sp' ? doc.splines[s.id] : s.k === 'el' ? doc.ellipses[s.id] : null)).find(Boolean);
   const hat = sel.map((s) => (s.k === 'ha' ? doc.hatches[s.id] : null)).find(Boolean);
   const txt = sel.map((s) => (s.k === 'tx' ? doc.texts[s.id] : null)).find(Boolean);
@@ -3030,16 +3063,21 @@ function contentBounds(withGraphs = false) {
   if (!xs.length) return null;
   return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
 }
+// y mas alta de lo dibujado, contando los textos (-Infinity si no hay nada)
+function contentTop() {
+  const b = contentBounds(true), vd = visibleDoc(globalDoc());
+  let top = b ? b.y1 : -Infinity;
+  for (const t of Object.values(vd.texts || {})) if (vd.pts[t.pt]) for (const q of textCorners(vd, t, measureRel)) top = Math.max(top, q.y);
+  return top;
+}
 function fitView() {
   const b = contentBounds(true);
   const r = cv.getBoundingClientRect();
   const pg = globalDoc().page;
-  if (pg) { // con pagina: su ancho llena la pantalla y se ve desde arriba, como una hoja (lo que sobra hacia abajo se recorre)
+  if (pg) { // con pagina: su ancho llena la pantalla y se ve desde el borde superior de la primera hoja (o desde lo que sobresalga)
     const x0 = pg.x0 || 0, s = Math.min((r.width - 24) / pg.w, 400);
-    const vd = visibleDoc(globalDoc());
-    let top = b ? b.y1 : -Infinity;
-    for (const t of Object.values(vd.texts || {})) if (vd.pts[t.pt]) for (const q of textCorners(vd, t, measureRel)) top = Math.max(top, q.y);
-    view = { s, ox: r.width / 2 - (x0 + pg.w / 2) * s, oy: 24 + (isFinite(top) ? top : 0) * s };
+    const top = Math.max(pageTop(pg), contentTop());
+    view = { s, ox: r.width / 2 - (x0 + pg.w / 2) * s, oy: PAGE_PAD + top * s };
     draw(); persist(); return;
   }
   if (!b) { view = { ox: r.width / 2, oy: r.height / 2, s: 5 }; draw(); return; }
@@ -4422,24 +4460,30 @@ function applyLabels() {
   document.body.classList.toggle('nolabels', !opts.labels);
   $('tLabels').setAttribute('aria-pressed', String(opts.labels));
 }
-// Pagina: al activarla en un dibujo que ya tiene contenido, su borde izquierdo queda un margen antes de lo dibujado.
+// Pagina: al activarla en un dibujo que ya tiene contenido, su borde izquierdo y el superior quedan un margen antes de lo dibujado.
 $('docPage').onchange = (e) => {
   const v = e.target.value;
   pushUndo();
   if (v === 'none') delete doc.page;
   else {
-    const b = doc.page ? null : contentBounds(true), m = doc.page?.m ?? 25;
-    doc.page = { w: PAGES[v] ?? doc.page?.w ?? PAGES.letter, m, x0: doc.page?.x0 ?? (b ? b.x0 - m : 0) };
+    const b = doc.page ? null : contentBounds(true), m = doc.page?.m ?? 25, P = PAGES[v];
+    const t = doc.page ? null : contentTop();
+    doc.page = {
+      w: P?.w ?? doc.page?.w ?? PAGES.letter.w, h: P?.h ?? (doc.page ? pageH(doc.page) : PAGES.letter.h), m,
+      x0: doc.page?.x0 ?? (b ? b.x0 - m : 0), y0: doc.page ? pageTop(doc.page) : isFinite(t) ? +(t + m).toFixed(3) : 0,
+    };
   }
   afterChange(); syncPanel(); fitView();
-  toast(v === 'none' ? 'Sin límites: lienzo infinito, los textos respetan cada salto de línea' : 'Página de ' + +doc.page.w.toFixed(1) + ' mm: los textos se ajustan a los márgenes');
+  toast(v === 'none' ? 'Sin límites: lienzo infinito, los textos respetan cada salto de línea' : 'Página de ' + +doc.page.w.toFixed(1) + ' × ' + +doc.page.h.toFixed(1) + ' mm: los textos se ajustan a los márgenes');
 };
 const pageNum = (key, min) => (e) => {
-  const x = parseFloat(e.target.value);
-  if (!doc.page || !(x >= min) || (key === 'm' ? 2 * x >= doc.page.w : 2 * doc.page.m >= x)) { syncPanel(); toast('Valor no válido'); return; }
-  pushUndo(); doc.page = { ...doc.page, [key]: x }; afterChange(); syncPanel();
+  const x = parseFloat(e.target.value), pg = doc.page;
+  const ok = pg && x >= min && (key === 'm' ? 2 * x < pg.w && 2 * x < pageH(pg) : 2 * pg.m < x);
+  if (!ok) { syncPanel(); toast('Valor no válido'); return; }
+  pushUndo(); doc.page = { ...pg, h: pageH(pg), y0: pageTop(pg), [key]: x }; afterChange(); syncPanel();
 };
 $('docPageW').onchange = pageNum('w', 20);
+$('docPageH').onchange = pageNum('h', 20);
 $('docMargin').onchange = pageNum('m', 0);
 $('docAngles').onchange = (e) => { pushUndo(); if (e.target.value === 'rad') doc.angles = 'rad'; else delete doc.angles; afterChange(); toast(e.target.value === 'rad' ? 'Textos de cálculo en radianes: sin(π/2)=1' : 'Textos de cálculo en grados: sin(90)=1'); };
 $('ltScale').oninput = (e) => { opts.ltScale = Number(e.target.value); draw(); syncPanel(); persist(); };

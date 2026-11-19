@@ -14,6 +14,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 - Fórmulas: una ecuación larga sigue en la línea siguiente como en Python, con `...` al final de una línea y, si se quiere, al comienzo de la siguiente (`F:1+2+...` / `...3=` da 6). Las dos líneas son un solo enunciado y se dibujan partidas.
 - Ajustar vista: con página, el ancho de la página llena la pantalla y la vista arranca arriba del contenido, como una hoja, en vez de encoger todo el dibujo a una miniatura.
 - Gráficas: **Ángulos en** en las propiedades de la gráfica (Del documento, Radianes o Grados) decide cómo lee esa gráfica sin, cos, tan y en qué unidad dibuja un ángulo, sin cambiar la opción del dibujo. Las variables que vienen de los textos siguen la opción del documento.
+- Página: la hoja tiene alto (Carta 279,4 mm, A4 297 mm, o **Alto (mm)** en «Otro tamaño») y los márgenes se aplican también arriba y abajo. El lienzo muestra el borde superior de la primera hoja (lo de encima queda sombreado) y, hacia abajo, cada salto de página con sus márgenes, repetidos sin fin. Es solo una guía en pantalla: un texto que cruza un salto no pasa solo a la hoja siguiente. Una página de antes toma el alto de su formato y su borde superior queda un margen por encima de lo dibujado; **Ajustar vista** arranca en ese borde.
 
 ### Cambia el comportamiento
 
