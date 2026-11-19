@@ -271,21 +271,6 @@ body.nopanel #panel { display: none; }
     <div class="row"><label for="ltEl">Escala del patrón</label><input type="range" id="ltEl" min="0.2" max="3" step="0.1" value="1"></div>
     <div class="row"><label for="weight">Grosor</label><select id="weight"><option value="1">Fino</option><option value="2" selected>Normal</option><option value="3.5">Grueso</option></select></div>
 </details>
-<details class="sec" data-sec="text"><summary data-icon="text"><i></i>Texto</summary>
-    <div class="row"><textarea id="txContent" rows="2" placeholder="Selecciona un texto para editarlo" style="flex:1 1 100%;min-height:56px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);font:inherit"></textarea></div>
-    <div class="row"><label for="txAngle" id="txAngleLabel">Ángulo °</label><input type="number" id="txAngle" value="0" step="5"></div>
-    <div class="grid2">
-      <button id="txAlign" data-icon="con-par" title="Alinear con una línea: selecciona el texto y una línea"><i></i><span>Alinear con línea</span></button>
-      <button id="txFree" data-icon="text" title="Soltar la alineación (conserva la orientación actual)"><i></i><span>Soltar</span></button>
-      <button id="txRead" data-icon="eye" aria-pressed="true" title="Si el texto quedaría boca abajo, se gira 180° para que se lea"><i></i><span>Legible</span></button>
-    </div>
-    <div class="row"><label for="txSize">Altura</label><input type="number" id="txSize" min="0.01" step="any" placeholder="auto"></div>
-    <div class="row"><label for="txFont">Fuente</label><select id="txFont"></select></div>
-    <div class="row"><label for="txBg">Fondo</label><input type="color" id="txBg" value="#ffffff" style="width:64px;flex:none"><button id="txBgOff" aria-pressed="true" title="Sin color de fondo (transparente)" style="flex:none">Sin fondo</button></div>
-    <div class="row"><label>Punto de inserción</label></div>
-    <div class="txa" id="txAnchors"></div>
-    <small>Elige en qué punto de la caja del texto está el punto de inserción. Ese punto es un punto real: se puede acotar, fijar o relacionar con otros elementos.</small>
-</details>
 <details class="sec" data-sec="lt"><summary data-icon="linetype"><i></i>Nuevo tipo de línea</summary>
     <div class="row"><label for="ltName">Nombre</label><input type="text" id="ltName" placeholder="mi tipo"></div>
     <div class="row"><label for="ltPat">Patrón</label><input type="text" id="ltPat" placeholder="12 -3 2 -3"></div>

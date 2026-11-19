@@ -36,7 +36,7 @@ import { parseValue, isPlainNumber } from './expr.js';
 import { HELP_HTML } from './help.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
 
-const VERSION = '2.8.0';
+const VERSION = '2.9.0';
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev'; // commit de la compilacion: junto a la version, abajo a la izquierda del dibujo
 const STORE = 'ipad-cad-v1';
 const $ = (id) => document.getElementById(id);
@@ -174,8 +174,6 @@ function updateEnabled() {
   $('spClose').disabled = !n.sp;
   $('spOffset').disabled = !n.sp;
   $('del').disabled = !sel.length && !(selGraph && doc.graphs?.[selGraph]);
-  $('txAlign').disabled = !(sel.some((x) => x.k === 'tx') && ln === 1);
-  $('txFree').disabled = !sel.some((x) => x.k === 'tx' && doc.texts[x.id]?.ref);
 }
 
 // ---------------------------------------------------------------- arbol de elementos y menu
@@ -1074,7 +1072,7 @@ function drawTexts(c, o) {
     c.rotate(-(pose.ang * Math.PI) / 180);
     if (t.bg) { // color de fondo: un rectangulo bajo la caja del texto, con un margen
       const pad = TEXT_BG_PAD * t.h;
-      c.fillStyle = t.bg; c.fillRect((f.xmin - pad) * sc * dpr, (-f.ymax - pad) * sc * dpr, (f.w + 2 * pad) * sc * dpr, (f.hh + 2 * pad) * sc * dpr);
+      c.fillStyle = t.bg === 'auto' ? o.bg : t.bg; c.fillRect((f.xmin - pad) * sc * dpr, (-f.ymax - pad) * sc * dpr, (f.w + 2 * pad) * sc * dpr, (f.hh + 2 * pad) * sc * dpr); // «auto»: el color del papel
     }
     c.font = `${t.h * sc * dpr}px ${fontCss(t.font)}`;
     c.fillStyle = colorOf(t.color, o); c.textBaseline = 'top'; c.textAlign = 'left';
@@ -2841,41 +2839,6 @@ function drawSample(canvas, pattern, color) {
   c.beginPath(); c.moveTo(6 * dpr, 12 * dpr); c.lineTo((w - 6) * dpr, 12 * dpr); c.stroke();
 }
 
-function syncTextPanel(txt) {
-  const src = txt || { text: '', h: cur.tx.h ?? '', ang: cur.tx.ang, anchor: cur.tx.anchor, readable: cur.tx.readable, font: cur.tx.font };
-  $('txFont').value = src.font || '';
-  $('txAngleLabel').textContent = txt?.ref ? 'Desfase °' : 'Ángulo °';
-  $('txRead').setAttribute('aria-pressed', String(src.readable !== false));
-  if (src.bg) $('txBg').value = src.bg;
-  $('txBgOff').setAttribute('aria-pressed', String(!src.bg));
-  $('txBg').disabled = $('txBgOff').disabled = !txt;
-  if (document.activeElement !== $('txContent')) $('txContent').value = src.text;
-  if (document.activeElement !== $('txAngle')) $('txAngle').value = String(src.ang ?? 0);
-  if (document.activeElement !== $('txSize')) $('txSize').value = src.h === '' ? '' : String(Math.round(src.h * 1000) / 1000);
-  $('txContent').disabled = !txt;
-  [...$('txAnchors').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.a === src.anchor)));
-}
-
-function applyText(prop, value) {
-  const ts = sel.filter((x) => x.k === 'tx').map((x) => doc.texts[x.id]);
-  if (['h', 'ang', 'anchor', 'readable', 'font'].includes(prop) && !(prop === 'ang' && ts.some((t) => t.ref))) cur.tx[prop] = value;
-  if (ts.length) { pushUndo(); ts.forEach((t) => { t[prop] = value; }); }
-  afterChange();
-}
-
-function buildAnchors() {
-  const box = $('txAnchors');
-  box.innerHTML = '';
-  ANCHORS.forEach((a) => {
-    const b = document.createElement('button');
-    b.dataset.a = a; b.title = 'Punto de inserción: ' + ANCHOR_NAMES[a]; b.setAttribute('aria-label', b.title);
-    const x = { l: 5, c: 12, r: 19 }[a[1]], y = { t: 5, m: 12, b: 19 }[a[0]];
-    b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="1" opacity=".55"/><circle cx="${x}" cy="${y}" r="3" fill="currentColor"/></svg>`;
-    b.onclick = () => applyText('anchor', a);
-    box.appendChild(b);
-  });
-}
-
 function syncPanel() {
   const first = sel.map((s) => (s.k === 'ln' ? doc.lines[s.id] : s.k === 'ci' ? doc.circles[s.id] : s.k === 'ar' ? doc.arcs[s.id] : s.k === 'sp' ? doc.splines[s.id] : s.k === 'el' ? doc.ellipses[s.id] : null)).find(Boolean);
   const hat = sel.map((s) => (s.k === 'ha' ? doc.hatches[s.id] : null)).find(Boolean);
@@ -2888,7 +2851,6 @@ function syncPanel() {
   else if (sel.some((s) => s.k === 'pt' && doc.traces[s.id])) { const tr = doc.traces[sel.find((s) => s.k === 'pt' && doc.traces[s.id]).id]; cur.color = tr.color; cur.ltype = tr.ltype; cur.w = tr.w; cur.ls = tr.ls ?? 1; }
   const sv = csel || cur;
   $('ltEl').value = String(sv.ls ?? 1);
-  syncTextPanel(txt);
   fillLtypes(sv.ltype);
   $('weight').value = String(sv.w);
   [...$('swatches').children].forEach((b) => b.classList.toggle('on', b.dataset.val === sv.color));
@@ -3766,6 +3728,69 @@ function propColors(o, field) {
   mark();
   return wrap;
 }
+// Textos a los que se aplica un cambio en la ventana de propiedades: el abierto y los demas textos seleccionados.
+function txTargets() {
+  const ids = new Set([...(propT?.k === 'tx' ? [propT.id] : []), ...sel.filter((s) => s.k === 'tx').map((s) => s.id)]);
+  return [...ids].map((id) => doc.texts[id]).filter(Boolean);
+}
+// Cambia una propiedad de esos textos (con deshacer); altura, angulo, anclaje, legible y fuente quedan ademas
+// como los de los textos nuevos.
+function txSet(prop, value) {
+  const ts = txTargets();
+  if (!ts.length) return;
+  if (['h', 'ang', 'anchor', 'readable', 'font'].includes(prop) && !(prop === 'ang' && ts.some((t) => t.ref))) cur.tx[prop] = value;
+  pushUndo();
+  ts.forEach((t) => { if (value === undefined) delete t[prop]; else t[prop] = value; });
+  afterChange();
+}
+// Color de un texto: las mismas muestras para la fuente o para el fondo, segun el boton de radio elegido.
+// En el fondo, «Auto» es el color del papel (tapa lo de abajo) y «Sin fondo» lo quita.
+let txColorField = 'color';
+function textColors() {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:2 1 180px';
+  const radios = document.createElement('div');
+  radios.style.cssText = 'display:flex;gap:14px;flex:1 1 100%';
+  const sw = document.createElement('div');
+  sw.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-items:center';
+  const cur0 = () => propObj()?.[txColorField] || (txColorField === 'color' ? 'auto' : '');
+  const none = document.createElement('button');
+  none.type = 'button'; none.textContent = 'Sin fondo'; none.title = 'Sin color de fondo (transparente)';
+  none.style.cssText = 'min-height:30px;padding:2px 10px;flex:none';
+  none.onclick = () => { txSet('bg', undefined); mark(); };
+  const cp = document.createElement('input');
+  cp.type = 'color'; cp.style.cssText = 'width:44px;min-height:30px;height:30px;padding:0;flex:none';
+  cp.onchange = () => { txSet(txColorField, cp.value); mark(); };
+  const mark = () => {
+    const v = cur0();
+    sw.querySelectorAll('button[data-val]').forEach((b) => { b.style.outline = b.dataset.val === v ? '3px solid var(--accent)' : ''; });
+    none.style.display = txColorField === 'bg' ? '' : 'none';
+    none.setAttribute('aria-pressed', String(txColorField === 'bg' && !v));
+    if (/^#[0-9a-f]{6}$/i.test(v)) cp.value = v;
+    const auto = sw.querySelector('button[data-val="auto"]');
+    auto.title = txColorField === 'bg' ? 'Auto: color del papel (tapa lo que quede debajo)' : 'Auto';
+  };
+  for (const [field, name] of [['color', 'Color de fuente'], ['bg', 'Color de fondo']]) {
+    const lab = document.createElement('label'), r = document.createElement('input');
+    lab.style.cssText = 'display:flex;gap:6px;align-items:center;font-size:13px;flex:none;min-width:0';
+    r.type = 'radio'; r.name = 'txColorField'; r.value = field; r.checked = txColorField === field;
+    r.style.cssText = 'width:20px;height:20px;min-height:20px;margin:0';
+    r.onchange = () => { if (r.checked) { txColorField = field; mark(); } };
+    lab.append(r, document.createTextNode(name));
+    radios.appendChild(lab);
+  }
+  for (const [val, name] of PALETTE) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.title = name; b.dataset.val = val;
+    b.style.cssText = 'width:30px;height:30px;min-width:30px;min-height:30px;padding:0;border-radius:6px;background:' + (val === 'auto' ? 'linear-gradient(135deg,#fff 50%,#111 50%)' : val);
+    b.onclick = () => { txSet(txColorField, val); mark(); };
+    sw.appendChild(b);
+  }
+  sw.append(cp, none);
+  wrap.append(radios, sw);
+  mark();
+  return wrap;
+}
 function renderPropCons() {
   const box = $('prCons');
   box.textContent = '';
@@ -3890,7 +3915,7 @@ function openProps(h) {
     body.appendChild(propRow('Forma fija (no se deforma al mover sus puntos)', cb));
   }
   if (k === 'tx') {
-    body.appendChild(propRow('Color', propColors(o, 'color')));
+    body.appendChild(propRow('Color', textColors()));
     const ta = document.createElement('textarea');
     ta.rows = 2; ta.value = o.text; ta.style.cssText = 'flex:1 1 100%;min-height:56px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);font:inherit';
     ta.onchange = () => {
@@ -3900,9 +3925,34 @@ function openProps(h) {
       if (textEditOk(before)) afterChange();
     };
     body.appendChild(propRow('Texto', ta));
-    body.appendChild(propRow('Fuente', propSelect(FONTS.map((f) => [f[0], f[1]]), o.font || '', (v) => propSet((x) => { x.font = v; }))));
-    body.appendChild(propRow('Altura', propNumber(o.h, (v, i) => { const n = Number(v); if (n > 0) propSet((x) => { x.h = n; }); else i.value = String(propObj().h); }, { min: '0.01' })));
-    body.appendChild(propRow(o.ref ? 'Desfase °' : 'Ángulo °', propNumber(o.ang, (v) => propSet((x) => { x.ang = Number(v) || 0; }))));
+    body.appendChild(propRow('Fuente', propSelect(FONTS.map((f) => [f[0], f[1]]), o.font || '', (v) => txSet('font', v))));
+    body.appendChild(propRow('Altura', propNumber(o.h, (v, i) => { const n = Number(v); if (n > 0) txSet('h', n); else i.value = String(propObj().h); }, { min: '0.01' })));
+    body.appendChild(propRow(o.ref ? 'Desfase °' : 'Ángulo °', propNumber(o.ang, (v) => txSet('ang', Number(v) || 0))));
+    // alinear con una linea (el angulo pasa a ser un desfase); «Ninguna» la suelta conservando la orientacion actual
+    const lopts = [['', 'Ninguna (ángulo libre)'], ...Object.entries(doc.lines).map(([id, l]) => [id, `${l.vec ? 'Vector' : 'Línea'} ${id} · L = ${fmt(dist(doc.pts[l.a], doc.pts[l.b]))}`])];
+    body.appendChild(propRow('Alinear con', propSelect(lopts, o.ref && doc.lines[o.ref] ? o.ref : '', (v) => {
+      const ts = txTargets();
+      pushUndo();
+      ts.forEach((t) => { if (v) { t.ref = v; t.ang = 0; } else if (t.ref) { t.ang = rawAngle(doc, t); delete t.ref; } });
+      afterChange(); openProps(h); // la etiqueta Ángulo/Desfase cambia
+    })));
+    const rd = document.createElement('input');
+    rd.type = 'checkbox'; rd.checked = o.readable !== false; rd.style.cssText = 'width:22px;height:22px;min-height:22px;margin:0;flex:none';
+    rd.onchange = () => txSet('readable', rd.checked);
+    body.appendChild(propRow('Legible (gira 180° el texto que quedaría boca abajo)', rd));
+    const an = document.createElement('div');
+    an.className = 'txa';
+    const markA = () => [...an.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.a === (propObj()?.anchor || 'bl'))));
+    ANCHORS.forEach((a) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.dataset.a = a; b.title = 'Punto de inserción: ' + ANCHOR_NAMES[a]; b.setAttribute('aria-label', b.title);
+      const x = { l: 5, c: 12, r: 19 }[a[1]], y = { t: 5, m: 12, b: 19 }[a[0]];
+      b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="1" opacity=".55"/><circle cx="${x}" cy="${y}" r="3" fill="currentColor"/></svg>`;
+      b.onclick = () => { txSet('anchor', a); markA(); };
+      an.appendChild(b);
+    });
+    markA();
+    body.appendChild(propRow('Punto de inserción', an));
   }
   if (k === 'pt') {
     body.appendChild(propRow('Color', propColors(o, 'color')));
@@ -4325,28 +4375,6 @@ $('spClose').onclick = () => {
   afterChange();
 };
 $('ltEl').oninput = (e) => applyStyle('ls', Number(e.target.value));
-$('txContent').onchange = (e) => applyText('text', e.target.value);
-$('txAlign').onclick = () => {
-  const ts = sel.filter((x) => x.k === 'tx').map((x) => doc.texts[x.id]), lns = sel.filter((x) => x.k === 'ln').map((x) => x.id);
-  if (!ts.length || lns.length !== 1) { toast('Selecciona un texto y una línea'); return; }
-  pushUndo(); ts.forEach((t) => { t.ref = lns[0]; t.ang = 0; });
-  toast('Texto alineado con la línea'); afterChange();
-};
-$('txFree').onclick = () => {
-  const ts = sel.filter((x) => x.k === 'tx').map((x) => doc.texts[x.id]).filter((t) => t.ref);
-  if (!ts.length) return;
-  pushUndo(); ts.forEach((t) => { t.ang = rawAngle(doc, t); delete t.ref; }); // conserva la orientacion actual
-  afterChange();
-};
-$('txRead').onclick = () => {
-  const ts = sel.filter((x) => x.k === 'tx').map((x) => doc.texts[x.id]);
-  applyText('readable', !(ts.length ? ts[0].readable !== false : cur.tx.readable !== false));
-};
-$('txFont').onchange = (e) => applyText('font', e.target.value);
-$('txBg').onchange = (e) => applyText('bg', e.target.value); // color de fondo de los textos seleccionados
-$('txBgOff').onclick = () => applyText('bg', undefined); // sin fondo
-$('txAngle').onchange = (e) => applyText('ang', Number(e.target.value) || 0);
-$('txSize').onchange = (e) => { const v = Number(e.target.value); if (v > 0) applyText('h', v); };
 
 function toggle(id, key) {
   const b = $(id);
@@ -4674,8 +4702,7 @@ async function boot() {
   updateFileTag();
   readTheme();
   buildSwatches();
-  buildAnchors();
-  for (const id of ['txFont', 'dlgTFont']) for (const [k, n] of FONTS) { const o = document.createElement('option'); o.value = k; o.textContent = n; o.style.fontFamily = fontCss(k); $(id).appendChild(o); }
+  for (const [k, n] of FONTS) { const o = document.createElement('option'); o.value = k; o.textContent = n; o.style.fontFamily = fontCss(k); $('dlgTFont').appendChild(o); }
   try {
     const s = JSON.parse(localStorage.getItem(STORE) || 'null');
     if (s?.doc) { autosaveAt = Number(s.at) || 0; loadDoc(s.doc); if (s.view) view = s.view; if (s.cur) cur = { ...cur, ...s.cur }; if (s.opts) Object.assign(opts, s.opts); }

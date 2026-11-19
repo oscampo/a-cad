@@ -2,6 +2,17 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## v2.9.0 (2026-11-18)
+
+### Nuevo
+
+- Textos: todas sus opciones están en la ventana de propiedades (doble toque sobre el texto): contenido, color, fuente, altura, ángulo, **Alinear con** una línea («Ninguna» la suelta y conserva la orientación), **Legible** y **punto de inserción**. Si hay más textos seleccionados, el cambio se aplica a todos.
+- Color de un texto: las mismas muestras sirven para la fuente o para el fondo, según dos botones de radio (**Color de fuente** / **Color de fondo**). En el fondo, *Auto* es el color del papel y **Sin fondo** lo quita.
+
+### Cambia el comportamiento
+
+- Se quitó la sección «Texto» del menú de herramientas. La altura, el ángulo, la fuente, Legible y el punto de inserción de los textos nuevos son los últimos que se eligieron en las propiedades de un texto.
+
 ## v2.8.0 (2026-11-18)
 
 ### Nuevo

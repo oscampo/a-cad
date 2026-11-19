@@ -173,11 +173,12 @@ export const CALC_GROUPS = [
     title: 'Fuente y formato del texto',
     head: ['Propiedad', 'Qué hace'],
     rows: [
-      ['Fuente', 'Se elige al crear el texto o en el panel: sistema, Helvetica/Arial, Times/Georgia, Courier/Menlo, Verdana, Palatino, Optima, Futura, American Typewriter y tres manuscritas. Si el dispositivo no tiene una, se usa una genérica parecida.'],
+      ['Fuente', 'Se elige al crear el texto o en sus propiedades (doble toque sobre el texto): sistema, Helvetica/Arial, Times/Georgia, Courier/Menlo, Verdana, Palatino, Optima, Futura, American Typewriter y tres manuscritas. Si el dispositivo no tiene una, se usa una genérica parecida.'],
+      ['Propiedades', 'Todo lo del texto se cambia con <b>doble toque</b> sobre él: contenido, color, fuente, altura, ángulo, alineación con una línea, <i>Legible</i> y punto de inserción. Si hay otros textos seleccionados, el cambio (salvo el contenido) se aplica también a ellos, y la altura, el ángulo, la fuente, <i>Legible</i> y el punto de inserción quedan para los textos nuevos.'],
       ['Punto de inserción', 'Es un punto real: se puede acotar, fijar o relacionar. Se elige su lugar en la caja del texto.'],
-      ['Ángulo y altura', 'Gira y escala el texto. También se puede alinear con una línea.'],
+      ['Ángulo y altura', 'Gira y escala el texto. <b>Alinear con</b> lo alinea con una línea (el ángulo pasa a ser un desfase); «Ninguna» lo suelta y conserva la orientación.'],
       ['<i>Legible</i>', 'Gira 180° el texto que quedaría boca abajo.'],
-      ['Fondo', 'Color de fondo de la caja del texto (con un pequeño margen); tapa lo que quede debajo. <b>Sin fondo</b> lo quita. Se ve en el dibujo y en el SVG; el DXF no lo lleva.'],
+      ['Color y fondo', 'Las mismas muestras sirven para la fuente o para el fondo: se elige con <b>Color de fuente</b> o <b>Color de fondo</b>. El fondo pinta la caja del texto (con un pequeño margen) y tapa lo que quede debajo; en el fondo, <i>Auto</i> es el color del papel y <b>Sin fondo</b> lo quita. Se ve en el dibujo y en el SVG; el DXF no lo lleva.'],
     ],
   },
   {

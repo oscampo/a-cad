@@ -167,11 +167,12 @@ Se usan en cualquier fórmula: cotas, textos (`p12.x=`), actuadores y gráficas.
 
 | Propiedad | Qué hace |
 |---|---|
-| Fuente | Se elige al crear el texto o en el panel: sistema, Helvetica/Arial, Times/Georgia, Courier/Menlo, Verdana, Palatino, Optima, Futura, American Typewriter y tres manuscritas. Si el dispositivo no tiene una, se usa una genérica parecida. |
+| Fuente | Se elige al crear el texto o en sus propiedades (doble toque sobre el texto): sistema, Helvetica/Arial, Times/Georgia, Courier/Menlo, Verdana, Palatino, Optima, Futura, American Typewriter y tres manuscritas. Si el dispositivo no tiene una, se usa una genérica parecida. |
+| Propiedades | Todo lo del texto se cambia con **doble toque** sobre él: contenido, color, fuente, altura, ángulo, alineación con una línea, *Legible* y punto de inserción. Si hay otros textos seleccionados, el cambio (salvo el contenido) se aplica también a ellos, y la altura, el ángulo, la fuente, *Legible* y el punto de inserción quedan para los textos nuevos. |
 | Punto de inserción | Es un punto real: se puede acotar, fijar o relacionar. Se elige su lugar en la caja del texto. |
-| Ángulo y altura | Gira y escala el texto. También se puede alinear con una línea. |
+| Ángulo y altura | Gira y escala el texto. **Alinear con** lo alinea con una línea (el ángulo pasa a ser un desfase); «Ninguna» lo suelta y conserva la orientación. |
 | *Legible* | Gira 180° el texto que quedaría boca abajo. |
-| Fondo | Color de fondo de la caja del texto (con un pequeño margen); tapa lo que quede debajo. **Sin fondo** lo quita. Se ve en el dibujo y en el SVG; el DXF no lo lleva. |
+| Color y fondo | Las mismas muestras sirven para la fuente o para el fondo: se elige con **Color de fuente** o **Color de fondo**. El fondo pinta la caja del texto (con un pequeño margen) y tapa lo que quede debajo; en el fondo, *Auto* es el color del papel y **Sin fondo** lo quita. Se ve en el dibujo y en el SVG; el DXF no lo lleva. |
 
 ## Dibujos anteriores a la v2.0
 
