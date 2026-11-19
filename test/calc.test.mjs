@@ -64,6 +64,7 @@ t("«x:valor'unidad»: unidades reales, se convierten y se propagan", () => {
   assert.equal(u("$$k:250'N/m\nk=$$"), '$$k:=250 N/m\nk=250 N/m$$'); // «'N/m» al final es la unidad entera
   assert.equal(u("$$x:5'foo=$$").includes('⚠'), true); // unidad desconocida
   assert.equal(u("$$L:1.2'm\nd:L/4\nd=\nd='m\nL/4=$$"), '$$L:=1.2 m\nd:=L/4\nd=300 mm\nd=0.3 m\nL/4=0.3 m$$'); // la de una variable de la expresion (d no tiene unidad propia: SI con prefijo)
+  assert.equal(u("$$F:35'kN\nd:1'in\nσ:F/(pi*d^2/4)\nσ='kpsi\nσ='ksi\nF='kip\np:2'Mpsi\np='ksi$$"), '$$F:=35 kN\nd:=1 in\nσ:=F/(pi*d^2/4)\nσ=10.018 kpsi\nσ=10.018 ksi\nF=7.868 kip\np:=2 Mpsi\np=2000 ksi$$'); // psi admite prefijo; ksi y kip
   assert.equal(u("$$F:5000'N\nA:2'cm^2\nF/A=$$"), '$$F:=5000 N\nA:=2 cm²\nF/A=25 MPa$$'); // prefijo automatico
   assert.equal(u("$$v:3'(m/s)\ndt:2'min\nv*dt=$$"), '$$v:=3 m/s\ndt:=2 min\nv*dt=360 m$$');
   assert.equal(u("$$L:1'm\nM:L'mm\nM=$$"), '$$L:=1 m\nM:=L mm\nM=1000 mm$$'); // con unidades, la cola solo dice en que unidad mostrarla
