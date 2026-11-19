@@ -3700,7 +3700,7 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   d.pts[a].fixed = true; addCon(d, { t: 'DIST', refs: [a, b], v: 10 });
   addRotary(d, l, a, { mode: 'vel', expr: '30' });
   const g = addGraph(d, 0, 0, 100, 60, ['MR1 vs t', 'MR1.v vs t', 'MR1.d vs t']);
-  d.graphs[g].t1 = 4; d.graphs[g].n = 5;
+  d.tEnd = 4; d.graphs[g].n = 5;
   const r = computeGraph(d, d.graphs[g], solve);
   assert.equal(r.error, null);
   assert.equal(r.series.length, 3);
@@ -3755,7 +3755,7 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   const fu = newDoc(), U = addPoint(fu, 0, 0);
   addText(fu, U, "$$x:5..10;3'mm\nF:[1,2,3]'kN\nk:2'N/mm\nL:250'mm$$", {});
   const ku = addGraph(fu, 0, 0, 100, 60, ['F vs x', 'k*x vs x', 'F./x vs x', 'L vs t']);
-  fu.graphs[ku].t1 = 1; fu.graphs[ku].n = 2;
+  fu.tEnd = 1; fu.graphs[ku].n = 2;
   const ru = computeGraph(fu, fu.graphs[ku], solve);
   assert.equal(ru.error, null);
   assert.deepEqual(ru.series.map((s) => s.label), ['F (kN) vs x (mm)', 'k*x (N) vs x (mm)', 'F./x (N/m) vs x (mm)', 'L (mm) vs t']);
@@ -3800,7 +3800,7 @@ t('notacion punto: p12.x, l1.len, c1.r en formulas, textos, cotas, actuadores y 
   f.pts[A].fixed = true; addCon(f, { t: 'DIST', refs: [A, B], v: 10 });
   addRotary(f, L, A, { mode: 'disp', expr: '9*t' });
   const g = addGraph(f, 0, 0, 100, 60, [B + '.y vs t']);
-  f.graphs[g].t1 = 10; f.graphs[g].n = 3;
+  f.tEnd = 10; f.graphs[g].n = 3;
   const rr = computeGraph(f, f.graphs[g], solve);
   assert.equal(rr.error, null);
   assert.ok(Math.abs(rr.series[0].pts[2][1] - 10 * Math.sin((90 * Math.PI) / 180)) < 1e-3);
@@ -3828,7 +3828,7 @@ t('graficas: expresiones, ejes secundarios y escalas', () => {
   f.pts[A].fixed = true; addCon(f, { t: 'DIST', refs: [A, B], v: 10 });
   const m = addRotary(f, L, A, { mode: 'disp', expr: '9*t' });
   const g = addGraph(f, 0, 0, 100, 60, [`${B}.x*2+1 vs t`, `MR1.d-${B}.y vs t @y2`, `${B}.y/${B}.x vs t`, 'q vs t']);
-  f.graphs[g].t1 = 10; f.graphs[g].n = 3;
+  f.tEnd = 10; f.graphs[g].n = 3;
   assert.match(computeGraph(f, f.graphs[g], solve).error, /No reconozco «q»/);
   f.graphs[g].series.pop();
   const rr = computeGraph(f, f.graphs[g], solve);
@@ -3850,7 +3850,7 @@ t('graficas: expresiones, ejes secundarios y escalas', () => {
   f.pts[A].fixed = true; addCon(f, { t: 'DIST', refs: [A, B], v: 10 });
   addRotary(f, L, A, { mode: 'disp', expr: '9*t' });
   const g = addGraph(f, 0, 0, 100, 60, [B + '.y vs t']);
-  f.graphs[g].t1 = 10; f.graphs[g].n = 40;
+  f.tEnd = 10; f.graphs[g].n = 40;
   const sync = computeGraph(f, f.graphs[g], solve);
   let steps = 0, last = 0;
   const asy = await computeGraphAsync(f, f.graphs[g], solve, { onStep: (x) => { steps++; last = x; } });

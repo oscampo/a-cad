@@ -1,9 +1,12 @@
 // Graficas: objetos del dibujo que muestran «variable1 vs variable2» (la 1.a en el eje vertical, la 2.a en el horizontal), una o
 // varias relaciones por grafica. Sin DOM.
-// doc.graphs[id] = { x, y (esquina inferior izquierda en el modelo), w, h, title, series: ['D1 vs t', ...], t1 (tiempo final), n (muestras) }
+// doc.graphs[id] = { x, y (esquina inferior izquierda en el modelo), w, h, title, series: ['D1 vs t', ...], n (muestras), axes }
+// El tiempo «t» lo define solo el reproductor de la simulacion (doc.tEnd); una grafica ya no tiene tiempo final propio.
 // Variables: «t» (tiempo), el desplazamiento de cada actuador por su nombre («MR1», «ML2»), su velocidad («MR1.v»; «MR1.d» es su desplazamiento, igual que «MR1»), las cotas con nombre
 // (D1, A1...), las variables de los textos y los vectores de rangos (x:0..1;5). Si una grafica usa variables que cambian con el tiempo,
-// se simula el dibujo (en una copia) de t = 0 a t1; si solo usa vectores, se grafican tal cual.
+// se simula el dibujo (en una copia) de t = 0 a doc.tEnd; si solo usa vectores, se grafican tal cual.
+// La variable independiente «x»: si el dibujo ya define x (un rango o un vector) se grafican esos valores, uno por uno; si no, cada grafica
+// usa su propio vector generico de n valores entre los limites de su eje x1 (por defecto GEN_X), asi acercar o mover la ventana la vuelve a muestrear.
 import { varsOf } from './params.js';
 import { evalExpr, exprRefs, setAngleMode, angleRad } from './expr.js';
 import { actDisp, simBegin, simStep } from './actuators.js';
@@ -16,12 +19,27 @@ export function addGraph(doc, x, y, w, h, series = []) {
   doc.graphs ||= {};
   doc.n += 1;
   const id = 'g' + doc.n;
-  doc.graphs[id] = { x, y, w, h, title: '', series, t1: 10, n: 100 };
+  doc.graphs[id] = { x, y, w, h, title: '', series, n: 100 };
   return id;
 }
 // «y vs x» -> { y, x, ax, ay }. Cada lado es una variable o una expresion con ellas («p1.x/p1.y», «ML1.d-p2.x»).
 // Al final se puede elegir los ejes con «@»: «MR1.v vs t @y2», «p3.y vs t @x2 y2» (por defecto x1 e y1).
 export const AXES = ['x1', 'x2', 'y1', 'y2'];
+// Intervalo por defecto del vector generico de «x» (sin limites en el eje).
+export const GEN_X = [-10, 10];
+// Valores de «x» de una grafica: n valores entre los limites de su eje k (escala lineal, o geometrica si el eje es logaritmico y los limites son positivos).
+export function genericRange(g, k = 'x1') {
+  const c = { min: null, max: null, scale: 'lin', ...(g.axes?.[k] || {}) }, num = (v) => (v !== null && v !== '' && v !== undefined && Number.isFinite(Number(v)) ? Number(v) : null);
+  let lo = num(c.min), hi = num(c.max);
+  const w = GEN_X[1] - GEN_X[0];
+  if (lo === null && hi === null) [lo, hi] = GEN_X; else if (lo === null) lo = hi - w; else if (hi === null) hi = lo + w;
+  if (!(hi > lo)) [lo, hi] = GEN_X;
+  return [lo, hi];
+}
+export function genericX(g, k = 'x1', n = 100) {
+  const [lo, hi] = genericRange(g, k), log = g.axes?.[k]?.scale === 'log' && lo > 0;
+  return Array.from({ length: n }, (_, i) => { const f = n > 1 ? i / (n - 1) : 0; return log ? lo * (hi / lo) ** f : lo + (hi - lo) * f; });
+}
 export function parseSeries(s) {
   let src = String(s ?? ''), ax = 'x1', ay = 'y1';
   const am = /\s@\s*([A-Za-z0-9 ,]*)$/.exec(src);
@@ -58,7 +76,7 @@ function* graphGen(doc, g, solveFn) {
   let specs;
   try { specs = g.series.map(parseSeries); } catch (e) { out.error = e.message; return out; }
   if (!specs.length) { out.error = 'La gráfica no tiene relaciones'; return out; }
-  const t1 = Number(doc.tEnd) > 0 ? Number(doc.tEnd) : Number(g.t1) > 0 ? Number(g.t1) : 10, n = Math.min(2000, Math.max(2, Math.round(Number(g.n) || 100)));
+  const t1 = Number(doc.tEnd) > 0 ? Number(doc.tEnd) : 10, n = Math.min(2000, Math.max(2, Math.round(Number(g.n) || 100)));
   const clone = JSON.parse(JSON.stringify(doc));
   delete clone.graphs;
   const acts = {};
@@ -93,14 +111,24 @@ function* graphGen(doc, g, solveFn) {
     return v;
   };
   const isVec = (side) => !!vecOf(side);
-  const known = (nm) => nm === 't' || nm in acts || (/\.[vd]$/.test(nm) && nm.slice(0, -2) in acts) || (nm in base);
+  const isTime = (nm) => nm === 't' || nm in acts || (/\.[vd]$/.test(nm) && nm.slice(0, -2) in acts);
+  const known = (nm) => isTime(nm) || nm in base;
+  // «x» sin definir: la grafica usa su propio vector generico; definida como vector (un rango), se evalua elemento por elemento si la formula no admite vectores.
+  const xGen = !('x' in base) && !('x' in acts);
+  const usesGen = (sp) => xGen && [sp.x, sp.y].some((s) => exprRefs(s).includes('x'));
+  const elem = new Set();
   for (const sp of specs) {
+    const gen = usesGen(sp);
     for (const side of [sp.x, sp.y]) {
-      for (const r of exprRefs(side)) if (!known(r)) { out.error = 'No reconozco «' + r + '»'; return out; }
-      try { vecOf(side); } catch (e) { out.error = e.message; return out; }
+      for (const r of exprRefs(side)) if (!known(r) && !(gen && r === 'x')) { out.error = 'No reconozco «' + r + '»'; return out; }
+      try { vecOf(side); } catch (e) {
+        if (side === sp.y && bareRe.test(sp.x) && base[sp.x]?.vec) { elem.add(sp); vecs.set(side, null); } else { out.error = e.message; return out; }
+      }
     }
+    if (gen && [sp.x, sp.y].some((s) => exprRefs(s).some(isTime))) { out.error = `«${sp.y} vs ${sp.x}»: la x genérica no se combina con t ni con actuadores`; return out; }
   }
-  const needSim = specs.some((sp) => !(isVec(sp.x) && isVec(sp.y)));
+  const needSim = specs.some((sp) => !(isVec(sp.x) && isVec(sp.y)) && !usesGen(sp) && !elem.has(sp));
+  if (specs.some(usesGen)) out.generic = true; // los limites del eje x1 definen los valores de x: cambiarlos vuelve a calcular
   const bufs = specs.map(() => []), errs = specs.map(() => null);
   // valor de una variable o expresion con el entorno env: un angulo suelto se muestra en grados
   const value = (src, env) => {
@@ -136,7 +164,15 @@ function* graphGen(doc, g, solveFn) {
   }
   specs.forEach((sp, i) => {
     let pts = bufs[i];
-    if (isVec(sp.x) && isVec(sp.y)) {
+    if (usesGen(sp) || elem.has(sp)) { // «y vs x» con x generica o con un vector del dibujo: se evalua para cada valor de x
+      const gen = usesGen(sp), list = gen ? genericX(g, sp.ax, n) : base[sp.x].vec, env0 = {};
+      for (const [nm, v] of Object.entries(base)) if (!v.vec && !v.mat) env0[nm] = v;
+      pts = [];
+      for (const xi of list) {
+        const env = { ...env0, [gen ? 'x' : sp.x]: gen ? { v: xi, r: false } : { v: xi, r: false, d: base[sp.x].d } };
+        try { const X = value(sp.x, env), Y = value(sp.y, env); if (Number.isFinite(X) && Number.isFinite(Y)) pts.push([X, Y]); } catch (e) { errs[i] ||= e.message; }
+      }
+    } else if (isVec(sp.x) && isVec(sp.y)) {
       const X = vecOf(sp.x), Y = vecOf(sp.y);
       if (X.length !== Y.length) { out.error = '«' + sp.y + '» y «' + sp.x + '» tienen distinto número de elementos'; return; }
       pts = X.map((x, j) => [x, Y[j]]);

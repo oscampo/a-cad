@@ -11,3 +11,6 @@ Con coma decimal los argumentos se separan con «;» (la coma es el decimal)	Wit
 Sin elegir (acepta las dos formas)	Not chosen (accepts both forms)
 Se reescribirán {0} fórmula{1} del dibujo sin indicador decimal elegido (como los dibujos anteriores). ¿Continuar?	{0} formula{1} in the drawing will be rewritten without a chosen decimal separator (like earlier drawings). Continue?
 sin elegir (se aceptan las dos formas)	not chosen (both forms are accepted)
+«{0} vs {1}»: la x genérica no se combina con t ni con actuadores	«{0} vs {1}»: the generic x cannot be combined with t or actuators
+Eje con límites automáticos	Axis with automatic limits
+Revisa la posición, el tamaño y las muestras	Check the position, size and samples

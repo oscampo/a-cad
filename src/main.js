@@ -21,7 +21,8 @@ import { layoutDim, dragDim, dimValue, dimScale, splitScale, angSector, angTrue,
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
-import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, AXES } from './graphs.js';
+import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, genericRange, GEN_X, AXES } from './graphs.js';
+import { panWin, zoomWin, zoomPos, zoomFromPos, winCenter, setWindow, clearWindow } from './graphview.js';
 import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD, textLinkAt, textLinkBoxes } from './text.js';
 import { linkTarget, resolveRepoPath, findAnchor } from './links.js';
 import { attachAutoPair } from './autopair.js';
@@ -1887,6 +1888,8 @@ function selPoints() {
 function toolDown(p) {
   hover = p;
   if (tool === 'select') {
+    const gz = !sim && fkOn('ac') ? graphCtlAt(p.x, p.y) : null;
+    if (gz) { ctlDown(gz, p); return; }
     const gh = !sim && fkOn('ac') ? graphAt(p.x, p.y) : null;
     if (gh && graphHold) { graphHold = null; gcalcMark(null); scheduleGraphs(); draw(); return; }
     if (gh) { const g = doc.graphs[gh.id]; drag = { p0: p, graph: gh.id, mode: gh.mode, orig: { x: g.x, y: g.y, w: g.w, h: g.h }, m0: toModel(p.x, p.y), started: false }; return; }
@@ -1961,6 +1964,7 @@ function toolMove(p) {
     return;
   }
   if (tool !== 'select') { if (dist(p, drag.p0) > 8) drag.moved = true; return; }
+  if (drag.ctl) { ctlMove(p); return; } // deslizadores de zoom de una grafica
   if (drag.graph) { // mover o redimensionar la grafica
     if (!drag.started) { if (dist(p, drag.p0) < 6) return; drag.started = true; pushUndo(); selGraph = drag.graph; sel = []; }
     const g = doc.graphs[drag.graph], m = toModel(p.x, p.y), dx = m.x - drag.m0.x, dy = m.y - drag.m0.y, o = drag.orig, mn = 60 / view.s, M = drag.mode;
@@ -2020,6 +2024,7 @@ function toolUp(p, q) {
   if (tool === 'mr' || tool === 'ml') { actTool(p); return; }
   if (tool === 'graph') { graphTool(p); return; }
   if (tool === 'select') {
+    if (d?.ctl) { ctlUp(d); return; }
     if (d?.graph) {
       if (d.started) { afterChange(); return; }
       const id = d.graph, now = performance.now(), dbl = lastGraphTap && lastGraphTap.id === id && now - lastGraphTap.t < 450 && dist(lastGraphTap, p) < 24;
@@ -3328,6 +3333,7 @@ function loadDoc(d) {
   const nMig = migrateCalcDoc(doc); // dibujos anteriores a la v2: «x{=v}» -> «$x:v$», «[=e]» -> «$e=$»
   if (nMig) setTimeout(() => toast(`Sintaxis de cálculo actualizada en ${nMig} texto${nMig > 1 ? 's' : ''}: x:valor asigna, expr= muestra el valor`), 1200);
   if (!(doc.tEnd > 0)) { const m = Math.max(0, ...Object.values(doc.graphs || {}).map((g) => Number(g.t1) || 0)); if (m > 0) doc.tEnd = m; } // dibujos anteriores: el tiempo final de sus graficas
+  for (const g of Object.values(doc.graphs || {})) delete g.t1; // una grafica ya no tiene tiempo final propio: lo define el reproductor
   undoStack = []; redoStack = []; sel = []; pending = null;
   setAngleMode(doc);
 }
@@ -3489,8 +3495,85 @@ function graphAt(sx, sy) {
   }
   return null;
 }
+// Zoom y paneo de una grafica: botones y deslizadores fuera de su rectangulo (graphCtl: zonas tocables de este dibujo; gview: ventana actual y de partida de cada eje).
+const graphCtl = [], gview = {};
+const CTL = 14, CTL_GAP = 14; // tamaño de un control y separacion al borde de la grafica (px)
+function drawGraphCtl(c, id, A, B, o) {
+  const v = gview[id], x = A.x, y = A.y, w = B.x - A.x, h = B.y - A.y;
+  if (!v || w < 90 || h < 90) return;
+  const S = CTL, G = CTL_GAP;
+  c.save(); c.setLineDash([]); c.lineWidth = dpr; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = 9 * dpr + 'px system-ui';
+  const box = (bx, by, bw, bh, fill) => { c.beginPath(); c.roundRect(bx * dpr, by * dpr, bw * dpr, bh * dpr, 3 * dpr); c.fillStyle = fill; c.fill(); c.strokeStyle = o.fg + '66'; c.stroke(); };
+  const btn = (kind, bx, by, glyph) => { graphCtl.push({ id, kind, x: bx, y: by, w: S, h: S }); box(bx, by, S, S, o.bg); c.fillStyle = o.fg; c.fillText(glyph, (bx + S / 2) * dpr, (by + S / 2 + 0.5) * dpr); };
+  btn('panx-', x, y - S - G, '◀'); btn('panx+', x + w - S, y - S - G, '▶');
+  btn('pany+', x + w + G, y, '▲'); btn('pany-', x + w + G, y + h - S, '▼');
+  // zoom horizontal (abajo, a la derecha acerca) y vertical (a la izquierda, arriba acerca)
+  const zx = { id, kind: 'zx', x, y: y + h + G, w, h: S }, zy = { id, kind: 'zy', x: x - S - G, y, w: S, h };
+  graphCtl.push(zx, zy);
+  for (const [z, k, horiz] of [[zx, 'x1', true], [zy, 'y1', false]]) {
+    const s = zoomPos(v[k].lo, v[k].hi, v[k].home, v[k].log);
+    box(z.x, z.y, z.w, z.h, o.fg + '14');
+    c.strokeStyle = o.fg + '55'; c.beginPath();
+    if (horiz) { c.moveTo((z.x + S / 2) * dpr, (z.y + S / 2) * dpr); c.lineTo((z.x + z.w - S / 2) * dpr, (z.y + S / 2) * dpr); } else { c.moveTo((z.x + S / 2) * dpr, (z.y + S / 2) * dpr); c.lineTo((z.x + S / 2) * dpr, (z.y + z.h - S / 2) * dpr); }
+    c.stroke();
+    const tx = horiz ? z.x + ((s + 1) / 2) * (z.w - S) : z.x, ty = horiz ? z.y : z.y + ((1 - s) / 2) * (z.h - S);
+    box(tx, ty, S, S, theme.sel); c.fillStyle = '#fff'; c.fillText(horiz ? '↔' : '↕', (tx + S / 2) * dpr, (ty + S / 2 + 0.5) * dpr);
+  }
+  c.restore();
+}
+const graphCtlAt = (px, py) => { for (let i = graphCtl.length - 1; i >= 0; i--) { const z = graphCtl[i]; if (px >= z.x && px <= z.x + z.w && py >= z.y && py <= z.y + z.h) return z; } return null; };
+// Ventana actual de un eje de la grafica: sus limites si estan puestos, o la que se esta dibujando.
+function graphWin(id, k) {
+  const g = doc.graphs[id], cf = g.axes?.[k], n = (q) => q != null && q !== '' && Number.isFinite(Number(q));
+  if (cf && n(cf.min) && n(cf.max) && Number(cf.max) > Number(cf.min)) return [Number(cf.min), Number(cf.max)];
+  const v = gview[id]?.[k];
+  return v ? [v.lo, v.hi] : k === 'x1' ? genericRange(g, 'x1') : [0, 1];
+}
+function graphPan(id, k, dir) {
+  const g = doc.graphs[id]; if (!g) return;
+  const [lo, hi] = graphWin(id, k), w = panWin(lo, hi, dir * 0.15, g.axes?.[k]?.scale === 'log');
+  setWindow(g, k, w[0], w[1]); scheduleGraphs(); draw();
+}
+function graphZoomTo(id, k, s, center) {
+  const g = doc.graphs[id], v = gview[id]?.[k]; if (!g || !v) return;
+  const w = zoomFromPos(center, v.home, s, v.log);
+  setWindow(g, k, w[0], w[1]); scheduleGraphs(); draw();
+}
+function ctlDown(z, p) {
+  const g = doc.graphs[z.id], k = z.kind.endsWith('x') || z.kind.startsWith('panx') ? 'x1' : 'y1';
+  if (!g) return;
+  pushUndo();
+  const d = drag = { p0: p, ctl: z, k, started: true, moved: false };
+  if (z.kind[0] === 'p') { // flechas: un paso al tocar, y repite mientras se mantiene
+    const dir = z.kind.endsWith('+') ? 1 : -1;
+    graphPan(z.id, k, dir);
+    d.timer = setTimeout(() => { d.iv = setInterval(() => { if (drag !== d) return clearInterval(d.iv); graphPan(z.id, k, dir); }, 110); }, 380);
+    return;
+  }
+  const [lo, hi] = graphWin(z.id, k), v = gview[z.id][k];
+  d.center = winCenter(lo, hi, v.log); d.zoom = true;
+  ctlMove(p);
+}
+function ctlMove(p) {
+  const d = drag, z = d.ctl;
+  if (!d.zoom) return;
+  const horiz = z.kind === 'zx', S = CTL;
+  const s = horiz ? ((p.x - z.x - S / 2) / (z.w - S)) * 2 - 1 : 1 - ((p.y - z.y - S / 2) / (z.h - S)) * 2;
+  if (dist(p, d.p0) > 3) d.moved = true;
+  graphZoomTo(z.id, d.k, Math.max(-1, Math.min(1, s)), d.center);
+}
+let lastCtlTap = null;
+function ctlUp(d) {
+  clearTimeout(d.timer); clearInterval(d.iv);
+  const z = d.ctl, now = performance.now();
+  if (d.zoom && !d.moved && lastCtlTap && lastCtlTap.kind === z.kind && lastCtlTap.id === z.id && now - lastCtlTap.t < 450) { // doble toque en un zoom: limites automaticos
+    clearWindow(doc.graphs[z.id], d.k); lastCtlTap = null; toast('Eje con límites automáticos');
+  } else lastCtlTap = d.zoom ? { kind: z.kind, id: z.id, t: now } : null;
+  afterChange();
+}
 function drawGraphs(c, o) {
   let need = false;
+  graphCtl.length = 0;
   if (selGraph && !doc.graphs?.[selGraph]) selGraph = null;
   const F = (px, st = '') => st + px * dpr + 'px -apple-system, system-ui, sans-serif';
   for (const [id, g] of Object.entries(doc.graphs || {})) {
@@ -3498,6 +3581,7 @@ function drawGraphs(c, o) {
     const x0 = A.x * dpr, y0 = A.y * dpr, W = (B.x - A.x) * dpr, H = (B.y - A.y) * dpr;
     if (!(W > 20 * dpr && H > 20 * dpr)) continue;
     const D = graphData[id];
+    delete gview[id];
     if (!D) need = true;
     c.save(); c.setLineDash([]); c.lineJoin = 'round'; c.lineCap = 'round';
     c.fillStyle = o.bg; c.fillRect(x0, y0, W, H); c.strokeStyle = o.fg; c.lineWidth = dpr; c.strokeRect(x0, y0, W, H);
@@ -3520,6 +3604,11 @@ function drawGraphs(c, o) {
         if ((k === 'x2' && !hasX2) || (k === 'y2' && !hasY2)) continue;
         const cf = axisCfg(g, k), r = axisRange(D.series, k, cf.scale === 'log') || { lo: 0, hi: 1 };
         lay[k] = axisLayout(cf, r.lo, r.hi);
+      }
+      for (const k of ['x1', 'y1']) { // ventana y ventana de partida (la de los datos, o GEN_X en una x generica) para los controles de zoom y paneo
+        const cf = axisCfg(g, k), r = axisRange(D.series, k, cf.scale === 'log');
+        const hl = r ? axisLayout({ ...cf, min: null, max: null }, r.lo, r.hi) : lay[k];
+        (gview[id] ||= {})[k] = { lo: lay[k].lo, hi: lay[k].hi, home: k === 'x1' && D.generic ? GEN_X.slice() : [hl.lo, hl.hi], log: lay[k].log };
       }
       const posX = (k) => (v) => px + lay[k].f(v) * pw, posY = (k) => (v) => py + ph - lay[k].f(v) * ph;
       const gx = posX('x1'), gy = posY('y1');
@@ -3582,6 +3671,7 @@ function drawGraphs(c, o) {
       c.fillStyle = o.bg; c.lineWidth = 1.5 * dpr;
       for (const [hx, hy] of [[0, 0], [.5, 0], [1, 0], [0, .5], [1, .5], [0, 1], [.5, 1], [1, 1]]) { const r = 5 * dpr; c.beginPath(); c.rect(x0 + hx * W - r, y0 + hy * H - r, 2 * r, 2 * r); c.fill(); c.stroke(); }
     }
+    if (o.ui && !sim && tool === 'select') drawGraphCtl(c, id, A, B, o);
     c.restore();
     actHits.push({ id, g: true, x: A.x, y: A.y, w: B.x - A.x, h: B.y - A.y });
   }
@@ -3596,7 +3686,7 @@ function scheduleGraphs() {
     const base = JSON.stringify({ ...doc, graphs: undefined, traces: undefined, layers: undefined });
     const ns = {}, todo = [];
     for (const [id, g] of Object.entries(doc.graphs || {})) {
-      ns[id] = base + '|' + JSON.stringify([g.series, g.n, g.t1, g.angles]);
+      ns[id] = base + '|' + JSON.stringify([g.series, g.n, g.angles, graphData[id]?.generic ? [g.axes?.x1, g.axes?.x2] : null]); // con x generica, los limites del eje x1 definen los valores de x
       if (!(graphData[id] && graphSig[id] === ns[id])) todo.push(id);
     }
     for (const id of Object.keys(graphData)) if (!doc.graphs?.[id]) delete graphData[id];
@@ -3658,7 +3748,7 @@ function editGraph(id, nuevo) {
   const g = doc.graphs?.[id];
   if (!g) return;
   const dlg = $('dlgGraph');
-  $('grTitle').value = g.title || ''; $('grSeries').value = g.series.join('\n'); $('grT1').value = TE(); $('grN').value = g.n;
+  $('grTitle').value = g.title || ''; $('grSeries').value = g.series.join('\n'); $('grN').value = g.n;
   $('grAng').value = g.angles === 'rad' || g.angles === 'deg' ? g.angles : '';
   $('grAng').options[0].textContent = 'Del documento (' + (doc.angles === 'rad' ? 'radianes' : 'grados') + ')';
   $('grX').value = fmtG(g.x); $('grY').value = fmtG(g.y); $('grW').value = fmtG(g.w); $('grH').value = fmtG(g.h);
@@ -3670,10 +3760,9 @@ function editGraph(id, nuevo) {
     ev.preventDefault();
     const series = $('grSeries').value.split('\n').map((s) => s.trim()).filter(Boolean);
     const num = (e) => Number(String($(e).value).replace(',', '.'));
-    const nv = { x: num('grX'), y: num('grY'), w: num('grW'), h: num('grH'), t1: num('grT1'), n: Math.round(num('grN')) };
-    const T1 = nv.t1; delete nv.t1;
+    const nv = { x: num('grX'), y: num('grY'), w: num('grW'), h: num('grH'), n: Math.round(num('grN')) };
     if (!series.length) { toast('Escribe al menos una relación, por ejemplo «MR1 vs t»'); return; }
-    if (![nv.x, nv.y, nv.w, nv.h, T1, nv.n].every(Number.isFinite) || nv.w <= 0 || nv.h <= 0 || T1 <= 0 || nv.n < 2) { toast('Revisa la posición, el tamaño, el tiempo final y las muestras'); return; }
+    if (![nv.x, nv.y, nv.w, nv.h, nv.n].every(Number.isFinite) || nv.w <= 0 || nv.h <= 0 || nv.n < 2) { toast('Revisa la posición, el tamaño y las muestras'); return; }
     const axes = {};
     for (const k of AXES) {
       const v = (f) => String($('ax_' + k + '_' + f).value).trim().replace(',', '.'), a = { name: $('ax_' + k + '_name').value.trim(), scale: $('ax_' + k + '_scale').value };
@@ -3687,7 +3776,6 @@ function editGraph(id, nuevo) {
     Object.assign(doc.graphs[id], nv, { title: $('grTitle').value.trim(), series, axes });
     if ($('grAng').value) doc.graphs[id].angles = $('grAng').value; else delete doc.graphs[id].angles;
     delete graphData[id];
-    if (T1 !== TE()) { doc.tEnd = T1; graphData = {}; }
     done = true; dlg.close(); afterChange();
   };
   $('grDel').onclick = (ev) => { ev.preventDefault(); if (!nuevo) pushUndo(); delete doc.graphs[id]; delete graphData[id]; done = true; dlg.close(); afterChange(); };
@@ -5071,6 +5159,6 @@ async function boot() {
     navigator.serviceWorker.register('sw.js').then((reg) => reg.update()).catch(() => {}); // reg.update(): mira si hay un service worker nuevo en cada arranque
     document.addEventListener('visibilitychange', checkNewBuild);
   }
-  window.__cad = { hitTest, get doc() { return doc; }, get view() { return view; }, solve, setTool, toScreen, toModel, applyCon, get sel() { return sel; }, set sel(v) { sel = v; afterChange(); } };
+  window.__cad = { load: (d) => { loadDoc(d); fitView(); afterChange(); draw(); }, hitTest, get doc() { return doc; }, get view() { return view; }, solve, setTool, toScreen, toModel, applyCon, get sel() { return sel; }, set sel(v) { sel = v; afterChange(); } };
 }
 boot();
