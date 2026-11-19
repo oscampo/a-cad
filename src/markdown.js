@@ -12,17 +12,19 @@
 const ESC = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
 // ¿Puede llevar Markdown? Si no, el texto se dibuja como siempre.
 export const hasMd = (s) => typeof s === 'string' && (
-  /[*_~`\\]|\[[^\]\n]*\]\s*[([:]|\[\^[^\]\n]+\]|<(?:https?:|ftp:|mailto:|!--)|<[^\s@<>()]+@[^\s@<>()]+\.[A-Za-z]{2,}>/.test(s) ||
+  /[*_~`\\]|\[[^\]\n]*\]\s*[([:]|\[\^[^\]\n]+\]|<(?:https?:|ftp:|mailto:|tel:|!--)|<[^\s@<>()]+@[^\s@<>()]+\.[A-Za-z]{2,}>/.test(s) ||
   /^[ \t]*(#{1,6}(?: |$)|[-*+] |\d+[.)] |> ?|(?:-{3,}|\*{3,}|_{3,})[ \t]*$|=+[ \t]*$)|^(?: {4}|\t)\S|^[ \t]*\|?[ \t]*:?-+:?[ \t]*\|/m.test(s));
 
 const LINK_TARGET = /^\(\s*<?([^\s<>()]*(?:\([^\s()]*\)[^\s<>()]*)*)>?(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/;
 
-// Tramos de una cadena: [{ s, b, it, st, code, link, img, sup }].
+// Tramos de una cadena: [{ s, b, it, st, code, link, img, sup }]. link es el destino del enlace (la url tal como se escribio;
+// «mailto:» delante en un correo suelto, <correo@dominio>), para abrirlo al tocarlo (ver links.js).
 // ctx: { refs: Map(ref en minusculas -> url), fn: (id) => numero de la nota al pie }.
 export function mdInline(s, ctx = {}) {
   const out = [];
   const K = ['b', 'it', 'st', 'code', 'link', 'img', 'sup'];
-  const push = (t, st) => { if (!t) return; const l = out.at(-1); if (l && K.every((k) => !!l[k] === !!st[k])) l.s += t; else out.push({ s: t, ...st }); };
+  // dos enlaces seguidos a destinos distintos no se juntan en un tramo
+  const push = (t, st) => { if (!t) return; const l = out.at(-1); if (l && K.every((k) => !!l[k] === !!st[k]) && (l.link || null) === (st.link || null)) l.s += t; else out.push({ s: t, ...st }); };
   const ws = (c) => c === undefined || /\s/.test(c);
   const word = (c) => c !== undefined && /[\p{L}\p{N}]/u.test(c);
   const refs = ctx.refs || new Map();
@@ -73,11 +75,11 @@ export function mdInline(s, ctx = {}) {
       if (c === '!' && s[i + 1] === '[' && !st.link) { const L = linkAt(i + 1, to); if (L) { push('▣ ' + s.slice(i + 2, L.tEnd).replace(/\\(.)/g, '$1'), { ...st, img: true }); i = L.end; continue; } }
       if (c === '[') {
         if (s[i + 1] === '^' && ctx.fn) { const k = s.indexOf(']', i + 2); if (k > i + 2 && k < to && !/\s/.test(s.slice(i + 2, k))) { push(String(ctx.fn(s.slice(i + 2, k))), { ...st, sup: true }); i = k + 1; continue; } }
-        if (!st.link) { const L = linkAt(i, to); if (L) { run(i + 1, L.tEnd, { ...st, link: true }); i = L.end; continue; } }
+        if (!st.link) { const L = linkAt(i, to); if (L) { run(i + 1, L.tEnd, { ...st, link: L.url || '#' }); i = L.end; continue; } }
       }
       if (c === '<' && !st.link) {
-        const m = /^<((?:https?|ftp|mailto):[^\s<>]+|[^\s@<>()]+@[^\s@<>()]+\.[A-Za-z]{2,})>/.exec(s.slice(i, to));
-        if (m) { push(m[1], { ...st, link: true }); i += m[0].length; continue; }
+        const m = /^<((?:https?|ftp|mailto|tel):[^\s<>]+|[^\s@<>()]+@[^\s@<>()]+\.[A-Za-z]{2,})>/.exec(s.slice(i, to));
+        if (m) { push(m[1], { ...st, link: /^[a-z]+:/i.test(m[1]) ? m[1] : 'mailto:' + m[1] }); i += m[0].length; continue; }
       }
       if (c === '*' || c === '_') {
         const dbl = s[i + 1] === c, d = dbl ? c + c : c, n = d.length;

@@ -22,7 +22,8 @@ import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
 import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, AXES } from './graphs.js';
-import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD } from './text.js';
+import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD, textLinkAt, textLinkBoxes } from './text.js';
+import { linkTarget, resolveRepoPath, findAnchor } from './links.js';
 import { migrateCalcDoc } from './tvars.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder } from './params.js';
@@ -751,6 +752,7 @@ function draw() {
   render(ctx, cv.width, cv.height, view, { fg: theme.fg, bg: theme.bg, grid: opts.grid, cons: opts.cons, dims: opts.dims, texts: opts.texts, ui: true });
   drawHud();
   syncScrollbar();
+  syncLinkChip();
 }
 
 // ---- encima del dibujo (solo en pantalla, nunca en lo exportado): la lupa del dedo
@@ -1538,6 +1540,7 @@ cv.addEventListener('pointermove', (e) => {
   if (PERF) perfShow(tp1 - tp0, tp2 - tp1, performance.now() - tp2, !!q, perfSolveMs);
 });
 function endPointer(e) {
+  tapMod = !!(e.ctrlKey || e.metaKey); // Ctrl/Cmd + clic sobre un enlace lo abre sin seleccionar antes
   endSession(); thawDimOrder(doc); ovCancelTimer();
   const q = pointers.get(e.pointerId);
   pointers.delete(e.pointerId);
@@ -1714,9 +1717,108 @@ function selectAt(p) {
     afterChange(); openProps(h);
     return;
   }
+  // un enlace de un texto se abre al tocarlo si el texto ya estaba seleccionado (su pastilla muestra a donde lleva),
+  // o directo con Ctrl/Cmd + clic. El primer toque solo selecciona, y arrastrar sigue moviendo el texto.
+  if (h.k === 'tx' && (tapMod || sel.some((s) => same(s, h)))) {
+    const url = textLinkAt(doc, doc.texts[h.id], toModel(p.x, p.y), measureRel, 4 / view.s);
+    if (url) { lastTap = null; openLink(url, tapMod); return; }
+  }
   const i = sel.findIndex((s) => same(s, h));
   if (i >= 0) sel.splice(i, 1); else sel.push(h);
   afterChange();
+}
+
+// ---- enlaces de los textos (ver links.js): la pastilla sobre el texto seleccionado y la apertura de cada destino
+var tapMod = false; // var: draw() y los eventos pueden llegar antes de esta linea al arrancar
+var LINK_ICON = { web: '↗', mail: '✉', tel: '☎', anchor: '§', file: '▤', bad: '⚠' };
+// Abre un destino. direct: llego por Ctrl/Cmd + clic, sin ver la pastilla (se avisa a donde va).
+function openLink(raw, direct = false) {
+  const L = linkTarget(raw);
+  if (L.kind === 'bad') { toast(L.why); return; }
+  if (L.kind === 'web') { if (direct) toast('Abriendo ' + L.host); window.open(L.href, '_blank', 'noopener,noreferrer'); return; }
+  if (L.kind === 'mail' || L.kind === 'tel') { location.href = L.href; return; }
+  if (L.kind === 'anchor') { goAnchor(L.anchor); return; }
+  if (L.kind === 'file') openRepoLink(L);
+}
+// Lleva la vista a un lugar del dibujo (#id o #titulo) y lo selecciona.
+function goAnchor(name) {
+  const a = findAnchor(doc, name);
+  if (!a) { toast(`No hay ningún lugar «#${name}» en este dibujo`); return false; }
+  let pts;
+  if (a.k === 'gr') { const g = doc.graphs[a.id]; selGraph = a.id; sel = []; pts = [{ x: g.x, y: g.y }, { x: g.x + g.w, y: g.y + g.h }]; }
+  else { selGraph = null; sel = [{ k: a.k, id: a.id }]; pts = a.k === 'tx' ? textCorners(doc, doc.texts[a.id], measureRel) : a.k === 'ha' ? [] : elementBounds(sel); }
+  if (pts.length) revealModel(pts);
+  afterChange();
+  return true;
+}
+// Mueve la vista (sin cambiar el zoom) para que se vean estos puntos: con pagina, su borde superior queda arriba de la pantalla,
+// como al seguir un enlace en un documento; sin pagina, quedan al centro.
+function revealModel(pts) {
+  const r = cv.getBoundingClientRect(), s = view.s;
+  const x0 = Math.min(...pts.map((q) => q.x)), x1 = Math.max(...pts.map((q) => q.x)), y0 = Math.min(...pts.map((q) => q.y)), y1 = Math.max(...pts.map((q) => q.y));
+  const ox = view.ox + x0 * s < 8 || view.ox + x1 * s > r.width - 8 ? r.width / 2 - ((x0 + x1) / 2) * s : view.ox;
+  const oy = globalDoc().page && (y1 - y0) * s < r.height * 0.8 ? r.height * 0.15 + y1 * s : r.height / 2 + ((y0 + y1) / 2) * s;
+  view = { s, ox, oy }; persist();
+}
+// Abre otro dibujo .json del repositorio de GitHub (ruta relativa a la carpeta configurada) y, si el enlace lo pide, va a un lugar.
+async function openRepoLink(L) {
+  const c = gh.loadCfg();
+  if (!gh.isReady(c)) { toast(`Para abrir «${L.path}» configura GitHub (Archivo → GitHub)`); return; }
+  const path = resolveRepoPath(c.dir, L.path);
+  if (!path) { toast(`«${L.path}» queda fuera del repositorio`); return; }
+  if (!confirm(`¿Abrir «${path}» de GitHub? Se pierde lo no guardado de este dibujo.`)) return;
+  try {
+    toast('Abriendo de GitHub…');
+    const [text, sha] = await Promise.all([gh.read(c, path), gh.currentSha(c, path)]);
+    const j = JSON.parse(text);
+    loadDoc(j.doc || j);
+    if (sha) gh.rememberSha(c, path, sha);
+    // el nombre para «Guardar en GitHub» solo si esta en la carpeta configurada (guardar siempre escribe alli)
+    const name = path.split('/').pop(), inDir = path === gh.filePath(c, name);
+    opts.fileBase = inDir ? cleanFileBase(name, 'json') || '' : '';
+    fitView(); afterChange();
+    toast('Abierto de GitHub: ' + path);
+    if (L.anchor) goAnchor(L.anchor); // si no existe ese lugar, lo dice (y el dibujo queda abierto)
+    setTimeout(warnRedundant, 2800);
+  } catch (e) { toast(`No se pudo abrir «${path}»: ` + e.message); }
+}
+// La pastilla: con un solo texto seleccionado que tiene enlaces, un boton por destino (sin repetir) sobre el texto, con el
+// destino real a la vista (el texto del enlace puede decir otra cosa). Se rehace solo si cambian los destinos.
+var linkChipKey = '';
+function syncLinkChip() {
+  const linkChip = $('linkChip');
+  const s0 = sel.length === 1 && sel[0].k === 'tx' ? sel[0] : null, t = s0 && doc.texts[s0.id];
+  const boxes = t && doc.pts[t.pt] && opts.texts && !drag?.started && !gesture && !sim ? textLinkBoxes(doc, t, measureRel) : [];
+  if (!boxes.length) { if (!linkChip.hidden) { linkChip.hidden = true; linkChipKey = ''; } return; }
+  const urls = [...new Map(boxes.map((b) => [b.url, b.s])).entries()];
+  const key = s0.id + '\u0001' + urls.map((u) => u[0]).join('\u0001');
+  if (key !== linkChipKey) {
+    linkChipKey = key; linkChip.textContent = '';
+    for (const [url, shown] of urls.slice(0, 8)) {
+      const L = linkTarget(url), ext = L.kind === 'web' || L.kind === 'mail' || L.kind === 'tel';
+      const b = document.createElement(ext ? 'a' : 'button');
+      b.className = 'lk' + (L.kind === 'bad' ? ' bad' : '');
+      if (ext) { b.href = L.href; if (L.kind === 'web') { b.target = '_blank'; b.rel = 'noopener noreferrer'; } } else b.type = 'button';
+      b.title = (L.kind === 'bad' ? L.why : L.kind === 'web' ? L.href : L.label) + (shown && shown !== L.label ? `\n(el texto dice «${shown}»)` : '');
+      const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = LINK_ICON[L.kind];
+      const tx = document.createElement('span'); tx.className = 'tx';
+      if (L.kind === 'web') { const h = document.createElement('span'); h.className = 'host'; h.textContent = L.host; const r = document.createElement('span'); r.className = 'rest'; r.textContent = L.label.slice(L.host.length); tx.append(h, r); }
+      else tx.textContent = L.kind === 'anchor' ? '#' + L.label : L.label;
+      b.append(ic, tx);
+      if (!ext) b.onclick = () => openLink(url);
+      linkChip.appendChild(b);
+    }
+    if (urls.length > 8) { const m = document.createElement('span'); m.className = 'lk bad'; m.textContent = `+${urls.length - 8}`; linkChip.appendChild(m); }
+    linkChip.hidden = false;
+  }
+  // encima del texto; si no cabe, debajo. Dentro del lienzo.
+  const W = cv.clientWidth, H = cv.clientHeight, q = textCorners(doc, t, measureRel).map(toScreen);
+  const top = Math.min(...q.map((v) => v.y)), bot = Math.max(...q.map((v) => v.y)), left = Math.min(...q.map((v) => v.x));
+  const cw = linkChip.offsetWidth, ch = linkChip.offsetHeight;
+  let y = top - ch - 8;
+  if (y < 8) y = bot + 8 + ch < H - 8 ? bot + 8 : 8;
+  linkChip.style.left = Math.max(8, Math.min(W - cw - 8, left)) + 'px';
+  linkChip.style.top = Math.max(8, Math.min(H - ch - 8, y)) + 'px';
 }
 
 function toolDown(p) {

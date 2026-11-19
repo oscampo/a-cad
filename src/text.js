@@ -217,6 +217,31 @@ export function textCorners(doc, t, measure) {
   return [to(f.xmin, f.ymin), to(f.xmin + f.w, f.ymin), to(f.xmin + f.w, f.ymax), to(f.xmin, f.ymax)];
 }
 
+// Enlaces de un texto con su caja en coordenadas del modelo: [{ url, s (el texto visible), poly (4 esquinas, antihorario) }].
+// Un enlace partido en dos lineas (por el ajuste al margen) da dos cajas con la misma url.
+export function textLinkBoxes(doc, t, measure) {
+  const P = doc.pts[t.pt];
+  if (!P) return [];
+  const pose = textPose(doc, t);
+  const st = shownText(doc, t), f = textFrame(st, measure, pose.anchor);
+  if (!f.math?.links?.length) return [];
+  const h = st.h, a = (pose.ang * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+  const to = (x, y) => { const u = f.xmin + x * h, w = f.ymax - y * h; return { x: P.x + u * c - w * s, y: P.y + u * s + w * c }; };
+  return f.math.links.map((L) => ({ url: L.url, s: L.s, poly: [to(L.x0, L.y1), to(L.x1, L.y1), to(L.x1, L.y0), to(L.x0, L.y0)] }));
+}
+// La url del enlace bajo el punto p (modelo), con un margen pad (unidades del modelo); null si no hay.
+export function textLinkAt(doc, t, p, measure, pad = 0) {
+  const P = doc.pts[t.pt];
+  if (!P) return null;
+  const pose = textPose(doc, t);
+  const st = shownText(doc, t), f = textFrame(st, measure, pose.anchor);
+  if (!f.math?.links?.length) return null;
+  const a = (pose.ang * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a), rx = p.x - P.x, ry = p.y - P.y;
+  const x = (rx * c + ry * s - f.xmin) / st.h, y = (f.ymax - (-rx * s + ry * c)) / st.h, d = pad / st.h; // al sistema del layout
+  const L = f.math.links.find((q) => x >= q.x0 - d && x <= q.x1 + d && y >= q.y0 - d && y <= q.y1 + d);
+  return L ? L.url : null;
+}
+
 // ¿El punto p (modelo) cae dentro de la caja del texto, con un margen pad (unidades del modelo)?
 export function textHit(doc, t, p, measure, pad = 0) {
   const P = doc.pts[t.pt];

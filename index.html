@@ -146,6 +146,18 @@ dialog.help a { color: var(--accent); }
 #status { padding: 5px 10px; border-top: 1px solid var(--line); background: var(--panel); color: var(--muted); font-variant-numeric: tabular-nums; min-height: 28px; }
 #toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90%; z-index: 5; }
 #toast.show { opacity: .95; }
+/* pastilla de enlaces: aparece sobre un texto seleccionado que tiene enlaces; cada boton muestra el destino real */
+#linkChip { position: absolute; z-index: 4; display: flex; flex-wrap: wrap; gap: 4px; max-width: min(420px, calc(100% - 16px)); padding: 4px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+#linkChip[hidden] { display: none; }
+#linkChip .lk { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; max-width: 100%; padding: 4px 10px; border-radius: 8px; border: 0; background: var(--bg); color: var(--fg); font: inherit; font-size: 13px; text-decoration: none; cursor: pointer; }
+#linkChip .lk:hover { background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
+#linkChip .lk .ic { color: var(--accent); flex: none; }
+#linkChip .lk .tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#linkChip .lk .host { font-weight: 600; }
+#linkChip .lk .rest { color: var(--muted); }
+#linkChip .lk.bad { color: var(--muted); }
+#linkChip .lk.bad .ic { color: var(--warn); }
+#linkChip .lk.bad .tx { text-decoration: line-through; }
 #simBar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px; z-index: 6; max-width: 96%; }
 #simBar button.on { background: var(--accent, #2563eb); color: #fff; }
 #simBar select { min-height: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--btn); color: var(--fg); }
@@ -267,7 +279,7 @@ body.nopanel #panel { display: none; }
   <button id="tHelp" data-icon="help" title="Ayuda y documentación" aria-label="Ayuda"><i></i></button>
 </header>
 <main>
-  <div id="stage"><canvas id="cv"></canvas><div id="pgScroll" hidden title="Recorrer la página"><div id="pgThumb"></div></div><div id="txLiveBox" hidden><textarea id="txLive" rows="1" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Entrada de texto"></textarea></div><div id="toast"></div>
+  <div id="stage"><canvas id="cv"></canvas><div id="pgScroll" hidden title="Recorrer la página"><div id="pgThumb"></div></div><div id="txLiveBox" hidden><textarea id="txLive" rows="1" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Entrada de texto"></textarea></div><div id="linkChip" hidden role="toolbar" aria-label="Enlaces del texto"></div><div id="toast"></div>
   <div id="simBar" hidden><button id="simBack" title="Paso atrás (1/100 del tiempo total)">◀|</button><button id="simPlay" title="Reproducir o pausar">▶</button><button id="simFwd" title="Paso adelante (1/100 del tiempo total)">|▶</button><input id="simRange" type="range" min="0" max="10" step="0.01" value="0" aria-label="Tiempo"><label>t <input id="simT" inputmode="decimal" size="5" value="0"></label><label>hasta <input id="simTmax" inputmode="decimal" size="4" value="10"></label><button id="simLoop" title="Repetir en ciclo (loop)">↻</button><button id="simPP" title="Vaivén (ping-pong)">⇄</button><select id="simSpeed" title="Velocidad de reproducción"><option value="0.5">0.5x</option><option value="1" selected>1.0x</option><option value="1.5">1.5x</option><option value="2">2.0x</option></select><button id="simStop" title="Detener la simulación y volver al dibujo">Detener</button></div>
   <button id="tLayers" data-icon="layers" title="Capas: crear, encender, apagar y borrar" aria-label="Capas"><i></i></button><div id="layerName" hidden></div><div id="relTag"></div><div id="fileTag"></div>
     <nav id="tree" aria-label="Árbol de elementos"><div class="thead"><b>Elementos</b><span class="tbtns"><button id="treeBy" data-icon="layers" aria-pressed="false" aria-label="Agrupar por capa" title="Agrupar por capa" hidden><i></i></button><button id="treeClose" aria-label="Cerrar">✕</button></span></div><div id="treeBody"></div></nav>

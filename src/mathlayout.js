@@ -552,7 +552,7 @@ function compute(text, measure, font, opt = {}) {
   if (opt.maxW > 0) rows.splice(0, rows.length, ...rows.flatMap((r) => wrapRow(r, opt.maxW)));
   for (const r of rows) if (r.tbl) { r.w =r.tbl.colW.reduce((s, w) => s + w + 2 * PADC, 0); }
   const W = Math.max(rows.some((r) => r.blk?.kind === 'hr' || r.code) ? 2 : 0.0001, ...rows.map((r) => r.w));
-  const prims = [];
+  const prims = [], links = []; // links: cajas de los enlaces { url, s, x0, x1, y0, y1 } (y hacia abajo, como prims)
   // los tramos de una linea, desde x sobre la linea base
   const emit = (items, x, base, sz) => {
     for (const it of items) {
@@ -562,7 +562,10 @@ function compute(text, measure, font, opt = {}) {
           const uw = runW(u, sz), col = u.col || (u.link ? LINK_COLOR : u.img ? MUTED_COLOR : undefined);
           prims.push({ k: 't', s: u.s, x: xx, y: u.sup ? base - 0.4 * sz : base, sz: runSz(u, sz), it: u.it, font: u.code ? 'mono' : font, ...(u.b ? { bold: true } : {}), ...(col ? { col } : {}) });
           if (u.st) prims.push({ k: 'p', pts: [[xx, base - 0.3 * sz], [xx + uw, base - 0.3 * sz]], lw: 0.06 * sz });
-          if (u.link) prims.push({ k: 'p', pts: [[xx, base + 0.1 * sz], [xx + uw, base + 0.1 * sz]], lw: 0.05 * sz, col: LINK_COLOR });
+          if (u.link) {
+            prims.push({ k: 'p', pts: [[xx, base + 0.1 * sz], [xx + uw, base + 0.1 * sz]], lw: 0.05 * sz, col: LINK_COLOR });
+            links.push({ url: u.link, s: u.s, x0: xx, x1: xx + uw, y0: base - 0.85 * sz, y1: base + 0.3 * sz }); // su caja, para tocarlo
+          }
           xx += uw;
         }
       } else prims.push(...shift(it.box.ops, x, base));
@@ -599,5 +602,5 @@ function compute(text, measure, font, opt = {}) {
     emit(r.items, r.center ? (W - r.w) / 2 : r.x0, base, r.sz);
     y = y1;
   });
-  return { w: W, hh: Math.max(y, 1.2), prims };
+  return { w: W, hh: Math.max(y, 1.2), prims, links };
 }
