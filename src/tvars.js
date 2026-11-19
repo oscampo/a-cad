@@ -1,7 +1,8 @@
 // Variables definidas en los textos: «nombre:valor» (dentro de una formula) asigna a «nombre» el valor de una expresion (sin DOM).
 // Se leen en el orden de la pagina (arriba a abajo, izquierda a derecha; ver textOrder): una variable vale lo de su ultima definicion anterior,
 // y las cotas ven lo que valen al final. El valor puede usar cotas y variables definidas antes. El texto la muestra en cursiva como «nombre:=valor».
-import { argChar } from './locale.js';
+import { argChar, decimalMode } from './locale.js';
+const paramSep = () => (decimalMode() === ',' ? /;/ : /[;,]/); // parametros de una funcion: con coma decimal solo «;»
 import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName } from './expr.js';
 import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg } from './units.js';
@@ -114,7 +115,7 @@ export const calcStmts = (s) => (hasCalc(s) ? calcParse(s).flatMap((tk) => (tk.t
 const convRange = (expr, from, to) => (expr.includes('..') ? expr.split(/(\.\.|;)/).map((q, i) => (i % 2 ? q : convertExpr(q, from, to))).join('') : convertExpr(expr, from, to));
 export function convertCalcText(s, from, to) {
   if (!hasCalc(s) || from === to) return s;
-  const piece = (p) => (p.k === 'def' ? { ...p, expr: convRange(p.expr, from, to), ...(p.params !== undefined ? { params: p.params.split(/[;,]/).map((q) => q.trim()).join(argChar(to) + ' ') } : {}) }
+  const piece = (p) => (p.k === 'def' ? { ...p, expr: convRange(p.expr, from, to), ...(p.params !== undefined ? { params: p.params.split(from === ',' ? /;/ : /[;,]/).map((q) => q.trim()).join(argChar(to) + ' ') } : {}) }
     : p.k === 'out' ? { ...p, expr: convRange(p.expr, from, to) } : p);
   return calcSrc(calcParse(s).map((tk) => (tk.t === 'math' ? { ...tk, lines: tk.lines.map((l) => l.map(piece)) } : tk)));
 }
@@ -242,7 +243,7 @@ function readingEvents(doc, probes = []) {
     if (it.probe !== undefined) { out.push({ kind: 'dim', id: it.probe }); continue; }
     let di = 0, oi = 0;
     for (const p of calcStmts(it.t.text)) {
-      if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(/[;,]/).map((q) => normName(q.trim())), ...(p.eq !== undefined && p.params !== undefined ? { eq: true } : {}), ...(p.unit ? { unit: p.unit } : {}) });
+      if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(paramSep()).map((q) => normName(q.trim())), ...(p.eq !== undefined && p.params !== undefined ? { eq: true } : {}), ...(p.unit ? { unit: p.unit } : {}) });
       else out.push({ kind: 'out', tid: it.tid, idx: oi++, expr: p.expr });
     }
   }

@@ -104,7 +104,8 @@ function tokenize(src, vars = null, loose = false) {
     if (/\s/.test(c)) { i++; continue; }
     const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'idx') || last.t === 'unit' || (last.t === 'op' && (last.v === ')' || last.v === ']')));
     // separador de argumentos: «;», o una coma tras un valor («max(a, 5)»); «2,5» ya lo tomo el numero como decimal
-    if (c === ';' || (c === ',' && afterValue)) { toks.push({ t: 'sep', c, d: depth, i, j: i + 1 }); i++; continue; }
+    if (c === ';' || (c === ',' && afterValue && decimalMode() !== ',')) { // con coma decimal la coma no separa: los argumentos van con «;»
+      toks.push({ t: 'sep', c, d: depth, i, j: i + 1 }); i++; continue; }
     if (c === '|' && depth > 0 && decimalMode() === ',') { toks.push({ t: 'sep', c, d: depth, i, j: i + 1 }); i++; continue; } // con coma decimal, «|» separa las filas de una matriz
     if (c === "'") { // unidad: «250'N», «3'(m/s)», «20'°»
       const um = /^'\s*(\([^()]*\)|[A-Za-zµμΩ°%áéíóú]+[²³]?)/.exec(src.slice(i));

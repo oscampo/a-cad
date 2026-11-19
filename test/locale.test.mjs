@@ -45,7 +45,7 @@ t('coma decimal: la coma es decimal, los argumentos van con «;» y las matrices
   assert.equal(num(',5+1'), 1.5);
   assert.equal(num('max(2,5; 3)'), 3);
   assert.equal(num('round(2,567; 1)'), 2.6);
-  assert.equal(num('max(a, 7)', { a: { v: 2, r: false } }), 7); // coma tras un nombre: sigue separando
+  fails('max(2, 7)', /./); // con coma decimal la coma ya no separa argumentos
   assert.deepEqual(mat('[1; 2; 3]'), [[1, 2, 3]]); // fila
   assert.deepEqual(mat('[1; 2 | 3; 4]'), [[1, 2], [3, 4]]);
   assert.deepEqual(mat('[1,5 | 2,5]'), [[1.5], [2.5]]); // columna con decimales
@@ -120,6 +120,18 @@ t('convertir el dibujo al cambiar el indicador', () => {
   assert.equal(d.decimal, ','); assert.equal(d.cons.c1.expr, 'max(1,5; 2)'); assert.equal(d.cons.c1.scaleExpr, '0,5*2'); assert.equal(d.acts.a1.expr, '2,5*t'); assert.equal(d.graphs.g1.series[0], '0,5*t vs t');
   setDocDecimal(d, '.'); assert.equal(d.cons.c1.expr, 'max(1.5, 2)'); assert.equal(d.decimal, '.');
   setDocDecimal(d, ',', false); assert.equal(d.cons.c1.expr, 'max(1.5, 2)'); // sin convertir: solo la opcion
+});
+
+t('definicion y llamada de funciones: los argumentos siguen el indicador', () => {
+  const val = (dec, src) => { const d = newDoc(); if (dec) d.decimal = dec; const id = addText(d, addPoint(d, 0, 0), src, {}); return plainText(textValue(d, d.texts[id])); };
+  assert.match(val('.', '$$f(x, y):=x+y\nf(1.5, 2)=$$'), /f\(1\.5, 2\)=3\.5/);
+  assert.match(val(',', '$$f(x; y):=x+y\nf(1,5; 2)=$$'), /f\(1,5; 2\)=3,5/);
+  assert.doesNotMatch(val(',', '$$f(x, y):=x+y\nf(1; 2)=$$'), /=3\b/); // con coma decimal los parametros van con «;»
+  assert.doesNotMatch(val(',', '$$f(x; y):=x+y\nf(1, 2)=$$'), /=3\b/); // y la llamada tambien
+  assert.match(val(null, '$$f(x, y):=x+y\nf(1, 2)=$$'), /f\(1, 2\)=3/); // dibujos anteriores: las dos formas
+  const d = newDoc(); d.decimal = '.'; const id = addText(d, addPoint(d, 0, 0), '$$f(x, y):=x*0.5\nf(1, 2)=$$', {});
+  setDocDecimal(d, ','); assert.equal(d.texts[id].text, '$$f(x; y):=x*0,5\nf(1; 2)=$$');
+  setDocDecimal(d, '.'); assert.equal(d.texts[id].text, '$$f(x, y):=x*0.5\nf(1, 2)=$$');
 });
 
 console.log(`\n${passed} pruebas de indicador decimal pasaron`);
