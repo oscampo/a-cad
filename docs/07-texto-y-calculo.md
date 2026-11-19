@@ -94,6 +94,7 @@ En un texto normal (el que empieza con `"` o un espacio), lo que va fuera de las
 | `[texto](#graficas)` | Un lugar del dibujo: la vista va a él y lo selecciona. Vale el título de un texto (`## Gráficas !!!` se alcanza con `#graficas`, sin tildes, mayúsculas, espacios ni signos), la primera línea de un texto o el identificador de un elemento (`#t17`, `#g94`, `#p5`). |
 | `[texto](cicloide.json)` | Otro dibujo del repositorio de GitHub configurado (Archivo → GitHub), con la ruta relativa a su carpeta (`sub/a.json`, `../otra/b.json`, `/raiz.json` desde la raíz). Pregunta antes, porque se pierde lo no guardado. Con `#lugar` al final (`cicloide.json#rueda`), además va a ese lugar. |
 | `![texto](imagen.png)` | Imagen: el dibujo no carga imágenes, muestra ▣ y su texto alternativo. |
+| `![Línea](icon:line)` | **Ícono de una herramienta** de la app, dentro de la línea, a la altura de la letra y con el color del texto. Los nombres están en la ayuda, sección «Íconos en los textos» (toca una fila para copiarla). Si el nombre no existe se ve como una imagen: ▣ y el texto alternativo. |
 | `texto[^1]` y `[^1]: la nota` | **Nota al pie**: la llamada va en superíndice, numerada en orden, y las notas se juntan al final del texto en letra más pequeña. |
 | `<!-- … -->` | Comentario: no se dibuja (puede abarcar varias líneas). |
 | `\*` | Deja el signo tal cual (sirve con cualquier signo de puntuación): `\*`, `\_`, `\#`, `\[`… Un `*` entre espacios (`2 * 3`) ya va tal cual, pero `2*3*4` pone el 3 en cursiva. |

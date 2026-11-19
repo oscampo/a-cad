@@ -30,7 +30,9 @@ import { migrateCalcDoc } from './tvars.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
-import { iconSvg } from './icons.js';
+import { iconSvg, ICONS } from './icons.js';
+import { setIconSource } from './iconpaths.js';
+setIconSource(ICONS); // los iconos de la app que un texto puede mostrar: ![Linea](icon:line)
 import { buildTree, kindOf, conLabel } from './tree.js';
 import { cleanFileBase } from './files.js';
 import { needsReload, reloadAllowed } from './update.js';
@@ -334,6 +336,7 @@ $('tTree').onclick = () => { opts.tree = !opts.tree; applyChrome(); persist(); }
 $('treeBy').onclick = () => { opts.treeBy = opts.treeBy === 'layer' ? 'type' : 'layer'; persist(); renderTree(); };
 $('tHelp').onclick = () => {
   $('helpBody').innerHTML = HELP_HTML + `<p id="helpNone" hidden>Nada en la ayuda coincide con la búsqueda.</p><p style="color:var(--muted);font-size:12px">A-CAD v${VERSION}</p>`;
+  fillIconRef();
   $('helpBody').querySelectorAll('details').forEach((d) => { d.dataset.open0 = d.open ? '1' : ''; });
   $('helpSearch').value = '';
   $('dlgH').showModal(); $('helpBody').scrollTop = 0;
@@ -370,6 +373,31 @@ function filterHelp(q) {
 $('helpSearch').addEventListener('input', (e) => filterHelp(e.target.value));
 $('helpClose').onclick = () => $('dlgH').close();
 $('treeClose').onclick = () => { opts.tree = false; applyChrome(); persist(); };
+
+// Tabla de la ayuda «Íconos en los textos»: cada icono con la linea lista para copiar y los botones que lo usan (sacados de la
+// interfaz, asi no se desactualiza). Primero los de los botones, en el orden en que aparecen; despues los demas.
+function fillIconRef() {
+  const box = $('iconRef');
+  if (!box) return;
+  const used = new Map();
+  document.querySelectorAll('[data-icon]').forEach((el) => {
+    const n = el.dataset.icon;
+    if (!ICONS[n] || el.closest('#helpBody')) return;
+    const lb = (el.querySelector(':scope > span')?.textContent || el.title || el.getAttribute('aria-label') || '').split(/:| · /)[0].trim(); // sin la explicacion ni la pista de mantener presionado
+    if (!used.has(n)) used.set(n, []);
+    if (lb && !used.get(n).includes(lb)) used.get(n).push(lb);
+  });
+  const names = [...used.keys(), ...Object.keys(ICONS).filter((n) => !used.has(n)).sort()];
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const line = (n) => `![${(used.get(n)?.[0] || n).replace(/[[\]]/g, '')}](icon:${n})`;
+  box.innerHTML = `<table class="fref"><thead><tr><th></th><th>Escribe</th><th>Botón</th></tr></thead><tbody>${names.map((n) => `<tr data-copy="${esc(line(n))}" style="cursor:pointer"><td><span style="display:inline-block;width:22px;height:22px">${ICONS[n]}</span></td><td><code>${esc(line(n))}</code></td><td>${esc((used.get(n) || []).join(', ') || '(sin botón)')}</td></tr>`).join('')}</tbody></table>`;
+  box.querySelectorAll('svg').forEach((s) => { s.setAttribute('width', '22'); s.setAttribute('height', '22'); });
+  box.onclick = (e) => {
+    const tr = e.target.closest('tr[data-copy]');
+    if (!tr) return;
+    navigator.clipboard?.writeText(tr.dataset.copy).then(() => toast('Copiado: ' + tr.dataset.copy), () => toast(tr.dataset.copy));
+  };
+}
 
 function hydrateIcons() {
   document.querySelectorAll('[data-icon]').forEach((el) => {
@@ -1149,7 +1177,9 @@ function drawTexts(c, o) {
         if (p.k === 't') { c.font = `${p.it ? 'italic ' : ''}${p.bold ? 'bold ' : ''}${p.size * sc * dpr}px ${fontCss(p.font)}`; if (p.w > 0) c.fillText(p.s, p.x * sc * dpr, -p.y * sc * dpr, p.w * sc * dpr); else c.fillText(p.s, p.x * sc * dpr, -p.y * sc * dpr); } else {
           c.lineWidth = Math.max(p.lw * sc * dpr, dpr); c.beginPath();
           p.pts.forEach(([x, y], k) => (k ? c.lineTo(x * sc * dpr, -y * sc * dpr) : c.moveTo(x * sc * dpr, -y * sc * dpr)));
-          c.stroke();
+          if (p.op < 1) c.globalAlpha = p.op; // iconos: lineas de ayuda tenues
+          if (p.fill) c.fill();
+          c.stroke(); c.globalAlpha = 1;
         }
       }
     } else f.lines.forEach((ln, i) => {

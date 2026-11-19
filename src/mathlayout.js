@@ -4,6 +4,11 @@
 import { parse } from './asciimath.js';
 import { runsOf } from './tvars.js';
 import { hasMd, mdInline, mdBlock, H_SIZE, calloutOf, LINK_COLOR, MUTED_COLOR } from './markdown.js';
+import { iconStrokes } from './iconpaths.js';
+
+// Icono en un texto (![Linea](icon:line)): ocupa ICON_W de ancho (en alturas de letra), se dibuja en un cuadro de ICON_BOX centrado,
+// con su borde de arriba ICON_TOP por encima de la linea base.
+const ICON_W = 1.15, ICON_BOX = 0.95, ICON_TOP = 0.78;
 const noIT = (s) => s.replace(/[\uE000\uE001]/g, ''); // las marcas de cursiva no van a la formula; las de vector (VB0/VB1) si
 
 const MF = 'serif'; // fuente de la formula (claves de FONTS en text.js)
@@ -471,7 +476,7 @@ function compute(text, measure, font, opt = {}) {
   }
 
   const runSz = (u, sz) => sz * (u.sup ? 0.62 : 1);
-  const runW = (r, sz) => measure(r.s, r.code ? 'mono' : font, r.it) * runSz(r, sz) * (r.b ? 1.06 : 1);
+  const runW = (r, sz) => (r.icon ? ICON_W * runSz(r, sz) : measure(r.s, r.code ? 'mono' : font, r.it) * runSz(r, sz) * (r.b ? 1.06 : 1));
   const itemsW = (items, sz) => items.reduce((w, it) => w + (it.k === 't' ? (it.w = it.runs.reduce((s, u) => s + runW(u, sz), 0)) : (it.w = it.box.w)), 0);
   const vert = (items, a, d) => { for (const it of items) if (it.k === 'm') { a = Math.max(a, it.box.a + 0.04); d = Math.max(d, it.box.d + 0.04); } return [a, d]; };
   // Ajuste al ancho (opt.maxW, el de la pagina): una linea de texto mas ancha se parte en los espacios; las siguientes van con la misma
@@ -545,7 +550,10 @@ function compute(text, measure, font, opt = {}) {
         let xx = x;
         for (const u of it.runs) {
           const uw = runW(u, sz), col = u.col || (u.link ? LINK_COLOR : u.img ? MUTED_COLOR : undefined);
-          prims.push({ k: 't', s: u.s, x: xx, y: u.sup ? base - 0.4 * sz : base, sz: runSz(u, sz), w: uw, it: u.it, font: u.code ? 'mono' : font, ...(u.b ? { bold: true } : {}), ...(col ? { col } : {}) });
+          if (u.icon) { // icono de la app: sus trazos de 24x24 escalados a la letra (de la altura de una mayuscula a un poco bajo la linea base)
+            const z = runSz(u, sz), S = ICON_BOX * z, x0 = xx + ((ICON_W - ICON_BOX) / 2) * z, y0 = (u.sup ? base - 0.4 * sz : base) - ICON_TOP * z;
+            for (const st of iconStrokes(u.icon) || []) prims.push({ k: 'p', pts: st.pts.map(([px, py]) => [x0 + (px / 24) * S, y0 + (py / 24) * S]), lw: (2 / 24) * S, ...(col ? { col } : {}), ...(st.fill ? { fill: true } : {}), ...(st.op < 1 ? { op: st.op } : {}) });
+          } else prims.push({ k: 't', s: u.s, x: xx, y: u.sup ? base - 0.4 * sz : base, sz: runSz(u, sz), w: uw, it: u.it, font: u.code ? 'mono' : font, ...(u.b ? { bold: true } : {}), ...(col ? { col } : {}) });
           if (u.st) prims.push({ k: 'p', pts: [[xx, base - 0.3 * sz], [xx + uw, base - 0.3 * sz]], lw: 0.06 * sz });
           if (u.link) {
             prims.push({ k: 'p', pts: [[xx, base + 0.1 * sz], [xx + uw, base + 0.1 * sz]], lw: 0.05 * sz, col: LINK_COLOR });

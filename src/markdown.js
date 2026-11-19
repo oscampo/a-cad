@@ -2,12 +2,15 @@
 // notas al pie y avisos («callouts» de Obsidian/GitHub).
 // En linea: **negrita**, *cursiva* o _cursiva_, ***negrita y cursiva***, ~~tachado~~, `codigo` (monoespaciada), [enlace](url),
 // [enlace][ref] (con «[ref]: url» en otra linea), <https://...> y <correo@dominio>, ![imagen](url) (se muestra su texto
-// alternativo: el dibujo no carga imagenes) y [^1] (llamada a una nota al pie).
+// alternativo: el dibujo no carga imagenes), ![Linea](icon:line) (el icono de esa herramienta de la app, ver iconpaths.js) y [^1]
+// (llamada a una nota al pie).
 // Por linea (al comienzo): «# » a «###### » titulos; «- », «* » o «+ » viñeta, «- [ ] » / «- [x] » tarea; «1. » o «1) » lista
 // numerada (dos espacios de sangria por nivel); «> » cita; «> [!note] Titulo» aviso; «---» (o «***», «___») sola en la linea es
 // una raya horizontal. Los bloques que abarcan varias lineas (codigo, tablas, notas) los arma mathlayout.js.
 // «\» antes de un signo de puntuacion lo deja tal cual: «\*». El _ dentro de una palabra no es cursiva (mi_archivo).
 // Las marcas no cruzan una formula: «**a $x$ b**» no es negrita (se pone «**a** $x$ **b**»).
+
+import { hasIcon } from './iconpaths.js';
 
 const ESC = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
 // ¿Puede llevar Markdown? Si no, el texto se dibuja como siempre.
@@ -24,7 +27,7 @@ export function mdInline(s, ctx = {}) {
   const out = [];
   const K = ['b', 'it', 'st', 'code', 'link', 'img', 'sup'];
   // dos enlaces seguidos a destinos distintos no se juntan en un tramo
-  const push = (t, st) => { if (!t) return; const l = out.at(-1); if (l && K.every((k) => !!l[k] === !!st[k]) && (l.link || null) === (st.link || null)) l.s += t; else out.push({ s: t, ...st }); };
+  const push = (t, st) => { if (!t) return; const l = out.at(-1); if (l && !l.icon && K.every((k) => !!l[k] === !!st[k]) && (l.link || null) === (st.link || null)) l.s += t; else out.push({ s: t, ...st }); };
   const ws = (c) => c === undefined || /\s/.test(c);
   const word = (c) => c !== undefined && /[\p{L}\p{N}]/u.test(c);
   const refs = ctx.refs || new Map();
@@ -72,7 +75,12 @@ export function mdInline(s, ctx = {}) {
       if (c === '\\' && i + 1 < to && ESC.includes(s[i + 1])) { push(s[i + 1], st); i += 2; continue; }
       if (c === '`') { const k = s.indexOf('`', i + 1); if (k > 0 && k < to && k > i + 1) { push(s.slice(i + 1, k), { ...st, code: true }); i = k + 1; continue; } }
       if (c === '~' && s[i + 1] === '~' && !ws(s[i + 2])) { const k = close('~~', i + 2, to); if (k > 0 && k + 2 <= to) { run(i + 2, k, { ...st, st: true }); i = k + 2; continue; } }
-      if (c === '!' && s[i + 1] === '[' && !st.link) { const L = linkAt(i + 1, to); if (L) { push('▣ ' + s.slice(i + 2, L.tEnd).replace(/\\(.)/g, '$1'), { ...st, img: true }); i = L.end; continue; } }
+      if (c === '!' && s[i + 1] === '[') { const L = linkAt(i + 1, to); if (L) {
+        // ![Linea](icon:line): el icono de la app (ver iconpaths.js), un tramo propio de un solo caracter (no se parte al ajustar la linea).
+        // Tambien dentro de un enlace: [![Guardar](icon:save) guardar](#guardar)
+        const ic = /^icon:([\w-]+)$/i.exec(L.url || ''), alt = s.slice(i + 2, L.tEnd).replace(/\\(.)/g, '$1');
+        if (ic && hasIcon(ic[1])) { out.push({ s: '￼', ...st, icon: ic[1], alt }); i = L.end; continue; }
+        if (!st.link) { push('▣ ' + s.slice(i + 2, L.tEnd).replace(/\\(.)/g, '$1'), { ...st, img: true }); i = L.end; continue; } } }
       if (c === '[') {
         if (s[i + 1] === '^' && ctx.fn) { const k = s.indexOf(']', i + 2); if (k > i + 2 && k < to && !/\s/.test(s.slice(i + 2, k))) { push(String(ctx.fn(s.slice(i + 2, k))), { ...st, sup: true }); i = k + 1; continue; } }
         if (!st.link) { const L = linkAt(i, to); if (L) { run(i + 1, L.tEnd, { ...st, link: L.url || '#' }); i = L.end; continue; } }

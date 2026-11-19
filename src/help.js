@@ -123,6 +123,11 @@ export const HELP_HTML = `
 ${calcRefHtml()}
 </details>
 
+<details><summary>Íconos en los textos</summary>
+<p>Un texto puede mostrar el ícono de una herramienta, para referirse a ella en un tutorial o una nota: <code>![Línea](icon:line)</code> lo dibuja dentro de la línea, a la altura de la letra y con el color del texto (en un enlace, en azul). Lo que va entre corchetes es el texto alternativo: se usa si el nombre no existe y en otros visores de Markdown. Sale también al exportar (SVG y DXF, como trazos). <b>Toca una fila para copiarla</b> y pégala en el texto.</p>
+<div id="iconRef"></div>
+</details>
+
 <details><summary>Funciones y operadores</summary>
 <p>Lista completa de lo que acepta una fórmula, en cotas, textos, actuadores y gráficas. Cada ejemplo muestra lo que da.</p>
 ${funcRefHtml()}
