@@ -22,7 +22,7 @@ import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
 import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, genericRange, GEN_X, AXES } from './graphs.js';
-import { panWin, zoomStep, setWindow, clearWindow, saveHome, homeWin, forgetHome, resetAxis } from './graphview.js';
+import { panStep, zoomStep, setWindow, clearWindow, saveHome, homeWin, forgetHome, resetAxis } from './graphview.js';
 import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD, textLinkAt, textLinkBoxes } from './text.js';
 import { linkTarget, resolveRepoPath, findAnchor } from './links.js';
 import { attachAutoPair } from './autopair.js';
@@ -3504,20 +3504,19 @@ function drawGraphCtl(c, id, A, B, o) {
   const S = CTL, G = CTL_GAP;
   c.save(); c.setLineDash([]); c.lineWidth = dpr; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = 9 * dpr + 'px system-ui';
   const box = (bx, by, bw, bh, fill) => { c.beginPath(); c.roundRect(bx * dpr, by * dpr, bw * dpr, bh * dpr, 3 * dpr); c.fillStyle = fill; c.fill(); c.strokeStyle = o.fg + '66'; c.stroke(); };
-  const btn = (kind, bx, by, glyph) => { graphCtl.push({ id, kind, x: bx, y: by, w: S, h: S }); box(bx, by, S, S, o.bg); c.fillStyle = o.fg; c.fillText(glyph, (bx + S / 2) * dpr, (by + S / 2 + 0.5) * dpr); };
-  btn('panx-', x, y - S - G, '◀'); btn('panx+', x + w - S, y - S - G, '▶');
-  btn('pany+', x + w + G, y, '▲'); btn('pany-', x + w + G, y + h - S, '▼');
-  // zoom horizontal (abajo, a la derecha acerca) y vertical (a la izquierda, arriba acerca)
+  // deslizadores elasticos: zoom horizontal (abajo, a la derecha acerca) y vertical (a la izquierda, arriba acerca);
+  // paneo horizontal (arriba, a la derecha mueve hacia valores mayores) y vertical (a la derecha, arriba hacia valores mayores)
   const zx = { id, kind: 'zx', x, y: y + h + G, w, h: S }, zy = { id, kind: 'zy', x: x - S - G, y, w: S, h };
-  graphCtl.push(zx, zy);
-  for (const [z, k, horiz] of [[zx, 'x1', true], [zy, 'y1', false]]) {
-    const s = gspring[id + '|' + k] || 0; // elastico: en reposo el mando esta al centro
+  const px = { id, kind: 'px', x, y: y - S - G, w, h: S }, py = { id, kind: 'py', x: x + w + G, y, w: S, h };
+  graphCtl.push(zx, zy, px, py);
+  for (const [z, horiz, glyph] of [[zx, true, '↔'], [zy, false, '↕'], [px, true, '⇆'], [py, false, '⇅']]) {
+    const s = gspring[id + '|' + z.kind] || 0; // elastico: en reposo el mando esta al centro
     box(z.x, z.y, z.w, z.h, o.fg + '14');
     c.strokeStyle = o.fg + '55'; c.beginPath();
     if (horiz) { c.moveTo((z.x + S / 2) * dpr, (z.y + S / 2) * dpr); c.lineTo((z.x + z.w - S / 2) * dpr, (z.y + S / 2) * dpr); } else { c.moveTo((z.x + S / 2) * dpr, (z.y + S / 2) * dpr); c.lineTo((z.x + S / 2) * dpr, (z.y + z.h - S / 2) * dpr); }
     c.stroke();
     const tx = horiz ? z.x + ((s + 1) / 2) * (z.w - S) : z.x, ty = horiz ? z.y : z.y + ((1 - s) / 2) * (z.h - S);
-    box(tx, ty, S, S, theme.sel); c.fillStyle = '#fff'; c.fillText(horiz ? '↔' : '↕', (tx + S / 2) * dpr, (ty + S / 2 + 0.5) * dpr);
+    box(tx, ty, S, S, theme.sel); c.fillStyle = '#fff'; c.fillText(glyph, (tx + S / 2) * dpr, (ty + S / 2 + 0.5) * dpr);
   }
   // boton de la esquina (entre los dos deslizadores): guarda la vista actual; relleno si la grafica ya tiene una
   const hx = x - S - G, hy = y + h + G, saved = !!doc.graphs[id]?.home;
@@ -3535,9 +3534,9 @@ function graphWin(id, k) {
   const v = gview[id]?.[k];
   return v ? [v.lo, v.hi] : k === 'x1' ? genericRange(g, 'x1') : [0, 1];
 }
-function graphPan(id, k, dir) {
-  const g = doc.graphs[id]; if (!g) return;
-  const [lo, hi] = graphWin(id, k), w = panWin(lo, hi, dir * 0.15, g.axes?.[k]?.scale === 'log');
+function graphPanStep(id, k, s, dt) { // un instante de paneo continuo: s > 0 hacia valores mayores
+  const g = doc.graphs[id], v = gview[id]?.[k]; if (!g || !v) return;
+  const [lo, hi] = graphWin(id, k), w = panStep(lo, hi, s, dt, v.log);
   setWindow(g, k, w[0], w[1]); scheduleGraphs(); draw();
 }
 function graphZoomStep(id, k, s, dt) { // un instante de zoom continuo: s > 0 acerca, s < 0 aleja
@@ -3546,32 +3545,27 @@ function graphZoomStep(id, k, s, dt) { // un instante de zoom continuo: s > 0 ac
   setWindow(g, k, w[0], w[1]); scheduleGraphs(); draw();
 }
 function ctlDown(z, p) {
-  const g = doc.graphs[z.id], k = z.kind.endsWith('x') || z.kind.startsWith('panx') ? 'x1' : 'y1';
+  const g = doc.graphs[z.id], k = z.kind.endsWith('x') ? 'x1' : 'y1';
   if (!g) return;
   pushUndo();
   if (z.kind === 'home') { drag = { p0: p, ctl: z, home: true, started: true }; graphHomeTap(z.id); return; } // al soltar no hace nada mas (ni seleccionar)
   const d = drag = { p0: p, ctl: z, k, started: true, moved: false };
-  if (z.kind[0] === 'p') { // flechas: un paso al tocar, y repite mientras se mantiene
-    const dir = z.kind.endsWith('+') ? 1 : -1;
-    graphPan(z.id, k, dir);
-    d.timer = setTimeout(() => { d.iv = setInterval(() => { if (drag !== d) return clearInterval(d.iv); graphPan(z.id, k, dir); }, 110); }, 380);
-    return;
-  }
+  const pan = z.kind[0] === 'p';
   d.zoom = true; d.s = 0; d.t0 = performance.now(); d.tdown = d.t0;
   ctlMove(p);
   d.iv = setInterval(() => { // mientras el mando siga desplazado, el zoom sigue
     if (drag !== d) return clearInterval(d.iv);
     const now = performance.now(), dt = Math.min(0.1, (now - d.t0) / 1000); d.t0 = now;
-    if (Math.abs(d.s) > 0.04 && now - d.tdown > 160) graphZoomStep(z.id, k, d.s, dt); // un toque corto no acerca (cuenta para el doble toque)
+    if (Math.abs(d.s) > 0.04 && now - d.tdown > 160) (pan ? graphPanStep : graphZoomStep)(z.id, k, d.s, dt); // un toque corto no mueve (cuenta para el doble toque)
   }, 40);
 }
 function ctlMove(p) {
   const d = drag, z = d.ctl;
   if (!d.zoom) return;
-  const horiz = z.kind === 'zx', S = CTL;
+  const horiz = z.kind === 'zx' || z.kind === 'px', S = CTL;
   const s = horiz ? ((p.x - z.x - S / 2) / (z.w - S)) * 2 - 1 : 1 - ((p.y - z.y - S / 2) / (z.h - S)) * 2;
   if (dist(p, d.p0) > 3) d.moved = true;
-  d.s = Math.max(-1, Math.min(1, s)); gspring[z.id + '|' + d.k] = d.s; draw();
+  d.s = Math.max(-1, Math.min(1, s)); gspring[z.id + '|' + z.kind] = d.s; draw();
 }
 let lastCtlTap = null;
 // Boton de la esquina: un toque guarda la vista actual (ventana de x1 e y1); un doble toque la olvida (los deslizadores vuelven a limites automaticos).
@@ -3598,8 +3592,8 @@ function ctlUp(d) {
   if (d.home) return;
   clearTimeout(d.timer); clearInterval(d.iv);
   const z = d.ctl, now = performance.now();
-  if (d.zoom) springBack(z.id + '|' + d.k);
-  if (d.zoom && !d.moved && now - d.tdown < 300 && lastCtlTap && lastCtlTap.kind === z.kind && lastCtlTap.id === z.id && now - lastCtlTap.t < 450) { // doble toque en un zoom: limites automaticos
+  if (d.zoom) springBack(z.id + '|' + z.kind);
+  if (d.zoom && !d.moved && now - d.tdown < 300 && lastCtlTap && lastCtlTap.kind === z.kind && lastCtlTap.id === z.id && now - lastCtlTap.t < 450) { // doble toque en un deslizador (zoom o paneo): a la vista guardada o a limites automaticos
     const w = resetAxis(doc.graphs[z.id], d.k); lastCtlTap = null;
     toast(w ? `Eje ${d.k[0]}: vista guardada, de ${fmtT(w[0])} a ${fmtT(w[1])}` : 'Eje con límites automáticos');
   } else lastCtlTap = d.zoom ? { kind: z.kind, id: z.id, t: now } : null;

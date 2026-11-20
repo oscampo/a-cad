@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { newDoc, addPoint, addText } from '../src/model.js';
 import { addGraph, computeGraph, genericRange, genericX, GEN_X } from '../src/graphs.js';
-import { panWin, zoomWin, zoomStep, zoomPos, zoomFromPos, winCenter, setWindow, clearWindow, saveHome, homeWin, forgetHome, resetAxis, ZOOM_R, ZOOM_RATE } from '../src/graphview.js';
+import { panWin, panStep, PAN_RATE, zoomWin, zoomStep, zoomPos, zoomFromPos, winCenter, setWindow, clearWindow, saveHome, homeWin, forgetHome, resetAxis, ZOOM_R, ZOOM_RATE } from '../src/graphview.js';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
@@ -108,6 +108,15 @@ t('zoom elastico: con el mando desplazado la ventana cambia de forma continua y 
   let w = [0, 10]; for (let i = 0; i < 10; i++) w = zoomStep(w[0], w[1], 0.5, 0.1); // 10 pasos de 0,1 s = un paso de 1 s
   const one = zoomStep(0, 10, 0.5, 1); near(w[1] - w[0], one[1] - one[0], 1e-9);
   const l = zoomStep(1, 1000, 1, 0.2, true); near(Math.sqrt(l[0] * l[1]), Math.sqrt(1000), 1e-6); // en log el centro es geometrico
+});
+
+t('paneo elastico: continuo, lento cerca del centro y hacia valores mayores con el mando a la derecha o arriba', () => {
+  assert.deepEqual(panStep(0, 10, 0, 1), [0, 10]); // mando en el centro: nada
+  const [a, b] = panStep(0, 10, 1, 1); near(a, 10 * PAN_RATE); near(b - a, 10); // a fondo: PAN_RATE anchos por segundo, sin cambiar el ancho
+  const [c] = panStep(0, 10, -0.5, 1); near(c, -10 * PAN_RATE * 0.25); // a la mitad, hacia atras: un cuarto de la velocidad (cuadratico)
+  let w = [0, 10]; for (let i = 0; i < 10; i++) w = panStep(w[0], w[1], 0.5, 0.1); // 10 pasos de 0,1 s = un paso de 1 s
+  near(w[0], panStep(0, 10, 0.5, 1)[0], 1e-9);
+  const l = panStep(1, 100, 1, 1 / PAN_RATE, true); near(l[0], 100); near(l[1], 10000); // en log se mueve en decadas
 });
 
 t('setWindow y clearWindow guardan y quitan los limites sin tocar el resto del eje', () => {

@@ -21,6 +21,10 @@ export function zoomWin(lo, hi, factor, log = false, at = 0.5) {
 // al soltarlo vuelve al centro y se puede seguir. A deflexion completa la ventana cambia ZOOM_RATE e-veces por segundo (~12x/s).
 export const ZOOM_RATE = 2.5;
 export const zoomStep = (lo, hi, s, dt, log = false) => zoomWin(lo, hi, Math.exp(s * ZOOM_RATE * dt), log);
+// Paneo «elastico»: igual, el deslizador desplazado s (-1..1) mueve la ventana de forma continua (s > 0: hacia valores mayores).
+// La velocidad crece con el cuadrado del desplazamiento (cerca del centro va lento, para afinar): a deflexion completa, PAN_RATE anchos por segundo.
+export const PAN_RATE = 1.5;
+export const panStep = (lo, hi, s, dt, log = false) => panWin(lo, hi, s * Math.abs(s) * PAN_RATE * dt, log);
 
 // Posicion del deslizador de zoom (-1..1) de una ventana respecto del ancho de partida.
 export function zoomPos(lo, hi, home, log = false) {
