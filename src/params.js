@@ -4,10 +4,10 @@
 // Las cotas de referencia (solo lectura) tambien se pueden leer en una formula: su valor sale de la geometria, asi que
 // resolver y recalcular se repite hasta que ya nada cambia (settle). Si no se estabiliza se avisa y se deshace.
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
-import { dimPos, dimValue, angTrue, initAngle, trackAngles, dimUnit, dimShown, isLenDim } from './dims.js';
+import { dimPos, dimValue, angTrue, initAngle, trackAngles, dimUnit, dimShown, isLenDim, dimUnreadable } from './dims.js';
 import { convertExpr, parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE, normName, evalExpr } from './expr.js';
 import { convertCalcText, textVarState, calcStmts, calcParse, calcSrc, evalDef } from './tvars.js';
-import { parseUnit, sameDim, autoUnit } from './units.js';
+import { parseUnit, sameDim, autoUnit, mulDim, unitMsg, dimName } from './units.js';
 import { geoVars, isGeoName, geoPoints } from './geo.js';
 
 const DEG = Math.PI / 180;
@@ -20,7 +20,8 @@ export function varValue(doc, k) {
   const v = dimValue(doc, k);
   if (k.t === 'ANG') return { v: v * DEG, r: true };
   const u = dimUnit(k.du);
-  if (u) { const q = dimShown(doc, k); return { v: q * u.f, r: false, ...(u.d ? { d: u.d } : {}), pu: k.du, pf: u.f }; }
+  if (k.t !== 'ANG' && dimUnreadable(k)) return { v: NaN, r: false, ...(u?.d ? { d: u.d } : {}), pu: k.du, pf: u?.f ?? 1 }; // en kN sin escala de representacion no vale nada: las salidas dicen ⚠
+  if (u && !dimUnreadable(k)) { const q = dimShown(doc, k); return { v: q * u.f, r: false, ...(u.d ? { d: u.d } : {}), pu: k.du, pf: u.f }; }
   if (k.t === 'RAD' && k.refs[0] in doc.circles) return { v: 2 * v, r: false };
   return { v, r: false };
 }
@@ -44,11 +45,37 @@ export function dimEval(src, vars) {
   if (r.mat) throw new Error('El resultado es una matriz, no un número');
   if (!Number.isFinite(r.value)) throw new Error('El resultado no es un número');
   const v = Number((r.value * (isLenDim(r.dim) ? 1000 : 1)).toPrecision(12));
-  if (!r.dim) return { v, du: r.pu || null }; // «50'%»
+  if (!r.dim) return { v, du: r.pu || null, d: undefined }; // «50'%»
   let du = r.pu || null;
   if (!du) for (const n of exprRefs(src)) { const x = vars?.[n]; if (x?.pu && sameDim(x.d, r.dim)) { du = x.pu; break; } }
   if (!du) du = autoUnit(r.value, r.dim)?.name ?? null;
-  return { v, du: dimUnit(du) ? du : null };
+  return { v, du: dimUnit(du) ? du : null, d: r.dim };
+}
+// Escala de una cota («valor[*escala]» o el campo Escala). Sin unidades («10», «k») es «fuera de escala»: el dibujo mide el valor por la
+// escala y la cota va subrayada (ISO 129). Con unidades es una escala de representacion: la magnitud por la escala da la longitud del dibujo
+// («30'kN[*1'mm/kN]» mide 30 mm y dice «30 kN», sin subrayar); si no da una longitud, error. qd: dimension de la magnitud de la cota
+// (undefined: un numero). Devuelve { sc: factor de lo que mide la cota (en unidades del dibujo) a lo que mide el dibujo, rep } o lanza un error.
+export function scaleEval(src, vars, qd) {
+  const t = splitUnit(src), r = t ? evalDef(t.body, t.unit, vars) : evalExpr(src, { vars }); // «1'mm/kN»: la unidad del final entera
+  if (!Number.isFinite(r.value) || !(r.value > 0)) throw new Error('La escala debe ser un número mayor que cero, p. ej. 4[*10]');
+  if (r.mat) throw new Error('La escala debe ser un número mayor que cero, p. ej. 4[*10]');
+  if (!r.dim) return { sc: r.value, rep: false };
+  const pd = mulDim(qd, r.dim);
+  if (!isLenDim(pd)) throw new Error(`La escala (${unitMsg(r.dim)}) por la magnitud de la cota (${unitMsg(qd)}) da ${unitMsg(pd)}, no una longitud: para una fuerza en kN, p. ej. 1'mm/kN`);
+  return { sc: Number(((r.value * 1000) / (isLenDim(qd) ? 1000 : 1)).toPrecision(12)), rep: true };
+}
+// Aviso para una cota conductora de otra magnitud (kN, V) sin escala de representacion: mide su valor en el SI (30 kN, 30000). null si no aplica.
+export function noScaleWarn(d, du, v, rep) {
+  if (!d || isLenDim(d) || rep) return null;
+  return `Sin escala de representación el dibujo mide ${Math.round(v * 1000) / 1000} (en el SI). Usa una escala con unidades, p. ej. [*1'mm/${du || dimName(d)}]`;
+}
+// Escalas con formula de las cotas de solo lectura («Escala: eF»): se reevaluan con las variables de su lugar de la pagina. Si no se puede,
+// la cota dice ⚠ (k.serr) en vez de detener todo.
+export function refScales(doc) {
+  for (const [id, k] of named(doc)) {
+    if (!k.ref || !k.scaleExpr || k.t === 'ANG') continue;
+    try { const s = scaleEval(k.scaleExpr, varsOf(doc, id), dimUnit(k.du)?.d); k.scale = s.sc; if (s.rep) k.srep = true; else delete k.srep; delete k.serr; } catch (e) { k.serr = e.message; }
+  }
 }
 // Estado de las variables de los textos («x:valor») con los valores actuales de las cotas.
 // Las cotas con formula se leen en el lugar de su etiqueta (orden de lectura): ven las variables tal como estaban ahi.
@@ -59,7 +86,7 @@ export const freezeDimOrder = (doc) => { FROZEN.set(doc, new Map(probesOf(doc).m
 export const thawDimOrder = (doc) => { FROZEN.delete(doc); };
 const probesOf = (doc) => {
   const fz = FROZEN.get(doc);
-  return drivers(doc).filter(([, k]) => k.expr || k.scaleExpr).map(([id, k]) => (fz?.get(id) ?? { id, ...dimPos(doc, k) }));
+  return named(doc).filter(([, k]) => (!k.ref && k.expr) || k.scaleExpr).map(([id, k]) => (fz?.get(id) ?? { id, ...dimPos(doc, k) }));
 };
 export function textVars(doc, exceptId = null) {
   const dimVars = geoVars(doc);
@@ -134,7 +161,9 @@ export function setDocDecimal(doc, to, convert = true) {
 }
 export const textVarNames = (doc) => (hasDefs(doc) ? textVars(doc).names : new Set());
 // Fuente de las formulas de una cota (el valor y, si la lleva, la escala): de ahi salen sus dependencias.
-const srcOf = (k) => (k.scaleExpr ? `${k.expr ?? ''};${k.scaleExpr}` : k.expr);
+// (sin la unidad del final: en «1'mm/kN» el «kN» no es una variable)
+const noTail = (s) => (s ? splitUnit(s)?.body ?? s : s);
+const srcOf = (k) => (k.scaleExpr ? `${noTail(k.expr) ?? ''};${noTail(k.scaleExpr)}` : noTail(k.expr));
 // Cotas (por nombre) de las que depende una formula, directamente o a traves de variables de texto.
 function dimRefs(doc, expr, st = tvOf(doc), seen = new Set()) {
   const dn = new Set(named(doc).map(([, k]) => k.name)), has = (q) => st.win.has(q) || dn.has(q) || isGeoName(doc, q), out = new Set();
@@ -192,6 +221,7 @@ export function fillDimUnits(doc) {
     if (!k.expr || k.du || k.t === 'ANG' || k.t === 'ANG4') continue;
     try { const r = dimEval(k.expr, varsOf(doc, id)); if (r.du) { k.du = r.du; n++; } } catch (e) { /* formula que hoy no se puede evaluar: sigue sin unidad */ }
   }
+  refScales(doc);
   return n;
 }
 
@@ -202,6 +232,7 @@ export function fillDimUnits(doc) {
 // hook(id, viejo, formula): si se da, decide el valor nuevo (settle lo usa para aplicar el metodo de la secante).
 export function recompute(doc, omega = 1, hook = null) {
   for (const [, k] of drivers(doc)) if (k.t === 'ANG' && k.expr && k.cur === undefined) initAngle(doc, k); // las angulares con formula usan valor continuo
+  refScales(doc); // las de solo lectura con escala con formula («Escala: eF») siguen a sus variables
   const dr = drivers(doc), byName = new Map(named(doc).map(([id, k]) => [k.name, id])), f = dr.filter(([, k]) => k.expr);
   const deps = new Map(), tv = tvOf(doc);
   // una variable de texto que se define despues de la cota (mas abajo o mas a la derecha) todavia no existe para ella
@@ -235,13 +266,13 @@ export function recompute(doc, omega = 1, hook = null) {
   let resid = 0; // cuanto se aleja cada valor actual de lo que dice su formula (antes de amortiguar)
   for (const id of order) {
     const k = doc.cons[id];
-    let val;
+    let val, qd;
     try {
       if (k.t === 'ANG') val = parseValue(k.expr, { angle: true, radians: k.unit === 'rad', vars: varsOf(doc, id) });
-      else { const r = dimEval(k.expr, varsOf(doc, id)); val = r.v; if (r.du) k.du = r.du; else delete k.du; } // la etiqueta dice la unidad de la formula
+      else { const r = dimEval(k.expr, varsOf(doc, id)); val = r.v; qd = r.d; if (r.du) k.du = r.du; else delete k.du; } // la etiqueta dice la unidad de la formula
     } catch (e) { doc.cons = JSON.parse(bak); return { ok: false, error: `${k.name}: ${hintLate(e.message)}` }; }
-    if (k.scaleExpr && k.t !== 'ANG') { // escala con formula: «30[*k]»; se reevalua con las variables de ahora
-      try { const sc = parseValue(k.scaleExpr, { vars: varsOf(doc, id) }); if (!(sc > 0)) throw new Error('debe ser mayor que cero'); k.scale = sc; } catch (e) { doc.cons = JSON.parse(bak); return { ok: false, error: `${k.name}: escala ${e.message}` }; }
+    if (k.scaleExpr && k.t !== 'ANG') { // escala con formula: «30[*k]», «30'kN[*eF]»; se reevalua con las variables de ahora
+      try { const s = scaleEval(k.scaleExpr, varsOf(doc, id), qd); k.scale = s.sc; if (s.rep) k.srep = true; else delete k.srep; } catch (e) { doc.cons = JSON.parse(bak); return { ok: false, error: `${k.name}: ${hintLate(e.message)}` }; }
     }
     if (k.scale > 0 && k.t !== 'ANG') val *= k.scale; // cota a escala: el dibujo mide el valor por la escala
     if (k.t === 'ANG') { // el angulo no tiene limite (400° = una vuelta y 40°): se trabaja con el valor continuo

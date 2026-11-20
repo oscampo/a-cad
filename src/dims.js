@@ -98,7 +98,8 @@ export function dimValue(doc, k) {
 // Cota a escala: «4[*10]» da un dibujo de 4*10 = 40 unidades con la cota «4» (k.scale = 10: el dibujo mide el valor por la escala).
 // La etiqueta lleva la medida real (la del dibujo entre la escala) y va subrayada (ISO 129, UNE 1-039). Solo en distancias, radios y diametros.
 export const dimScale = (k) => (k.t !== 'ANG' && k.t !== 'ANG4' && k.scale > 0 && k.scale !== 1 ? k.scale : 1);
-export const isScaledDim = (k) => dimScale(k) !== 1;
+// Una escala de representacion (k.srep: con unidades, «30'kN[*1'mm/kN]») no es «fuera de escala»: la cota no va subrayada.
+export const isScaledDim = (k) => dimScale(k) !== 1 && !k.srep;
 // «valor[*k]» -> { body: 'valor', src: 'k', scale: k }: k es un numero (scale) o una formula con cotas y variables (src; quien llama la evalua).
 // Sin corchetes, { body }; con la escala vacia o un numero que no vale, { body, err }.
 export function splitScale(src) {
@@ -144,11 +145,20 @@ export function dimShown(doc, k) {
   return w / dimScale(k) / (u ? u.g : 1);
 }
 
+// Una cota de solo lectura no puede decir una medida del dibujo en otra magnitud (kN, V) sin una escala de representacion que la convierta
+// (ni con una escala que no se pudo calcular, k.serr): su etiqueta dice ⚠.
+export function dimUnreadable(k) {
+  if (!k.ref) return false;
+  if (k.serr) return true;
+  const u = dimUnit(k.du);
+  return !!(u && u.d && !isLenDim(u.d) && !k.srep);
+}
+
 export function dimText(doc, k) {
   if (k.t === 'ANG4') { const x = v4(doc, k); return dimText(x.d, x.k); }
   const v = dimValue(doc, k);
   if (k.t === 'ANG') return k.unit === 'rad' ? fmtNum((v * Math.PI) / 180) + ' rad' : fmtNum(v) + '°';
-  const tail = dimUnit(k.du) ? ' ' + k.du : '', q = fmtNum(dimShown(doc, k)) + tail;
+  const tail = dimUnit(k.du) ? ' ' + k.du : '', q = (dimUnreadable(k) ? '⚠' : fmtNum(dimShown(doc, k))) + tail;
   if (k.t === 'RAD') return (k.refs[0] in doc.circles ? DIAM : 'R') + q;
   return q;
 }

@@ -2,9 +2,9 @@
 // («126'in» mide 3200,4 y dice «126 in»); en las formulas una cota con unidad entra como cantidad, sin la escala.
 import assert from 'node:assert/strict';
 import { newDoc, addPoint, addLine, addCon } from '../src/model.js';
-import { dimText, dimUnit, dimShown } from '../src/dims.js';
+import { dimText, dimUnit, dimShown, isScaledDim, layoutDim } from '../src/dims.js';
 import { initSolver, solve } from '../src/solver.js';
-import { settle, splitUnit, dimEval, varValue, varsList } from '../src/params.js';
+import { settle, splitUnit, dimEval, varValue, varsList, scaleEval, noScaleWarn } from '../src/params.js';
 import { setDecimal } from '../src/locale.js';
 
 await initSolver();
@@ -13,6 +13,7 @@ let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
 const near = (a, b, e = 1e-6) => assert.ok(Math.abs(a - b) <= e, `${a} != ${b}`);
 const L = [1, 0, 0, 0, 0, 0, 0];
+const vd = (r) => ({ v: r.v, du: r.du });
 
 t('splitUnit: la unidad del final se separa; una formula que sigue despues no es unidad', () => {
   assert.deepEqual(splitUnit("126'in"), { body: '126', unit: 'in' });
@@ -28,15 +29,15 @@ t('splitUnit: la unidad del final se separa; una formula que sigue despues no es
 
 t('dimEval: el dibujo mide lo real y la etiqueta dice la unidad escrita, la de una cota de la formula o la del SI', () => {
   const vars = { D2: { v: 3.2004, d: L, pu: 'in', pf: 0.0254 }, D4: { v: 0.508, d: L, pu: 'in', pf: 0.0254 }, D1: { v: 50 } };
-  assert.deepEqual(dimEval("126'in", vars), { v: 3200.4, du: 'in' });
-  assert.deepEqual(dimEval('126', vars), { v: 126, du: null });
-  assert.deepEqual(dimEval("2'cm", vars), { v: 20, du: 'cm' }); // como siempre: 2 cm miden 20
-  assert.deepEqual(dimEval("12'V", vars), { v: 12, du: 'V' }); // otra magnitud: en el SI
-  assert.deepEqual(dimEval("5'kN", vars), { v: 5000, du: 'kN' });
-  assert.deepEqual(dimEval('D2*2', vars), { v: 6400.8, du: 'in' }); // la unidad de D2
-  assert.deepEqual(dimEval("D2*2'ft", vars), { v: 6400.8, du: 'ft' }); // ya trae unidades: solo dice en cual mostrarla
-  assert.deepEqual(dimEval("D1'mm+D2", vars), { v: 3250.4, du: 'in' });
-  assert.deepEqual(dimEval('D1+3', vars), { v: 53, du: null }); // sin unidades, un numero como siempre
+  assert.deepEqual(vd(dimEval("126'in", vars)), { v: 3200.4, du: 'in' });
+  assert.deepEqual(vd(dimEval('126', vars)), { v: 126, du: null });
+  assert.deepEqual(vd(dimEval("2'cm", vars)), { v: 20, du: 'cm' }); // como siempre: 2 cm miden 20
+  assert.deepEqual(vd(dimEval("12'V", vars)), { v: 12, du: 'V' }); // otra magnitud: en el SI
+  assert.deepEqual(vd(dimEval("5'kN", vars)), { v: 5000, du: 'kN' });
+  assert.deepEqual(vd(dimEval('D2*2', vars)), { v: 6400.8, du: 'in' }); // la unidad de D2
+  assert.deepEqual(vd(dimEval("D2*2'ft", vars)), { v: 6400.8, du: 'ft' }); // ya trae unidades: solo dice en cual mostrarla
+  assert.deepEqual(vd(dimEval("D1'mm+D2", vars)), { v: 3250.4, du: 'in' });
+  assert.deepEqual(vd(dimEval('D1+3', vars)), { v: 53, du: null }); // sin unidades, un numero como siempre
   assert.throws(() => dimEval('D1+D2', vars)); // numero mas longitud
 });
 
@@ -83,6 +84,34 @@ t('una cota de solo lectura con unidad dice la medida en ella; sin unidad, todo 
   assert.equal(dimText(o.d, o.d.cons[o.k]), '254');
   assert.deepEqual(varValue(o.d, o.d.cons[o.k]), { v: 254, r: false });
   assert.equal(dimUnit('xyz'), null); assert.equal(dimUnit('in').g, 25.4); assert.equal(dimUnit('V').g, 1);
+});
+
+t('escala con unidades: la magnitud por la escala da la longitud del dibujo y la cota no va subrayada', () => {
+  const F = dimEval("30'kN", {}).d;
+  assert.deepEqual(scaleEval("1'mm/kN", {}, F), { sc: 0.001, rep: true });
+  assert.deepEqual(scaleEval("1'(mm/kN)", {}, F), { sc: 0.001, rep: true });
+  assert.deepEqual(scaleEval('10', {}, F), { sc: 10, rep: false }); // sin unidades: fuera de escala, como siempre
+  assert.throws(() => scaleEval("2'mm", {}, F), /no una longitud/); // kN por mm no es una longitud
+  assert.deepEqual(scaleEval("2'mm", {}, undefined), { sc: 2, rep: true }); // un numero por mm, si
+  assert.ok(noScaleWarn(F, 'kN', 30000, false)); assert.equal(noScaleWarn(F, 'kN', 30, true), null); assert.equal(noScaleWarn(L, 'in', 30, false), null);
+  const { d, k, a, b } = mkLine(10, { expr: "30'kN", scaleExpr: "1'mm/kN" });
+  assert.ok(settle(d, solve, []).ok);
+  near(Math.hypot(d.pts[b].x - d.pts[a].x, d.pts[b].y - d.pts[a].y), 30, 1e-4);
+  const q = d.cons[k];
+  assert.equal(q.srep, true); assert.equal(isScaledDim(q), false); assert.equal(dimText(d, q), '30 kN');
+  assert.equal(layoutDim(d, q, { s: 5, ox: 0, oy: 0 }).label.underline, false);
+  const v = varValue(d, q); near(v.v, 30000); assert.equal(v.pu, 'kN'); // en las formulas: 30 kN
+});
+
+t('solo lectura con unidad de otra magnitud: sin escala con unidades dice ⚠; con ella, la medida entre la escala', () => {
+  const { d, k } = mkLine(45, { ref: true, du: 'kN' });
+  assert.equal(dimText(d, d.cons[k]), '⚠ kN');
+  d.cons[k].scaleExpr = "1'mm/kN";
+  assert.ok(settle(d, solve, []).ok); // las escalas de solo lectura se recalculan
+  assert.equal(d.cons[k].srep, true); assert.equal(dimText(d, d.cons[k]), '45 kN');
+  near(varValue(d, d.cons[k]).v, 45000);
+  d.cons[k].scaleExpr = "1'mm"; settle(d, solve, []);
+  assert.ok(d.cons[k].serr); assert.equal(dimText(d, d.cons[k]), '⚠ kN');
 });
 
 console.log(`\n${passed} pruebas de cotas con unidad pasaron`);
