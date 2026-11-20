@@ -965,7 +965,7 @@ export const EN = {
   "No conozco la unidad «{0}»": "I don't know the unit «{0}»",
   "Falta la unidad": "The unit is missing",
   "un número sin unidades": "a number without units",
-  "«{0}» es una cota que se lee desde el lugar de su etiqueta, más abajo (la variable de texto se borró con clear())": "«{0}» is a dimension read from the place of its label, further down (the text variable was cleared with clear())",
+  "«{0}» es una cota que se lee desde el lugar de su etiqueta, más abajo (antes se borró con clear())": "«{0}» is a dimension read from the place of its label, further down (it was cleared with clear() before)",
   "«{0}» se borró con clear() antes de este punto: vuelve a definirla o quita el clear": "«{0}» was cleared with clear() before this point: define it again or remove the clear",
   "Detener": "Stop",
   "Elementos": "Elements",

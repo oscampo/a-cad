@@ -257,9 +257,19 @@ t('clear(): una cota con formula que lee una cota borrada antes de su lugar da e
     addText(r.d, addPoint(r.d, 0, clearY), '$clear(D2)=$', {});
     return r.d;
   };
-  assert.ok(settle(mk(-200), solve, []).ok); // el clear queda despues de la cota: la ve
-  const res = settle(mk(200), solve, []); // antes: ya no existe ahi
+  assert.ok(settle(mk(-200), solve, []).ok); // el clear queda despues de D1: la ve
+  const res = settle(mk(25), solve, []); // entre la etiqueta de D2 (arriba) y la de D1: ya no existe ahi
   assert.equal(res.ok, false); assert.match(res.error, /se borró con clear/);
+  assert.ok(settle(mk(200), solve, []).ok); // por encima de la etiqueta de D2: D2 vuelve a valer desde su etiqueta (cronologia)
+});
+
+t('clear(all): solo borra lo que existe hasta ahi; una cota con la etiqueta mas abajo vale desde su etiqueta', () => {
+  const r = mkLine(30, { ref: true, name: 'D1' });
+  const tx = (y, s) => addText(r.d, addPoint(r.d, 0, y), s, {});
+  tx(200, '$k:2$'); tx(180, '$clear(all)=$'); tx(160, '$D1=$'); tx(140, '$k=$'); tx(-80, '$D1=$'); // la etiqueta de D1 esta cerca de y=0
+  assert.ok(settle(r.d, solve, []).ok);
+  const show = Object.values(r.d.texts).map((q) => clean(shownText(r.d, q).text));
+  assert.deepEqual(show, ['$k:=2$', '$clear(all)=1$', '$D1=⚠$', '$k=⚠$', '$D1=30$']);
 });
 
 t('clear(): tras borrar una cota se puede definir una variable de texto con su nombre', () => {

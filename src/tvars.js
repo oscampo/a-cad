@@ -468,14 +468,15 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   st.defs = defs;
   const cur = { ...dimVars }, env = st.vals; // cur: lo que ve una expresion en este punto de la lectura (cotas + variables de texto)
   // Una cota que comparte nombre con una variable de texto (borrada con clear) vuelve a leerse en SU lugar de la pagina, no al borrar la
-  // variable: pend = esas cotas, esperando su lugar; dimLater = cotas con nombre de variable de texto cuyo lugar aun no se lee.
+  // variable; y una cota borrada con clear() antes de su etiqueta, tambien desde ahi (la pagina es una cronologia: la cota «aparece» en su
+  // etiqueta). pend = esas cotas, esperando su lugar; dimLater = cotas cuyo lugar aun no se lee.
   const dimLater = new Set(events.filter((e) => e.kind === 'dim' && e.name).map((e) => e.name)), pend = new Set();
   const hid = new Set(); // cotas y medidas del dibujo borradas con clear() hasta este punto: ya no se leen
   const later = st.names; // para avisar «se define mas abajo»
   const hint = (msg) => {
     const m = /No reconozco «(.+?)»/.exec(msg);
     if (!m || m[1] in cur) return msg;
-    if (pend.has(m[1])) return `«${m[1]}» es una cota que se lee desde el lugar de su etiqueta, más abajo (la variable de texto se borró con clear())`;
+    if (pend.has(m[1])) return `«${m[1]}» es una cota que se lee desde el lugar de su etiqueta, más abajo (antes se borró con clear())`;
     if (st.cleared.has(m[1])) return `«${m[1]}» se borró con clear() antes de este punto: vuelve a definirla o quita el clear`;
     return later.has(m[1]) ? `«${m[1]}» se define más abajo o más a la derecha: en el orden de lectura debe definirse antes` : msg;
   };
@@ -485,6 +486,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
       if (e.name) { dimLater.delete(e.name); if (pend.delete(e.name) && !hid.has(e.name) && !(e.name in env)) cur[e.name] = dimVars[e.name]; } // llego el lugar de la cota: vuelve a leerse
       st.dimEnv.set(e.id, { ...env }); st.dimHide.set(e.id, new Set([...hid, ...pend])); continue;
     } // una cota ve las variables de texto de este punto de la lectura
+    const drop = (n) => { (dimLater.has(n) ? pend : hid).add(n); delete cur[n]; st.cleared.add(n); };
     const back = (n) => { delete env[n]; if (n in dimVars && !hid.has(n) && !dimLater.has(n)) cur[n] = dimVars[n]; else { delete cur[n]; if (n in dimVars && !hid.has(n)) pend.add(n); } };
     if (e.kind === 'out' || e.kind === 'def') st.at.set(k, { live: new Set(Object.keys(env)), expr: e.expr });
     if (e.kind === 'out') {
@@ -494,7 +496,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
         let res;
         if (cl.err) res = { err: cl.err };
         else if (cl.all) { // todo: las cotas y medidas del dibujo (dejan de leerse; siguen gobernando el dibujo) y las variables de texto
-          for (const n of Object.keys(dimVars)) if (!hid.has(n)) { hid.add(n); st.cleared.add(n); }
+          for (const n of Object.keys(dimVars)) if (!hid.has(n) && !pend.has(n)) drop(n); // lo que ya existe; una cota con la etiqueta mas abajo vuelve en su lugar
           for (const n of Object.keys(cur)) { delete env[n]; delete cur[n]; st.cleared.add(n); }
           res = { v: 1 };
         }
@@ -502,7 +504,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
           let all = true;
           for (const n of cl.names) {
             if (n in env) { back(n); st.cleared.add(n); }
-            else if (n in dimVars && !hid.has(n)) { hid.add(n); delete cur[n]; st.cleared.add(n); }
+            else if (n in dimVars && !hid.has(n) && !pend.has(n)) drop(n);
             else all = false;
           }
           res = { v: all ? 1 : 0 };
@@ -514,7 +516,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
         let res;
         try {
           if (sv.err) throw new Error(sv.err);
-          const dimU = sv.names.filter((n) => !(n in env) && n in dimVars && !hid.has(n));
+          const dimU = sv.names.filter((n) => !(n in env) && n in dimVars && !hid.has(n) && !pend.has(n));
           if (dimU.length) { // incognitas que son cotas: una meta para el dibujo (la resuelve settle, en params.js, moviendo esas cotas)
             if (dimU.length !== sv.names.length) throw new Error('las incógnitas son todas cotas o todas variables de texto, no mezcladas');
             st.goals.push({ k, eqs: sv.eqs, names: sv.names });
