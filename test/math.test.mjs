@@ -256,4 +256,12 @@ t('variables con subindice: sin definir no se tocan, y la sintaxis invalida no e
   assert.equal(plainText(shown), '$x_(a-b)$ y $x_():=3 ⚠$ y y_(a(b)){=1}');
 });
 
+t("parser: «'in^2» es la unidad (no ∈ con prima), «'(x)» sigue siendo prima y clear(all) no tiene ≪", () => {
+  assert.deepEqual(parse("'in^2").c, [{ t: 'txt', s: 'in²' }]); // sola, sin espacio delante
+  assert.deepEqual(parse("5'(m/s)").c.map((n) => n.s), ['5', ' m/s']);
+  assert.deepEqual(parse("f'(x)").c.map((n) => n.t), ['v', 'sym', 'group']);
+  assert.ok(!JSON.stringify(parse('clear(all)')).includes('≪'));
+  assert.ok(!JSON.stringify(parse("A='in")).includes('∈'));
+});
+
 console.log(`\n${passed} pruebas de matematica pasaron`);

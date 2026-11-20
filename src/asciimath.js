@@ -7,6 +7,7 @@
 //   | 'stack' { k:'over'|'under', top, base } | 'font' { k, body } | 'color' { col, body }.
 
 import { commaMode, elemChar, rowChar } from './locale.js';
+import { parseUnit } from './units.js';
 
 export const GREEK = {
   alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ɛ', zeta: 'ζ', eta: 'η', theta: 'θ', vartheta: 'ϑ', iota: 'ι',
@@ -46,7 +47,8 @@ const WORDS = new Map();
 for (const [k, v] of Object.entries(GREEK)) WORDS.set(k, { t: 'var', v });
 for (const [k, v] of Object.entries(GREEK_UP)) WORDS.set(k, { t: 'sym', v });
 for (const k of FUNCS) WORDS.set(k, { t: 'fn', v: k });
-for (const k of ['inv', 'len', 'clear']) WORDS.set(k, { t: 'fn', v: k }); // funciones del calculo que si no se leerian como «in»+v (∈v), «le»+n (≤n) y c+«le»+ar (c≤ar)
+for (const k of ['inv', 'len', 'clear']) WORDS.set(k, { t: 'fn', v: k });
+WORDS.set('all', { t: 'str', v: 'all' }); // clear(all): si no, «a» + «ll» (≪) // funciones del calculo que si no se leerian como «in»+v (∈v), «le»+n (≤n) y c+«le»+ar (c≤ar)
 for (const [k, v] of Object.entries(KW)) WORDS.set(k, { t: 'kw', v });
 for (const [k, v] of Object.entries(SYM)) WORDS.set(k, { t: 'sym', v });
 for (const [k, v] of Object.entries(BIN)) WORDS.set(k, { t: 'op', v, k: 'bin' });
@@ -84,6 +86,9 @@ const SYMS = [
 const NUM_RE = /(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+(?![\p{L}\d_]))?/uy; // con notacion cientifica (2.5e6, 3e-4), como en expr.js
 const NUM_RE_COMMA = /(?:\d+(?:[.,]\d+)?|[.,]\d+)(?:[eE][+-]?\d+(?![\p{L}\d_]))?/uy; // con coma decimal (doc.decimal = «,»): 1,5 es un numero
 const LETTER = /\p{L}/u;
+// «'in», «'mm^2», «'(m/s)»: una unidad que existe se dibuja como texto (si no, «in» seria ∈ y «'» una prima); si no es unidad, «'» es una prima (f'(x))
+const UNIT_RE = /\s*(?:\(([^()]*)\)|([A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*(?:\^[23](?!\d)|[²³])?))/y;
+const isUnit = (u) => { try { parseUnit(u); return true; } catch (e) { return false; } };
 const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|[A-Za-z]{3,20})$/;
 
 export function tokenize(s) {
@@ -97,6 +102,11 @@ export function tokenize(s) {
     if (ch === '\uE004') { let j = s.indexOf('\uE005', i + 1); if (j < 0) j = n; out.push({ t: 'name', v: s.slice(i + 1, j) }); i = j + 1; continue; } // nombre con subindice de texto
     if (ch === '\uE002') { let j = s.indexOf('\uE003', i + 1); if (j < 0) j = n; out.push({ t: 'vec', v: s.slice(i + 1, j) }); i = j + 1; continue; } // vector de un texto (salida x=)
     if (ch === '"') { let j = s.indexOf('"', i + 1); if (j < 0) j = n; out.push({ t: 'str', v: s.slice(i + 1, j) }); i = j + 1; continue; }
+    if (ch === "'") {
+      UNIT_RE.lastIndex = i + 1;
+      const um = UNIT_RE.exec(s), u = um && (um[1] ?? um[2]);
+      if (u && isUnit(u)) { out.push({ t: 'str', v: (out.length ? ' ' : '') + u.replace(/\^2(?!\d)/g, '²').replace(/\^3(?!\d)/g, '³') }); i = UNIT_RE.lastIndex; continue; }
+    }
     const NR = commaMode() ? NUM_RE_COMMA : NUM_RE;
     NR.lastIndex = i;
     const m = NR.exec(s);

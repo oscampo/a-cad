@@ -30,6 +30,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Corregido
 
+- Textos: una **unidad escrita sola** en una fórmula se dibuja como unidad: `$'in^2$` ya no sale como «′∈²» (AsciiMath leía «in» como ∈ y la comilla como prima). Solo si es una unidad que existe; si no, la comilla sigue siendo una prima (`f'(x)`). `clear(all)` ya no sale como «clear(a≪)».
 - Gráficas: la gráfica se lee en su **lugar de la página** (orden de lectura, por su esquina superior izquierda), como una cota con fórmula: ve solo lo definido antes de ella. Una `x` que se define más abajo ya no le quita su x genérica, y una función redefinida más abajo como vector (`V(x)` arriba, `V:[…]` abajo) sigue siendo la función para la gráfica; antes la gráfica tomaba la última definición del dibujo y daba «No reconozco «x»» (la segunda gráfica de `Tutorial.json`). Si usa algo que solo se define después, el aviso lo dice. Mover la gráfica la vuelve a calcular. De los dibujos de `oscampo/dibujos`, solo cambia esa gráfica (de error a dibujada); una gráfica puesta arriba de las definiciones que usa ahora avisa: hay que bajarla.
 
 ## v2.9.1 (2026-11-19)
