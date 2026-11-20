@@ -4,9 +4,10 @@
 // Las cotas de referencia (solo lectura) tambien se pueden leer en una formula: su valor sale de la geometria, asi que
 // resolver y recalcular se repite hasta que ya nada cambia (settle). Si no se estabiliza se avisa y se deshace.
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
-import { dimPos, dimValue, angTrue, initAngle, trackAngles } from './dims.js';
-import { convertExpr, parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE, normName } from './expr.js';
-import { convertCalcText, textVarState, calcStmts, calcParse, calcSrc } from './tvars.js';
+import { dimPos, dimValue, angTrue, initAngle, trackAngles, dimUnit, dimShown, isLenDim } from './dims.js';
+import { convertExpr, parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE, normName, evalExpr } from './expr.js';
+import { convertCalcText, textVarState, calcStmts, calcParse, calcSrc, evalDef } from './tvars.js';
+import { parseUnit, sameDim, autoUnit } from './units.js';
 import { geoVars, isGeoName, geoPoints } from './geo.js';
 
 const DEG = Math.PI / 180;
@@ -14,11 +15,40 @@ const named = (doc) => Object.entries(doc.cons).filter(([, k]) => isNamedDim(k) 
 const drivers = (doc) => named(doc).filter(([, k]) => !k.ref);
 
 // Valor con el que una cota entra en una formula: la medida que muestra (diametro para circulos, grados convertidos a radianes).
+// Una cota con unidad (k.du) entra como cantidad: lo que dice su etiqueta, con su magnitud y sin la escala («126'in[*k]» es 126 in).
 export function varValue(doc, k) {
   const v = dimValue(doc, k);
   if (k.t === 'ANG') return { v: v * DEG, r: true };
+  const u = dimUnit(k.du);
+  if (u) { const q = dimShown(doc, k); return { v: q * u.f, r: false, ...(u.d ? { d: u.d } : {}), pu: k.du, pf: u.f }; }
   if (k.t === 'RAD' && k.refs[0] in doc.circles) return { v: 2 * v, r: false };
   return { v, r: false };
+}
+// La unidad escrita al final de un valor: «126'in», «D2*2'ft», «3'(m/s)», «9,8'm/s^2». { body, unit } o null.
+const UW = /[A-Za-zµμΩ°%áéíóú]+(?:[²³]|\^\(?-?\d+(?:[.,]\d+)?\)?)?/.source;
+const UNIT_TAIL = new RegExp(`^([\\s\\S]*?)'\\s*(\\([^()]*\\)|${UW}(?:\\s*[*/·]\\s*${UW})*)\\s*$`);
+export function splitUnit(src) {
+  const m = UNIT_TAIL.exec(String(src ?? ''));
+  if (!m || !m[1].trim()) return null;
+  const unit = m[2].replace(/^\((.*)\)$/, '$1').trim();
+  try { parseUnit(unit); } catch (e) { return null; }
+  return { body: m[1], unit };
+}
+// Valor de una cota de distancia, radio o diametro (src sin la escala). v: lo que mide el dibujo (una longitud con unidades en mm, otra
+// magnitud en el SI, igual que parseValue). du: la unidad que dice su etiqueta: la escrita al final («126'in»; si la formula ya trae unidades,
+// solo dice en cual mostrarla: «D2*2'ft»), si no la de una cota o variable de la formula con la misma magnitud («D2*2» con D2 en in), si no
+// la del SI con prefijo. Sin unidades, du es null y la cota es un numero, como siempre.
+export function dimEval(src, vars) {
+  const t = splitUnit(src);
+  const r = t ? evalDef(t.body, t.unit, vars) : evalExpr(src, { vars });
+  if (r.mat) throw new Error('El resultado es una matriz, no un número');
+  if (!Number.isFinite(r.value)) throw new Error('El resultado no es un número');
+  const v = Number((r.value * (isLenDim(r.dim) ? 1000 : 1)).toPrecision(12));
+  if (!r.dim) return { v, du: r.pu || null }; // «50'%»
+  let du = r.pu || null;
+  if (!du) for (const n of exprRefs(src)) { const x = vars?.[n]; if (x?.pu && sameDim(x.d, r.dim)) { du = x.pu; break; } }
+  if (!du) du = autoUnit(r.value, r.dim)?.name ?? null;
+  return { v, du: dimUnit(du) ? du : null };
 }
 // Estado de las variables de los textos («x:valor») con los valores actuales de las cotas.
 // Las cotas con formula se leen en el lugar de su etiqueta (orden de lectura): ven las variables tal como estaban ahi.
@@ -61,8 +91,8 @@ export function varsAt(doc, top, left) {
 // Texto corto de las variables para mostrarlas al escribir una formula: "D1 = 25, A1 = 45°".
 export function varsList(doc, exceptId = null) {
   const dims = named(doc).filter(([id]) => id !== exceptId).map(([, k]) => {
-    const v = dimValue(doc, k), x = k.t === 'RAD' && k.refs[0] in doc.circles ? 2 * v : v;
-    return `${k.name} = ${Math.round(x * 1000) / 1000}${k.t === 'ANG' ? '°' : ''}${k.ref ? ' (lectura)' : ''}`;
+    const v = dimValue(doc, k), x = k.t === 'RAD' && k.refs[0] in doc.circles ? 2 * v : v, du = k.t !== 'ANG' && dimUnit(k.du);
+    return `${k.name} = ${Math.round((du ? dimShown(doc, k) : x) * 1000) / 1000}${k.t === 'ANG' ? '°' : du ? ' ' + k.du : ''}${k.ref ? ' (lectura)' : ''}`;
   });
   const tv = hasDefs(doc) ? textVars(doc, exceptId).vals : {};
   return dims.concat(Object.entries(tv).map(([n, x]) => `${n} = ${x.fn ? `función de ${x.fn.params.length}` : x.vec ? `vector de ${x.vec.length}` : x.mat ? `matriz de ${x.mat.length}×${x.mat[0].length}` : Math.round(x.v * 1000) / 1000} (texto)`)).join(', ');
@@ -72,8 +102,8 @@ export function varsList(doc, exceptId = null) {
 export function varsInfo(doc, exceptId = null) {
   const r3 = (x) => Math.round(x * 1000) / 1000;
   const out = named(doc).filter(([id]) => id !== exceptId).map(([, k]) => {
-    const v = dimValue(doc, k), x = k.t === 'RAD' && k.refs[0] in doc.circles ? 2 * v : v, ang = k.t === 'ANG';
-    return { name: k.name, text: `${k.name} = ${r3(x)}${ang ? '°' : ''}${k.ref ? ' (lectura)' : ''}`, kind: ang ? 'ang' : 'dim' };
+    const v = dimValue(doc, k), x = k.t === 'RAD' && k.refs[0] in doc.circles ? 2 * v : v, ang = k.t === 'ANG', du = !ang && dimUnit(k.du);
+    return { name: k.name, text: `${k.name} = ${r3(du ? dimShown(doc, k) : x)}${ang ? '°' : du ? ' ' + k.du : ''}${k.ref ? ' (lectura)' : ''}`, kind: ang ? 'ang' : 'dim' };
   });
   const tv = hasDefs(doc) ? textVars(doc, exceptId).vals : {};
   for (const [n, x] of Object.entries(tv)) out.push({ name: n, text: x.fn ? `${n}(${x.fn.params.join('; ')}) = función` : x.vec ? `${n} = vector de ${x.vec.length}` : x.mat ? `${n} = matriz de ${x.mat.length}×${x.mat[0].length}` : `${n} = ${r3(x.v)}`, kind: 'var' });
@@ -154,6 +184,17 @@ export function renameDim(doc, id, raw) {
   }
 }
 
+// Al abrir un dibujo: las cotas con formula que todavia no tienen la unidad de su etiqueta (anteriores a las cotas con unidad, «2'cm») la
+// toman de su formula. No cambia la geometria (2 cm siguen midiendo 20), solo lo que dice la etiqueta («2 cm»). Devuelve cuantas cambiaron.
+export function fillDimUnits(doc) {
+  let n = 0;
+  for (const [id, k] of drivers(doc)) {
+    if (!k.expr || k.du || k.t === 'ANG' || k.t === 'ANG4') continue;
+    try { const r = dimEval(k.expr, varsOf(doc, id)); if (r.du) { k.du = r.du; n++; } } catch (e) { /* formula que hoy no se puede evaluar: sigue sin unidad */ }
+  }
+  return n;
+}
+
 // Evalua en orden las cotas definidas con formula. { ok: true } o { ok: false, error } sin dejar nada a medias:
 // si algo falla no se modifica ninguna cota.
 // omega < 1 amortigua (subrelajacion): el valor nuevo solo avanza esa fraccion hacia el de la formula; evita que una
@@ -195,7 +236,10 @@ export function recompute(doc, omega = 1, hook = null) {
   for (const id of order) {
     const k = doc.cons[id];
     let val;
-    try { val = parseValue(k.expr, { angle: k.t === 'ANG', radians: k.t === 'ANG' && k.unit === 'rad', vars: varsOf(doc, id) }); } catch (e) { doc.cons = JSON.parse(bak); return { ok: false, error: `${k.name}: ${hintLate(e.message)}` }; }
+    try {
+      if (k.t === 'ANG') val = parseValue(k.expr, { angle: true, radians: k.unit === 'rad', vars: varsOf(doc, id) });
+      else { const r = dimEval(k.expr, varsOf(doc, id)); val = r.v; if (r.du) k.du = r.du; else delete k.du; } // la etiqueta dice la unidad de la formula
+    } catch (e) { doc.cons = JSON.parse(bak); return { ok: false, error: `${k.name}: ${hintLate(e.message)}` }; }
     if (k.scaleExpr && k.t !== 'ANG') { // escala con formula: «30[*k]»; se reevalua con las variables de ahora
       try { const sc = parseValue(k.scaleExpr, { vars: varsOf(doc, id) }); if (!(sc > 0)) throw new Error('debe ser mayor que cero'); k.scale = sc; } catch (e) { doc.cons = JSON.parse(bak); return { ok: false, error: `${k.name}: escala ${e.message}` }; }
     }

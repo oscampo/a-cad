@@ -1,6 +1,6 @@
 # 6. Cotas
 
-Las cotas: medidas que conducen la geometría o solo la leen, con fórmulas, nombres, escala y unidades de ángulo.
+Las cotas: medidas que conducen la geometría o solo la leen, con fórmulas, nombres, escala y unidades.
 
 La lista completa de funciones y operadores, con ejemplos, está en [Funciones y operadores](funciones.md).
 
@@ -27,6 +27,12 @@ Arco (R) o círculo (diámetro con el símbolo ⌀). Siguen la norma ANSI: con e
 ## Cota a escala
 
 **Cota a escala** (distancias, radios y diámetros): escribe `valor[*k]` en el valor de la cota, p. ej. `4[*10]`. El **dibujo mide valor × k** (aquí 40 unidades) y la **cota dice el valor** («4»), <u>subrayada</u> como en ISO 129 / UNE 1-039; con `4[*0.1]` el dibujo mide 0,4 y la cota sigue diciendo «4». El valor puede ser una fórmula (`D1/2[*10]`) y **la escala también**: un número, una variable de texto (`30[*k]` con `k:25` en un texto) o una fórmula con cotas (`4[*2*D1]`); si cambia la variable, el dibujo se recalcula y la cota sigue diciendo 30. Las cotas de **solo lectura** también: al marcar «Solo lectura» aparece el campo **Escala (×)** (vacío = sin escala) y la cota dice la **medida ÷ escala**, subrayada y en cursiva (medida 13,333 con escala 10 dice «1,333»). La escala se muestra al editar la cota (`valor[*k]`, o en su campo) y desaparece al borrarla. No vale en ángulos.
+
+## Cota con unidad
+
+**Cota con unidad** (distancias, radios y diámetros): escribe el valor con su unidad, `126'in`. El **dibujo mide lo real** (una longitud en mm: `126'in` mide 3200,4; otra magnitud en el SI: `5'kN` mide 5000, `12'V` mide 12) y la **cota lo dice en su unidad**: «126 in». En la ventana de la cota, **Unidad de la cota** muestra y cambia la unidad: con un número lo convierte (`126'in` pasa a `3200,4'mm`); con una fórmula solo cambia la unidad del final (`D2*2'ft`). Una fórmula sin unidad al final dice la de una cota de la fórmula con la misma magnitud (`D2*2` con D2 en in dice in) o la del SI. Para verla más pequeña o más grande, usa la escala: `126'in[*0.1]` dibuja 320,04 y la cota sigue diciendo «126 in», subrayada. En una cota de **solo lectura**, la unidad solo cambia la etiqueta (una medida de 254 en in dice «10 in»).
+
+En las fórmulas y en los textos de cálculo una cota con unidad entra como **cantidad**: lo que dice su etiqueta, con su magnitud y sin la escala. Con D2 = 126 in y D4 = 20 in, `A:D2*D4=` da el área (en m²; `A='ft^2` la pide en ft²). Una cota sin unidad sigue entrando como número: para sumarla a una con unidad, dale la unidad en la fórmula, `D1'mm+D2` (`D1+D2` da ⚠).
 
 ## Solo lectura (referencia)
 

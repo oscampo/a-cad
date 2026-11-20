@@ -20,7 +20,7 @@ Este manual explica cada herramienta y concepto en detalle, para quien empieza o
 | 3 | [Seleccionar y editar](03-seleccionar-y-editar.md) | Seleccionar (con toque, cuadro o filtro), ver y cambiar las propiedades de un elemento, y las herramientas que modifican lo dibujado: copiar, recortar, extender, redondeo y chaflán. |
 | 4 | [Dividir, copiar y repetir](04-dividir-copiar-y-repetir.md) | Partir un elemento en tramos y repetir geometría con matrices lineales, circulares y copias espejo, vinculadas o no al original. |
 | 5 | [Restricciones](05-restricciones.md) | Las relaciones geométricas que el solver mantiene siempre: horizontal, paralela, tangente, coincidente y las demás, con su numeración en el dibujo. |
-| 6 | [Cotas](06-cotas.md) | Las cotas: medidas que conducen la geometría o solo la leen, con fórmulas, nombres, escala y unidades de ángulo. |
+| 6 | [Cotas](06-cotas.md) | Las cotas: medidas que conducen la geometría o solo la leen, con fórmulas, nombres, escala y unidades. |
 | 7 | [Texto y cálculo](07-texto-y-calculo.md) | Textos que calculan: fórmulas con AsciiMath, variables, salidas, vectores y matrices, funciones propias y el orden de lectura de la página. |
 | | [Funciones y operadores](funciones.md) | Referencia de todo lo que acepta una fórmula, con un ejemplo y su resultado para cada función. |
 | 8 | [Splines y trazados (levas y trayectorias)](08-splines-y-trazados.md) | Curvas libres que pasan por puntos del dibujo, la trayectoria de un punto que se mueve y las curvas equidistantes, base de levas y trayectorias. |

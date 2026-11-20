@@ -4,6 +4,7 @@
 import { lineLine, signedAngle, norm, TAU, inSweep } from './geom.js';
 import { arcOf } from './model.js';
 import { localNum } from './locale.js';
+import { parseUnit } from './units.js';
 
 export const ARROW = 9;
 export const DIAM = '\u2300'; // simbolo de diametro (U+2300)
@@ -123,12 +124,33 @@ export function dimPos(doc, k) {
   return { x: p ? p.x : 0, y: p ? p.y : 0, len: 3 };
 }
 
+// Unidad de la etiqueta de una cota (k.du: «in», «kN», «V»): el dibujo mide lo real (una longitud en mm, otra magnitud en el SI, como
+// «2'cm» mide 20) y la etiqueta lo dice en esa unidad («126'in» mide 3200,4 y dice «126 in»). { f: factor al SI, d: dimension,
+// g: unidades del dibujo por unidad } o null (sin unidad, o una que ya no se entiende).
+export const isLenDim = (d) => !!d && d[0] === 1 && d.slice(1).every((x) => x === 0);
+const UCACHE = new Map();
+export function dimUnit(du) {
+  if (!du) return null;
+  if (!UCACHE.has(du)) {
+    let u = null;
+    try { const p = parseUnit(du); u = { f: p.f, d: p.d, g: p.f * (isLenDim(p.d) ? 1000 : 1) }; } catch (e) { /* unidad que no se entiende: sin unidad */ }
+    UCACHE.set(du, u);
+  }
+  return UCACHE.get(du);
+}
+// El valor que dice la etiqueta (sin el simbolo R o ⌀): la medida (diametro en circulos) entre la escala, en la unidad de la cota.
+export function dimShown(doc, k) {
+  const v = dimValue(doc, k), w = k.t === 'RAD' && k.refs[0] in doc.circles ? 2 * v : v, u = dimUnit(k.du);
+  return w / dimScale(k) / (u ? u.g : 1);
+}
+
 export function dimText(doc, k) {
   if (k.t === 'ANG4') { const x = v4(doc, k); return dimText(x.d, x.k); }
-  const v = dimValue(doc, k), sc = dimScale(k);
+  const v = dimValue(doc, k);
   if (k.t === 'ANG') return k.unit === 'rad' ? fmtNum((v * Math.PI) / 180) + ' rad' : fmtNum(v) + '°';
-  if (k.t === 'RAD') return (k.refs[0] in doc.circles ? DIAM + fmtNum((2 * v) / sc) : 'R' + fmtNum(v / sc));
-  return fmtNum(v / sc);
+  const tail = dimUnit(k.du) ? ' ' + k.du : '', q = fmtNum(dimShown(doc, k)) + tail;
+  if (k.t === 'RAD') return (k.refs[0] in doc.circles ? DIAM : 'R') + q;
+  return q;
 }
 
 function layoutDimBase(doc, k, view) {

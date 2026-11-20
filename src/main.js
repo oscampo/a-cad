@@ -17,7 +17,7 @@ import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, past
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
-import { layoutDim, dragDim, dimValue, dimScale, splitScale, angSector, angTrue, initAngle, trackAngles, DIAM } from './dims.js';
+import { layoutDim, dragDim, dimValue, dimScale, splitScale, angSector, angTrue, initAngle, trackAngles, DIAM, dimUnit } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
@@ -29,7 +29,7 @@ import { attachAutoPair } from './autopair.js';
 import { attachGreek } from './greek.js';
 import { migrateCalcDoc } from './tvars.js';
 import * as gh from './github.js';
-import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder, setDocDecimal } from './params.js';
+import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg, ICONS } from './icons.js';
 import { setIconSource } from './iconpaths.js';
@@ -2613,11 +2613,13 @@ let dlgCtx = null, dlgName = null; // dlgCtx (lo fija quien llama): { vars, list
 let dlgExpr = null; // formula tecleada en la ultima cota (null si fue un numero simple)
 let dlgScale = null; // escala de «valor[*k]» en la ultima cota (null si no la llevaba)
 let dlgScaleExpr = null; // la escala como formula («k», «2*D1»), null si era un numero
+let dlgDU = null; // unidad de la etiqueta de la ultima cota de distancia, radio o diametro («in»), null si no lleva
+const LEN_UNITS = ['mm', 'cm', 'm', 'in', 'ft'];
 const KEYS = [['π', 'π'], ['√', '√('], ['sin', 'sin('], ['cos', 'cos('], ['tan', 'tan('], ['^', '^'], ['(', '('], [')', ')'], ['×', '*'], ['÷', '/']];
 // kind: 'len' (distancias, radios) o 'angle' (grados; lo que lleve π se pasa de radianes a grados)
 // sopt: false (sin escala) o { scale0: escala actual como texto, measured: medida del dibujo } (cotas de distancia, radio y diametro).
 function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = 'deg', sopt = false) {
-  dlgScale = null; dlgScaleExpr = null;
+  dlgScale = null; dlgScaleExpr = null; dlgDU = null;
   const scaleOk = !!sopt;
   return new Promise((resolve) => {
     const dlg = $('dlg'), inp = $('dlgInput'), chk = $('dlgRef'), prev = $('dlgPrev');
@@ -2635,6 +2637,29 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
     $('dlgHelp').style.display = kind === 'int' ? 'none' : 'block';
     $('dlgUnitRow').style.display = kind === 'angle' ? 'flex' : 'none';
     unitSel.value = unit0;
+    // Unidad de la cota (distancias, radios y diametros): la etiqueta dice el valor en ella y el dibujo mide lo real («126'in» mide 3200,4).
+    // Cambiarla reescribe el valor: un numero se convierte («126'in» -> «3200,4'mm»); en una formula solo cambia la unidad del final.
+    const luSel = $('dlgLUnit'), duOk = !!sopt;
+    $('dlgLUnitRow').style.display = duOk ? 'flex' : 'none';
+    const setLU = (du) => {
+      luSel.textContent = '';
+      for (const u of ['', ...LEN_UNITS, ...(du && !LEN_UNITS.includes(du) ? [du] : [])]) { const o = document.createElement('option'); o.value = u; o.textContent = u || 'sin unidad'; luSel.appendChild(o); }
+      luSel.value = du || '';
+    };
+    let luPrev = duOk ? sopt.du0 || '' : '';
+    if (duOk) setLU(luPrev);
+    luSel.onchange = () => {
+      const nu = luSel.value, ou = luPrev; luPrev = nu;
+      if (chk.checked) { showPrev(); return; } // solo lectura: la unidad solo cambia la etiqueta
+      const sp = splitScale(inp.value), t = splitUnit(sp.body), body = t ? t.body : sp.body, old = t ? t.unit : ou;
+      let nb;
+      if (isPlainNumber(body)) {
+        const g0 = dimUnit(old)?.g ?? 1, g1 = dimUnit(nu)?.g ?? 1, n = Number(body.replace(',', '.'));
+        nb = localNum(String(Number(((n * g0) / g1).toPrecision(10))));
+      } else nb = body.trim();
+      inp.value = (nu ? `${nb}'${nu}` : nb) + (sp.src !== undefined ? `[*${sp.src}]` : '');
+      showPrev();
+    };
     unitSel.onchange = () => { // un numero simple se convierte al cambiar de unidad
       if (isPlainNumber(inp.value)) { const n = Number(inp.value.replace(',', '.')); inp.value = String(Math.round(n * (unitSel.value === 'rad' ? Math.PI / 180 : 180 / Math.PI) * 1e10) / 1e10); }
       showPrev();
@@ -2668,8 +2693,10 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
       let so = null;
       if (sp.src !== undefined) { so = scaleOf(sp.src); if (so.err) return { err: so.err }; }
       try {
-        const v = parseValue(sp.body, { angle: kind === 'angle', radians: kind === 'angle' && unitSel.value === 'rad', vars: ctx?.vars });
-        return !so ? { v } : { v: Number((v * so.sc).toPrecision(12)), shown: v, scale: so.sc, scaleSrc: so.src, body: sp.body };
+        let v, du = null;
+        if (duOk) ({ v, du } = dimEval(sp.body, ctx?.vars)); // con su unidad: la etiqueta la dice y el dibujo mide lo real
+        else v = parseValue(sp.body, { angle: kind === 'angle', radians: kind === 'angle' && unitSel.value === 'rad', vars: ctx?.vars });
+        return !so ? { v, du } : { v: Number((v * so.sc).toPrecision(12)), shown: v, scale: so.sc, scaleSrc: so.src, body: sp.body, du };
       } catch (e) { return { err: e.message }; }
     };
     // Solo lectura: campo «Escala (×)» (vacio = sin escala); la cota dice medida ÷ escala
@@ -2678,16 +2705,18 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
     const refScale = () => { const s = scInp.value.trim(); return s ? scaleOf(s) : null; };
     const showPrev = () => {
       if (chk.checked && scaleOk) { // solo lectura con escala: la cota dice la medida entre la escala
-        const so = refScale(), m = sopt.measured, rd6 = (x) => Math.round(x * 1e6) / 1e6;
+        const so = refScale(), m = sopt.measured, rd6 = (x) => Math.round(x * 1e6) / 1e6, lu = dimUnit(luSel.value), tl = lu ? ' ' + luSel.value : '';
         prev.style.color = so?.err ? 'var(--warn)' : 'var(--muted)';
-        prev.textContent = so?.err ? so.err : so ? `Cota «${rd6(m / so.sc)}» (subrayada) · medida ${rd6(m)} ÷ ${rd6(so.sc)}` : '';
+        prev.textContent = so?.err ? so.err : so ? `Cota «${rd6(m / so.sc / (lu?.g ?? 1))}${tl}» (subrayada) · medida ${rd6(m)} ÷ ${rd6(so.sc)}` : lu ? `Cota «${rd6(m / lu.g)}${tl}» · medida ${rd6(m)}` : '';
         return;
       }
-      if (chk.checked || (isPlainNumber(inp.value) && kind !== 'angle')) { prev.textContent = ''; return; }
+      if (chk.checked || (isPlainNumber(inp.value) && kind !== 'angle')) { prev.textContent = ''; if (duOk && !chk.checked) { luPrev = ''; luSel.value = ''; } return; }
       const r = evalNow();
       prev.style.color = r.err ? 'var(--warn)' : 'var(--muted)';
       const rd6 = (x) => Math.round(x * 1e6) / 1e6;
-      prev.textContent = r.err ? r.err : r.scale !== undefined ? `Cota «${rd6(r.shown)}» (subrayada) · dibujo = ${rd6(r.shown)} × ${rd6(r.scale)} = ${rd6(r.v)}` : kind === 'angle' ? `= ${rd6(r.v)}° = ${rd6((r.v * Math.PI) / 180)} rad` : '= ' + rd6(r.v);
+      if (duOk && !r.err) { luPrev = r.du || ''; if (r.du && ![...luSel.options].some((o) => o.value === r.du)) setLU(r.du); else luSel.value = r.du || ''; } // el selector sigue a lo escrito
+      const g = dimUnit(r.du)?.g, tl = g ? ' ' + r.du : '';
+      prev.textContent = r.err ? r.err : r.scale !== undefined ? `Cota «${rd6(g ? r.shown / g : r.shown)}${tl}» (subrayada) · dibujo = ${rd6(r.shown)} × ${rd6(r.scale)} = ${rd6(r.v)}` : kind === 'angle' ? `= ${rd6(r.v)}° = ${rd6((r.v * Math.PI) / 180)} rad` : g ? `Cota «${rd6(r.v / g)}${tl}» · dibujo = ${rd6(r.v)}` : '= ' + rd6(r.v);
     };
     const sync = () => { inp.disabled = chk.checked; keys.style.display = chk.checked ? 'none' : 'flex'; scRow.style.display = chk.checked && scaleOk ? 'flex' : 'none'; showPrev(); };
     chk.onchange = () => { // la escala pasa de un campo al otro al marcar o desmarcar «Solo lectura»
@@ -2710,14 +2739,14 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
       if (chk.checked) { // cota de referencia: no se teclea valor, pero si su escala
         const so = scaleOk ? refScale() : null;
         if (so?.err) { prev.style.color = 'var(--warn)'; prev.textContent = so.err; return; }
-        dlgExpr = null; dlgScale = so ? so.sc : null; dlgScaleExpr = so ? so.src : null;
+        dlgExpr = null; dlgScale = so ? so.sc : null; dlgScaleExpr = so ? so.src : null; dlgDU = duOk && luSel.value ? luSel.value : null;
         finish(Number(initial)); return;
       }
       const r = evalNow();
       if (r.err) { prev.style.color = 'var(--warn)'; prev.textContent = r.err; return; } // se queda abierto para corregir
       const sp = splitScale(inp.value);
       dlgExpr = isPlainNumber(sp.body) && !r.scaleSrc ? null : sp.body.trim(); // con la escala como formula, el valor tambien se guarda: «30[*k]» sigue a k
-      dlgScale = r.scale ?? null; dlgScaleExpr = r.scaleSrc ?? null;
+      dlgScale = r.scale ?? null; dlgScaleExpr = r.scaleSrc ?? null; dlgDU = r.du ?? null;
       finish(r.v);
     };
     $('dlgCancel').onclick = () => finish(null);
@@ -2909,7 +2938,7 @@ async function applyCon(kind) {
         list.push({ t: 'PAR', refs: parallelPair });
         toast('Se agregó también la restricción Paralela entre las dos líneas');
       }
-      list.push({ t, refs, v: val, ...(dlgExpr ? { expr: dlgExpr } : {}), ...(dlgScale ? { scale: dlgScale, ...(dlgScaleExpr ? { scaleExpr: dlgScaleExpr } : {}) } : {}), ...(dlgRef ? { ref: true } : {}) });
+      list.push({ t, refs, v: val, ...(dlgExpr ? { expr: dlgExpr } : {}), ...(dlgScale ? { scale: dlgScale, ...(dlgScaleExpr ? { scaleExpr: dlgScaleExpr } : {}) } : {}), ...(dlgDU ? { du: dlgDU } : {}), ...(dlgRef ? { ref: true } : {}) });
       break;
     }
     case 'ANG': {
@@ -2940,8 +2969,8 @@ async function applyCon(kind) {
       const r0 = curveOf(crv[0]).r;
       const val0 = await askNumber(allC ? `Diámetro (${DIAM})` : 'Radio (R)', Math.round((allC ? 2 * r0 : r0) * 1000) / 1000, false, 'len', 'deg', { scale0: '', measured: allC ? 2 * r0 : r0 });
       if (val0 === null || val0 <= 0) return;
-      const sc = dlgScale, scx = dlgScaleExpr;
-      crv.forEach((c) => list.push({ t: 'RAD', refs: [c], v: allC ? val0 / 2 : val0, ...(dlgExpr ? { expr: dlgExpr } : {}), ...(sc ? { scale: sc, ...(scx ? { scaleExpr: scx } : {}) } : {}), ...(dlgRef ? { ref: true } : {}) }));
+      const sc = dlgScale, scx = dlgScaleExpr, du = dlgDU;
+      crv.forEach((c) => list.push({ t: 'RAD', refs: [c], v: allC ? val0 / 2 : val0, ...(dlgExpr ? { expr: dlgExpr } : {}), ...(sc ? { scale: sc, ...(scx ? { scaleExpr: scx } : {}) } : {}), ...(du ? { du } : {}), ...(dlgRef ? { ref: true } : {}) }));
       break;
     }
     default: return;
@@ -3041,15 +3070,18 @@ async function editDimension(id) {
   // si la cota se definio con una formula, se vuelve a mostrar la formula (siempre que siga dando el valor actual)
   const u0 = k.t === 'ANG' && (k.unit === 'rad' || (!k.expr && !k.unit && false)) ? 'rad' : 'deg';
   const sc0 = dimScale(k); // cota a escala: se muestra «valor[*k]»
-  let initial = u0 === 'rad' ? Math.round(((shown * Math.PI) / 180) * 1e10) / 1e10 : Math.round((shown / sc0) * 1000) / 1000;
-  if (k.expr && !k.ref) { try { if (Math.abs(parseValue(k.expr, { angle: k.t === 'ANG', radians: u0 === 'rad', vars: varsOf(doc, id) }) * sc0 - shown) <= 1e-6 * Math.max(1, Math.abs(shown))) initial = k.expr; } catch { /* formula invalida: valor */ } }
+  const lu = k.t !== 'ANG' ? dimUnit(k.du) : null; // cota con unidad: el valor se muestra en ella («126'in»)
+  let initial = u0 === 'rad' ? Math.round(((shown * Math.PI) / 180) * 1e10) / 1e10 : Math.round((shown / sc0 / (lu?.g ?? 1)) * 1000) / 1000;
+  if (lu && !k.ref) initial = `${initial}'${k.du}`;
+  if (k.expr && !k.ref) { try { const ev = k.t === 'ANG' ? parseValue(k.expr, { angle: true, radians: u0 === 'rad', vars: varsOf(doc, id) }) : dimEval(k.expr, varsOf(doc, id)).v; if (Math.abs(ev * sc0 - shown) <= 1e-6 * Math.max(1, Math.abs(shown))) initial = k.expr; } catch { /* formula invalida: valor */ } }
   if (sc0 !== 1 && !k.ref) initial = `${initial}[*${k.scaleExpr ?? sc0}]`;
   dlgCtx = { vars: varsOf(doc, id), list: varsList(doc, id), except: id, ...(k.name ? { name: k.name, check: (n) => checkName(doc, n, id) } : {}) };
-  const val0 = await askNumber((k.name ? k.name + ' · ' : '') + (k.t === 'ANG' ? 'Ángulo (°)' : k.t === 'RAD' ? (isC ? `Diámetro (${DIAM})` : 'Radio (R)') : 'Distancia'), initial, !!k.ref, k.t === 'ANG' ? 'angle' : 'len', u0, k.t !== 'ANG' ? { scale0: k.scale > 0 && k.scale !== 1 ? (k.scaleExpr ?? String(k.scale)) : '', measured: shown } : false);
+  const val0 = await askNumber((k.name ? k.name + ' · ' : '') + (k.t === 'ANG' ? 'Ángulo (°)' : k.t === 'RAD' ? (isC ? `Diámetro (${DIAM})` : 'Radio (R)') : 'Distancia'), initial, !!k.ref, k.t === 'ANG' ? 'angle' : 'len', u0, k.t !== 'ANG' ? { scale0: k.scale > 0 && k.scale !== 1 ? (k.scaleExpr ?? String(k.scale)) : '', measured: shown, du0: lu ? k.du : '' } : false);
   if (val0 === null || (!dlgRef && k.t !== 'ANG' && val0 <= 0)) return;
   pushUndo();
   if (dlgName && dlgName !== k.name) renameDim(doc, id, dlgName);
   if (k.t === 'ANG') { if (dlgUnit === 'rad') k.unit = 'rad'; else delete k.unit; opts.angUnit = dlgUnit; persist(); }
+  else if (dlgDU) k.du = dlgDU; else delete k.du;
   if (dlgRef) { // es (o pasa a ser) cota de referencia: no toca el solver; su escala si cuenta (la cota dice medida ÷ escala)
     k.ref = true;
     if (k.t !== 'ANG' && dlgScale) { k.scale = dlgScale; if (dlgScaleExpr) k.scaleExpr = dlgScaleExpr; else delete k.scaleExpr; } else { delete k.scale; delete k.scaleExpr; }
@@ -3336,6 +3368,7 @@ function loadDoc(d) {
   for (const g of Object.values(doc.graphs || {})) delete g.t1; // una grafica ya no tiene tiempo final propio: lo define el reproductor
   undoStack = []; redoStack = []; sel = []; pending = null;
   setAngleMode(doc);
+  fillDimUnits(doc); // cotas guardadas como «2'cm»: la etiqueta dice «2 cm»
 }
 async function exportPNG() {
   const b = contentBounds();
