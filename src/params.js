@@ -6,7 +6,8 @@
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
 import { dimPos, dimValue, angTrue, initAngle, trackAngles, dimUnit, dimShown, isLenDim, dimUnreadable } from './dims.js';
 import { convertExpr, parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE, normName, evalExpr } from './expr.js';
-import { convertCalcText, textVarState, calcStmts, calcParse, calcSrc, evalDef, syncUserUnits, UDEF_ERR } from './tvars.js';
+import { convertCalcText, textVarState, calcStmts, calcParse, calcSrc, evalDef, syncUserUnits, UDEF_ERR, GOAL_TOL } from './tvars.js';
+import { eqResiduals, lmRoots } from './nsolve.js';
 import { parseUnit, sameDim, autoUnit, mulDim, unitMsg, dimName } from './units.js';
 import { geoVars, isGeoName, geoPoints } from './geo.js';
 
@@ -188,8 +189,12 @@ export function usesTextVars(doc) {
 export function textVarErrors(doc) {
   syncUserUnits(doc);
   const ue = [...UDEF_ERR].map(([s, msg]) => ({ key: 'u|' + s + '|' + msg, msg: `${s}: ${msg}` })); // definiciones de unidad que no valen
-  if (!hasDefs(doc)) return ue;
-  return ue.concat([...textVars(doc).errs].map(([n, msg]) => ({ key: n + '|' + msg, msg })));
+  const sv = Object.values(doc.texts || {}).some((t) => /solve\s*\(/i.test(String(t.text ?? '')));
+  if (!hasDefs(doc) && !sv) return ue;
+  const out = ue.concat([...textVars(doc).errs].map(([n, msg]) => ({ key: n + '|' + msg, msg })));
+  const g = sv && goalsOf(doc); // una meta con una incognita que no puede moverse (de solo lectura, con formula)
+  if (g?.err && !out.some((e) => e.msg === g.err)) out.push({ key: 'g|' + g.err, msg: g.err });
+  return out;
 }
 
 // El nombre se compara como se guarda: «alpha» es «α» (ver normName).
@@ -316,6 +321,9 @@ export function pruneFormulas(doc) {
 
 // ¿Alguna cota con formula lee una cota de solo lectura? Entonces cada cambio de la geometria puede mover esas cotas.
 export function hasReactive(doc) {
+  return hasGoals(doc) || hasReactiveBase(doc); // una meta «solve(…; D1)=» se vuelve a cumplir con cada cambio
+}
+function hasReactiveBase(doc) {
   const refs = new Set(named(doc).filter(([, k]) => k.ref).map(([, k]) => k.name));
   const st = tvOf(doc);
   return drivers(doc).some(([, k]) => k.expr && [...dimRefs(doc, srcOf(k), st)].some((n) => refs.has(n) || isGeoName(doc, n))); // una propiedad de la geometria (p1.x) tambien se lee del dibujo
@@ -353,8 +361,54 @@ function formulasHold(doc) {
 // ya resuelta). La primera vuelta es directa; despues se usa el metodo de la secante por cota (converge en pocas
 // vueltas aunque la pendiente de g sea -1, donde la repeticion simple oscilaria) y, si la secante no sirve, se
 // amortigua a la mitad. solveFn(doc, targets) devuelve { ok }. Resultado: { ok, error?, iter, count }.
-export function settle(doc, solveFn, targets = [], { maxIter = 40, tol = 1e-5 } = {}) {
-  const loop = hasReactive(doc);
+// Metas sobre el dibujo: «solve(ecuaciones; D1; D2)=» en un texto con cotas como incognitas. Las cotas deben mover el dibujo (no de solo
+// lectura) y no tener formula. Devuelve null (no hay), { err } o { ids, goals }.
+const hasGoals = (doc) => Object.values(doc.texts || {}).some((t) => /solve\s*\(/i.test(String(t.text ?? ''))) && textVars(doc).goals?.length > 0;
+function goalsOf(doc) {
+  if (!hasGoals(doc)) return null;
+  const st = textVars(doc), byName = new Map(named(doc).map(([id, k]) => [k.name, id])), ids = [], seen = new Set();
+  for (const g of st.goals) for (const n of g.names) {
+    const id = byName.get(n), k = id && doc.cons[id];
+    if (!k) return { err: `solve(…): «${n}» no es una cota con nombre` };
+    if (k.ref) return { err: `solve(…): ${n} es de solo lectura; la incógnita debe ser una cota que mueve el dibujo` };
+    if (k.expr) return { err: `solve(…): ${n} tiene fórmula; quítasela para que la meta la mueva` };
+    if (seen.has(id)) return { err: `solve(…): ${n} es incógnita de dos solve` };
+    seen.add(id); ids.push(id);
+  }
+  return { ids, goals: st.goals };
+}
+// Con metas: un Levenberg-Marquardt por fuera del solver geometrico. Cada prueba pone las cotas incognita, resuelve el dibujo (con las
+// cotas que leen medidas, settleBase) y mide las ecuaciones en el lugar de su solve. Si no se cumplen, el dibujo queda como estaba.
+export function settle(doc, solveFn, targets = [], opts = {}) {
+  const gs = goalsOf(doc);
+  if (!gs) return settleBase(doc, solveFn, targets, opts);
+  if (gs.err) return { ok: false, error: gs.err, iter: 1 };
+  const bak = JSON.stringify(doc);
+  const restore = () => { const o = JSON.parse(bak); for (const k of Object.keys(doc)) delete doc[k]; Object.assign(doc, o); };
+  const calc = (s, vv) => { const r = evalExpr(s, { vars: vv, allowMat: true }); if (r.mat) throw new Error(`«${s.trim()}» da un vector o una matriz: cada ecuación es entre números`); return r; };
+  const evals = gs.goals.map((g) => ({ k: g.k, f: eqResiduals(g.eqs, calc) })), m = gs.goals.reduce((s, g) => s + g.eqs.length, 0);
+  let iter = 0, last = null;
+  const evalFn = (xs) => {
+    xs.forEach((x, i) => { if (!(x > 0)) throw new Error('una cota quedaría en cero o negativa'); doc.cons[gs.ids[i]].v = x; });
+    const r = settleBase(doc, solveFn, targets, opts);
+    iter += r.iter || 1;
+    if (!r.ok) throw new Error(r.error || 'el dibujo no se pudo resolver');
+    last = r;
+    const st = textVars(doc);
+    return evals.flatMap((e) => e.f(st.outEnv.get(e.k) || {}));
+  };
+  try {
+    const x0 = gs.ids.map((id) => doc.cons[id].v);
+    const xs = lmRoots(x0, evalFn, m, { tol: GOAL_TOL, step: 1e-5, maxIterations: 60 });
+    evalFn(xs); // el dibujo queda con la solucion
+    return { ok: true, iter, count: last?.count ?? 0 };
+  } catch (e) {
+    restore();
+    return { ok: false, error: `solve(…): ${e.message}`, iter };
+  }
+}
+function settleBase(doc, solveFn, targets = [], { maxIter = 40, tol = 1e-5 } = {}) {
+  const loop = hasReactiveBase(doc);
   if (!loop) {
     const rc = recompute(doc);
     if (!rc.ok) return { ok: false, error: rc.error, iter: 1 };

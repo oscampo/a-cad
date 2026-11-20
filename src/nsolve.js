@@ -23,33 +23,42 @@ export function splitEq(src) {
 export function solveEqs(unknowns, eqs, calc, base) {
   const n = unknowns.length;
   if (!n) throw new Error('falta la incógnita');
-  if (eqs.length < n) throw new Error(`hay ${eqs.length} ${eqs.length === 1 ? 'ecuación' : 'ecuaciones'} para ${n} incógnitas: hacen falta al menos tantas ecuaciones como incógnitas`);
-  const parts = eqs.map((s) => splitEq(s) || [s, '0']);
   const varsAt = (xs) => { const v = { ...base }; unknowns.forEach((u, i) => { v[u.name] = { v: xs[i], r: u.r, ...(u.d ? { d: u.d } : {}) }; }); return v; };
+  const evalEqs = eqResiduals(eqs, calc);
+  return lmRoots(unknowns.map((u) => u.v), (xs) => evalEqs(varsAt(xs)), eqs.length);
+}
+
+// Las ecuaciones como residuos: (vars) -> [{ r, c }] (lado izquierdo menos derecho en el SI, y el tamaño de los dos lados).
+export function eqResiduals(eqs, calc) {
+  const parts = eqs.map((s) => splitEq(s) || [s, '0']);
   const side = (s, vars) => { const r = calc(s, vars); if (!Number.isFinite(r.value)) throw new Error(`«${s.trim()}» no es un número`); return r; };
-  // residuos (lado izquierdo menos derecho, en el SI) y el tamaño de cada ecuacion
-  const eval1 = (xs) => {
-    const vars = varsAt(xs);
-    return parts.map(([a, b], j) => {
-      const L = side(a, vars), R = b === '0' ? { value: 0, dim: L.dim } : side(b, vars);
-      if (!sameDim(L.dim, R.dim) && R.value !== 0 && L.value !== 0) throw new Error(`en la ecuación ${j + 1} los dos lados no tienen las mismas unidades (${unitMsg(L.dim)} y ${unitMsg(R.dim)})`);
-      return { r: L.value - R.value, c: Math.abs(L.value) + Math.abs(R.value) };
-    });
-  };
-  const x0 = unknowns.map((u) => u.v);
-  const at0 = eval1(x0); // si falla en el valor inicial, ese es el error que se muestra
+  return (vars) => parts.map(([a, b], j) => {
+    const L = side(a, vars), R = b === '0' ? { value: 0, dim: L.dim } : side(b, vars);
+    if (!sameDim(L.dim, R.dim) && R.value !== 0 && L.value !== 0) throw new Error(`en la ecuación ${j + 1} los dos lados no tienen las mismas unidades (${unitMsg(L.dim)} y ${unitMsg(R.dim)})`);
+    return { r: L.value - R.value, c: Math.abs(L.value) + Math.abs(R.value) };
+  });
+}
+
+// Levenberg-Marquardt sobre evalFn(xs) -> [{ r, c }] desde x0 (m ecuaciones). Cada x se mide en su valor inicial y cada residuo en el tamaño
+// de su ecuacion en ese punto. tol: cuanto puede quedar cada residuo, relativo a ese tamaño (en el dibujo el solver geometrico no es exacto).
+// Devuelve las x; lanza un error si al final alguna ecuacion no se cumple.
+export function lmRoots(x0, evalFn, m, { tol = 1e-9, step = 1e-6, maxIterations = 300 } = {}) {
+  const n = x0.length;
+  if (m < n) throw new Error(`hay ${m} ${m === 1 ? 'ecuación' : 'ecuaciones'} para ${n} incógnitas: hacen falta al menos tantas ecuaciones como incógnitas`);
+  const at0 = evalFn(x0); // si falla en el valor inicial, ese es el error que se muestra
   const sx = x0.map((x) => (x !== 0 ? Math.abs(x) : 1)), sr = at0.map((e) => (e.c > 0 ? e.c : 1));
   const resid = (u) => {
     try {
-      const e = eval1(Array.from(u, (ui, i) => ui * sx[i]));
+      const e = evalFn(Array.from(u, (ui, i) => ui * sx[i]));
       return new Float64Array(e.map((x, j) => x.r / sr[j]));
-    } catch (err) { return new Float64Array(parts.length).fill(1e10); } // fuera del dominio (raiz de un negativo...): el paso se rechaza
+    } catch (err) { return new Float64Array(m).fill(1e10); } // fuera del dominio (raiz de un negativo, el dibujo no se resuelve...): el paso se rechaza
   };
   const u0 = new Float64Array(x0.map((x, i) => x / sx[i]));
-  const out = levenbergMarquardt(u0, resid, { maxIterations: 300, tolResidual: 1e-15, tolStep: 1e-15, tolGradient: 1e-15 });
+  const lim = tol * 1e-3;
+  const out = levenbergMarquardt(u0, resid, { maxIterations, tolResidual: lim, tolStep: lim, tolGradient: lim, jacobianStep: step });
   const xs = Array.from(out.finalParameters, (ui, i) => ui * sx[i]);
-  const fin = eval1(xs);
-  const bad = fin.findIndex((e, j) => !(Math.abs(e.r) <= 1e-9 * Math.max(e.c, sr[j]) || Math.abs(e.r) < 1e-300));
+  const fin = evalFn(xs);
+  const bad = fin.findIndex((e, j) => !(Math.abs(e.r) <= tol * Math.max(e.c, sr[j]) || Math.abs(e.r) < 1e-300));
   if (bad >= 0) throw new Error(`no encontré una solución desde el valor inicial (la ecuación ${bad + 1} no se cumple); prueba otro valor inicial`);
   return xs;
 }

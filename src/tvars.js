@@ -6,7 +6,9 @@ const paramSep = () => (decimalMode() === ',' ? /;/ : /[;,]/); // parametros de 
 import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName } from './expr.js';
 import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg, setUserUnits, addUserUnit, onDocUnits, unitsVersion, UNIT_NAME_RE } from './units.js';
-import { solveEqs, splitEq } from './nsolve.js';
+import { solveEqs, splitEq, eqResiduals } from './nsolve.js';
+// Tolerancia de una meta sobre el dibujo («solve(D5 == 40'mm; D1)=»): el solver geometrico no es exacto.
+export const GOAL_TOL = 1e-6;
 
 // Marcas de cursiva dentro de un texto ya expandido (caracteres de uso privado: no se escriben a mano).
 export const IT0 = '', IT1 = '';
@@ -417,7 +419,7 @@ export function solveCall(expr) {
 
 export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = []) {
   setAngleMode(doc);
-  const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map(), clearRes: new Map(), cleared: new Set(), openEnd: new Set(), at: new Map(), solveRes: new Map() };
+  const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map(), clearRes: new Map(), cleared: new Set(), openEnd: new Set(), at: new Map(), solveRes: new Map(), goals: [] };
   const events = readingEvents(doc, probes);
   if (!events.some((e) => e.kind !== 'dim')) return st; // sin definiciones ni salidas: nada que leer
   const key = JSON.stringify([events, dimVars, [...dimNames], angleRad(), unitsVersion()]);
@@ -473,9 +475,19 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
         let res;
         try {
           if (sv.err) throw new Error(sv.err);
+          const dimU = sv.names.filter((n) => !(n in env) && n in dimVars);
+          if (dimU.length) { // incognitas que son cotas: una meta para el dibujo (la resuelve settle, en params.js, moviendo esas cotas)
+            if (dimU.length !== sv.names.length) throw new Error('las incógnitas son todas cotas o todas variables de texto, no mezcladas');
+            st.goals.push({ k, eqs: sv.eqs, names: sv.names });
+            const calc = (s, vv) => { const r = evalExpr(s, { vars: vv, allowMat: true }); if (r.mat) throw new Error(`«${s.trim()}» da un vector o una matriz: cada ecuación es entre números`); return r; };
+            const bad = eqResiduals(sv.eqs, calc)(cur).findIndex((q) => !(Math.abs(q.r) <= GOAL_TOL * q.c || Math.abs(q.r) < 1e-12));
+            if (bad >= 0) throw new Error(`la ecuación ${bad + 1} no se cumple en el dibujo (¿no hay una solución cerca de las cotas actuales?)`);
+            res = { vals: sv.names.map((n) => ({ name: n, val: dimVars[n] })) };
+            st.solveRes.set(k, res);
+            continue;
+          }
           const us = sv.names.map((n) => {
             const x = env[n];
-            if (!x && n in dimVars) throw new Error(`«${n}» es una cota (o una medida del dibujo): solve resuelve variables de texto`);
             if (!x) throw new Error(`define «${n}» antes del solve, con su valor inicial (p. ej. ${n}:1)`);
             if (x.fn || x.vec || x.mat) throw new Error(`«${n}» debe ser un número (el valor inicial), no una función, un vector ni una matriz`);
             return { name: n, v: x.v, r: !!x.r, d: x.d };

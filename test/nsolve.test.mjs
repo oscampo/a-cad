@@ -1,12 +1,15 @@
 // Ecuaciones: fzero(ecuacion; x; inicial) dentro de una formula y solve(ec1; ec2; x; y)= en un texto (Levenberg-Marquardt de numopt-js).
 import assert from 'node:assert/strict';
-import { newDoc, addPoint, addText } from '../src/model.js';
+import { newDoc, addPoint, addLine, addCon, addText } from '../src/model.js';
+import { initSolver, solve } from '../src/solver.js';
+import { dimText } from '../src/dims.js';
 import { shownText } from '../src/text.js';
-import { textVarErrors } from '../src/params.js';
+import { textVarErrors, settle, hasReactive } from '../src/params.js';
 import { setDecimal } from '../src/locale.js';
 import { evalExpr } from '../src/expr.js';
 import { splitEq } from '../src/nsolve.js';
 
+await initSolver();
 setDecimal('.');
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
@@ -60,6 +63,49 @@ t('solve: errores claros (sin solucion, sin valor inicial, pocas ecuaciones, una
   assert.match(page('a:1', 'solve(z^2==2, z)=').errs.join('|'), /define «z» antes del solve/);
   assert.match(page('x:1\ny:1', 'solve(x+y==2, x, y)=').errs.join('|'), /al menos tantas ecuaciones/);
   assert.match(page('x:1', 'solve(x^2, x)=').errs.join('|'), /no es una ecuación/);
+});
+
+// Un rectangulo: ancho D1 (mueve el dibujo), alto D2 = 20 y la diagonal D3 de solo lectura; la meta en un texto.
+const rect = (goal, du) => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 40, 0), c = addPoint(d, 40, 20);
+  d.pts[a].fixed = true;
+  const l1 = addLine(d, a, b, {}), l2 = addLine(d, b, c, {});
+  addCon(d, { t: 'H', refs: [l1] }); addCon(d, { t: 'V', refs: [l2] });
+  const u = du ? { du } : {};
+  const k1 = addCon(d, { t: 'DIST', refs: [a, b], v: 40, name: 'D1', ...u });
+  const k2 = addCon(d, { t: 'DIST', refs: [b, c], v: 20, name: 'D2', ...u });
+  const k3 = addCon(d, { t: 'DIST', refs: [a, c], v: Math.hypot(40, 20), name: 'D3', ref: true, ...u });
+  const tx = addText(d, addPoint(d, 0, -30), '$$' + goal + '$$', {});
+  return { d, k1, k2, k3, show: () => clean(shownText(d, d.texts[tx]).text), errs: () => textVarErrors(d).map((e) => e.msg) };
+};
+
+t('solve con cotas como incognitas: mueve el dibujo hasta cumplir la ecuacion sobre sus medidas', () => {
+  const r = rect('solve(D1*D2 == 500; D1)=');
+  assert.ok(hasReactive(r.d));
+  assert.ok(settle(r.d, solve, []).ok);
+  near(r.d.cons[r.k1].v, 25, 1e-6);
+  assert.equal(r.show(), '$$solve(D1*D2 == 500; D1)=D1=25$$');
+  const g = rect('solve(D3 == 50; D1)='); // la diagonal (de solo lectura) mide 50
+  assert.ok(settle(g.d, solve, []).ok);
+  near(g.d.cons[g.k1].v, Math.sqrt(50 * 50 - 20 * 20), 1e-6); assert.equal(dimText(g.d, g.d.cons[g.k3]), '50');
+  const u = rect("solve(D3 == 6'cm; D1)=", 'mm'); // con unidades
+  assert.ok(settle(u.d, solve, []).ok);
+  assert.equal(dimText(u.d, u.d.cons[u.k3]), '60 mm');
+  g.d.cons[g.k2].v = 30; // otro cambio del dibujo: la meta se vuelve a cumplir
+  assert.ok(settle(g.d, solve, []).ok);
+  near(g.d.cons[g.k1].v, 40, 1e-6);
+});
+
+t('solve con cotas: sin solucion, el dibujo queda como estaba; una cota de solo lectura no es incognita', () => {
+  const r = rect('solve(D3 == 10; D1)='); // con un alto de 20 la diagonal no puede medir 10
+  const s = settle(r.d, solve, []);
+  assert.equal(s.ok, false); assert.match(s.error, /no encontré una solución/);
+  near(r.d.cons[r.k1].v, 40); assert.match(r.show(), /=⚠\$\$$/);
+  const q = rect('solve(D3 == 50; D3)=');
+  assert.match(settle(q.d, solve, []).error, /D3 es de solo lectura/);
+  assert.ok(q.errs().some((m) => /D3 es de solo lectura/.test(m)));
+  assert.match(rect('x:1\nsolve(D3 == 50; D1; x)=').errs().join('|'), /todas cotas o todas variables de texto/);
 });
 
 console.log(`\n${passed} pruebas de ecuaciones pasaron`);

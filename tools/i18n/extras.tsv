@@ -71,3 +71,11 @@ define «{0}» antes del solve, con su valor inicial (p. ej. {1}:1)	define «{0}
 «{0}» da un vector o una matriz: cada ecuación es entre números	«{0}» gives a vector or a matrix: each equation is between numbers
 ecuación	equation
 ecuaciones	equations
+las incógnitas son todas cotas o todas variables de texto, no mezcladas	the unknowns must be all dimensions or all text variables, not mixed
+la ecuación {0} no se cumple en el dibujo (¿no hay una solución cerca de las cotas actuales?)	equation {0} does not hold in the drawing (is there no solution near the current dimensions?)
+solve(…): «{0}» no es una cota con nombre	solve(…): «{0}» is not a named dimension
+solve(…): {0} es de solo lectura; la incógnita debe ser una cota que mueve el dibujo	solve(…): {0} is read-only; the unknown must be a dimension that drives the drawing
+solve(…): {0} tiene fórmula; quítasela para que la meta la mueva	solve(…): {0} has a formula; remove it so the goal can move it
+solve(…): {0} es incógnita de dos solve	solve(…): {0} is the unknown of two solve
+una cota quedaría en cero o negativa	a dimension would become zero or negative
+el dibujo no se pudo resolver	the drawing could not be solved
