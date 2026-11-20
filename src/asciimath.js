@@ -47,8 +47,7 @@ const WORDS = new Map();
 for (const [k, v] of Object.entries(GREEK)) WORDS.set(k, { t: 'var', v });
 for (const [k, v] of Object.entries(GREEK_UP)) WORDS.set(k, { t: 'sym', v });
 for (const k of FUNCS) WORDS.set(k, { t: 'fn', v: k });
-for (const k of ['inv', 'len', 'clear']) WORDS.set(k, { t: 'fn', v: k });
-WORDS.set('all', { t: 'str', v: 'all' }); // clear(all): si no, «a» + «ll» (≪) // funciones del calculo que si no se leerian como «in»+v (∈v), «le»+n (≤n) y c+«le»+ar (c≤ar)
+WORDS.set('clear', { t: 'fn', v: 'clear' });
 for (const [k, v] of Object.entries(KW)) WORDS.set(k, { t: 'kw', v });
 for (const [k, v] of Object.entries(SYM)) WORDS.set(k, { t: 'sym', v });
 for (const [k, v] of Object.entries(BIN)) WORDS.set(k, { t: 'op', v, k: 'bin' });
@@ -59,7 +58,22 @@ for (const [k, v] of Object.entries(CLOSE)) WORDS.set(k, { t: 'close', v });
 WORDS.set('vvv', { t: 'kw', v: 'big:bigvee' }); WORDS.set('nnn', { t: 'kw', v: 'big:bigcap' }); WORDS.set('uuu', { t: 'kw', v: 'big:bigcup' });
 WORDS.set('quad', { t: 'space', w: 1 }); WORDS.set('qquad', { t: 'space', w: 2 });
 WORDS.set('text', { t: 'raw', v: 'text' }); WORDS.set('color', { t: 'raw', v: 'color' });
-const WORD_KEYS = [...WORDS.keys()].sort((a, b) => b.length - a.length);
+// Con «\» delante, cualquier palabra de AsciiMath: «\in» (∈), «\to» (→), «\angle» (∠), «\xx» (×), «\sum», «\hat x», «\o+» (⊕).
+const BS_KEYS = [...WORDS.keys()].sort((a, b) => b.length - a.length);
+// Sin «\», una palabra solo se convierte si es ENTERA (las letras seguidas) una de estas: letras griegas, funciones (las de AsciiMath y las
+// del calculo, ver addCalcFns), if/and/or, text(...)/color(...) y las que toman argumentos y tambien son del calculo (sqrt, abs, norm...).
+// Cualquier otra se dibuja letra por letra: «total», «line», «gain», «cell» o «num» ya no tienen →, ∈, ≪ ni ν dentro.
+const PLAIN = new Set([...Object.keys(GREEK), ...Object.keys(GREEK_UP), ...FUNCS, 'clear', ...Object.keys(WORD), 'text', 'color',
+  'sqrt', 'root', 'frac', 'abs', 'norm', 'floor', 'ceil']);
+// Funciones del calculo (expr.js las registra al cargar): «mean(v)», «cumsum(v)», «dot(a, b)» se dibujan como funcion (rectas), no como letras
+// ni como un acento (dot) o un operador grande (sum).
+export function addCalcFns(names) {
+  for (const k of names) if (/^[A-Za-z]{2,}$/.test(k) && !PLAIN.has(k)) { PLAIN.add(k); CALC_FN.add(k); }
+}
+const CALC_FN = new Set();
+const plainTok = (k) => (CALC_FN.has(k) ? { t: 'fn', v: k } : { ...WORDS.get(k) });
+// Palabras que piden «\» para ser simbolo (el editor las usa para no convertir «\i» en ι al teclear «\in»).
+export const symbolWords = () => [...WORDS.keys()].filter((k) => !PLAIN.has(k) && /^[A-Za-z]/.test(k)).concat(SYMS.map(([w]) => w).filter((w) => /^[A-Za-z]/.test(w)));
 
 const op = (v, k) => ({ t: 'op', v, k });
 const SYMS = [
@@ -112,26 +126,32 @@ export function tokenize(s) {
     const m = NR.exec(s);
     if (m) { out.push({ t: 'num', v: m[0].replace('-', '−') }); i += m[0].length; continue; } // 3e−4: el signo del exponente es un menos, sin espacios
     const cp = String.fromCodePoint(s.codePointAt(i));
-    if (LETTER.test(cp)) {
-      const k = WORD_KEYS.find((w) => s.startsWith(w, i));
-      if (!k) {
-        const ls = SYMS.find(([w]) => /^[A-Za-z]/.test(w) && s.startsWith(w, i)); // «o+», «o.», «vvv», «nnn», «uuu»
-        if (ls) { out.push({ ...ls[1] }); i += ls[0].length; } else { out.push({ t: 'var', v: cp }); i += cp.length; }
-        continue;
-      }
-      i += k.length;
-      const tk = { ...WORDS.get(k) };
-      if (tk.t === 'raw') { // text(...) y color(...): el contenido entre parentesis o llaves se lee tal cual
-        let j = i; while (j < n && s[j] === ' ') j++;
-        const close = { '(': ')', '{': '}' }[s[j]];
-        if (!close) { out.push({ t: 'var', v: tk.v[0] }); i -= k.length - 1; continue; }
-        let e = s.indexOf(close, j + 1); if (e < 0) e = n;
-        const arg = s.slice(j + 1, e).trim();
-        i = e + 1;
-        if (tk.v === 'text') out.push({ t: 'str', v: arg }); else out.push({ t: 'kw', v: 'color', arg: COLOR_RE.test(arg) ? arg : null });
-        continue;
-      }
-      out.push(tk);
+    // una palabra: text(...) y color(...) leen su contenido tal cual; false si no lleva parentesis (entonces son letras)
+    const word = (tk, at) => {
+      if (tk.t !== 'raw') { out.push(tk); i = at; return true; }
+      let j = at; while (j < n && s[j] === ' ') j++;
+      const close = { '(': ')', '{': '}' }[s[j]];
+      if (!close) return false;
+      let e = s.indexOf(close, j + 1); if (e < 0) e = n;
+      const arg = s.slice(j + 1, e).trim();
+      i = e + 1;
+      if (tk.v === 'text') out.push({ t: 'str', v: arg }); else out.push({ t: 'kw', v: 'color', arg: COLOR_RE.test(arg) ? arg : null });
+      return true;
+    };
+    if (ch === '\\' && /[A-Za-z]/.test(s[i + 1] || '')) { // «\in», «\angle», «\o+»: un simbolo de AsciiMath (la palabra mas larga que empieza ahi)
+      const k = BS_KEYS.find((w) => s.startsWith(w, i + 1));
+      if (k && word({ ...WORDS.get(k) }, i + 1 + k.length)) continue;
+      const ls = SYMS.find(([w]) => /^[A-Za-z]/.test(w) && s.startsWith(w, i + 1)); // «\o+», «\o.»
+      if (ls) { out.push({ ...ls[1] }); i += 1 + ls[0].length; continue; }
+      out.push({ t: 'sym', v: '\\' }); i += 1; continue; // no es un simbolo: la barra se ve
+    }
+    if (LETTER.test(cp)) { // letras seguidas: una palabra entera conocida (PLAIN) o letra por letra
+      let j = i;
+      while (j < n) { const c2 = String.fromCodePoint(s.codePointAt(j)); if (!LETTER.test(c2)) break; j += c2.length; }
+      const run = s.slice(i, j);
+      if (PLAIN.has(run) && word(plainTok(run), j)) continue;
+      for (const c2 of run) out.push({ t: 'var', v: c2 });
+      i = j;
       continue;
     }
     let sy = SYMS.find(([k]) => s.startsWith(k, i));

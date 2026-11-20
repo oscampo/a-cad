@@ -22,7 +22,7 @@ Toca donde va el punto de inserción y escribe ahí mismo, sin ventana. Lo que e
 | `"` o un espacio al empezar | Texto normal en vez de ecuación (sirven también las comillas `“` del teclado del iPad; la comilla o el espacio no se guardan). Ver «Texto normal, fórmulas y literales». |
 | Insignia azul | Junto a la esquina de la entrada: `α` es una ecuación, `A` es texto normal. |
 | `[`, `(`, `{`, `$`, `<`, `` ` `` | **Se cierran solos**: aparece el cierre y el cursor queda en medio (`[\|]`). Teclear el cierre cuando ya está delante solo avanza; borrar en un par vacío borra los dos; con texto seleccionado, lo encierra. `$` dentro de `$\|$` da `$$\|$$`. No se cierran delante de una letra o un número, ni `<` dentro de una fórmula (es «menor que»), ni el `$` o la `` ` `` que cierran algo ya abierto. Vale también en el campo Texto de las propiedades. |
-| `\` y una letra, o Ctrl+G | **Letras griegas** sin teclado griego. `\a` se vuelve α al teclear la letra (Retroceso justo después deja `\a`). Ctrl+G, como en SMath, convierte la letra antes del cursor (otra vez la devuelve) o todo lo seleccionado; en el Mac también es Ctrl, no Cmd. Tabla: `a` α, `b` β, `c` χ, `d` δ, `e` ε, `f` φ, `g` γ, `h` η, `i` ι, `j` ϕ, `k` κ, `l` λ, `m` μ, `n` ν, `p` π, `q` θ, `r` ρ, `s` σ, `t` τ, `u` υ, `v` ϖ, `w` ω, `x` ξ, `y` ψ, `z` ζ; `D` Δ, `F` Φ, `G` Γ, `J` ϑ, `L` Λ, `P` Π, `Q` Θ, `S` Σ, `V` ς, `W` Ω, `X` Ξ, `Y` Ψ. Las mayúsculas que se ven igual que una latina (Α, Β, Ε…) y la ο no se convierten. |
+| `\` y una letra, o Ctrl+G | **Letras griegas** sin teclado griego. `\a` se vuelve α al teclear la letra (Retroceso justo después deja `\a`). Ctrl+G, como en SMath, convierte la letra antes del cursor (otra vez la devuelve) o todo lo seleccionado; en el Mac también es Ctrl, no Cmd. Tabla: `a` α, `b` β, `c` χ, `d` δ, `e` ε, `f` φ, `g` γ, `h` η, `i` ι, `j` ϕ, `k` κ, `l` λ, `m` μ, `n` ν, `p` π, `q` θ, `r` ρ, `s` σ, `t` τ, `u` υ, `v` ϖ, `w` ω, `x` ξ, `y` ψ, `z` ζ; `D` Δ, `F` Φ, `G` Γ, `J` ϑ, `L` Λ, `P` Π, `Q` Θ, `S` Σ, `V` ς, `W` Ω, `X` Ξ, `Y` Ψ. Las mayúsculas que se ven igual que una latina (Α, Β, Ε…) y la ο no se convierten. Si la letra siguiente puede comenzar un símbolo o el nombre de una griega (`\in`, `\to`, `\al`…), vuelve a `\i` y la palabra se escribe tal cual; al terminarla, un símbolo se queda (`\in` se dibuja ∈), el nombre de una griega se vuelve la letra (`\alpha` α) y lo demás es la griega más el resto, como antes (`\an` αn). |
 
 ## Asignar y mostrar valores
 
@@ -65,7 +65,7 @@ Un texto que empieza con `"` (o con un espacio) se dibuja tal cual, salvo lo que
 |---|---|---|---|
 | `$…$` | Fórmula en línea con el texto. | `"Vale $2*3=$ mm` | `Vale 2*3=6 mm` |
 | `$$…$$` | Fórmula en bloque: cada línea de dentro es una ecuación, centrada y a tamaño pleno. |  |  |
-| `` `…` `` | **Literal**: se dibuja pero nunca se calcula ni se lee como asignación o salida. Sin las comillas, `f:RR->RR` sería una asignación. | `` `f:RR->RR` ``<br>`` `x =` 3 `` | `f:RR->RR`<br>`x = 3` |
+| `` `…` `` | **Literal**: se dibuja pero nunca se calcula ni se lee como asignación o salida. Sin las comillas, `f:\RR->\RR` sería una asignación. | `` `f:\RR->\RR` ``<br>`` `x =` 3 `` | `f:\RR->\RR`<br>`x = 3` |
 | `` `… `` sin cerrar | Se marca con ⚠. | `` `abierto `` | `` `abierto ⚠ `` |
 | `\$` | Un signo de pesos que no abre una fórmula. |  |  |
 | `$` suelto | No es fórmula: `$5 y $6` se dibuja tal cual. Un `$$` sin cierre también, con ⚠. |  |  |
@@ -112,21 +112,22 @@ Las fórmulas siguen la sintaxis de [asciimath.org](https://asciimath.org/). Se 
 | `x^2`, `x_1` | Superíndice y subíndice. |
 | `sqrt(x)`, `root 3 x` | Raíces. |
 | `alpha`, `beta`, `pi`, `Delta`… | Letras griegas. |
-| `sum_(i=1)^n`, `prod`, `int_0^1`, `lim_(x->0)` | Sumatoria, productoria, integral y límite. |
-| `sin`, `cos`, `ln`… | Nombres de funciones, en letra recta. |
-| `<=`, `>=`, `!=`, `->`, `=>`, `+-`, `xx`, `-:`, `oo` | ≤ ≥ ≠ → ⇒ ± × ÷ ∞ |
+| `\sum_(i=1)^n`, `\prod`, `\int_0^1`, `\lim_(x->0)` | Sumatoria, productoria, integral y límite (con `\`; `sum(v)` sin ella es la función del cálculo). |
+| `sin`, `cos`, `ln`, `mean`, `cumsum`… | Nombres de funciones (las de AsciiMath y las del cálculo), en letra recta. |
+| `<=`, `>=`, `!=`, `->`, `=>`, `+-`, `-:`, `!in` | ≤ ≥ ≠ → ⇒ ± ÷ ∉ (con signos, sin `\`). |
+| `\in`, `\to`, `\angle`, `\xx`, `\oo`, `\ll`, `\ne`, `\le`, `\AA`, `\RR`… | **Símbolos con nombre**: ∈ → ∠ × ∞ ≪ ≠ ≤ ∀ ℝ. Llevan `\` delante, como en LaTeX; sin ella son letras (`total`, `line` y `gain` no tienen → ni ∈ dentro). Al teclear `\in` la `\i` no se vuelve ι: el editor espera a ver si sigue un símbolo. |
 | `abs(x)`, `floor(x)`, `ceil(x)`, `norm(x)` | Valor absoluto, piso, techo y norma, con sus barras. |
-| `hat x`, `bar x`, `vec v`, `tilde`, `dot`, `ddot`, `ul`, `cancel`, `overarc` | Acentos, subrayado y tachado. |
+| `\hat x`, `\bar x`, `\vec v`, `\tilde`, `\dot`, `\ddot`, `\ul`, `\cancel`, `\overarc` | Acentos, subrayado y tachado. |
 | `[a, b; c, d]`, `[a; b]`, `[[a,b],[c,d]]`, `((a),(b))` | Matrices y vectores columna dibujados (sin calcular). Entre corchetes, `;` separa filas y `,` columnas. |
 | `[[a,b,\|,c],[d,e,\|,f]]` | Matriz aumentada. |
 | `{(2x,+,y,=,3),(x,-,y,=,1):}` | Sistema de ecuaciones. |
-| `ubrace(…)_("texto")`, `obrace`, `overset(x)(=)`, `underset` | Llaves y signos con algo encima o debajo. |
+| `\ubrace(…)_("texto")`, `\obrace`, `\overset(x)(=)`, `\underset` | Llaves y signos con algo encima o debajo. |
 | `color(red)(x)` | Color. |
-| `bb`, `bbb`, `cc`, `tt`, `fr`, `sf` | Fuentes: negrita, pizarra, caligráfica, máquina, fraktur, sin serifa. |
+| `\bb`, `\bbb`, `\cc`, `\tt`, `\fr`, `\sf` | Fuentes: negrita, pizarra, caligráfica, máquina, fraktur, sin serifa. |
 | `"texto"`, `text(hola)` | Texto recto dentro de la fórmula. |
 | `dy/dx`, `f'(x)` | Derivadas. |
 
-- Como en AsciiMath, las palabras reservadas se reconocen aunque vayan pegadas a otras letras (`pir` es π r), así que «in», «or», «and»… dentro de un nombre se leen como símbolos: sepáralos con espacios o ponlos entre comillas.
+- A diferencia de AsciiMath, sin `\` una palabra solo se convierte si es **entera** una letra griega, una función, `if`/`and`/`or` o `sqrt`, `abs`, `norm`, `floor`, `ceil`, `root`, `frac`, `text`, `color`; si no, se dibuja letra por letra: `pi r` es π r, pero `pir` son tres letras, y `sinx` también (escribe `sin x` o `sin(x)`).
 - Aún no hay alineación por **=** entre líneas.
 
 ## Nombres de variables

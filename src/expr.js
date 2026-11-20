@@ -5,7 +5,7 @@
 // Un angulo vale su medida en radianes (r = true), igual que π: sin(A1) funciona y R*A1 es la longitud de arco.
 
 import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem, docUnitsHook } from './units.js';
-import { GREEK, GREEK_UP } from './asciimath.js';
+import { GREEK, GREEK_UP, addCalcFns } from './asciimath.js';
 import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText } from './locale.js';
 
 const TAU_DEG = 180 / Math.PI;
@@ -56,6 +56,7 @@ export const isReservedName = (n) => { const l = String(n).toLowerCase(); return
 export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : String(n).toLowerCase() === 'all' ? `«${n}» está reservada para clear(all)` : `«${n}» es una función o constante`);
 // Todos los nombres de funciones y constantes del evaluador (la referencia de la ayuda debe nombrarlos todos: test/funcref.test.mjs).
 export const FUNC_NAMES = [...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(CONSTS)];
+addCalcFns([...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY]); // se dibujan como funcion (ver asciimath.js)
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*$/;
 const ID_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*/;
 // Variables de texto con subindice: «var_(texto-del-subindice)». El subindice es texto libre (sin parentesis ni llaves); espacios sobrantes no cuentan.

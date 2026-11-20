@@ -30,8 +30,9 @@ t('parser: sub y superindices, griegas, raiz, sumatoria con limites', () => {
   assert.equal(parse('Delta').c[0].t, 'sym');
   const q = parse('sqrt(x^2+y^2)').c[0];
   assert.equal(q.t, 'sqrt'); assert.equal(q.body.t, 'row');
-  const s = parse('sum_(i=1)^n i').c[0];
+  const s = parse('\\sum_(i=1)^n i').c[0];
   assert.equal(s.t, 'big'); assert.ok(s.sub && s.sup);
+  assert.equal(parse('sum(v)').c[0].t, 'fn'); // sin «\»: la funcion sum del calculo
   assert.equal(parse('root 3 x').c[0].idx.s, '3');
 });
 
@@ -40,7 +41,7 @@ t('parser: operadores de varios signos y funciones', () => {
   assert.equal(parse('a->b').c[1].s, '→');
   assert.equal(parse('a+-b').c[1].s, '±');
   assert.equal(parse('sin x').c[0].t, 'fn');
-  assert.equal(parse('oo').c[0].s, '∞');
+  assert.equal(parse('\\oo').c[0].s, '∞');
 });
 
 t('parser: operadores elemento a elemento en notacion matematica', () => {
@@ -182,20 +183,22 @@ t('asciimath.org: dy/dx, primas, texto, color, fuentes y alfabetos', () => {
   assert.equal(parse('color(red"><x)(y)').c[0].col, null); // nombres raros se descartan (van a atributos SVG)
   const col = layoutMath('color(red)(x) + y', false, measure).ops.filter((o) => o.k === 't');
   assert.equal(col[0].col, 'red'); assert.equal(col[1].col, undefined);
-  const bold = layoutMath('bb x', false, measure).ops[0];
+  const bold = layoutMath('\\bb x', false, measure).ops[0];
   assert.equal(bold.bold, true); assert.equal(bold.it, false);
-  assert.equal(layoutMath('bbb R', false, measure).ops[0].s, 'ℝ');
-  assert.equal(layoutMath('cc A', false, measure).ops[0].s, '𝒜');
-  assert.equal(layoutMath('fr g', false, measure).ops[0].s, '𝔤');
-  assert.equal(layoutMath('tt x', false, measure).ops[0].font, 'mono');
-  assert.equal(parse('overbrace(1+2)^("n")').c[0].sup.c[0].t, 'txt');
+  assert.equal(layoutMath('\\bbb R', false, measure).ops[0].s, 'ℝ');
+  assert.equal(layoutMath('\\cc A', false, measure).ops[0].s, '𝒜');
+  assert.equal(layoutMath('\\fr g', false, measure).ops[0].s, '𝔤');
+  assert.equal(layoutMath('\\tt x', false, measure).ops[0].font, 'mono');
+  assert.equal(parse('\\overbrace(1+2)^("n")').c[0].sup.c[0].t, 'txt');
 });
 
 t('asciimath.org: simbolos con espacios y palabras', () => {
   assert.equal(parse('a and b').c[1].k, 'word');
-  assert.equal(parse('a in B').c[1].s, '∈');
+  assert.equal(parse('a \\in B').c[1].s, '∈');
+  assert.deepEqual(parse('a in B').c.map((n) => n.s), ['a', 'i', 'n', 'B']); // sin «\»: letras
+  assert.equal(parse('a !in B').c[1].s, '∉');
   assert.equal(parse('sin x').c[0].t, 'fn'); // «sin» no se parte en «s» + «in»
-  assert.equal(parse('a o+ b').c[1].s, '⊕');
+  assert.equal(parse('a \\o+ b').c[1].s, '⊕');
   assert.equal(parse('x |__ y __|').c[1].t, 'group');
   assert.equal(parse('a -<= b').c[1].s, '⪯');
 });

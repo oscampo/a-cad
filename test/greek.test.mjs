@@ -1,6 +1,6 @@
 // Letras griegas: «\letra» al escribir, Ctrl+G (como SMath) y la misma variable con la letra o con su nombre («α» y «alpha»).
 import assert from 'node:assert/strict';
-import { backslashGreek, toggleGreek, TO_GREEK, TO_LATIN } from '../src/greek.js';
+import { backslashGreek, backslashWord, toggleGreek, TO_GREEK, TO_LATIN } from '../src/greek.js';
 import { normName, NAME_RE } from '../src/expr.js';
 import { GREEK, GREEK_UP } from '../src/asciimath.js';
 import { textValue, plainText } from '../src/text.js';
@@ -80,6 +80,36 @@ t('cotas: el nombre se guarda con la letra', () => {
   assert.equal(checkName(d, 'gamma', 'k1'), null);
   renameDim(d, 'k1', 'gamma');
   assert.equal(d.cons.k1.name, 'γ');
+});
+
+// Teclear una cadena caracter por caracter como lo hace attachGreek (backslashWord, luego backslashGreek; fresh = recien convertida).
+const typeIn = (keys) => {
+  let v = '', s = 0, last = null;
+  for (const ch of keys) {
+    const fresh = last === s;
+    last = null;
+    const w = backslashWord(v, s, s, ch, fresh);
+    if (w) { v = w.v; s = w.s; continue; }
+    const r = ch === '\n' ? null : backslashGreek(v, s, s, ch);
+    if (r) { v = r.v; s = r.s; last = s; continue; }
+    v = v.slice(0, s) + ch + v.slice(s); s++;
+  }
+  return v;
+};
+
+t('«\\» y un simbolo: «\\in», «\\to», «\\angle» se quedan; «\\alpha» es α; lo demas, como antes', () => {
+  assert.equal(typeIn('x \\in A'), 'x \\in A');
+  assert.equal(typeIn('a \\to b'), 'a \\to b');
+  assert.equal(typeIn('\\angle ABC'), '\\angle ABC');
+  assert.equal(typeIn('\\alpha+1'), 'α+1');
+  assert.equal(typeIn('\\Delta_1'), 'Δ_1');
+  assert.equal(typeIn('\\a, \\p, \\q'), 'α, π, θ'); // el tutorial: una letra sigue siendo la griega
+  assert.equal(typeIn('\\ab'), 'αb'); // «ab» no comienza ningun simbolo: como antes
+  assert.equal(typeIn('\\apx'), 'αpx'); // «ap» podia ser approx; «apx» ya no
+  assert.equal(typeIn('\\an '), 'αn '); // «an» no es simbolo al terminar
+  assert.equal(typeIn('\\xx'), '\\xx');
+  assert.equal(typeIn('\\o+'), '\\o+');
+  assert.equal(typeIn('\\in\n'), '\\in\n');
 });
 
 console.log(`\n${passed} pruebas de letras griegas`);
