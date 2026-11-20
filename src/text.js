@@ -32,11 +32,13 @@ const showU = (seg) => (seg.includes("'") ? seg.replace(/'\s*(\([^()]*\)|[A-Za-z
 // Un numero en una unidad: los muy pequeños con 4 cifras significativas (fmtNum los dejaria en 0); sin el «.0» de fmtNum en los miles.
 const fmtQ = (x) => localNum(x !== 0 && Math.abs(x) < 1e-3 ? String(Number(x.toPrecision(4))) : String(Number(x.toFixed(Math.abs(x) >= 1000 ? 1 : 3))));
 // Una cantidad con unidades: en la unidad pedida («F='kN»), si no en la de la variable («F:250'N»), en la de una variable de la expresion
-// con la misma magnitud, o en la del SI con prefijo (autoUnit). ⚠ si la unidad pedida no es de la misma magnitud.
+// de texto con la misma magnitud (no la de una cota), o en la habitual del sistema de unidades del documento (autoUnit). ⚠ si la unidad pedida no es de la misma magnitud.
 // La unidad en que se muestra (con su factor al SI); null si la pedida no es de la misma magnitud. v: el valor que decide el prefijo automatico.
+// La magnitud de un vector (su texto, t.vecOf) es su etiqueta: ahi si manda la unidad de su cota («30 kN»), como en la etiqueta de una cota.
+let KEEP_DIM_UNIT = false;
 function pickUnit(dim, env, src, want, v) {
   if (want) { const u = parseUnit(want); return sameDim(dim, u.d) ? { name: want, f: u.f } : null; }
-  for (const n of [normName(String(src).trim()), ...exprRefs(src)]) { const x = env?.[n]; if (x?.pu && sameDim(x.d, dim)) return { name: x.pu, f: x.pf }; }
+  for (const n of [normName(String(src).trim()), ...exprRefs(src)]) { const x = env?.[n]; if (x?.pu && (!x.dv || KEEP_DIM_UNIT) && sameDim(x.d, dim)) return { name: x.pu, f: x.pf }; } // la de una cota no: manda el sistema de unidades
   return autoUnit(v, dim);
 }
 const tailOf = (n, math) => (math ? unitMath(n) : ' ' + n);
@@ -55,6 +57,10 @@ function matQ(m, dim, env, src, want, math) {
   return u ? box(matText(m.map((r) => r.map((x) => x / u.f)), fmtQ)) + tailOf(want || u.name, math) : '⚠';
 }
 export function textValue(doc, t) {
+  KEEP_DIM_UNIT = !!t?.vecOf;
+  try { return textValue1(doc, t); } finally { KEEP_DIM_UNIT = false; }
+}
+function textValue1(doc, t) {
   setAngleMode(doc);
   const s = String(t.text ?? '');
   const hasSub = s.includes('$') && s.includes('_(');

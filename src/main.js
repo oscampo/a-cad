@@ -3148,6 +3148,7 @@ function drawSample(canvas, pattern, color) {
 function syncPanel() {
   $('cfgLang').value = getLang(); $('cfgDec').value = doc.decimal === ',' || doc.decimal === '.' ? doc.decimal : ''; // sin elegir: dibujos anteriores
   $('docAngles').value = doc.angles === 'rad' ? 'rad' : 'deg';
+  $('docUnits').value = doc.units === 'US' ? 'US' : 'SI';
   const pg = doc.page;
   $('docPage').value = !pg ? 'none' : pageKind(pg) || 'custom';
   $('docPageW').value = pg ? +pg.w.toFixed(1) : ''; $('docPageH').value = pg ? +pageH(pg).toFixed(1) : ''; $('docMargin').value = pg ? pg.m : '';
@@ -4922,6 +4923,11 @@ $('cfgDec').onchange = (e) => {
   try { if (to) localStorage.setItem('a-cad-decimal', to); else localStorage.removeItem('a-cad-decimal'); } catch (err) { /* sin almacenamiento */ }
   afterChange(); syncPanel(); draw();
   toast(`Indicador decimal: ${to === ',' ? 'coma (1,5), argumentos con «;»' : to === '.' ? 'punto (1.5), argumentos con «,»' : 'sin elegir (se aceptan las dos formas)'}` + (n ? ` · ${n} fórmula${n > 1 ? 's' : ''} reescrita${n > 1 ? 's' : ''}` : ''));
+};
+$('docUnits').onchange = (e) => { // sistema de unidades del documento: en que unidades se muestran los resultados sin unidad pedida
+  pushUndo(); if (e.target.value === 'US') doc.units = 'US'; else delete doc.units;
+  setAngleMode(doc); fillDimUnits(doc, true); afterChange();
+  toast(e.target.value === 'US' ? 'Resultados en unidades anglosajonas: in, ft, kip, kip·in, ksi' : 'Resultados en unidades del SI: mm, m, kN, kN·m, MPa');
 };
 $('docAngles').onchange = (e) => { pushUndo(); if (e.target.value === 'rad') doc.angles = 'rad'; else delete doc.angles; afterChange(); toast(e.target.value === 'rad' ? 'Textos de cálculo en radianes: sin(π/2)=1' : 'Textos de cálculo en grados: sin(90)=1'); };
 $('ltScale').oninput = (e) => { opts.ltScale = Number(e.target.value); draw(); syncPanel(); persist(); };

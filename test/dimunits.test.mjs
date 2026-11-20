@@ -1,7 +1,8 @@
 // Cotas con unidad: el dibujo mide lo real (una longitud en mm, otra magnitud en el SI) y la etiqueta lo dice en la unidad de la cota
 // («126'in» mide 3200,4 y dice «126 in»); en las formulas una cota con unidad entra como cantidad, sin la escala.
 import assert from 'node:assert/strict';
-import { newDoc, addPoint, addLine, addCon } from '../src/model.js';
+import { newDoc, addPoint, addLine, addCon, addText } from '../src/model.js';
+import { shownText } from '../src/text.js';
 import { dimText, dimUnit, dimShown, isScaledDim, layoutDim } from '../src/dims.js';
 import { initSolver, solve } from '../src/solver.js';
 import { settle, splitUnit, dimEval, varValue, varsList, scaleEval, noScaleWarn } from '../src/params.js';
@@ -14,6 +15,7 @@ const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
 const near = (a, b, e = 1e-6) => assert.ok(Math.abs(a - b) <= e, `${a} != ${b}`);
 const L = [1, 0, 0, 0, 0, 0, 0];
 const vd = (r) => ({ v: r.v, du: r.du });
+const clean = (s) => s.replace(/[-]/g, ''); // marcas internas de las salidas (uso privado)
 
 t('splitUnit: la unidad del final se separa; una formula que sigue despues no es unidad', () => {
   assert.deepEqual(splitUnit("126'in"), { body: '126', unit: 'in' });
@@ -112,6 +114,18 @@ t('solo lectura con unidad de otra magnitud: sin escala con unidades dice ⚠; c
   near(varValue(d, d.cons[k]).v, 45000);
   d.cons[k].scaleExpr = "1'mm"; settle(d, solve, []);
   assert.ok(d.cons[k].serr); assert.equal(dimText(d, d.cons[k]), '⚠ kN');
+});
+
+t('sistema de unidades del documento: decide la unidad de las salidas sin unidad pedida; la etiqueta de la cota no manda', () => {
+  const { d, k } = mkLine(100, { expr: "126'in", scale: 1 / 25.4 });
+  addText(d, addPoint(d, 0, -50), "$D1=$\n$F:30'kN$\n$M:F*D1=$\n$d:5'cm$\n$d=$\n$A:d^2=$\n$D1='in$", {});
+  assert.ok(settle(d, solve, []).ok);
+  const tx = Object.values(d.texts)[0];
+  assert.equal(dimText(d, d.cons[k]), '126 in'); // la etiqueta no cambia
+  assert.equal(clean(shownText(d, tx).text), "$D1=3.2 \" m\"$\n$F:=30 \" kN\"$\n$M:=F*D1=96.012 \" kN·m\"$\n$d:=5 \" cm\"$\n$d=5 \" cm\"$\n$A:=d^2=2500 \" mm²\"$\n$D1=126 \" in\"$");
+  d.units = 'US';
+  assert.equal(clean(shownText(d, tx).text), "$D1=126 \" in\"$\n$F:=30 \" kN\"$\n$M:=F*D1=849.778 \" kip·in\"$\n$d:=5 \" cm\"$\n$d=5 \" cm\"$\n$A:=d^2=3.875 \" in²\"$\n$D1=126 \" in\"$");
+  delete d.units; shownText(d, tx); // deja el SI activo para lo que siga
 });
 
 console.log(`\n${passed} pruebas de cotas con unidad pasaron`);

@@ -21,7 +21,7 @@ export function varValue(doc, k) {
   if (k.t === 'ANG') return { v: v * DEG, r: true };
   const u = dimUnit(k.du);
   if (k.t !== 'ANG' && dimUnreadable(k)) return { v: NaN, r: false, ...(u?.d ? { d: u.d } : {}), pu: k.du, pf: u?.f ?? 1 }; // en kN sin escala de representacion no vale nada: las salidas dicen ⚠
-  if (u && !dimUnreadable(k)) { const q = dimShown(doc, k); return { v: q * u.f, r: false, ...(u.d ? { d: u.d } : {}), pu: k.du, pf: u.f }; }
+  if (u && !dimUnreadable(k)) { const q = dimShown(doc, k); return { v: q * u.f, r: false, ...(u.d ? { d: u.d } : {}), pu: k.du, pf: u.f, dv: true }; } // dv: de una cota (en las salidas de los textos manda el sistema de unidades, no su etiqueta)
   if (k.t === 'RAD' && k.refs[0] in doc.circles) return { v: 2 * v, r: false };
   return { v, r: false };
 }
@@ -215,10 +215,11 @@ export function renameDim(doc, id, raw) {
 
 // Al abrir un dibujo: las cotas con formula que todavia no tienen la unidad de su etiqueta (anteriores a las cotas con unidad, «2'cm») la
 // toman de su formula. No cambia la geometria (2 cm siguen midiendo 20), solo lo que dice la etiqueta («2 cm»). Devuelve cuantas cambiaron.
-export function fillDimUnits(doc) {
+// all: tambien las que ya la tienen (al cambiar el sistema de unidades: «D2*2» toma la unidad habitual del nuevo sistema).
+export function fillDimUnits(doc, all = false) {
   let n = 0;
   for (const [id, k] of drivers(doc)) {
-    if (!k.expr || k.du || k.t === 'ANG' || k.t === 'ANG4') continue;
+    if (!k.expr || (k.du && !all) || k.t === 'ANG' || k.t === 'ANG4') continue;
     try { const r = dimEval(k.expr, varsOf(doc, id)); if (r.du) { k.du = r.du; n++; } } catch (e) { /* formula que hoy no se puede evaluar: sigue sin unidad */ }
   }
   refScales(doc);

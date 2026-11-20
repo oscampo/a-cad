@@ -81,7 +81,7 @@ t('vectores y matrices con unidades: una sola unidad para todos los elementos', 
   assert.equal(u("$$x:0..10;5'mm\nx=\ny:1'm..3'm;3\ny=$$"), '$$x:=[0, 2.5, 5, 7.5, 10] mm\nx=[0, 2.5, 5, 7.5, 10] mm\ny:=[1, 2, 3] m\ny=[1, 2, 3] m$$'); // rangos
   assert.equal(u("$$a:[1'm,2'N]$$").includes('⚠'), true); // magnitudes mezcladas
   assert.equal(u("$$b:[1,2]'m+[1,2]'N=$$").includes('⚠'), true);
-  assert.equal(u("$$F:[1,2,3]'N\nd:[1,0,0]'m\ndot(F;d)=\nmax(F)=$$"), '$$F:=[1, 2, 3] N\nd:=[1, 0, 0] m\ndot(F;d)=1 J\nmax(F)=3 N$$');
+  assert.equal(u("$$F:[1,2,3]'N\nd:[1,0,0]'m\ndot(F;d)=\nmax(F)=$$"), '$$F:=[1, 2, 3] N\nd:=[1, 0, 0] m\ndot(F;d)=1 N·m\nmax(F)=3 N$$');
   assert.equal(u("$$M:[1,2;3,4]'m\ndet(M)=\ninv(M)=$$"), '$$M:=[1, 2; 3, 4] m\ndet(M)=-2 m²\ninv(M)=[-2, 1; 1.5, -0.5] 1/m$$');
   assert.equal(u("$$F:200'N\nx:4'mm\nF/x=$$"), '$$F:=200 N\nx:=4 mm\nF/x=50000 N/m$$'); // N/m en vez de kg/s²
   assert.equal(u("$$k:[1,2]\nk='m$$"), '$$k:=[1, 2]\nk=⚠$$'); // sin unidades no se puede pedir una

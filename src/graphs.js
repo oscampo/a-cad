@@ -91,7 +91,7 @@ function* graphGen(doc, g, solveFn) {
   const unitOf = (side, dim, v) => {
     if (units.has(side)) return units.get(side);
     let u = null;
-    if (dim) for (const nm of [side, ...exprRefs(side)]) { const x = base[nm]; if (x?.pu && sameDim(x.d, dim)) { u = { name: x.pu, f: x.pf }; break; } }
+    if (dim) for (const nm of [side, ...exprRefs(side)]) { const x = base[nm]; if (x?.pu && !x.dv && sameDim(x.d, dim)) { u = { name: x.pu, f: x.pf }; break; } }
     if (dim && !u) u = autoUnit(v, dim);
     units.set(side, u);
     return u;

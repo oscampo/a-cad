@@ -104,7 +104,32 @@ export function dimName(d) {
 // Unidad con que se muestra una cantidad sin unidad pedida: la del SI y, si es una sola unidad con nombre (N, Pa, m, m²...), con el prefijo
 // que deja el número entre 1 y 1000 (2,5e6 Pa -> 2,5 MPa). La masa usa g (kg, t no) para el prefijo.
 const AUTO_PRE = ['G', 'M', 'k', '', 'm', 'µ', 'n'];
+// Sistema de unidades del documento (doc.units: 'US' anglosajon; si no, el SI): solo decide en que unidad se MUESTRA un resultado sin unidad
+// pedida, los calculos van siempre en el SI. Unidades habituales por magnitud, de la menor a la mayor: se usa la menor en la que el numero
+// queda por debajo de 1000, si en la siguiente es al menos 1 (3200 mm -> 3,2 m; 126 in sigue en in; 1963,5 mm² sigue en mm²). El momento y la energia tienen la misma dimension: se muestran como momento.
+let SYS = 'SI';
+export const setUnitSystem = (s) => { SYS = s === 'US' ? 'US' : 'SI'; };
+export const unitSystem = () => SYS;
+const HABIT = {
+  SI: [['mm', 'm'], ['mm²', 'm²'], ['mm³', 'm³'], ['mm^4', 'm^4'], ['N', 'kN', 'MN'], ['N·mm', 'N·m', 'kN·m', 'MN·m'], ['Pa', 'kPa', 'MPa', 'GPa'], ['g', 'kg', 't']],
+  US: [['in', 'ft'], ['in²', 'ft²'], ['in³', 'ft³'], ['in^4', 'ft^4'], ['lbf', 'kip'], ['lbf·in', 'kip·in', 'kip·ft'], ['psi', 'ksi'], ['lb']],
+};
+const HCACHE = new Map();
+const habitLists = () => {
+  if (!HCACHE.has(SYS)) HCACHE.set(SYS, HABIT[SYS].map((l) => l.map((name) => ({ name, ...parseUnit(name) })).sort((a, b) => a.f - b.f)));
+  return HCACHE.get(SYS);
+};
+export function habitUnit(v, d) {
+  if (zero(d)) return null;
+  const list = habitLists().find((l) => sameDim(l[0].d, d));
+  if (!list) return null;
+  let i = 0; // se pasa a la siguiente si en esta son 1000 o mas y en la siguiente al menos 1 (1963,5 mm² no pasa a 0,002 m²)
+  while (i + 1 < list.length && Math.abs(v) / list[i].f >= 1000 - 1e-9 && Math.abs(v) / list[i + 1].f >= 1 - 1e-12) i++;
+  return { name: list[i].name, f: list[i].f };
+}
 export function autoUnit(v, d) {
+  const h = habitUnit(v, d);
+  if (h) return h;
   const name = dimName(d);
   if (!name) return null;
   const m = /^(m|kg|s|A|K|mol|cd|N|Pa|J|W|C|V|Ω|F|Wb|T|H|S)([²³]?)$/.exec(name);

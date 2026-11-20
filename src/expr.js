@@ -4,7 +4,7 @@
 // Variables: las cotas con nombre (D1, A1, R2, O3 o el que les des) se pueden usar en las formulas: vars = { nombre: { v, r } }.
 // Un angulo vale su medida en radianes (r = true), igual que π: sin(A1) funciona y R*A1 es la longitud de arco.
 
-import { parseUnit, sameDim, mulDim, powDim, unitMsg } from './units.js';
+import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem } from './units.js';
 import { GREEK, GREEK_UP } from './asciimath.js';
 import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText } from './locale.js';
 
@@ -357,7 +357,7 @@ function matFn(name, A) {
 // Ángulos del dibujo (opción «Ángulos en: grados / radianes» del documento, doc.angles): los textos de cálculo y las gráficas
 // evalúan con este valor por defecto; las cotas y los actuadores lo fijan explícito (siempre en grados).
 let DEF_RAD = false;
-export const setAngleMode = (doc) => { DEF_RAD = doc?.angles === 'rad'; setDecimal(doc?.decimal); }; // el indicador decimal del dibujo va con la opcion de angulos: se activan juntos
+export const setAngleMode = (doc) => { DEF_RAD = doc?.angles === 'rad'; setDecimal(doc?.decimal); setUnitSystem(doc?.units); }; // el indicador decimal del dibujo va con la opcion de angulos: se activan juntos
 export const angleRad = () => DEF_RAD;
 
 // Dibujos anteriores (sin indicador decimal) leen «0,0» como un decimal: «f(0.7,0,0)» daba error. Si la lectura de siempre falla y la expresion
