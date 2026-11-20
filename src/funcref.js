@@ -68,6 +68,7 @@ export const FUNC_GROUPS = [
     note: 'Se escriben entre corchetes: la coma separa los elementos de una fila, el punto y coma empieza otra fila, y los decimales llevan punto. Se usan en los textos (<code>A:[1,2;3,4]</code>, <code>A=</code>); una cota puede leer un elemento (<code>D1 = x_2</code>).',
     rows: [
       ['<code>[1, 2, 3]</code>, <code>[1; 2; 3]</code>', 'Vector fila y vector columna.', '[1,2,3]^T', '[1; 2; 3]', 'm'],
+      ['<code>[V; M]</code>, <code>[A, b]</code>', 'Por bloques, como en MATLAB: los elementos pueden ser vectores o matrices. La coma los pone lado a lado (mismo número de filas) y el punto y coma uno debajo del otro (mismo número de columnas).', 'V:[2,1]\nM:[1,3]\nF:[5;10]\n[V;M]^(-1)*F=', '[1; 3]', 't'],
       ['<code>a..b;n</code>', 'Rango: <code>n</code> valores de a hasta b, ambos incluidos.', 'x:0..1;5\nx=', '[0, 0.25, 0.5, 0.75, 1]', 't'],
       ['<code>a..paso..b</code>', 'Rango con paso, sin pasar de b (el paso puede ser negativo).', 'x:10..-3..1\nx=', '[10, 7, 4, 1]', 't'],
       ['<code>x_i</code>, <code>A_(i,j)</code>', 'Elemento, contando desde 1. Los índices pueden ser fórmulas: <code>x_(i+1)</code>.', 'A:[1,2;3,4]\nA_(2,1)=', '3', 't'],

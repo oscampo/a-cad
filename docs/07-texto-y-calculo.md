@@ -164,6 +164,7 @@ Se escriben entre corchetes: la coma separa los elementos de una fila, el punto 
 | Escribes | Qué hace | Ejemplo | Se ve |
 |---|---|---|---|
 | `[1, 2; 3, 4]` | Matriz. `[1, 2, 3]` es un vector fila y `[1; 2; 3]` uno columna. | `A:[1,2;3,4]`<br>`A=` | `A:=[1, 2; 3, 4]`<br>`A=[1, 2; 3, 4]` |
+| `[V; M]`, `[A, b]` | Matriz **por bloques**, como en MATLAB: los elementos pueden ser vectores o matrices ya definidos. `,` los pone lado a lado (mismo número de filas) y `;` uno debajo del otro (mismo número de columnas). Con dos filas V y M, `[V; M]` es la matriz del sistema. | `V:[2,1]`<br>`M:[1,3]`<br>`F:[5;10]`<br>`[V;M]^(-1)*F=` | `V:=[2, 1]`<br>`M:=[1, 3]`<br>`F:=[5; 10]`<br>`[V;M]^(-1)*F=[1; 3]` |
 | `x^T` | Transpuesta: de un vector fila, el columna. | `x:1..3;3`<br>`x^T=` | `x:=[1, 2, 3]`<br>`x^T=[1; 2; 3]` |
 | `x_2`, `x_i`, `x_(i+1)` | Elemento de un vector, contando desde 1. | `x:1..3;3`<br>`x_2=` | `x:=[1, 2, 3]`<br>`x_2=2` |
 | `A_(i,j)` | Elemento de una matriz (fila, columna). | `A:[1,2;3,4]`<br>`A_(2,1)=` | `A:=[1, 2; 3, 4]`<br>`A_(2,1)=3` |

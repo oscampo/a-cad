@@ -360,6 +360,8 @@ export const EN = {
   "Los elementos de una matriz deben tener las mismas unidades (hay {0} y {1})": "The elements of a matrix must have the same units (there are {0} and {1})",
   "Falta cerrar un corchete": "A bracket is not closed",
   "Todas las filas de una matriz deben tener el mismo número de elementos": "All rows of a matrix must have the same number of elements",
+  "Para poner lado a lado (con «{0}») los bloques deben tener el mismo número de filas: en la fila {1} hay {2} y {3}": "To place blocks side by side (with «{0}») they must have the same number of rows: row {1} has {2} and {3}",
+  "Para apilar (con «{0}») las filas deben tener el mismo número de columnas: la 1.ª tiene {1} y la {2}.ª {3}": "To stack rows (with «{0}») they must have the same number of columns: row 1 has {1} and row {2} has {3}",
   "Una matriz admite hasta 10000 elementos": "A matrix accepts up to 10000 elements",
   "«{0}» necesita paréntesis, p. ej. {1}(30)": "«{0}» needs parentheses, e.g. {1}(30)",
   "Expresión no válida": "Invalid expression",

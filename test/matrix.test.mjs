@@ -71,7 +71,7 @@ t('errores claros', () => {
   fails('[1,2]^2', /cuadradas/); // un vector no es cuadrado
   fails('2^[1,2]', /exponente/);
   fails('[1,2]<[3,4]', /comparar/);
-  fails('[[1,2],[3,4]]', /son números/);
+  assert.deepEqual(mat('[[1,2],[3,4]]'), [[1, 2, 3, 4]]); // por bloques, como en MATLAB: lado a lado (antes daba error)
   assert.throws(() => evalExpr('[1,2]'), /El resultado es un vector fila de 2, no un número/); // en una cota, por ejemplo
   assert.throws(() => evalExpr('[1,2;3,4]'), /una matriz de 2×2/);
   assert.throws(() => evalExpr('[1;2;3]'), /un vector columna de 3/);
@@ -296,6 +296,21 @@ t('indices: dependencias (variables de texto y cotas leen elementos de otros vec
   assert.ok(r.ok, r.error);
   assert.equal(d.cons[k].v, 20);
   assert.ok(pruneFormulas(d).length === 0 && d.cons[k].expr === 'x_2'); // la formula sigue viva: x_2 depende de la variable x
+});
+
+t('por bloques, como en MATLAB: [V; M] apila, [V, M] pone lado a lado', () => {
+  const vars = { V: { vec: [2, 1] }, M: { vec: [1, 3] }, F: { mat: [[5], [10]] }, A: { mat: [[1, 2], [3, 4]] }, c: { mat: [[7], [8]] } };
+  assert.deepEqual(mat('[V; M]', vars), [[2, 1], [1, 3]]);
+  assert.deepEqual(mat('[V, M]', vars), [[2, 1, 1, 3]]);
+  assert.deepEqual(mat('[V; M]^(-1)*F', vars), [[1], [3]]); // el sistema 2x+y=5, x+3y=10
+  assert.deepEqual(mat('inv([V; M])*F', vars), [[1], [3]]);
+  assert.deepEqual(mat('[A, c]', vars), [[1, 2, 7], [3, 4, 8]]); // matriz ampliada
+  assert.deepEqual(mat('[A; V]', vars), [[1, 2], [3, 4], [2, 1]]);
+  assert.deepEqual(mat('[0, V; 9, M]', vars), [[0, 2, 1], [9, 1, 3]]); // numeros y bloques juntos
+  fails('[V; 1, 2, 3]', /mismo número de columnas: la 1.ª tiene 2 y la 2.ª 3/, vars);
+  fails('[A, V]', /mismo número de filas: en la fila 1 hay una matriz de 2×2 y un vector fila de 2/, vars);
+  fails('[1, 2; 3]', /mismo número de elementos/); // sin bloques, el mensaje de siempre
+  fails('[V; M]^(-1)*[5, 10]', /columnas/, vars); // F como fila: no se puede multiplicar
 });
 
 console.log(`\n${passed} pruebas de vectores y matrices pasaron`);

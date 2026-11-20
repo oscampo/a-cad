@@ -585,23 +585,38 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
       return { v: x.v, r: !!x.r, d: x.d };
     }
     if (k.t === 'sqrt') { const a = primary(); if (isM(a)) { if (a.m.some((r) => r.some((x) => x < 0))) throw rt('Raíz de un número negativo'); return wd(mapM(a, Math.sqrt), powDim(a.d, 0.5)); } if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r, d: powDim(a.d, 0.5) }; }
-    if (k.t === 'op' && k.v === '[') { // matriz: [1, 2, 3] (fila) o [1, 2; 3, 4] (filas separadas por «;»)
+    if (k.t === 'op' && k.v === '[') {
+      // matriz: [1, 2, 3] (fila) o [1, 2; 3, 4] (filas separadas por «;»). Como en MATLAB, un elemento puede ser un vector o una
+      // matriz (por bloques): «,» pone los bloques lado a lado (mismo numero de filas) y «;» uno debajo del otro (mismo numero de
+      // columnas): con V y M filas de 2, [V; M] es la matriz de 2×2 y [V, M] una fila de 4.
       if (isOp(']')) throw new Error('Una matriz no puede estar vacía');
-      const rows = [[]];
+      const brow = [[]]; // filas de bloques; cada bloque, una matriz (un numero es de 1×1)
       let d0 = null; // todos los elementos con la misma dimension (la de la matriz)
       for (;;) {
         const a = cmp();
-        if (isM(a)) throw new Error('Los elementos de una matriz son números');
         if (d0 === null) d0 = a.d; else if (!sameDim(a.d, d0)) throw new Error(`Los elementos de una matriz deben tener las mismas unidades (hay ${unitMsg(d0)} y ${unitMsg(a.d)})`);
-        rows.at(-1).push(a.v);
+        brow.at(-1).push(isM(a) ? a : { m: [[a.v]] });
         const s = peek();
-        if (s?.t === 'sep') { p++; if (s.c === rowChar()) rows.push([]); continue; } // filas: «;» (o «|» con coma decimal); elementos: «,» (o «;»)
+        if (s?.t === 'sep') { p++; if (s.c === rowChar()) brow.push([]); continue; } // filas: «;» (o «|» con coma decimal); elementos: «,» (o «;»)
         break;
       }
       if (!isOp(']')) throw new Error('Falta cerrar un corchete');
       p++;
-      if (rows.some((r) => r.length !== rows[0].length)) throw new Error('Todas las filas de una matriz deben tener el mismo número de elementos');
-      if (rows.length * rows[0].length > 10000) throw new Error('Una matriz admite hasta 10000 elementos');
+      const blocky = brow.some((r) => r.some((b) => b.m.length !== 1 || b.m[0].length !== 1));
+      const rows = [];
+      brow.forEach((bs, i) => {
+        const h = bs[0].m.length;
+        const odd = bs.find((b) => b.m.length !== h);
+        if (odd) throw new Error(`Para poner lado a lado (con «${elemChar()}») los bloques deben tener el mismo número de filas: en la fila ${i + 1} hay ${nameM(bs[0])} y ${nameM(odd)}`);
+        for (let r = 0; r < h; r++) rows.push(bs.flatMap((b) => b.m[r]));
+      });
+      const w = rows[0].length, bad = rows.find((r) => r.length !== w);
+      if (bad) {
+        if (!blocky) throw new Error('Todas las filas de una matriz deben tener el mismo número de elementos');
+        const wOf = (bs) => bs.reduce((s, b) => s + b.m[0].length, 0), j = brow.findIndex((bs) => wOf(bs) !== wOf(brow[0]));
+        throw new Error(`Para apilar (con «${rowChar()}») las filas deben tener el mismo número de columnas: la 1.ª tiene ${wOf(brow[0])} y la ${j + 1}.ª ${wOf(brow[j])}`);
+      }
+      if (rows.length * w > 10000) throw new Error('Una matriz admite hasta 10000 elementos');
       return wd({ m: rows }, d0);
     }
     if (k.t === 'op' && k.v === '(') {

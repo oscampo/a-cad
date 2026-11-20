@@ -167,6 +167,7 @@ export const CALC_GROUPS = [
     note: 'Se escriben entre corchetes: la coma separa los elementos de una fila, el punto y coma empieza otra fila, y los decimales llevan punto. Se dibujan con corchetes de verdad y sin comas; aquí se escriben con comas, como en «Funciones y operadores», donde está la lista completa de operaciones.',
     rows: [
       [c('[1, 2; 3, 4]'), 'Matriz. ' + c('[1, 2, 3]') + ' es un vector fila y ' + c('[1; 2; 3]') + ' uno columna.', 'A:[1,2;3,4]\nA=', 'A:=[1, 2; 3, 4]\nA=[1, 2; 3, 4]', 't'],
+      [c('[V; M]', '[A, b]'), 'Matriz <b>por bloques</b>, como en MATLAB: los elementos pueden ser vectores o matrices ya definidos. ' + c(',') + ' los pone lado a lado (mismo número de filas) y ' + c(';') + ' uno debajo del otro (mismo número de columnas). Con dos filas V y M, ' + c('[V; M]') + ' es la matriz del sistema.', 'V:[2,1]\nM:[1,3]\nF:[5;10]\n[V;M]^(-1)*F=', 'V:=[2, 1]\nM:=[1, 3]\nF:=[5; 10]\n[V;M]^(-1)*F=[1; 3]', 't'],
       [c('x^T'), 'Transpuesta: de un vector fila, el columna.', 'x:1..3;3\nx^T=', 'x:=[1, 2, 3]\nx^T=[1; 2; 3]', 't'],
       [c('x_2', 'x_i', 'x_(i+1)'), 'Elemento de un vector, contando desde 1.', 'x:1..3;3\nx_2=', 'x:=[1, 2, 3]\nx_2=2', 't'],
       [c('A_(i,j)'), 'Elemento de una matriz (fila, columna).', 'A:[1,2;3,4]\nA_(2,1)=', 'A:=[1, 2; 3, 4]\nA_(2,1)=3', 't'],

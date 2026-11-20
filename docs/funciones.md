@@ -73,6 +73,7 @@ Se escriben entre corchetes: la coma separa los elementos de una fila, el punto 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
 | `[1, 2, 3]`, `[1; 2; 3]` | Vector fila y vector columna. | `[1,2,3]^T` | `[1; 2; 3]` |
+| `[V; M]`, `[A, b]` | Por bloques, como en MATLAB: los elementos pueden ser vectores o matrices. La coma los pone lado a lado (mismo número de filas) y el punto y coma uno debajo del otro (mismo número de columnas). | `V:[2,1]`<br>`M:[1,3]`<br>`F:[5;10]`<br>`[V;M]^(-1)*F=` | `[1; 3]` |
 | `a..b;n` | Rango: `n` valores de a hasta b, ambos incluidos. | `x:0..1;5`<br>`x=` | `[0, 0.25, 0.5, 0.75, 1]` |
 | `a..paso..b` | Rango con paso, sin pasar de b (el paso puede ser negativo). | `x:10..-3..1`<br>`x=` | `[10, 7, 4, 1]` |
 | `x_i`, `A_(i,j)` | Elemento, contando desde 1. Los índices pueden ser fórmulas: `x_(i+1)`. | `A:[1,2;3,4]`<br>`A_(2,1)=` | `3` |
