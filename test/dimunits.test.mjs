@@ -215,9 +215,20 @@ t('clear(): borra tambien una cota o una medida del dibujo (se deja de leer mas 
   const show = Object.values(r.d.texts).map((q) => clean(shownText(r.d, q).text));
   assert.deepEqual(show, ['$D1=30$', '$clear(D1)=1$', '$D1=⚠$', '$clear(D1)=0$', `$${g}.len=30$`, `$clear(${g}.len)=1$`, `$${g}.len=⚠$`, '$clear(zz)=0$']);
   near(r.d.cons[r.k].v, 30); // la cota sigue gobernando el dibujo
-  const all = mkLine(30, { ref: true, name: 'D1' }); // clear(all) es de las variables de texto: no oculta cotas
-  addText(all.d, addPoint(all.d, 0, 80), '$clear(all)=$', {}); addText(all.d, addPoint(all.d, 0, 40), '$D1=$', {});
-  assert.deepEqual(Object.values(all.d.texts).map((q) => clean(shownText(all.d, q).text)), ['$clear(all)=1$', '$D1=30$']);
+});
+
+t('clear(all): borra todo tipo de variable (texto, cotas y medidas); quitarlo devuelve todo como estaba', () => {
+  const mk = (withClear) => {
+    const r = mkLine(30, { ref: true, name: 'D1' });
+    const g = Object.keys(r.d.lines)[0], tx = (y, s) => addText(r.d, addPoint(r.d, 0, y), s, {});
+    tx(80, '$k:2$'); tx(60, '$f(x):x^2$'); tx(40, '$D1=$'); tx(20, withClear ? '$clear(all)=$' : '$ $');
+    tx(0, '$D1=$'); tx(-20, `$${g}.len=$`); tx(-40, '$k=$'); tx(-60, '$f(2)=$'); tx(-80, '$D1:7$'); tx(-100, '$D1*2=$');
+    assert.ok(settle(r.d, solve, []).ok);
+    if (withClear) assert.deepEqual(textVarErrors(r.d), []); // sin el clear, D1:7 choca con la cota (es lo esperado)
+    return Object.values(r.d.texts).map((q) => clean(shownText(r.d, q).text)).slice(4);
+  };
+  assert.deepEqual(mk(true), ['$D1=⚠$', `$l3.len=⚠$`, '$k=⚠$', '$f(2)=⚠$', '$D1:=7$', '$D1*2=14$']); // tras clear(all) nada se lee y D1 queda libre
+  assert.deepEqual(mk(false).slice(0, 4), ['$D1=30$', '$l3.len=30$', '$k=2$', '$f(2)=4$']); // sin el clear, todo sigue vivo
 });
 
 t('clear(): una cota con formula que lee una cota borrada antes de su lugar da error; si el clear va despues, la ve', () => {

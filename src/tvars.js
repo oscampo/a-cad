@@ -374,7 +374,7 @@ onDocUnits(syncUserUnits);
 
 // «clear(all)=» o «clear(a; b)=» (con punto decimal tambien «clear(a, b)=»): borra variables desde ese punto del orden de lectura: las de
 // texto (numeros, vectores, matrices, funciones), y tambien una cota o una medida del dibujo («D1», «l3.len»), que deja de leerse mas abajo
-// (sigue gobernando el dibujo). «all» borra solo las variables de texto.
+// (sigue gobernando el dibujo). «all» borra todo: variables de texto, cotas y medidas del dibujo.
 const GEO_NAME_RE = /^[A-Za-z]+\d+\.[A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*$/;
 // Devuelve null si la salida no es un clear, o { all } / { names } / { err }.
 export function clearCall(expr) {
@@ -461,7 +461,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   const open = new Map(), gone = new Set();
   for (const e of events) {
     if (e.kind === 'def' && !e.why) { e.freed = gone.has(e.name); (open.get(e.name) || open.set(e.name, []).get(e.name)).push(e); }
-    else if (e.kind === 'out') { const cl = clearCall(e.expr); if (cl?.all) open.clear(); else if (cl?.names) for (const n of cl.names) { if (open.has(n)) open.delete(n); else if (dimNames.has(n)) gone.add(n); } }
+    else if (e.kind === 'out') { const cl = clearCall(e.expr); if (cl?.all) { open.clear(); for (const q of dimNames) gone.add(q); } else if (cl?.names) for (const n of cl.names) { if (open.has(n)) open.delete(n); else if (dimNames.has(n)) gone.add(n); } }
   }
   for (const [n, es] of open) { st.openEnd.add(n); if (dimNames.has(n)) for (const d of es) if (!d.freed) d.why = `«${n}» ya es el nombre de una cota: para usarlo antes en un texto, bórralo con clear(${n}) más abajo`; }
   for (const d of defs) if (!d.why) st.names.add(d.name);
@@ -481,7 +481,11 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
       if (cl) { // clear: 1 si todas las que nombra existian aqui (las que existian se borran), 0 si alguna no
         let res;
         if (cl.err) res = { err: cl.err };
-        else if (cl.all) { for (const n of Object.keys(env)) { back(n); st.cleared.add(n); } res = { v: 1 }; }
+        else if (cl.all) { // todo: las cotas y medidas del dibujo (dejan de leerse; siguen gobernando el dibujo) y las variables de texto
+          for (const n of Object.keys(dimVars)) if (!hid.has(n)) { hid.add(n); st.cleared.add(n); }
+          for (const n of Object.keys(cur)) { delete env[n]; delete cur[n]; st.cleared.add(n); }
+          res = { v: 1 };
+        }
         else { // una variable de texto con ese nombre se borra primero; si no hay (o ya se borro), la cota o medida del dibujo del mismo nombre
           let all = true;
           for (const n of cl.names) {

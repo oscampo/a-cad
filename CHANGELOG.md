@@ -6,7 +6,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Nuevo
 
-- Cálculo: **`clear()` borra también cotas y medidas del dibujo**. `clear(D1)=` o `clear(l3.len)=` hacen que desde ese punto del orden de lectura ya no se lean (una fórmula, una cota, una gráfica o una salida que las lea más abajo da ⚠ y el aviso dice que se borraron con `clear()`); la cota sigue gobernando el dibujo. Tras borrarla, su nombre queda libre para una variable de texto (`D1:7`). Si ya hay una variable de texto con ese nombre, el primer `clear` borra la variable y otro después la cota. `clear(all)=` sigue borrando solo variables de texto. Antes `clear(D1)=` daba ⚠.
+- Cálculo: **`clear()` borra también cotas y medidas del dibujo**. `clear(D1)=` o `clear(l3.len)=` hacen que desde ese punto del orden de lectura ya no se lean (una fórmula, una cota, una gráfica o una salida que las lea más abajo da ⚠ y el aviso dice que se borraron con `clear()`); la cota sigue gobernando el dibujo. Tras borrarla, su nombre queda libre para una variable de texto (`D1:7`). Si ya hay una variable de texto con ese nombre, el primer `clear` borra la variable y otro después la cota. `clear(all)=` borra todo: variables de texto, cotas y medidas del dibujo (para revertirlo basta quitarlo y borrar solo lo necesario). Antes `clear(D1)=` daba ⚠.
 
 ### Corregido
 
