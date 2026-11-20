@@ -6,7 +6,7 @@
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
 import { dimPos, dimValue, angTrue, initAngle, trackAngles, dimUnit, dimShown, isLenDim, dimUnreadable } from './dims.js';
 import { convertExpr, parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE, normName, evalExpr } from './expr.js';
-import { convertCalcText, textVarState, calcStmts, calcParse, calcSrc, evalDef, syncUserUnits, UDEF_ERR, GOAL_TOL } from './tvars.js';
+import { convertCalcText, textVarState, clearCall, calcStmts, calcParse, calcSrc, evalDef, syncUserUnits, UDEF_ERR, GOAL_TOL } from './tvars.js';
 import { eqResiduals, lmRoots } from './nsolve.js';
 import { parseUnit, sameDim, autoUnit, mulDim, unitMsg, dimName } from './units.js';
 import { geoVars, isGeoName, geoPoints } from './geo.js';
@@ -94,7 +94,7 @@ export function textVars(doc, exceptId = null) {
   for (const [id, k] of named(doc)) if (id !== exceptId) dimVars[k.name] = varValue(doc, k);
   return textVarState(doc, dimVars, new Set(named(doc).map(([, k]) => k.name)), probesOf(doc));
 }
-const hasDefs = (doc) => Object.values(doc.texts || {}).some((t) => calcStmts(t.text).some((p) => p.k === 'def'));
+const hasDefs = (doc) => Object.values(doc.texts || {}).some((t) => calcStmts(t.text).some((p) => p.k === 'def' || (p.k === 'out' && !!clearCall(p.expr)))); // un clear() tambien pone en juego el orden de lectura (borra cotas)
 const NO_TV = { win: new Map(), byName: new Map(), names: new Set(), vals: {}, errs: new Map(), dimEnv: new Map() };
 const tvOf = (doc) => (hasDefs(doc) ? textVars(doc) : NO_TV);
 // Variables disponibles (sin la cota exceptId, que no puede usarse a si misma): las de las cotas y las de los textos.
@@ -103,6 +103,7 @@ export function varsOf(doc, exceptId = null) {
   for (const [id, k] of named(doc)) if (id !== exceptId) out[k.name] = varValue(doc, k);
   if (!hasDefs(doc)) return out;
   const st = textVarState(doc, out, new Set(named(doc).map(([, k]) => k.name)), probesOf(doc));
+  for (const n of st.dimHide?.get(exceptId) || []) delete out[n]; // las cotas borradas con clear() antes de su lugar de la pagina ya no se leen
   return Object.assign(out, exceptId != null && st.dimEnv.has(exceptId) ? st.dimEnv.get(exceptId) : st.vals); // una cota con formula ve las variables de su lugar de la pagina
 }
 // Variables que ve algo que esta en la pagina en (top, left) (una grafica: su esquina superior izquierda): las de las cotas y las de
@@ -114,6 +115,7 @@ export function varsAt(doc, top, left) {
   if (!hasDefs(doc)) return { vars: out, later: new Set() };
   const st = textVarState(doc, { ...out }, new Set(named(doc).map(([, k]) => k.name)), [...probesOf(doc), { id: AT, top, left }]);
   const here = st.dimEnv.get(AT) || {};
+  for (const n of st.dimHide.get(AT) || []) delete out[n]; // cotas borradas con clear() antes de este lugar
   return { vars: Object.assign(out, here), later: new Set(Object.keys(st.vals).filter((n) => !(n in here))) };
 }
 // Texto corto de las variables para mostrarlas al escribir una formula: "D1 = 25, A1 = 45°".

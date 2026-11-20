@@ -71,7 +71,7 @@ function textValue1(doc, t) {
   const hasDef = pieces.some((p) => p.k === 'def'), hasOut = pieces.some((p) => p.k === 'out');
   let vars = null, st = null, tid = null, idx = 0, oidx = 0;
   // Orden de lectura: cada salida y cada definicion ve las variables tal como estaban en ese punto de la pagina (ver textVarState)
-  if (hasDef || (hasOut && Object.values(doc.texts || {}).some((x) => calcStmts(x.text).some((p) => p.k === 'def')))) { tid = Object.keys(doc.texts || {}).find((k) => doc.texts[k] === t); st = textVars(doc); }
+  if (hasDef || (hasOut && Object.values(doc.texts || {}).some((x) => calcStmts(x.text).some((p) => p.k === 'def' || (p.k === 'out' && !!clearCall(p.expr)))))) { tid = Object.keys(doc.texts || {}).find((k) => doc.texts[k] === t); st = textVars(doc); }
   // Nombres con subindice («var_(texto)») dentro de una formula: se marcan para dibujarlos como nombre con subindice de texto
   // (sin marcar, AsciiMath leeria «texto» como letras y simbolos sueltos: «to» seria una flecha).
   let subNames = null;

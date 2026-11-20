@@ -205,4 +205,44 @@ t('unidades de usuario: valen en todo el dibujo, una sola unidad nueva por linea
   newDoc(); shownText(newDoc(), { text: '' }); // deja el registro sin unidades de usuario para lo que siga
 });
 
+t('clear(): borra tambien una cota o una medida del dibujo (se deja de leer mas abajo; el dibujo no cambia)', () => {
+  const r = mkLine(30, { ref: true, name: 'D1' });
+  const tx = (y, s) => addText(r.d, addPoint(r.d, 0, y), s, {});
+  const g = Object.keys(r.d.lines)[0];
+  tx(80, '$D1=$'); tx(60, '$clear(D1)=$'); tx(40, '$D1=$'); tx(20, '$clear(D1)=$');
+  tx(0, `$${g}.len=$`); tx(-20, `$clear(${g}.len)=$`); tx(-40, `$${g}.len=$`); tx(-60, '$clear(zz)=$');
+  assert.ok(settle(r.d, solve, []).ok);
+  const show = Object.values(r.d.texts).map((q) => clean(shownText(r.d, q).text));
+  assert.deepEqual(show, ['$D1=30$', '$clear(D1)=1$', '$D1=⚠$', '$clear(D1)=0$', `$${g}.len=30$`, `$clear(${g}.len)=1$`, `$${g}.len=⚠$`, '$clear(zz)=0$']);
+  near(r.d.cons[r.k].v, 30); // la cota sigue gobernando el dibujo
+  const all = mkLine(30, { ref: true, name: 'D1' }); // clear(all) es de las variables de texto: no oculta cotas
+  addText(all.d, addPoint(all.d, 0, 80), '$clear(all)=$', {}); addText(all.d, addPoint(all.d, 0, 40), '$D1=$', {});
+  assert.deepEqual(Object.values(all.d.texts).map((q) => clean(shownText(all.d, q).text)), ['$clear(all)=1$', '$D1=30$']);
+});
+
+t('clear(): una cota con formula que lee una cota borrada antes de su lugar da error; si el clear va despues, la ve', () => {
+  const mk = (clearY) => {
+    const r = mkLine(30, { name: 'D1', expr: 'D2*2' });
+    addCon(r.d, { t: 'DIST', refs: [addPoint(r.d, 0, 50), addPoint(r.d, 10, 50)], v: 10, ref: true, name: 'D2' });
+    addText(r.d, addPoint(r.d, 0, clearY), '$clear(D2)=$', {});
+    return r.d;
+  };
+  assert.ok(settle(mk(-200), solve, []).ok); // el clear queda despues de la cota: la ve
+  const res = settle(mk(200), solve, []); // antes: ya no existe ahi
+  assert.equal(res.ok, false); assert.match(res.error, /se borró con clear/);
+});
+
+t('clear(): tras borrar una cota se puede definir una variable de texto con su nombre', () => {
+  const r = mkLine(30, { ref: true, name: 'D1' });
+  const tx = (y, s) => addText(r.d, addPoint(r.d, 0, y), s, {});
+  tx(80, '$clear(D1)=$'); tx(60, '$D1:7$'); tx(40, '$D1*2=$'); tx(20, '$clear(D1)=$'); tx(0, '$D1=$');
+  assert.ok(settle(r.d, solve, []).ok);
+  assert.deepEqual(textVarErrors(r.d), []);
+  const show = Object.values(r.d.texts).map((q) => clean(shownText(r.d, q).text));
+  assert.deepEqual(show, ['$clear(D1)=1$', '$D1:=7$', '$D1*2=14$', '$clear(D1)=1$', '$D1=⚠$']); // al borrar la de texto la cota no vuelve
+  const n = mkLine(30, { ref: true, name: 'D1' }); // sin clear de la cota el nombre sigue ocupado
+  addText(n.d, addPoint(n.d, 0, 80), '$D1:7$', {});
+  assert.ok(textVarErrors(n.d).some((e) => /ya es el nombre de una cota/.test(e.msg)));
+});
+
 console.log(`\n${passed} pruebas de cotas con unidad pasaron`);

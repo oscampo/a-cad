@@ -372,7 +372,10 @@ export function syncUserUnits(doc) {
 }
 onDocUnits(syncUserUnits);
 
-// «clear(all)=» o «clear(a; b)=» (con punto decimal tambien «clear(a, b)=»): borra variables de texto desde ese punto del orden de lectura.
+// «clear(all)=» o «clear(a; b)=» (con punto decimal tambien «clear(a, b)=»): borra variables desde ese punto del orden de lectura: las de
+// texto (numeros, vectores, matrices, funciones), y tambien una cota o una medida del dibujo («D1», «l3.len»), que deja de leerse mas abajo
+// (sigue gobernando el dibujo). «all» borra solo las variables de texto.
+const GEO_NAME_RE = /^[A-Za-z]+\d+\.[A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*$/;
 // Devuelve null si la salida no es un clear, o { all } / { names } / { err }.
 export function clearCall(expr) {
   const m = /^\s*clear\s*\(([\s\S]*)\)\s*$/i.exec(String(expr ?? ''));
@@ -380,9 +383,9 @@ export function clearCall(expr) {
   const parts = m[1].split(decimalMode() === ',' ? /;/ : /[;,]/).map((s) => s.trim());
   if (parts.length === 1 && parts[0].toLowerCase() === 'all') return { all: true };
   if (parts.some((q) => !q)) return { err: `clear(…) lleva all o nombres de variables separados por «${argChar() === ',' ? ',' : ';'}»` };
-  const bad = parts.find((q) => !TEXT_NAME_RE.test(q));
+  const bad = parts.find((q) => !TEXT_NAME_RE.test(q) && !GEO_NAME_RE.test(q));
   if (bad !== undefined) return { err: `«${bad}» no es un nombre de variable` };
-  return { names: parts.map(normName) };
+  return { names: parts.map((q) => (GEO_NAME_RE.test(q) ? q : normName(q))) };
 }
 
 // Los argumentos de una llamada, separados por «;» (o por «,» con punto decimal) fuera de parentesis y corchetes.
@@ -433,7 +436,7 @@ export function solveCall(expr) {
 
 export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = []) {
   setAngleMode(doc);
-  const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map(), clearRes: new Map(), cleared: new Set(), openEnd: new Set(), at: new Map(), solveRes: new Map(), goals: [] };
+  const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map(), clearRes: new Map(), cleared: new Set(), dimHide: new Map(), openEnd: new Set(), at: new Map(), solveRes: new Map(), goals: [] };
   const events = readingEvents(doc, probes);
   if (!events.some((e) => e.kind !== 'dim')) return st; // sin definiciones ni salidas: nada que leer
   const key = JSON.stringify([events, dimVars, [...dimNames], angleRad(), unitsVersion()]);
@@ -454,33 +457,39 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   for (const d of defs) d.why = check(d);
   // Una variable de texto puede llamarse como una cota si se borra con clear() mas abajo: entre su definicion y el clear el nombre es la
   // variable de texto; antes y despues, la cota. openEnd: variables cuya ultima definicion no se borra (siguen vivas al final).
-  const open = new Map();
+  // Una cota borrada antes con clear() deja libre su nombre: la variable de texto que se define despues no choca con ella (e.freed).
+  const open = new Map(), gone = new Set();
   for (const e of events) {
-    if (e.kind === 'def' && !e.why) (open.get(e.name) || open.set(e.name, []).get(e.name)).push(e);
-    else if (e.kind === 'out') { const cl = clearCall(e.expr); if (cl?.all) open.clear(); else if (cl?.names) for (const n of cl.names) open.delete(n); }
+    if (e.kind === 'def' && !e.why) { e.freed = gone.has(e.name); (open.get(e.name) || open.set(e.name, []).get(e.name)).push(e); }
+    else if (e.kind === 'out') { const cl = clearCall(e.expr); if (cl?.all) open.clear(); else if (cl?.names) for (const n of cl.names) { if (open.has(n)) open.delete(n); else if (dimNames.has(n)) gone.add(n); } }
   }
-  for (const [n, es] of open) { st.openEnd.add(n); if (dimNames.has(n)) for (const d of es) d.why = `«${n}» ya es el nombre de una cota: para usarlo antes en un texto, bórralo con clear(${n}) más abajo`; }
+  for (const [n, es] of open) { st.openEnd.add(n); if (dimNames.has(n)) for (const d of es) if (!d.freed) d.why = `«${n}» ya es el nombre de una cota: para usarlo antes en un texto, bórralo con clear(${n}) más abajo`; }
   for (const d of defs) if (!d.why) st.names.add(d.name);
   st.defs = defs;
   const cur = { ...dimVars }, env = st.vals; // cur: lo que ve una expresion en este punto de la lectura (cotas + variables de texto)
+  const hid = new Set(); // cotas y medidas del dibujo borradas con clear() hasta este punto: ya no se leen
   const later = st.names; // para avisar «se define mas abajo»
   const hint = (msg) => { const m = /No reconozco «(.+?)»/.exec(msg); return m && later.has(m[1]) && !(m[1] in cur) ? `«${m[1]}» se define más abajo o más a la derecha: en el orden de lectura debe definirse antes` : msg; };
   for (const e of events) {
     const k = e.tid + ':' + e.idx;
-    if (e.kind === 'dim') { st.dimEnv.set(e.id, { ...env }); continue; } // una cota ve las variables de texto de este punto de la lectura
-    const back = (n) => { delete env[n]; if (n in dimVars) cur[n] = dimVars[n]; else delete cur[n]; };
+    if (e.kind === 'dim') { st.dimEnv.set(e.id, { ...env }); st.dimHide.set(e.id, new Set(hid)); continue; } // una cota ve las variables de texto de este punto de la lectura
+    const back = (n) => { delete env[n]; if (n in dimVars && !hid.has(n)) cur[n] = dimVars[n]; else delete cur[n]; };
     if (e.kind === 'out' || e.kind === 'def') st.at.set(k, { live: new Set(Object.keys(env)), expr: e.expr });
     if (e.kind === 'out') {
       st.outEnv.set(k, { ...cur });
       const cl = clearCall(e.expr);
-      if (cl) { // clear: 1 si todas las que nombra existian aqui (las que existian se borran), 0 si alguna no; ⚠ si nombra una cota
+      if (cl) { // clear: 1 si todas las que nombra existian aqui (las que existian se borran), 0 si alguna no
         let res;
         if (cl.err) res = { err: cl.err };
         else if (cl.all) { for (const n of Object.keys(env)) { back(n); st.cleared.add(n); } res = { v: 1 }; }
-        else {
-          const dim = cl.names.find((n) => n in dimVars && !(n in env));
-          if (dim !== undefined) res = { err: `«${dim}» es una cota (o una medida del dibujo): clear solo borra variables de texto` };
-          else { let all = true; for (const n of cl.names) { if (n in env) { back(n); st.cleared.add(n); } else all = false; } res = { v: all ? 1 : 0 }; }
+        else { // una variable de texto con ese nombre se borra primero; si no hay (o ya se borro), la cota o medida del dibujo del mismo nombre
+          let all = true;
+          for (const n of cl.names) {
+            if (n in env) { back(n); st.cleared.add(n); }
+            else if (n in dimVars && !hid.has(n)) { hid.add(n); delete cur[n]; st.cleared.add(n); }
+            else all = false;
+          }
+          res = { v: all ? 1 : 0 };
         }
         st.clearRes.set(k, res);
       }
@@ -489,7 +498,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
         let res;
         try {
           if (sv.err) throw new Error(sv.err);
-          const dimU = sv.names.filter((n) => !(n in env) && n in dimVars);
+          const dimU = sv.names.filter((n) => !(n in env) && n in dimVars && !hid.has(n));
           if (dimU.length) { // incognitas que son cotas: una meta para el dibujo (la resuelve settle, en params.js, moviendo esas cotas)
             if (dimU.length !== sv.names.length) throw new Error('las incógnitas son todas cotas o todas variables de texto, no mezcladas');
             st.goals.push({ k, eqs: sv.eqs, names: sv.names });

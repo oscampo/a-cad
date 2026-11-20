@@ -2,6 +2,16 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## Sin publicar
+
+### Nuevo
+
+- Cálculo: **`clear()` borra también cotas y medidas del dibujo**. `clear(D1)=` o `clear(l3.len)=` hacen que desde ese punto del orden de lectura ya no se lean (una fórmula, una cota, una gráfica o una salida que las lea más abajo da ⚠ y el aviso dice que se borraron con `clear()`); la cota sigue gobernando el dibujo. Tras borrarla, su nombre queda libre para una variable de texto (`D1:7`). Si ya hay una variable de texto con ese nombre, el primer `clear` borra la variable y otro después la cota. `clear(all)=` sigue borrando solo variables de texto. Antes `clear(D1)=` daba ⚠.
+
+### Corregido
+
+- Cálculo: un `clear()` pone en juego el orden de lectura aunque el dibujo no tenga ninguna variable de texto definida.
+
 ## v2.9.2 (2026-11-20)
 
 ### Nuevo
