@@ -142,4 +142,16 @@ t('angulos del dibujo: «angles: rad» lee sin/cos en radianes y asin en radiane
   assert.equal(page('$sin(90)=$'), '$sin(90)=1$'); // otro dibujo, sin el campo: vuelve a grados
 });
 
+t("nombres con prima: «Se'», «Se''», «β'», «σ'_(a)» y la funcion «f'(x)»; una unidad pegada sigue siendo unidad", () => {
+  assert.deepEqual(stmts("$$Se':210.254'MPa$$"), ["Se':210.254"]);
+  assert.deepEqual(stmts("$$f'(x):2x$$"), ["f'(x):2x"]);
+  const p = (s) => page(s).replace(/[-]/g, '').replace(/"/g, '').replace(/ +/g, ' ');
+  assert.match(p("$$Se:100'MPa\nSe':210'MPa\nSe'':5'MPa\nSe'+Se''=$$"), /Se'\+Se''=215 MPa/);
+  assert.match(p("$$beta':2\nβ'*3=$$"), /β'\*3=6/); // la misma variable con la letra o su nombre
+  assert.match(p("$$σ'_(a):4\nσ'_(a)=$$"), /σ'_\(a\)=4/);
+  assert.match(p("$$f'(x):2x\nf'(3)=$$"), /f'\(3\)=6/);
+  assert.match(p("$$x:2\nx'm=$$"), /=2 m/); // «x'm»: x en metros, como siempre
+  assert.match(p("$$y:3'(m/s)\ny=$$"), /y=3/);
+});
+
 console.log(`\n${passed} pruebas de la sintaxis de calculo`);

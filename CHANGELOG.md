@@ -2,6 +2,12 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## Sin publicar
+
+### Nuevo
+
+- Cálculo: **nombres con prima**: `Se':210.254'MPa`, `Se''`, `σ'_(a)` y funciones como `f'(x):2x`. La comilla después de un nombre es una prima si lo que sigue no puede empezar una unidad (`Se'=`, `Se'*2`, `Se':`); pegada a una unidad sigue siendo unidad (`x'm` es x en metros). `f'(3)` es la función f' si ya está definida. Antes `Se':…` no se reconocía como definición y quedaba como texto, sin aviso.
+
 ## v2.9.3 (2026-11-20)
 
 ### Nuevo

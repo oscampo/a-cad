@@ -141,6 +141,7 @@ export const CALC_GROUPS = [
     note: 'Siguen las reglas de los nombres de las cotas: letras, números y _, empiezan con una letra.',
     rows: [
       [c('masa_(total)'), 'Nombre con <b>subíndice de texto</b>: entre paréntesis, texto libre sin paréntesis ni llaves. Se dibuja con el subíndice en letra recta.', 'masa_(total):3\n2*masa_(total)=', 'masa_(total):=3\n2*masa_(total)=6', 't'],
+      [c("Se'"), 'Nombre con <b>prima</b> al final (' + c("Se'") + ', ' + c("Se''") + ', ' + c("σ'_(a)") + ', y funciones como ' + c("f'(x)") + '). La comilla es una prima si lo que sigue no puede empezar una unidad (' + c("Se'=") + ', ' + c("Se'*2") + '); pegada a una unidad sigue siendo unidad: ' + c("x'm") + ' es x en metros.', "Se':210'MPa\nSe'*2=", "Se':=210 MPa\nSe'*2=420 MPa", 't'],
       ['Letras griegas', 'Se escriben con la letra o con su nombre de AsciiMath, y es la <b>misma variable</b>: ' + c('beta') + ' es ' + c('β') + ', ' + c('Delta_1') + ' es ' + c('Δ_1') + ' (' + c('phi') + ' es ϕ y ' + c('varphi') + ' es φ, como se dibujan). ' + c('pi') + ' sigue siendo la constante. Para teclear la letra: ' + c('\\') + ' y la letra (' + c('\\b') + ' → β) o Ctrl+G (ver «Escribir un texto»).', 'beta:2\nβ*3=', 'β:=2\nβ*3=6', 't'],
       ['Reservados', 'Un nombre no puede ser una función o constante del programa (' + c('sin', 'pi') + '…) ni coincidir con el de una cota. ' + c('t') + ' es el tiempo, y ' + c('j', 'α', 'θ', 'ω') + ' (también escritas ' + c('alpha', 'theta', 'omega') + ') quedan reservadas para uso futuro.', 'sin:2', 'sin:=2 ⚠', 't'],
     ],

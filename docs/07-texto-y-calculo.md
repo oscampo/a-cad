@@ -138,6 +138,7 @@ Siguen las reglas de los nombres de las cotas: letras, números y _, empiezan co
 | Escribes | Qué hace | Ejemplo | Se ve |
 |---|---|---|---|
 | `masa_(total)` | Nombre con **subíndice de texto**: entre paréntesis, texto libre sin paréntesis ni llaves. Se dibuja con el subíndice en letra recta. | `masa_(total):3`<br>`2*masa_(total)=` | `masa_(total):=3`<br>`2*masa_(total)=6` |
+| `Se'` | Nombre con **prima** al final (`Se'`, `Se''`, `σ'_(a)`, y funciones como `f'(x)`). La comilla es una prima si lo que sigue no puede empezar una unidad (`Se'=`, `Se'*2`); pegada a una unidad sigue siendo unidad: `x'm` es x en metros. | `Se':210'MPa`<br>`Se'*2=` | `Se':=210 MPa`<br>`Se'*2=420 MPa` |
 | Letras griegas | Se escriben con la letra o con su nombre de AsciiMath, y es la **misma variable**: `beta` es `β`, `Delta_1` es `Δ_1` (`phi` es ϕ y `varphi` es φ, como se dibujan). `pi` sigue siendo la constante. Para teclear la letra: `\` y la letra (`\b` → β) o Ctrl+G (ver «Escribir un texto»). | `beta:2`<br>`β*3=` | `β:=2`<br>`β*3=6` |
 | Reservados | Un nombre no puede ser una función o constante del programa (`sin`, `pi`…) ni coincidir con el de una cota. `t` es el tiempo, y `j`, `α`, `θ`, `ω` (también escritas `alpha`, `theta`, `omega`) quedan reservadas para uso futuro. | `sin:2` | `sin:=2 ⚠` |
 

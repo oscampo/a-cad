@@ -28,7 +28,12 @@ const matText = (m, fmt = fmtNum) => {
 // Una unidad dentro de una formula: texto recto separado del valor («^2» y «^3» como superindices).
 const unitMath = (u) => ' " ' + u.split('^2').join('²').split('^3').join('³') + '"';
 // Unidades escritas dentro de una expresion («250'N», «3'(m/s)»): se dibujan como unidad, no como «'».
-const showU = (seg) => (seg.includes("'") ? seg.replace(/'\s*(\([^()]*\)|[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*[²³]?)/g, (m, u) => unitMath(u.replace(/^\(|\)$/g, ''))) : seg);
+const showU = (seg) => (seg.includes("'") ? seg.replace(/'\s*(\([^()]*\)|[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*[²³]?)/g, (m, u, at) => {
+  const v = u.replace(/^\(|\)$/g, '');
+  // pegada a un nombre, la comilla es una prima si lo que sigue no es una unidad: «f'(3)», «σ'_(a)» (ver primesAt en expr.js)
+  if (/[A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_']/.test(seg[at - 1] || '')) { if (u[0] === '(' && !/[A-Za-zµμΩ°%]/.test(v)) return m; try { parseUnit(v); } catch (e) { return m; } }
+  return unitMath(v);
+}) : seg);
 // Un numero en una unidad: los muy pequeños con 4 cifras significativas (fmtNum los dejaria en 0); sin el «.0» de fmtNum en los miles.
 const fmtQ = (x) => localNum(x !== 0 && Math.abs(x) < 1e-3 ? String(Number(x.toPrecision(4))) : String(Number(x.toFixed(Math.abs(x) >= 1000 ? 1 : 3))));
 // Una cantidad con unidades: en la unidad pedida («F='kN»), si no en la de la variable («F:250'N»), en la de una variable de la expresion

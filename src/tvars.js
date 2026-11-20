@@ -41,7 +41,7 @@ export function runsOf(line) {
 //  trozo de codigo entre literales es un enunciado aparte. Un acento grave sin cierre queda tal cual con ⚠.
 // El texto plano (lo que va fuera de $...$) se dibuja caracter por caracter: ahi nada se calcula.
 // Nombre: letras, numeros y _, con un subindice de texto opcional «var_(texto)».
-export const NAME_SRC = '[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?(?:_\\([^(){}\\n]+\\))?';
+export const NAME_SRC = "[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?'*(?:_\\([^(){}\\n]+\\))?"; // tambien con primas: «Se'»
 const DEF_LINE = new RegExp('^(\\s*)(' + NAME_SRC + ')(?:\\(([^()\\n]*)\\))?(\\s*:=?)([\\s\\S]*?)(\\s*)$');
 const OUT_LINE = /^(\s*)([\s\S]*?\S)(\s*)=(\s*)$/;
 // Un trozo de codigo: { k:'def', pre, name, params, sep, expr, eq, post } | { k:'out', pre, expr, mid, post } | { k:'code', s }.

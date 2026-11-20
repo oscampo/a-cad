@@ -61,8 +61,9 @@ addCalcFns([...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, 'so
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*$/;
 const ID_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*/;
 // Variables de texto con subindice: «var_(texto-del-subindice)». El subindice es texto libre (sin parentesis ni llaves); espacios sobrantes no cuentan.
-const SUB_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?_\([^(){}\n]+\)/;
-export const TEXT_NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?(?:_\([^(){}\n]+\))?$/;
+const SUB_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?'*_\([^(){}\n]+\)/;
+// Un nombre puede terminar en primas: «Se'», «Se''», «σ'_(a)» (ver primesAt para distinguirlas de una unidad).
+export const TEXT_NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?'*(?:_\([^(){}\n]+\))?$/;
 // Indices de vectores y matrices con la notacion matematica: «v_2», «v_i» (un indice) y «A_(fila,columna)», «v_(i+1)» (entre parentesis, con formulas).
 // Un nombre que existe como variable (p. ej. «k_(total)» o «x_1») es esa variable: solo es un indice si el nombre entero no existe y su base si.
 export function indexParts(raw) {
@@ -89,7 +90,7 @@ const splitIdx = (s, mode = decimalMode()) => { // «i, j+1» -> ['i', 'j+1'] (l
 // «Δ_1»): se guarda y se busca con la letra, la misma que se dibuja (phi es ϕ y varphi es φ, como en asciimath.js). «pi» no cambia:
 // es la constante (π ya lo es).
 const GREEK_CHAR = { ...GREEK, ...GREEK_UP };
-export const greekName = (s) => String(s).replace(/^[A-Za-z]+(?=_|$)/, (w) => (w !== 'pi' && Object.prototype.hasOwnProperty.call(GREEK_CHAR, w) ? GREEK_CHAR[w] : w));
+export const greekName = (s) => String(s).replace(/^[A-Za-z]+(?=_|'|$)/, (w) => (w !== 'pi' && Object.prototype.hasOwnProperty.call(GREEK_CHAR, w) ? GREEK_CHAR[w] : w));
 export const normName = (s) => greekName(String(s).replace(/_\(\s*([^()]*?)\s*\)$/, '_($1)'));
 
 // Numeros segun el indicador decimal del dibujo: «.» solo punto; «,» punto o coma (la coma decimal vale tambien dentro de corchetes);
@@ -97,6 +98,18 @@ export const normName = (s) => greekName(String(s).replace(/_\(\s*([^()]*?)\s*\)
 const SCI = '([eE][+-]?\\d+(?![A-Za-z_\\d]))?';
 const RE_DOT = new RegExp('^(\\d+(\\.\\d+)?|\\.\\d+)' + SCI), RE_ANY = new RegExp('^(\\d+([.,]\\d+)?|[.,]\\d+)' + SCI);
 const numRe = (depth) => { const m = decimalMode(); return m === '.' ? RE_DOT : m === ',' ? RE_ANY : depth > 0 ? RE_DOT : RE_ANY; };
+// Primas al final de un nombre («Se'», «Se''»): la comilla que sigue a un nombre es una prima si lo que viene despues no puede empezar
+// una unidad («Se'=», «Se'*2», «Se':»); si puede, la ultima comilla es la de la unidad («Se'MPa» es Se en MPa, como siempre).
+// «f'(3)» es la funcion f' si ya existe; si no, «'(…)» sigue siendo una unidad entre parentesis. Devuelve cuantas primas son del nombre.
+function primesAt(src, k, name, vars) {
+  let q = 0;
+  while (src[k + q] === "'") q++;
+  if (!q) return 0;
+  const after = /^\s*(.?)/.exec(src.slice(k + q))[1];
+  if (!/[A-Za-zµμΩ°%áéíóúñÑ_(]/.test(after)) return q;
+  if (after === '(' && vars && Object.prototype.hasOwnProperty.call(vars, normName(name + "'".repeat(q)))) return q;
+  return q - 1;
+}
 // loose: no falla con identificadores desconocidos (para listar las variables de una formula)
 function tokenize(src, vars = null, loose = false) {
   const toks = [];
@@ -125,6 +138,7 @@ function tokenize(src, vars = null, loose = false) {
     if (c === '√') { toks.push({ t: 'sqrt', i, j: i + 1 }); i++; continue; }
     if (c === 'π') { toks.push({ t: 'id', v: 'π', i, j: i + 1 }); i++; continue; }
     m = SUB_RE.exec(src.slice(i)) || ID_RE.exec(src.slice(i));
+    if (m && !m[0].endsWith(')')) { const q = primesAt(src, i + m[0].length, m[0], vars); if (q) m = [m[0] + "'".repeat(q)]; } // «Se'»: primas del nombre
     if (m) {
       let ix = null;
       const L = m[0].length; // largo escrito (el nombre se normaliza: «a_( b )» es «a_(b)»)
