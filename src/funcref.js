@@ -104,6 +104,15 @@ export const FUNC_GROUPS = [
     ],
   },
   {
+    title: 'Programas',
+    note: 'Pasos en orden y ciclos dentro de una fórmula, como en SMath. Dentro, <code>s:valor</code> asigna una variable <b>local</b>: vale solo en esa fórmula (no crea variables del documento ni cambia las de afuera). Se pueden escribir en varias líneas, con sangría, y se dibujan como se escribieron. Un ciclo tiene un tope de 100 000 vueltas y 1,5 s: si lo pasa, avisa en vez de congelar la app.',
+    rows: [
+      ['<code>line(a; b; …; r)</code>', 'Hace los pasos en orden y vale el último.', 'line(a:2; b:a^2; a+b)', '6', 'n'],
+      ['<code>for(i; inicio..fin; cuerpo)</code>', 'Repite el cuerpo con i = inicio, inicio+1, … hasta fin (si fin < inicio, ninguna vez). Con un vector en lugar del rango, i toma cada elemento.', 'suma2(n):line(s:0; for(i; 1..n; s:s+i^2); s)\nsuma2(10)=', '385', 't'],
+      ['<code>while(condición; cuerpo)</code>', 'Repite el cuerpo mientras la condición se cumpla. Para varios pasos en el cuerpo, <code>line(…)</code>.', 'line(k:0; while(k^2<50; k:k+1); k)', '8', 'n'],
+    ],
+  },
+  {
     title: 'Ecuaciones',
     note: 'Se resuelven numéricamente (Levenberg-Marquardt): desde un valor inicial se busca el valor que cumple la ecuación. Con varias raíces da la más cercana al valor inicial; si no encuentra una, avisa. Para un sistema de ecuaciones, <code>solve(…)=</code> en un texto (ver «Orden de lectura» en Texto y cálculo).',
     rows: [

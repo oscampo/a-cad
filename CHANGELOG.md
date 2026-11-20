@@ -7,6 +7,11 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 ### Nuevo
 
 - Cálculo: **nombres con prima**: `Se':210.254'MPa`, `Se''`, `σ'_(a)` y funciones como `f'(x):2x`. La comilla después de un nombre es una prima si lo que sigue no puede empezar una unidad (`Se'=`, `Se'*2`, `Se':`); pegada a una unidad sigue siendo unidad (`x'm` es x en metros). `f'(3)` es la función f' si ya está definida. Antes `Se':…` no se reconocía como definición y quedaba como texto, sin aviso.
+- Cálculo: **programas dentro de las fórmulas**, como en SMath. `line(a, b, …, r)` hace los pasos en orden y vale el último; `for(i, 1..n, cuerpo)` repite con i = 1, 2, … n (o con cada elemento de un vector: `for(e, v, …)`), y `while(condición, cuerpo)` repite mientras se cumpla. Dentro, `s:valor` asigna una variable **local**: vale solo en esa fórmula, no crea variables del documento ni cambia las de afuera; `if()` también puede asignar en sus ramas. Sirve en funciones propias (`suma2(n):line(s:0, for(i, 1..n, s:s+i^2), s)`) y en variables (`r:line(…)=`). Se puede escribir en varias líneas con sangría y se dibuja como se escribió, alineado a la izquierda. Un ciclo tiene un tope de 100 000 vueltas y 1,5 s por cálculo: si lo pasa, da ⚠ con un aviso en vez de congelar la app. Todavía no se puede asignar a un elemento (`v_i:…`).
+
+### Cambia el comportamiento
+
+- Cálculo: `line`, `for` y `while` quedan reservados: ya no pueden ser nombres de variables ni de funciones (en los dibujos revisados no se usaban).
 
 ## v2.9.3 (2026-11-20)
 

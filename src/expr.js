@@ -41,7 +41,7 @@ const MULTI = {
   round: { n: [1, 2], f: (A) => { const d = A.length > 1 ? A[1].v : 0; if (!Number.isInteger(d) || d < 0 || d > 12) throw new Error('round(x; n): n debe ser un entero de 0 a 12'); return { v: rnd(A[0].v, d), r: A[0].r }; } },
 };
 MULTI.redondear = MULTI.round;
-const LAZY = new Set(['if', 'si', 'fzero']); // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
+const LAZY = new Set(['if', 'si', 'fzero', 'line', 'for', 'while']); // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
 // Funciones de vectores y matrices (reciben un vector o una matriz): inv, det; resumenes (sobre todos los elementos): sum, prod, mean, median, std, variance, norm, len;
 // forma: rows, cols, trace, diag, eye(n); acumuladas: cumsum, cumprod; entre dos vectores: dot, cross. min(x) y max(x) con un solo vector tambien resumen.
 const MATFN = new Set(['inv', 'det', 'sum', 'prod', 'mean', 'median', 'std', 'variance', 'norm', 'len', 'rows', 'cols', 'trace', 'diag', 'eye', 'cumsum', 'cumprod', 'dot', 'cross']);
@@ -75,7 +75,7 @@ export function indexParts(raw) {
 }
 function indexOfVar(raw, vars) {
   const ip = indexParts(raw), x = ip && Object.prototype.hasOwnProperty.call(vars, ip.base) ? vars[ip.base] : null;
-  return x && (x.vec || x.mat) ? ip : null;
+  return x && (x.vec || x.mat || x.loc) ? ip : null;
 }
 const splitIdx = (s, mode = decimalMode()) => { // «i, j+1» -> ['i', 'j+1'] (las comas de dentro de parentesis no separan)
   const out = []; let d = 0, cur = '';
@@ -159,6 +159,8 @@ function tokenize(src, vars = null, loose = false) {
       else throw new Error(`No reconozco «${raw}»` + (/\d/.test(raw) || raw.length === 1 ? ' (no hay una cota con ese nombre)' : ''));
       i += L; continue;
     }
+    if (c === '.' && src[i + 1] === '.') { toks.push({ t: 'op', v: '..', i, j: i + 2 }); i += 2; continue; } // rango de for: 1..n
+    if (c === ':') { toks.push({ t: 'asg', i, j: i + 1 }); i++; continue; } // asignacion: solo dentro de line(), for() o while()
     if (c === '*' && src[i + 1] === '*') { toks.push({ t: 'op', v: '^', i, j: i + 2 }); i += 2; continue; }
     if (c === '.' && '*/^'.includes(src[i + 1] ?? ' ')) { toks.push({ t: 'op', v: '.' + src[i + 1], i, j: i + 2 }); i += 2; continue; } // elemento a elemento: .* ./ .^
     if (c === '[') depth++; else if (c === ']') depth = Math.max(0, depth - 1);
@@ -382,11 +384,44 @@ export const angleRad = () => DEF_RAD;
 // Dibujos anteriores (sin indicador decimal) leen «0,0» como un decimal: «f(0.7,0,0)» daba error. Si la lectura de siempre falla y la expresion
 // tiene comas, se reintenta con punto decimal (la coma separa); lo que ya funcionaba no cambia.
 export function evalExpr(src, opts = {}) {
+  if (evalDepth === 0) { loopN = 0; loopT0 = 0; }
+  evalDepth++;
+  try { return evalExpr0(src, opts); } finally { evalDepth--; }
+}
+function evalExpr0(src, opts) {
   try { return evalExpr1(src, opts); } catch (e) {
     if (decimalMode() !== null || typeof src !== 'string' || !src.includes(',')) throw e;
     setDecimal('.');
     try { return evalExpr1(src, opts); } catch (e2) { throw e; } finally { setDecimal(null); }
   }
+}
+// Programas en las formulas (como en SMath): line(a, b, …, r) hace todo en orden y vale lo ultimo; for(i, a..b, cuerpo) y
+// while(condicion, cuerpo) repiten. Dentro, «s:valor» asigna una variable LOCAL: vale solo en esa formula (no crea variables del
+// documento ni cambia el orden de lectura). withLocals copia las variables (para no tocar las de afuera) y da un lugar a cada nombre que se
+// asigna o que es la variable de un for, para poder leer la formula antes de que tenga valor.
+const PROG_RE = /(?:^|[^A-Za-z0-9_])(?:line|for|while)\s*\(/i;
+const ASG_RE = /(?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_'.])([A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*'*)\s*:(?!=)/g;
+const FOR_RE = /(?:^|[^A-Za-z0-9_])for\s*\(\s*([A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*'*)\s*[,;]/g;
+function withLocals(s, vars) {
+  if (!PROG_RE.test(s)) return vars;
+  const out = { ...(vars || {}) }, names = new Set();
+  for (const re of [ASG_RE, FOR_RE]) for (const m of s.matchAll(re)) names.add(normName(m[1]));
+  const has = (n) => Object.prototype.hasOwnProperty.call(out, n) || names.has(n);
+  for (const n of names) {
+    const ip = indexParts(n);
+    if (ip && ip.base !== n && has(ip.base) && !Object.prototype.hasOwnProperty.call(out, n)) continue; // «v_1:…»: un elemento de v, no una variable nueva (stmt avisa)
+    if (!Object.prototype.hasOwnProperty.call(out, n)) out[n] = { v: NaN, r: false, loc: true, unset: true };
+  }
+  return out;
+}
+// Tope de los ciclos: un while que no termina congelaria la app (todo se recalcula al arrastrar, al escribir, en cada paso de una
+// simulacion). Se cuentan las vueltas de toda una evaluacion (tambien las de las funciones que llama) y el tiempo.
+export const LOOP_MAX = 100000, LOOP_MS = 1500;
+let loopN = 0, loopT0 = 0, evalDepth = 0;
+function loopTick() {
+  if (++loopN > LOOP_MAX) throw new Error(`El ciclo pasó de ${LOOP_MAX.toLocaleString('es')} vueltas: revisa la condición del while o el rango del for`);
+  if (!loopT0) loopT0 = Date.now();
+  else if ((loopN & 255) === 0 && Date.now() - loopT0 > LOOP_MS) throw new Error(`El ciclo tardó más de ${LOOP_MS / 1000} s: revisa la condición del while o el rango del for`);
 }
 // La incognita de fzero(…; x; …) puede no existir todavia: se le da un lugar para poder leer la formula (no tiene valor; lo pone fzero).
 function withUnknowns(s, vars) {
@@ -405,7 +440,7 @@ function withUnknowns(s, vars) {
 }
 function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, depth = 0, globals = null } = {}) {
   const S = String(src ?? '');
-  vars = withUnknowns(S, vars);
+  vars = withLocals(S, withUnknowns(S, vars));
   const toks = tokenize(S, vars);
   if (!toks.length) throw new Error('Escribe un valor');
   let p = 0;
@@ -452,8 +487,75 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
   const mulU = (a, b, s, v) => ({ v, r: a.r || b.r, d: mulDim(a.d, b.d, s) });
 
   // comparacion (la de menor precedencia): da 1 si se cumple y 0 si no. «==» y «!=» toleran el error de redondeo.
+  const ASG_MSG = () => `«:» asigna un valor solo dentro de line(), for() o while(), p. ej. line(s:0${argText()} s:s+1${argText()} s)`;
+  // un enunciado de un programa: «nombre:valor» (asigna la variable local y vale ese valor) o una expresion
+  function stmt() {
+    const k = peek(), n = toks[p + 1];
+    if (n?.t === 'asg') {
+      if (k.t === 'idx') throw new Error(`Asignar a un elemento («${k.base}_(${k.src}):…») todavía no se puede: arma el vector completo`);
+      if (k.t !== 'var' && k.t !== 'ufn') throw new Error(ASG_MSG());
+      if (vars[k.v]?.fn && !vars[k.v].loc) throw new Error(`«${k.v}» es una función: dentro de un programa no se le puede asignar un valor`);
+      p += 2;
+      const a = cmp();
+      vars[k.v] = isM(a) ? wd({ mat: a.m, loc: true }, a.d) : { v: a.v, r: !!a.r, d: a.d, loc: true };
+      return a;
+    }
+    return cmp();
+  }
+  const progSep = (msg) => { if (peek()?.t !== 'sep') throw new Error(msg()); p++; };
+  const closeP = (msg) => { if (!isOp(')')) throw new Error(peek()?.t === 'sep' ? msg() : 'Falta cerrar un paréntesis'); p++; };
+  const LINE_MSG = () => `line(a${argText()} b${argText()} …) lleva los pasos separados por «${argText()}»; vale el último`;
+  const FOR_MSG = () => `for(i${argText()} inicio..fin${argText()} cuerpo) o for(i${argText()} vector${argText()} cuerpo): la variable, lo que recorre y lo que repite`;
+  const WHILE_MSG = () => `while(condición${argText()} cuerpo): repite el cuerpo mientras la condición se cumpla`;
+  function lazyLine() { // ya se leyo «line(»
+    if (isOp(')')) throw new Error(LINE_MSG());
+    let last;
+    for (;;) { last = stmt(); if (peek()?.t === 'sep') { p++; continue; } break; }
+    closeP(LINE_MSG);
+    return last;
+  }
+  function lazyFor() { // ya se leyo «for(»
+    const xt = peek();
+    if (xt?.t !== 'var' || toks[p + 1]?.t !== 'sep') throw new Error(FOR_MSG());
+    p += 2;
+    const a = cmp();
+    let seq;
+    if (isOp('..')) {
+      p++;
+      const b = cmp();
+      if (isM(a) || isM(b)) throw new Error(`El rango de for va entre dos números: for(i${argText()} 1..n${argText()} …)`);
+      if (!sameDim(a.d, b.d) && !zero0(a) && !zero0(b)) throw new Error(`El rango de for va de ${unitMsg(a.d)} a ${unitMsg(b.d)}: deben tener las mismas unidades`);
+      const d = a.d || b.d, n = Math.floor(b.v - a.v + 1e-9) + 1;
+      if (n > LOOP_MAX) throw new Error(`El rango de for tiene ${n} valores: el tope es ${LOOP_MAX.toLocaleString('es')}`);
+      seq = Array.from({ length: Math.max(0, n) }, (_, q) => ({ v: a.v + q, r: !!a.r, d }));
+    } else if (isM(a)) seq = a.m.flat().map((v) => ({ v, r: false, d: a.d })); // recorre los elementos de un vector (o de una matriz, fila por fila)
+    else seq = [a];
+    progSep(FOR_MSG);
+    const p0 = p;
+    let last = { v: 0, r: false };
+    for (const x of seq) { loopTick(); vars[xt.v] = { ...x, loc: true }; p = p0; last = stmt(); }
+    if (!seq.length) { p = p0; skipArg(); }
+    closeP(FOR_MSG);
+    return last;
+  }
+  function lazyWhile() { // ya se leyo «while(»
+    const p0 = p;
+    let last = { v: 0, r: false };
+    for (;;) {
+      p = p0;
+      const c = cmp();
+      if (isM(c)) throw new Error('La condición de while es un número, no un vector ni una matriz');
+      progSep(WHILE_MSG);
+      if (c.v === 0) { skipArg(); break; }
+      loopTick();
+      last = stmt();
+    }
+    closeP(WHILE_MSG);
+    return last;
+  }
   function cmp() {
     const a = expr(), k = peek();
+    if (k?.t === 'asg') throw new Error(ASG_MSG());
     if (!k || k.t !== 'cmp') return a;
     p++;
     const b = expr();
@@ -481,7 +583,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     const yes = c.v !== 0;
     let pick;
     sep();
-    if (yes) { pick = cmp(); sep(); skipArg(); } else { skipArg(); sep(); pick = cmp(); }
+    if (yes) { pick = stmt(); sep(); skipArg(); } else { skipArg(); sep(); pick = stmt(); }
     if (!isOp(')')) throw new Error(peek()?.t === 'sep' ? SI_MSG() : 'Falta cerrar un paréntesis');
     p++;
     return pick;
@@ -608,6 +710,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     if (k.t === 'num') return { v: k.v, r: false };
     if (k.t === 'unit') return { v: k.u.f, r: !!k.u.r, d: k.u.d }; // 'N, 'mm: vale su factor al SI, con su dimension
     if (k.t === 'idx') { // v_2, A_(i,j), A_(i,:), A_(:,j): un elemento, una fila o una columna (los indices empiezan en 1)
+      if (!vars[k.base].vec && !vars[k.base].mat) throw new Error(vars[k.base].unset ? `«${k.base}» se usa antes de darle un valor` : `«${k.base}» no es un vector ni una matriz: no lleva índice`);
       const x = vars[k.base], xd = x.d, m = x.mat || [x.vec], R = m.length, C = m[0].length, name = `${k.base}_(${k.src})`;
       const ix = splitIdx(k.src).map((s) => {
         if (!s) throw new Error(`Falta un índice en «${name}»`);
@@ -638,6 +741,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     }
     if (k.t === 'var') {
       const x = vars[k.v];
+      if (x.unset) throw new Error(`«${k.v}» se usa antes de darle un valor (dentro del programa: ${k.v}:valor)`);
       if (x.fn) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
       if (x.mat) return wd({ m: x.mat }, x.d);
       if (x.vec) return wd({ m: [x.vec] }, x.d);
@@ -690,6 +794,9 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
       if (!isOp('(')) throw new Error(`«${k.v}» necesita paréntesis, p. ej. ${k.v}(30)`);
       p++;
       if (k.v === 'fzero') return lazyFzero();
+      if (k.v === 'line') return lazyLine();
+      if (k.v === 'for') return lazyFor();
+      if (k.v === 'while') return lazyWhile();
       if (LAZY.has(k.v)) return lazyIf(k.v);
       const A = [];
       if (isOp(')')) throw new Error(`«${k.v}» necesita al menos un valor`);

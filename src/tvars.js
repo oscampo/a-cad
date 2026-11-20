@@ -120,17 +120,20 @@ export const contBack = (tk, s, show = false) => { let i = 0; return tk.conts ? 
 function joinOpen(src, ex) {
   const conts = [], imp = new Set();
   if (!src.includes('\n') || !/[([]/.test(src)) return { src, conts: ex, imp };
-  let out = '', d = 0, lit = false, e = 0;
+  // un programa (line(, for(, while() se dibuja como se escribio, en varias lineas: sus cortes no van en imp
+  let out = '', lit = false, e = 0;
+  const open = []; // true: el parentesis abierto es el de un programa
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
     if (c === CONT_MARK) { conts.push(ex[e++]); out += c; continue; }
     if (c === '`') lit = !lit;
-    else if (!lit && (c === '(' || c === '[')) d++;
-    else if (!lit && (c === ')' || c === ']')) d = Math.max(0, d - 1);
-    else if (!lit && c === '\n' && d > 0) {
+    else if (!lit && (c === '(' || c === '[')) open.push(c === '(' && /(?:^|[^A-Za-z0-9_])(?:line|for|while)\s*$/i.test(out));
+    else if (!lit && (c === ')' || c === ']')) open.pop();
+    else if (!lit && c === '\n' && open.length) {
       const a = /[ \t]*$/.exec(out)[0], b = /^[ \t]*/.exec(src.slice(i + 1))[0];
       out = out.slice(0, out.length - a.length) + CONT_MARK;
-      imp.add(conts.length); conts.push(a + '\n' + b);
+      if (!open.includes(true)) imp.add(conts.length);
+      conts.push(a + '\n' + b);
       i += b.length; continue;
     }
     out += c;

@@ -445,7 +445,12 @@ function compute(text, measure, font, opt = {}) {
       } else {
         if (cur.length || blk) endRow();
         const ms = noIT(tk.src).replace(/^[ \t]*\n/, '').replace(/\n[ \t]*$/, '');
-        for (const ln of ms.split('\n')) rows.push({ items: ln.trim() ? [{ k: 'm', box: layoutMath(ln, true, measure) }] : [], center: true });
+        // un bloque con sangria (un programa: line(, for(, while() se dibuja como se escribio: a la izquierda y con su sangria
+        const lns = ms.split('\n'), ind = lns.length > 1 && lns.some((ln) => /^[ \t]+\S/.test(ln));
+        for (const ln of lns) {
+          const pad = ind ? /^[ \t]*/.exec(ln)[0].replace(/\t/g, '    ').length : 0;
+          rows.push({ items: ln.trim() ? [...(pad ? [txtItem('\u00a0'.repeat(pad * 2))] : []), { k: 'm', box: layoutMath(ln, true, measure) }] : [], center: !ind });
+        }
         skipNL = true;
       }
     }
