@@ -44,3 +44,20 @@ export function setWindow(g, k, lo, hi) {
 export function clearWindow(g, k) {
   if (g.axes?.[k]) { g.axes[k].min = null; g.axes[k].max = null; }
 }
+// Vista guardada de la grafica (g.home = { x1: [lo, hi], y1: [lo, hi] }): el usuario la fija con el boton de la esquina, tras mover y acercar
+// la grafica a su gusto; el doble toque en un deslizador elastico vuelve ese eje a ella (sin vista guardada, a limites automaticos).
+const okWin = (w) => Array.isArray(w) && w.length === 2 && w.every(Number.isFinite) && w[1] > w[0];
+export function saveHome(g, wins) {
+  const h = {};
+  for (const [k, w] of Object.entries(wins)) if (okWin(w)) h[k] = [w[0], w[1]];
+  if (Object.keys(h).length) g.home = h; else delete g.home;
+  return !!g.home;
+}
+export const homeWin = (g, k) => (okWin(g?.home?.[k]) ? g.home[k].slice() : null);
+export const forgetHome = (g) => { delete g.home; };
+// Doble toque en el deslizador del eje k: a la vista guardada, o a limites automaticos si no hay. Devuelve la ventana puesta (o null).
+export function resetAxis(g, k) {
+  const w = homeWin(g, k);
+  if (w) setWindow(g, k, w[0], w[1]); else clearWindow(g, k);
+  return w;
+}

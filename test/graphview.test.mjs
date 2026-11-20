@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { newDoc, addPoint, addText } from '../src/model.js';
 import { addGraph, computeGraph, genericRange, genericX, GEN_X } from '../src/graphs.js';
-import { panWin, zoomWin, zoomStep, zoomPos, zoomFromPos, winCenter, setWindow, clearWindow, ZOOM_R, ZOOM_RATE } from '../src/graphview.js';
+import { panWin, zoomWin, zoomStep, zoomPos, zoomFromPos, winCenter, setWindow, clearWindow, saveHome, homeWin, forgetHome, resetAxis, ZOOM_R, ZOOM_RATE } from '../src/graphview.js';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
@@ -117,6 +117,21 @@ t('setWindow y clearWindow guardan y quitan los limites sin tocar el resto del e
   setWindow(g, 'y1', -1, 1); assert.equal(g.axes.y1.scale, 'lin');
   clearWindow(g, 'x1'); assert.equal(g.axes.x1.min, null); assert.equal(g.axes.x1.name, 'tiempo');
   clearWindow(g, 'zz'); // un eje sin configuracion no falla
+});
+
+t('vista guardada: el boton la fija y el doble toque en un deslizador vuelve a ella', () => {
+  const g = { axes: { x1: { name: 'x[m]', scale: 'lin', min: null, max: null } } };
+  assert.equal(resetAxis(g, 'x1'), null); assert.equal(g.axes.x1.min, null); // sin vista guardada: limites automaticos
+  assert.equal(saveHome(g, { x1: [0, 1], y1: [-0.6, 0.6] }), true);
+  assert.deepEqual(g.home, { x1: [0, 1], y1: [-0.6, 0.6] });
+  setWindow(g, 'x1', 0.15, 1.15); // paneo o zoom despues de guardar
+  assert.deepEqual(resetAxis(g, 'x1'), [0, 1]);
+  assert.deepEqual([g.axes.x1.min, g.axes.x1.max], [0, 1]); assert.equal(g.axes.x1.name, 'x[m]');
+  assert.deepEqual(resetAxis(g, 'y1'), [-0.6, 0.6]); assert.deepEqual([g.axes.y1.min, g.axes.y1.max], [-0.6, 0.6]);
+  saveHome(g, { x1: [2, 1], y1: [NaN, 1] }); assert.equal('home' in g, false); // ventanas invalidas no se guardan
+  saveHome(g, { x1: [0, 1] }); assert.equal(homeWin(g, 'y1'), null); assert.deepEqual(homeWin(g, 'x1'), [0, 1]);
+  forgetHome(g); assert.equal('home' in g, false);
+  setWindow(g, 'x1', 3, 4); assert.equal(resetAxis(g, 'x1'), null); assert.equal(g.axes.x1.max, null);
 });
 
 console.log(`\n${passed} pruebas de ventana de graficas pasaron`);

@@ -22,7 +22,7 @@ import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
 import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, genericRange, GEN_X, AXES } from './graphs.js';
-import { panWin, zoomStep, setWindow, clearWindow } from './graphview.js';
+import { panWin, zoomStep, setWindow, clearWindow, saveHome, homeWin, forgetHome, resetAxis } from './graphview.js';
 import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD, textLinkAt, textLinkBoxes } from './text.js';
 import { linkTarget, resolveRepoPath, findAnchor } from './links.js';
 import { attachAutoPair } from './autopair.js';
@@ -3519,6 +3519,12 @@ function drawGraphCtl(c, id, A, B, o) {
     const tx = horiz ? z.x + ((s + 1) / 2) * (z.w - S) : z.x, ty = horiz ? z.y : z.y + ((1 - s) / 2) * (z.h - S);
     box(tx, ty, S, S, theme.sel); c.fillStyle = '#fff'; c.fillText(horiz ? '↔' : '↕', (tx + S / 2) * dpr, (ty + S / 2 + 0.5) * dpr);
   }
+  // boton de la esquina (entre los dos deslizadores): guarda la vista actual; relleno si la grafica ya tiene una
+  const hx = x - S - G, hy = y + h + G, saved = !!doc.graphs[id]?.home;
+  graphCtl.push({ id, kind: 'home', x: hx, y: hy, w: S, h: S });
+  c.beginPath(); c.arc((hx + S / 2) * dpr, (hy + S / 2) * dpr, (S / 2 - 1.5) * dpr, 0, 2 * Math.PI);
+  c.fillStyle = saved ? theme.sel : o.bg; c.fill(); c.strokeStyle = saved ? theme.sel : o.fg + '88'; c.lineWidth = 1.5 * dpr; c.stroke();
+  c.beginPath(); c.arc((hx + S / 2) * dpr, (hy + S / 2) * dpr, 2.2 * dpr, 0, 2 * Math.PI); c.fillStyle = saved ? '#fff' : o.fg + 'aa'; c.fill();
   c.restore();
 }
 const graphCtlAt = (px, py) => { for (let i = graphCtl.length - 1; i >= 0; i--) { const z = graphCtl[i]; if (px >= z.x && px <= z.x + z.w && py >= z.y && py <= z.y + z.h) return z; } return null; };
@@ -3543,6 +3549,7 @@ function ctlDown(z, p) {
   const g = doc.graphs[z.id], k = z.kind.endsWith('x') || z.kind.startsWith('panx') ? 'x1' : 'y1';
   if (!g) return;
   pushUndo();
+  if (z.kind === 'home') { drag = { p0: p, ctl: z, home: true, started: true }; graphHomeTap(z.id); return; } // al soltar no hace nada mas (ni seleccionar)
   const d = drag = { p0: p, ctl: z, k, started: true, moved: false };
   if (z.kind[0] === 'p') { // flechas: un paso al tocar, y repite mientras se mantiene
     const dir = z.kind.endsWith('+') ? 1 : -1;
@@ -3567,6 +3574,18 @@ function ctlMove(p) {
   d.s = Math.max(-1, Math.min(1, s)); gspring[z.id + '|' + d.k] = d.s; draw();
 }
 let lastCtlTap = null;
+// Boton de la esquina: un toque guarda la vista actual (ventana de x1 e y1); un doble toque la olvida (los deslizadores vuelven a limites automaticos).
+function graphHomeTap(id) {
+  const g = doc.graphs[id], now = performance.now();
+  if (lastCtlTap?.kind === 'home' && lastCtlTap.id === id && now - lastCtlTap.t < 450) {
+    forgetHome(g); lastCtlTap = null; toast('Vista guardada borrada: el doble toque en ↔ o ↕ vuelve a límites automáticos'); afterChange(); return;
+  }
+  saveHome(g, { x1: graphWin(id, 'x1'), y1: graphWin(id, 'y1') });
+  const hx = homeWin(g, 'x1'), hy = homeWin(g, 'y1');
+  lastCtlTap = { kind: 'home', id, t: now };
+  toast(hx && hy ? `Vista guardada: x de ${fmtT(hx[0])} a ${fmtT(hx[1])}, y de ${fmtT(hy[0])} a ${fmtT(hy[1])}. Doble toque en ↔ o ↕ vuelve a ella` : 'Aún no hay una vista que guardar');
+  afterChange();
+}
 function springBack(key) { // el mando vuelve al centro con un rebote suave
   const step = () => {
     const s = (gspring[key] || 0) * 0.78;
@@ -3576,11 +3595,13 @@ function springBack(key) { // el mando vuelve al centro con un rebote suave
   setTimeout(step, 16);
 }
 function ctlUp(d) {
+  if (d.home) return;
   clearTimeout(d.timer); clearInterval(d.iv);
   const z = d.ctl, now = performance.now();
   if (d.zoom) springBack(z.id + '|' + d.k);
   if (d.zoom && !d.moved && now - d.tdown < 300 && lastCtlTap && lastCtlTap.kind === z.kind && lastCtlTap.id === z.id && now - lastCtlTap.t < 450) { // doble toque en un zoom: limites automaticos
-    clearWindow(doc.graphs[z.id], d.k); lastCtlTap = null; toast('Eje con límites automáticos');
+    const w = resetAxis(doc.graphs[z.id], d.k); lastCtlTap = null;
+    toast(w ? `Eje ${d.k[0]}: vista guardada, de ${fmtT(w[0])} a ${fmtT(w[1])}` : 'Eje con límites automáticos');
   } else lastCtlTap = d.zoom ? { kind: z.kind, id: z.id, t: now } : null;
   afterChange();
 }
