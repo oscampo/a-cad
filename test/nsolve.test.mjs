@@ -124,4 +124,12 @@ t('solve con cotas: sin solucion, el dibujo queda como estaba; una cota de solo 
   assert.match(rect('x:1\nsolve(D3 == 50; D1; x)=').errs().join('|'), /todas cotas o todas variables de texto/);
 });
 
+t('fzero: la incognita puede llamarse como una funcion definida antes (F(x) y luego fzero(…, F, …))', () => {
+  setDecimal('.');
+  const vars = { F: { fn: { params: ['x'], body: 'x*2' } } };
+  const r = evalExpr("fzero(F*2'm == 30'kN*'m, F, 10'kN)", { vars });
+  assert.ok(Math.abs(r.value - 15000) < 1e-6, String(r.value));
+  assert.equal(evalExpr('max(F(2), 3)', { vars }).value, 4); // F sigue siendo la funcion fuera de fzero
+});
+
 console.log(`\n${passed} pruebas de ecuaciones pasaron`);

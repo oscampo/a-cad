@@ -12,6 +12,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 - Cálculo: si una variable de texto se llama como una cota y se borra con `clear()`, el nombre queda vacío (⚠) hasta el lugar de la página donde está la etiqueta de la cota; antes la cota reaparecía en el mismo `clear`, aunque su etiqueta estuviera mucho más abajo. En `Tutorial.json`, `a='in` (t349) queda por encima de la cota y ahora da ⚠: hay que bajarlo debajo de la cota.
 - Cálculo: `clear(all)` (y `clear()` de una cota) borra solo lo que existe hasta ese punto de la página: una cota cuya etiqueta está más abajo vuelve a valer desde su etiqueta. Antes `clear(all)` ocultaba para siempre todas las cotas, también las de más abajo, y una fórmula debajo que las leía (en `Tutorial.json`, `x:L+…` con la cota L) daba ⚠.
+- Cálculo: en `fzero(ecuación, x, inicial)` la incógnita puede llamarse como una función definida antes (`F(x):…` y luego `fzero(F*2'm == 30'kN*'m, F, 10'kN)`): antes daba «Carácter no válido «,»», porque la coma después de un nombre de función no se leía como separador.
 - Cálculo: un `clear()` pone en juego el orden de lectura aunque el dibujo no tenga ninguna variable de texto definida.
 
 ## v2.9.2 (2026-11-20)

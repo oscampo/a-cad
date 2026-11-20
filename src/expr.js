@@ -104,7 +104,7 @@ function tokenize(src, vars = null, loose = false) {
   while (i < src.length) {
     const c = src[i];
     if (/\s/.test(c)) { i++; continue; }
-    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'idx') || last.t === 'unit' || (last.t === 'op' && (last.v === ')' || last.v === ']')));
+    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || last.t === 'ufn' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'idx') || last.t === 'unit' || (last.t === 'op' && (last.v === ')' || last.v === ']')));
     // separador de argumentos: «;», o una coma tras un valor («max(a, 5)»); «2,5» ya lo tomo el numero como decimal
     if (c === ';' || (c === ',' && afterValue && decimalMode() !== ',')) { // con coma decimal la coma no separa: los argumentos van con «;»
       toks.push({ t: 'sep', c, d: depth, i, j: i + 1 }); i++; continue; }
@@ -384,7 +384,8 @@ function withUnknowns(s, vars) {
     let d = 0, j = i + 2;
     for (; j < lt.length; j++) { const t = lt[j]; if (t.t === 'op' && (t.v === '(' || t.v === '[')) d++; else if (t.t === 'op' && (t.v === ')' || t.v === ']')) { if (d === 0) break; d--; } else if (t.t === 'sep' && d === 0) break; }
     const x = lt[j]?.t === 'sep' ? lt[j + 1] : null;
-    if (x?.t === 'var' && !(vars && Object.prototype.hasOwnProperty.call(vars, x.v))) { out = { ...(out || {}) }; out[x.v] = { v: NaN, r: false, unk: true }; }
+    // una funcion definida antes con el mismo nombre (F(x) y luego fzero(…; F; …)) tambien queda tapada: dentro de fzero, F es la incognita
+    if ((x?.t === 'var' || x?.t === 'ufn') && !(vars && Object.prototype.hasOwnProperty.call(vars, x.v) && !vars[x.v]?.fn)) { out = { ...(out || {}) }; out[x.v] = { v: NaN, r: false, unk: true }; }
   }
   return out;
 }
