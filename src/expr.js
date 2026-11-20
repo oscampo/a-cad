@@ -52,8 +52,8 @@ const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
 // quedan guardadas para los motores, las animaciones y los calculos dinamicos. Todavia no valen nada.
 export const TIME_VAR = 't';
 export const FUTURE_VARS = new Set([TIME_VAR, 'j', 'ω', 'θ', 'α']);
-export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l === 'log10'; };
-export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : `«${n}» es una función o constante`);
+export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l === 'log10' || l === 'clear' || l === 'all'; };
+export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : String(n).toLowerCase() === 'all' ? `«${n}» está reservada para clear(all)` : `«${n}» es una función o constante`);
 // Todos los nombres de funciones y constantes del evaluador (la referencia de la ayuda debe nombrarlos todos: test/funcref.test.mjs).
 export const FUNC_NAMES = [...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(CONSTS)];
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*$/;

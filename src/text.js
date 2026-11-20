@@ -3,7 +3,7 @@
 // de measureText; en las pruebas puede ser una aproximacion).
 import { evalExpr, setAngleMode } from './expr.js';
 import { varsOf, textVars } from './params.js';
-import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack } from './tvars.js';
+import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, clearCall } from './tvars.js';
 import { normName, exprRefs } from './expr.js';
 import { parseUnit, sameDim, autoUnit } from './units.js';
 export { runsOf, plainText } from './tvars.js';
@@ -82,6 +82,11 @@ function textValue1(doc, t) {
   };
   // Valor de una salida: dentro de una formula un vector sale entre marcas VB0/VB1 y se dibuja como vector fila (sin comas); fuera, como texto «[1, 2, 3]».
   const outVal = (p, math) => {
+    if (clearCall(p.expr)) { // «clear(...)=»: lo resuelve el orden de lectura (textVarState): 1, 0 o ⚠
+      if (!st) { st = textVars(doc); tid = Object.keys(doc.texts || {}).find((x) => doc.texts[x] === t); }
+      const res = st.clearRes.get(tid + ':' + oidx++);
+      return res && !res.err ? String(res.v) : '⚠';
+    }
     try {
       const env = st?.outEnv.get(tid + ':' + oidx++) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
       const r = evalExpr(p.expr, { vars: env, allowMat: true });

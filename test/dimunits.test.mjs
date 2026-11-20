@@ -139,4 +139,24 @@ t('el 0 sin unidades vale con cualquier unidad: se compara, se suma y va en una 
   assert.throws(() => e('x+1')); assert.throws(() => e('x>1')); assert.throws(() => e('[1, x]')); assert.throws(() => e('[0, x, 1]'));
 });
 
+t('clear(): una cota o un vector debajo de clear(eF) ya no ve la escala; encima si', () => {
+  const mk = (clearY) => {
+    const r = mkLine(30, { ref: true, du: 'kN', scaleExpr: 'eF' });
+    addText(r.d, addPoint(r.d, 0, 80), "$eF:1'mm/kN$", {});
+    addText(r.d, addPoint(r.d, 0, clearY), '$clear(eF)=$', {});
+    assert.ok(settle(r.d, solve, []).ok);
+    return r;
+  };
+  const below = mk(-80); // clear despues de la cota: no la afecta
+  assert.equal(dimText(below.d, below.d.cons[below.k]), '30 kN');
+  assert.equal(clean(shownText(below.d, Object.values(below.d.texts)[1]).text), '$clear(eF)=1$');
+  const above = mk(40); // clear antes de la cota: la escala ya no existe ahi
+  assert.equal(dimText(above.d, above.d.cons[above.k]), '⚠ kN');
+  const drv = mkLine(30, { expr: "30'kN", scaleExpr: 'eF' });
+  addText(drv.d, addPoint(drv.d, 0, 80), "$eF:1'mm/kN$", {});
+  addText(drv.d, addPoint(drv.d, 0, 40), '$clear(eF)=$', {});
+  const r = settle(drv.d, solve, []);
+  assert.equal(r.ok, false); assert.match(r.error, /se borró con clear/);
+});
+
 console.log(`\n${passed} pruebas de cotas con unidad pasaron`);

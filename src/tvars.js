@@ -317,9 +317,22 @@ export function evalRangeDef(rg, unit, vars) {
   return fit;
 }
 let memoKey = null, memoSt = null;
+// «clear(all)=» o «clear(a; b)=» (con punto decimal tambien «clear(a, b)=»): borra variables de texto desde ese punto del orden de lectura.
+// Devuelve null si la salida no es un clear, o { all } / { names } / { err }.
+export function clearCall(expr) {
+  const m = /^\s*clear\s*\(([\s\S]*)\)\s*$/i.exec(String(expr ?? ''));
+  if (!m) return null;
+  const parts = m[1].split(decimalMode() === ',' ? /;/ : /[;,]/).map((s) => s.trim());
+  if (parts.length === 1 && parts[0].toLowerCase() === 'all') return { all: true };
+  if (parts.some((q) => !q)) return { err: `clear(…) lleva all o nombres de variables separados por «${argChar() === ',' ? ',' : ';'}»` };
+  const bad = parts.find((q) => !TEXT_NAME_RE.test(q));
+  if (bad !== undefined) return { err: `«${bad}» no es un nombre de variable` };
+  return { names: parts.map(normName) };
+}
+
 export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = []) {
   setAngleMode(doc);
-  const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map() };
+  const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map(), clearRes: new Map(), cleared: new Set() };
   const events = readingEvents(doc, probes);
   if (!events.some((e) => e.kind !== 'dim')) return st; // sin definiciones ni salidas: nada que leer
   const key = JSON.stringify([events, dimVars, [...dimNames], angleRad()]);
@@ -346,7 +359,22 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   for (const e of events) {
     const k = e.tid + ':' + e.idx;
     if (e.kind === 'dim') { st.dimEnv.set(e.id, { ...env }); continue; } // una cota ve las variables de texto de este punto de la lectura
-    if (e.kind === 'out') { st.outEnv.set(k, { ...cur }); continue; }
+    if (e.kind === 'out') {
+      st.outEnv.set(k, { ...cur });
+      const cl = clearCall(e.expr);
+      if (cl) { // clear: 1 si todas las que nombra existian aqui (las que existian se borran), 0 si alguna no; ⚠ si nombra una cota
+        let res;
+        if (cl.err) res = { err: cl.err };
+        else if (cl.all) { for (const n of Object.keys(env)) { delete cur[n]; delete env[n]; st.cleared.add(n); } res = { v: 1 }; }
+        else {
+          const dim = cl.names.find((n) => n in dimVars && !(n in env));
+          if (dim !== undefined) res = { err: `«${dim}» es una cota (o una medida del dibujo): clear solo borra variables de texto` };
+          else { let all = true; for (const n of cl.names) { if (n in env) { delete cur[n]; delete env[n]; st.cleared.add(n); } else all = false; } res = { v: all ? 1 : 0 }; }
+        }
+        st.clearRes.set(k, res);
+      }
+      continue;
+    }
     if (e.why) { st.bad.add(k); st.errs.set(e.name, e.why); continue; }
     st.win.set(e.name, e);
     (st.byName.get(e.name) || st.byName.set(e.name, []).get(e.name)).push(e);

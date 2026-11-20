@@ -149,6 +149,7 @@ Como en SMath, la página se lee **de arriba a abajo** y, en una misma fila, **d
 |---|---|---|---|
 | Redefinir | Una variable puede cambiar de valor más abajo. | `k:1`<br>`k=`<br>`k:2`<br>`k=` | `k:=1`<br>`k=1`<br>`k:=2`<br>`k=2` |
 | Usarse a sí misma | Una redefinición puede leer el valor anterior. | `n:1`<br>`n:n+1`<br>`n=` | `n:=1`<br>`n:=n+1`<br>`n=2` |
+| Borrar: `clear()` | `clear(k)=` borra la variable de texto k desde ese punto de la lectura (más abajo o más a la derecha ya no existe, salvo que se vuelva a definir); `clear(a, b)=` borra varias (con coma decimal, `clear(a; b)=`) y `clear(all)=` todas las variables y funciones de los textos definidas antes. Muestra 1 si todas las que nombra existían ahí y 0 si alguna no (las que existían se borran igual). Solo borra variables de texto: `clear(D1)=` da ⚠, las cotas y las medidas del dibujo no se borran. Sirve para cerrar el alcance de una variable, como una escala eF: una cota o un vector que la lea más abajo da ⚠ en vez de usar un valor viejo. `clear` y `all` no se pueden usar como nombres. | `k:1`<br>`clear(k)=`<br>`k=` | `k:=1`<br>`clear(k)=1`<br>`k=⚠` |
 | Usar antes de definir | Todavía no existe: avisa de que «se define más abajo o más a la derecha». | `y=`<br>`y:2` | `y=⚠`<br>`y:=2` |
 | Leer cotas | Una definición puede usar las cotas y variables leídas antes, y se recalcula cuando cambian. | `k:D1/2` |  |
 

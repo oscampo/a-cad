@@ -152,6 +152,7 @@ export const CALC_GROUPS = [
     rows: [
       ['Redefinir', 'Una variable puede cambiar de valor más abajo.', 'k:1\nk=\nk:2\nk=', 'k:=1\nk=1\nk:=2\nk=2', 't'],
       ['Usarse a sí misma', 'Una redefinición puede leer el valor anterior.', 'n:1\nn:n+1\nn=', 'n:=1\nn:=n+1\nn=2', 't'],
+      ['Borrar: <code>clear()</code>', '<code>clear(k)=</code> borra la variable de texto k desde ese punto de la lectura (más abajo o más a la derecha ya no existe, salvo que se vuelva a definir); <code>clear(a, b)=</code> borra varias (con coma decimal, <code>clear(a; b)=</code>) y <code>clear(all)=</code> todas las variables y funciones de los textos definidas antes. Muestra 1 si todas las que nombra existían ahí y 0 si alguna no (las que existían se borran igual). Solo borra variables de texto: <code>clear(D1)=</code> da ⚠, las cotas y las medidas del dibujo no se borran. Sirve para cerrar el alcance de una variable, como una escala eF: una cota o un vector que la lea más abajo da ⚠ en vez de usar un valor viejo. <code>clear</code> y <code>all</code> no se pueden usar como nombres.', 'k:1\nclear(k)=\nk=', 'k:=1\nclear(k)=1\nk=⚠', 't'],
       ['Usar antes de definir', 'Todavía no existe: avisa de que «se define más abajo o más a la derecha».', 'y=\ny:2', 'y=⚠\ny:=2', 't'],
       ['Leer cotas', 'Una definición puede usar las cotas y variables leídas antes, y se recalcula cuando cambian.', 'k:D1/2', '', ''],
     ],

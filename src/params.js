@@ -237,7 +237,7 @@ export function recompute(doc, omega = 1, hook = null) {
   const dr = drivers(doc), byName = new Map(named(doc).map(([id, k]) => [k.name, id])), f = dr.filter(([, k]) => k.expr);
   const deps = new Map(), tv = tvOf(doc);
   // una variable de texto que se define despues de la cota (mas abajo o mas a la derecha) todavia no existe para ella
-  const hintLate = (m) => { const q = /No reconozco «(.+?)»/.exec(m); return q && tv.names.has(q[1]) ? `«${q[1]}» se define después de esta cota en el orden de lectura (más abajo o más a la derecha de su etiqueta)` : m; };
+  const hintLate = (m) => { const q = /No reconozco «(.+?)»/.exec(m); if (q && tv.cleared?.has(q[1])) return `«${q[1]}» no está definida en el lugar de esta cota: se borró con clear() antes o se define más abajo`; return q && tv.names.has(q[1]) ? `«${q[1]}» se define después de esta cota en el orden de lectura (más abajo o más a la derecha de su etiqueta)` : m; };
   for (const [id, k] of f) {
     const ids = [];
     for (const n of exprRefs(srcOf(k), (q) => byName.has(q) || tv.names.has(q) || isGeoName(doc, q))) {
