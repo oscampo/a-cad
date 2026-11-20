@@ -4,7 +4,7 @@
 // Variables: las cotas con nombre (D1, A1, R2, O3 o el que les des) se pueden usar en las formulas: vars = { nombre: { v, r } }.
 // Un angulo vale su medida en radianes (r = true), igual que π: sin(A1) funciona y R*A1 es la longitud de arco.
 
-import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem } from './units.js';
+import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem, docUnitsHook } from './units.js';
 import { GREEK, GREEK_UP } from './asciimath.js';
 import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText } from './locale.js';
 
@@ -108,7 +108,7 @@ function tokenize(src, vars = null, loose = false) {
       toks.push({ t: 'sep', c, d: depth, i, j: i + 1 }); i++; continue; }
     if (c === '|' && depth > 0 && decimalMode() === ',') { toks.push({ t: 'sep', c, d: depth, i, j: i + 1 }); i++; continue; } // con coma decimal, «|» separa las filas de una matriz
     if (c === "'") { // unidad: «250'N», «3'(m/s)», «20'°»
-      const um = /^'\s*(\([^()]*\)|[A-Za-zµμΩ°%áéíóú]+[²³]?)/.exec(src.slice(i));
+      const um = /^'\s*(\([^()]*\)|[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*[²³]?)/.exec(src.slice(i));
       if (!um) throw new Error("Después de «'» va una unidad, p. ej. 250'N o 3'(m/s)");
       let u;
       try { u = parseUnit(um[1].replace(/^\((.*)\)$/, '$1')); } catch (e) { if (!loose) throw e; u = { f: 1 }; }
@@ -360,7 +360,7 @@ function matFn(name, A) {
 // Ángulos del dibujo (opción «Ángulos en: grados / radianes» del documento, doc.angles): los textos de cálculo y las gráficas
 // evalúan con este valor por defecto; las cotas y los actuadores lo fijan explícito (siempre en grados).
 let DEF_RAD = false;
-export const setAngleMode = (doc) => { DEF_RAD = doc?.angles === 'rad'; setDecimal(doc?.decimal); setUnitSystem(doc?.units); }; // el indicador decimal del dibujo va con la opcion de angulos: se activan juntos
+export const setAngleMode = (doc) => { DEF_RAD = doc?.angles === 'rad'; setDecimal(doc?.decimal); setUnitSystem(doc?.units); docUnitsHook(doc); }; // el indicador decimal del dibujo va con la opcion de angulos: se activan juntos
 export const angleRad = () => DEF_RAD;
 
 // Dibujos anteriores (sin indicador decimal) leen «0,0» como un decimal: «f(0.7,0,0)» daba error. Si la lectura de siempre falla y la expresion

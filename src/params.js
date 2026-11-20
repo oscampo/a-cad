@@ -6,7 +6,7 @@
 import { isNamedDim, dimLetter, DIM_KIND } from './model.js';
 import { dimPos, dimValue, angTrue, initAngle, trackAngles, dimUnit, dimShown, isLenDim, dimUnreadable } from './dims.js';
 import { convertExpr, parseValue, isPlainNumber, exprRefs, renameInExpr, isReservedName, reservedWhy, NAME_RE, normName, evalExpr } from './expr.js';
-import { convertCalcText, textVarState, calcStmts, calcParse, calcSrc, evalDef } from './tvars.js';
+import { convertCalcText, textVarState, calcStmts, calcParse, calcSrc, evalDef, syncUserUnits, UDEF_ERR } from './tvars.js';
 import { parseUnit, sameDim, autoUnit, mulDim, unitMsg, dimName } from './units.js';
 import { geoVars, isGeoName, geoPoints } from './geo.js';
 
@@ -26,7 +26,7 @@ export function varValue(doc, k) {
   return { v, r: false };
 }
 // La unidad escrita al final de un valor: «126'in», «D2*2'ft», «3'(m/s)», «9,8'm/s^2». { body, unit } o null.
-const UW = /[A-Za-zµμΩ°%áéíóú]+(?:[²³]|\^\(?-?\d+(?:[.,]\d+)?\)?)?/.source;
+const UW = /[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*(?:[²³]|\^\(?-?\d+(?:[.,]\d+)?\)?)?/.source;
 const UNIT_TAIL = new RegExp(`^([\\s\\S]*?)'\\s*(\\([^()]*\\)|${UW}(?:\\s*[*/·]\\s*${UW})*)\\s*$`);
 export function splitUnit(src) {
   const m = UNIT_TAIL.exec(String(src ?? ''));
@@ -185,8 +185,10 @@ export function usesTextVars(doc) {
 }
 // Problemas de las definiciones de los textos: [{ key, msg }] (repetidas, que chocan con una cota, que fallan o se piden en circulo).
 export function textVarErrors(doc) {
-  if (!hasDefs(doc)) return [];
-  return [...textVars(doc).errs].map(([n, msg]) => ({ key: n + '|' + msg, msg }));
+  syncUserUnits(doc);
+  const ue = [...UDEF_ERR].map(([s, msg]) => ({ key: 'u|' + s + '|' + msg, msg: `${s}: ${msg}` })); // definiciones de unidad que no valen
+  if (!hasDefs(doc)) return ue;
+  return ue.concat([...textVars(doc).errs].map(([n, msg]) => ({ key: n + '|' + msg, msg })));
 }
 
 // El nombre se compara como se guarda: «alpha» es «α» (ver normName).
@@ -217,6 +219,7 @@ export function renameDim(doc, id, raw) {
 // toman de su formula. No cambia la geometria (2 cm siguen midiendo 20), solo lo que dice la etiqueta («2 cm»). Devuelve cuantas cambiaron.
 // all: tambien las que ya la tienen (al cambiar el sistema de unidades: «D2*2» toma la unidad habitual del nuevo sistema).
 export function fillDimUnits(doc, all = false) {
+  syncUserUnits(doc);
   let n = 0;
   for (const [id, k] of drivers(doc)) {
     if (!k.expr || (k.du && !all) || k.t === 'ANG' || k.t === 'ANG4') continue;
@@ -232,6 +235,7 @@ export function fillDimUnits(doc, all = false) {
 // realimentacion con pendiente -1 oscile para siempre al repetir.
 // hook(id, viejo, formula): si se da, decide el valor nuevo (settle lo usa para aplicar el metodo de la secante).
 export function recompute(doc, omega = 1, hook = null) {
+  syncUserUnits(doc); // las unidades de usuario del dibujo («2'persona») antes de evaluar
   for (const [, k] of drivers(doc)) if (k.t === 'ANG' && k.expr && k.cur === undefined) initAngle(doc, k); // las angulares con formula usan valor continuo
   refScales(doc); // las de solo lectura con escala con formula («Escala: eF») siguen a sus variables
   const dr = drivers(doc), byName = new Map(named(doc).map(([id, k]) => [k.name, id])), f = dr.filter(([, k]) => k.expr);

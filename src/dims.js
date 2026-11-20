@@ -4,7 +4,7 @@
 import { lineLine, signedAngle, norm, TAU, inSweep } from './geom.js';
 import { arcOf } from './model.js';
 import { localNum } from './locale.js';
-import { parseUnit } from './units.js';
+import { parseUnit, unitsVersion } from './units.js';
 
 export const ARROW = 9;
 export const DIAM = '\u2300'; // simbolo de diametro (U+2300)
@@ -132,6 +132,7 @@ export const isLenDim = (d) => !!d && d[0] === 1 && d.slice(1).every((x) => x ==
 const UCACHE = new Map();
 export function dimUnit(du) {
   if (!du) return null;
+  if (UCACHE.ver !== unitsVersion()) { UCACHE.clear(); UCACHE.ver = unitsVersion(); } // cambiaron las unidades de usuario
   if (!UCACHE.has(du)) {
     let u = null;
     try { const p = parseUnit(du); u = { f: p.f, d: p.d, g: p.f * (isLenDim(p.d) ? 1000 : 1) }; } catch (e) { /* unidad que no se entiende: sin unidad */ }

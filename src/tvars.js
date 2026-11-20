@@ -5,7 +5,7 @@ import { argChar, decimalMode } from './locale.js';
 const paramSep = () => (decimalMode() === ',' ? /;/ : /[;,]/); // parametros de una funcion: con coma decimal solo «;»
 import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName } from './expr.js';
 import { splitMath } from './mathlayout.js';
-import { parseUnit, sameDim, unitMsg } from './units.js';
+import { parseUnit, sameDim, unitMsg, setUserUnits, addUserUnit, onDocUnits, unitsVersion, UNIT_NAME_RE } from './units.js';
 
 // Marcas de cursiva dentro de un texto ya expandido (caracteres de uso privado: no se escriben a mano).
 export const IT0 = '', IT1 = '';
@@ -317,6 +317,58 @@ export function evalRangeDef(rg, unit, vars) {
   return fit;
 }
 let memoKey = null, memoSt = null;
+// Unidades de usuario: una linea de un texto de calculo «1'vuelta:2π'rad», «1.70'm:1'persona» o «1'persona:'persona» (una unidad base
+// nueva). Es una igualdad entre dos cantidades con exactamente una unidad nueva, en cualquiera de los dos lados; valen en todo el
+// documento (no siguen el orden de lectura) y no aceptan prefijos. No puede redefinir una unidad que ya existe (con o sin prefijo: «mm»).
+const UDEF_RE = /^\s*([^:']*?)\s*'\s*([^:']+?)\s*:\s*([^:']*?)\s*'\s*([^:']+?)\s*$/;
+export const unitDefOf = (s) => { const m = UDEF_RE.exec(String(s ?? '')); return m ? { lb: m[1], lu: m[2].trim(), rb: m[3], ru: m[4].trim() } : null; };
+let UKEY = null;
+export const UDEF_ERR = new Map(); // linea de la definicion -> motivo por el que no vale
+export function syncUserUnits(doc) {
+  const srcs = [];
+  for (const t of Object.values(doc?.texts || {})) {
+    const x = String(t.text ?? '');
+    if (!x.includes("'") || !x.includes(':') || !x.includes('$')) continue;
+    for (const tk of calcParse(x)) if (tk.t === 'math') for (const l of tk.lines) for (const p of l) if (p.k === 'code' && unitDefOf(p.s)) srcs.push(p.s.trim());
+  }
+  const key = srcs.join('\n');
+  if (key === UKEY) return;
+  const had = UKEY !== null && UKEY !== '';
+  UKEY = key; UDEF_ERR.clear(); setUserUnits([]);
+  if (!srcs.length) { if (had) PARSED.clear(); return; }
+  const known = (u) => { try { parseUnit(u); return true; } catch (e) { return false; } };
+  const num = (b) => { const s = b.trim(); if (!s) return 1; const r = evalExpr(s, {}); if (r.dim || !(r.value > 0)) throw new Error(`«${s}» debe ser un número mayor que cero`); return r.value; };
+  const ok = [], by = new Map(), dup = new Set();
+  let pending = srcs.map((s) => ({ s, ...unitDefOf(s) })), progress = true;
+  const done = (d, msg) => { if (msg) UDEF_ERR.set(d.s, msg); pending = pending.filter((x) => x !== d); progress = true; };
+  while (progress && pending.length) {
+    progress = false;
+    for (const d of [...pending]) {
+      try {
+        if (d.lu === d.ru && !d.rb.trim()) { // «1'persona:'persona»: una unidad base nueva
+          if (!UNIT_NAME_RE.test(d.lu)) { done(d, `«${d.lu}» no es un nombre de unidad (letras, _ y números, sin empezar por número)`); continue; }
+          if (known(d.lu)) { if (by.has(d.lu)) dup.add(d.lu); done(d, `La unidad «${d.lu}» ya existe`); continue; }
+          const u = { name: d.lu, base: true }; addUserUnit(u); ok.push(u); by.set(d.lu, d.s); done(d); continue;
+        }
+        const kl = known(d.lu), kr = known(d.ru);
+        if (kl && kr) { for (const n of [d.lu, d.ru]) if (by.has(n)) dup.add(n); done(d, `«${d.lu}» y «${d.ru}» ya existen: una definición de unidad necesita una unidad nueva`); continue; }
+        if (!kl && !kr) continue; // quiza la define otra linea: se reintenta en la siguiente vuelta
+        const [n, nb, ou, ob] = kl ? [d.ru, d.rb, d.lu, d.lb] : [d.lu, d.lb, d.ru, d.rb];
+        if (!UNIT_NAME_RE.test(n)) { done(d, `«${n}» no es un nombre de unidad (letras, _ y números, sin empezar por número)`); continue; }
+        const o = parseUnit(ou), f = (num(ob) * o.f) / num(nb);
+        const u = { name: n, f, d: o.d, r: o.r }; addUserUnit(u); ok.push(u); by.set(n, d.s); done(d);
+      } catch (e) { done(d, e.message); }
+    }
+  }
+  for (const d of pending) UDEF_ERR.set(d.s, `No conozco «${d.lu}» ni «${d.ru}»: una de las dos unidades debe existir`);
+  PARSED.clear(); // como se parte «x:5'kg/persona» depende de las unidades que existen: se vuelve a leer
+  if (dup.size) { // definida dos veces: ninguna de las dos vale
+    for (const n of dup) for (const s of srcs) { const d = unitDefOf(s); if (d.lu === n || d.ru === n) UDEF_ERR.set(s, `La unidad «${n}» se define más de una vez`); }
+    setUserUnits(ok.filter((u) => !dup.has(u.name)));
+  }
+}
+onDocUnits(syncUserUnits);
+
 // «clear(all)=» o «clear(a; b)=» (con punto decimal tambien «clear(a, b)=»): borra variables de texto desde ese punto del orden de lectura.
 // Devuelve null si la salida no es un clear, o { all } / { names } / { err }.
 export function clearCall(expr) {
@@ -335,7 +387,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map(), clearRes: new Map(), cleared: new Set() };
   const events = readingEvents(doc, probes);
   if (!events.some((e) => e.kind !== 'dim')) return st; // sin definiciones ni salidas: nada que leer
-  const key = JSON.stringify([events, dimVars, [...dimNames], angleRad()]);
+  const key = JSON.stringify([events, dimVars, [...dimNames], angleRad(), unitsVersion()]);
   if (key === memoKey) return memoSt; // las mismas definiciones, posiciones y cotas: el mismo resultado
   const check = (d) => { // ¿vale la definicion? (motivo si no)
     if (isReservedName(d.name)) return reservedWhy(d.name);

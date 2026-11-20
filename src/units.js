@@ -29,7 +29,29 @@ const PRE = { Y: 1e24, Z: 1e21, E: 1e18, P: 1e15, T: 1e12, G: 1e9, M: 1e6, k: 1e
 export const UNIT_NAMES = Object.keys(U);
 
 // Una unidad por su nombre («kN», «mm», «MPa»): primero el nombre exacto, después prefijo + unidad.
+// Unidades definidas por el usuario en los textos («1'vuelta:2π'rad», «1'persona:'persona»; ver tvars.js, syncUserUnits): sin prefijos.
+// Una unidad base nueva («persona») agrega una dimension mas al vector (despues de las 7 del SI). UVER cambia con cada registro (caches).
+const USER = new Map();
+const EXTRA_BASE = [];
+let UVER = 0;
+export const unitsVersion = () => UVER;
+export const userUnitNames = () => [...USER.keys()];
+export function setUserUnits(list) { // list: [{ name, f, d, r }] y [{ name, base: true }] en orden
+  USER.clear(); EXTRA_BASE.length = 0; UVER++; HCACHE.clear();
+  for (const u of list) addUserUnit(u);
+}
+export function addUserUnit(u) {
+  if (u.base) { EXTRA_BASE.push(u.name); const d = new Array(BASE.length + EXTRA_BASE.length).fill(0); d[d.length - 1] = 1; USER.set(u.name, { f: 1, d }); }
+  else USER.set(u.name, { f: u.f, d: u.d, ...(u.r ? { r: 1 } : {}) });
+  UVER++;
+}
+// Al activar un documento (setAngleMode) se registran sus unidades de usuario: tvars.js pone aqui la funcion que las lee de los textos.
+let DOC_HOOK = null;
+export const onDocUnits = (f) => { DOC_HOOK = f; };
+export const docUnitsHook = (doc) => { if (DOC_HOOK) DOC_HOOK(doc); };
+export const UNIT_NAME_RE = /^[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*$/;
 export function unitByName(n) {
+  if (USER.has(n)) return USER.get(n);
   if (Object.prototype.hasOwnProperty.call(U, n)) return U[n];
   for (const k of ['da', ...Object.keys(PRE).filter((x) => x !== 'da')]) {
     if (n.length > k.length && n.startsWith(k)) { const b = U[n.slice(k.length)]; if (b?.p) return { f: PRE[k] * b.f, d: b.d }; }
@@ -39,8 +61,9 @@ export function unitByName(n) {
 
 const zero = (d) => !d || d.every((x) => x === 0);
 export const norm = (d) => (zero(d) ? undefined : d.map((x) => Math.round(x * 1e9) / 1e9));
-export const sameDim = (a, b) => (zero(a) && zero(b)) || (!zero(a) && !zero(b) && a.every((x, i) => Math.abs(x - b[i]) < 1e-9));
-export const mulDim = (a, b, s = 1) => norm(D().map((_, i) => (a?.[i] ?? 0) + s * (b?.[i] ?? 0)));
+// Las dimensiones pueden tener mas de 7 componentes (unidades base de usuario): se comparan y combinan hasta la mas larga.
+export const sameDim = (a, b) => (zero(a) && zero(b)) || (!zero(a) && !zero(b) && Array.from({ length: Math.max(a.length, b.length) }, (_, i) => i).every((i) => Math.abs((a[i] ?? 0) - (b[i] ?? 0)) < 1e-9));
+export const mulDim = (a, b, s = 1) => norm(Array.from({ length: Math.max(BASE.length, a?.length ?? 0, b?.length ?? 0) }, (_, i) => (a?.[i] ?? 0) + s * (b?.[i] ?? 0)));
 export const powDim = (a, n) => (zero(a) ? undefined : norm(a.map((x) => x * n)));
 
 // Una expresión de unidades: «m/s^2», «kg*m^2», «N·m», «N m», «kg/(m*s^2)», «m²», «1/s». Devuelve { f, d, r } o lanza un error.
@@ -52,7 +75,7 @@ export function parseUnit(src) {
   function atom() {
     ws();
     if (s[i] === '(') { i++; const u = prod(); ws(); if (s[i] !== ')') fail(); i++; return u; }
-    const m = /^(\d+(\.\d+)?|[A-Za-zµμΩ°%áéíóú]+)/.exec(s.slice(i));
+    const m = /^(\d+(\.\d+)?|[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*)/.exec(s.slice(i));
     if (!m) fail();
     i += m[0].length;
     if (/^\d/.test(m[0])) return { f: Number(m[0]), d: undefined };
@@ -97,7 +120,8 @@ export function dimName(d) {
   for (const n of NAMED) if (sameDim(U[n].d, d)) return n;
   if (sameDim(mulDim(U.N.d, U.m.d, -1), d)) return 'N/m'; // rigidez de un resorte, mejor que «kg/s²»
   const pos = [], neg = [];
-  d.forEach((x, i) => { if (x > 0) pos.push(BASE[i] + sup(x)); else if (x < 0) neg.push(BASE[i] + sup(-x)); });
+  const names = BASE.concat(EXTRA_BASE);
+  d.forEach((x, i) => { if (x > 0) pos.push(names[i] + sup(x)); else if (x < 0) neg.push(names[i] + sup(-x)); });
   return (pos.length ? pos.join('·') : '1') + (neg.length ? '/' + (neg.length > 1 ? '(' + neg.join('·') + ')' : neg[0]) : '');
 }
 

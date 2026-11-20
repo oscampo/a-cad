@@ -3,7 +3,7 @@
 // de measureText; en las pruebas puede ser una aproximacion).
 import { evalExpr, setAngleMode } from './expr.js';
 import { varsOf, textVars } from './params.js';
-import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, clearCall } from './tvars.js';
+import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, clearCall, unitDefOf, UDEF_ERR } from './tvars.js';
 import { normName, exprRefs } from './expr.js';
 import { parseUnit, sameDim, autoUnit } from './units.js';
 export { runsOf, plainText } from './tvars.js';
@@ -28,7 +28,7 @@ const matText = (m, fmt = fmtNum) => {
 // Una unidad dentro de una formula: texto recto separado del valor («^2» y «^3» como superindices).
 const unitMath = (u) => ' " ' + u.split('^2').join('²').split('^3').join('³') + '"';
 // Unidades escritas dentro de una expresion («250'N», «3'(m/s)»): se dibujan como unidad, no como «'».
-const showU = (seg) => (seg.includes("'") ? seg.replace(/'\s*(\([^()]*\)|[A-Za-zµμΩ°%áéíóú]+[²³]?)/g, (m, u) => unitMath(u.replace(/^\(|\)$/g, ''))) : seg);
+const showU = (seg) => (seg.includes("'") ? seg.replace(/'\s*(\([^()]*\)|[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*[²³]?)/g, (m, u) => unitMath(u.replace(/^\(|\)$/g, ''))) : seg);
 // Un numero en una unidad: los muy pequeños con 4 cifras significativas (fmtNum los dejaria en 0); sin el «.0» de fmtNum en los miles.
 const fmtQ = (x) => localNum(x !== 0 && Math.abs(x) < 1e-3 ? String(Number(x.toPrecision(4))) : String(Number(x.toFixed(Math.abs(x) >= 1000 ? 1 : 3))));
 // Una cantidad con unidades: en la unidad pedida («F='kN»), si no en la de la variable («F:250'N»), en la de una variable de la expresion
@@ -66,7 +66,8 @@ function textValue1(doc, t) {
   const hasSub = s.includes('$') && s.includes('_(');
   if (!hasSub && !(s.includes('$') && /[:=`]/.test(s))) return s;
   const toks = calcParse(s), pieces = toks.flatMap((tk) => (tk.t === 'math' ? tk.lines.flat() : []));
-  if (!hasSub && pieces.every((p) => p.k === 'code')) return s;
+  const badU = (p) => p.k === 'code' && UDEF_ERR.has(String(p.s).trim()) && unitDefOf(p.s); // definicion de unidad que no vale: ⚠
+  if (!hasSub && pieces.every((p) => p.k === 'code' && !badU(p))) return s;
   const hasDef = pieces.some((p) => p.k === 'def'), hasOut = pieces.some((p) => p.k === 'out');
   let vars = null, st = null, tid = null, idx = 0, oidx = 0;
   // Orden de lectura: cada salida y cada definicion ve las variables tal como estaban en ese punto de la pagina (ver textVarState)
@@ -105,7 +106,7 @@ function textValue1(doc, t) {
   };
   const piece = (p) => {
     if (p.k === 'lit') return p.closed ? p.s : '`' + p.s + ' ⚠'; // literal: se dibuja, no se calcula
-    if (p.k === 'code') return wrapNames(p.s);
+    if (p.k === 'code') return badU(p) ? wrapNames(p.s) + ' ⚠' : wrapNames(p.s);
     if (p.k === 'out') return p.pre + showU(wrapNames(p.expr)) + '=' + outVal(p, true) + p.post; // expr= -> expr=valor
     const name = normName(p.name), shown = name.includes('_(') ? NM0 + name + NM1 : name; // x:valor -> x:=valor (en cursiva)
     const dk = tid + ':' + idx++, bad = st.bad.has(dk);

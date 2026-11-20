@@ -5,7 +5,7 @@ import { newDoc, addPoint, addLine, addCon, addText } from '../src/model.js';
 import { shownText } from '../src/text.js';
 import { dimText, dimUnit, dimShown, isScaledDim, layoutDim } from '../src/dims.js';
 import { initSolver, solve } from '../src/solver.js';
-import { settle, splitUnit, dimEval, varValue, varsList, scaleEval, noScaleWarn } from '../src/params.js';
+import { settle, splitUnit, dimEval, varValue, varsList, scaleEval, noScaleWarn, textVarErrors } from '../src/params.js';
 import { setDecimal } from '../src/locale.js';
 import { evalExpr } from '../src/expr.js';
 
@@ -157,6 +157,33 @@ t('clear(): una cota o un vector debajo de clear(eF) ya no ve la escala; encima 
   addText(drv.d, addPoint(drv.d, 0, 40), '$clear(eF)=$', {});
   const r = settle(drv.d, solve, []);
   assert.equal(r.ok, false); assert.match(r.error, /se borró con clear/);
+});
+
+t('unidades de usuario: valen en todo el dibujo, una sola unidad nueva por linea, sin redefinir las que existen', () => {
+  const page = (...texts) => {
+    const d = newDoc();
+    texts.forEach((x, i) => addText(d, addPoint(d, 0, -10 * i), '$$' + x + '$$', {}));
+    return { d, show: () => Object.values(d.texts).map((t) => clean(shownText(d, t).text)), errs: () => textVarErrors(d).map((e) => e.msg) };
+  };
+  const a = page("1'vuelta:2π'rad", "a:0.25'vuelta\nsin(a)=\na='deg");
+  assert.deepEqual(a.show()[1], "$$a:=0.25 \" vuelta\"\nsin(a)=1\na=90 \" deg\"$$"); assert.deepEqual(a.errs(), []);
+  const b = page("x:2'persona\nx='m", "1.70'm:1'persona"); // la definicion puede estar despues: vale en todo el dibujo
+  assert.equal(b.show()[0], "$$x:=2 \" persona\"\nx=3.4 \" m\"$$");
+  const c = page("1'persona:'persona", "c:5'kg/persona\ng:3'persona\nc*g=\ng+1=");
+  assert.equal(c.show()[1], "$$c:=5 \" kg/persona\"\ng:=3 \" persona\"\nc*g=15 \" kg\"\ng+1=⚠$$"); // magnitud nueva: no se mezcla
+  const e = page("1'in:30'mm", "1'mm:'mm");
+  assert.ok(e.show()[0].includes('⚠') && e.show()[1].includes('⚠')); assert.equal(e.errs().length, 2);
+  const f = page("1'persona:'persona", "1.70'm:1'persona"); // la misma unidad dos veces: ninguna vale
+  assert.ok(f.errs().every((m) => /más de una vez/.test(m))); assert.equal(f.errs().length, 2);
+  const g = page("2'caja:1'paq", "1'paq:6'u_x", "1'u_x:'u_x", "q:1'caja\nq='u_x"); // en cadena, en cualquier orden
+  assert.equal(g.show()[3], "$$q:=1 \" caja\"\nq=3 \" u_x\"$$");
+  // una cota en una unidad de usuario: longitud en mm, otra magnitud en el SI
+  const h = page("1.70'm:1'persona");
+  const p0 = addPoint(h.d, 0, 50), p1 = addPoint(h.d, 10, 50); addLine(h.d, p0, p1, {});
+  const k = addCon(h.d, { t: 'DIST', refs: [p0, p1], v: 10, expr: "2'persona" });
+  assert.ok(settle(h.d, solve, []).ok);
+  near(h.d.pts[p1].x - h.d.pts[p0].x, 3400, 1e-6); assert.equal(dimText(h.d, h.d.cons[k]), '2 persona');
+  newDoc(); shownText(newDoc(), { text: '' }); // deja el registro sin unidades de usuario para lo que siga
 });
 
 console.log(`\n${passed} pruebas de cotas con unidad pasaron`);
