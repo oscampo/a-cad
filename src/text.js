@@ -3,7 +3,7 @@
 // de measureText; en las pruebas puede ser una aproximacion).
 import { evalExpr, setAngleMode } from './expr.js';
 import { varsOf, textVars } from './params.js';
-import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, clearCall, solveCall, unitDefOf, UDEF_ERR } from './tvars.js';
+import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, showFlat, clearCall, solveCall, unitDefOf, UDEF_ERR } from './tvars.js';
 import { normName, exprRefs } from './expr.js';
 import { parseUnit, sameDim, autoUnit } from './units.js';
 export { runsOf, plainText } from './tvars.js';
@@ -64,10 +64,10 @@ function textValue1(doc, t) {
   setAngleMode(doc);
   const s = String(t.text ?? '');
   const hasSub = s.includes('$') && s.includes('_(');
-  if (!hasSub && !(s.includes('$') && /[:=`]/.test(s))) return s;
+  if (!hasSub && !(s.includes('$') && /[:=`]/.test(s))) return showFlat(s);
   const toks = calcParse(s), pieces = toks.flatMap((tk) => (tk.t === 'math' ? tk.lines.flat() : []));
   const badU = (p) => p.k === 'code' && UDEF_ERR.has(String(p.s).trim()) && unitDefOf(p.s); // definicion de unidad que no vale: ⚠
-  if (!hasSub && pieces.every((p) => p.k === 'code' && !badU(p))) return s;
+  if (!hasSub && pieces.every((p) => p.k === 'code' && !badU(p))) return showFlat(s);
   const hasDef = pieces.some((p) => p.k === 'def'), hasOut = pieces.some((p) => p.k === 'out');
   let vars = null, st = null, tid = null, idx = 0, oidx = 0;
   // Orden de lectura: cada salida y cada definicion ve las variables tal como estaban en ese punto de la pagina (ver textVarState)
@@ -128,7 +128,7 @@ function textValue1(doc, t) {
     const un = p.unit && !(shownVal && !shownVal.endsWith('⚠')) ? unitMath(p.unit.replace(/^\((.*)\)$/, '$1')) : '';
     return p.pre + (mx ? IT0 + shown + ':=' + IT1 + matQ(mx, val.d, { [name]: val }, name, null, true) + (val.d ? '' : un) : IT0 + shown + call + ':=' + showU(wrapNames(p.expr.trim())) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;
   };
-  return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + contBack(tk, tk.lines.map((l) => l.map(piece).join('')).join('\n')) + (tk.disp ? '$$' : '$'))).join('');
+  return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + contBack(tk, tk.lines.map((l) => l.map(piece).join('')).join('\n'), true) + (tk.disp ? '$$' : '$'))).join('');
 }
 // El texto tal como se ve (con sus salidas calculadas): el mismo objeto si no hay ninguna.
 export function shownText(doc, t) {

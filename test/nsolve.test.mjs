@@ -132,4 +132,27 @@ t('fzero: la incognita puede llamarse como una funcion definida antes (F(x) y lu
   assert.equal(evalExpr('max(F(2), 3)', { vars }).value, 4); // F sigue siendo la funcion fuera de fzero
 });
 
+t('saltos de linea dentro de parentesis o corchetes: un solo enunciado, dibujado en una linea; el texto guardado no cambia', () => {
+  setDecimal('.');
+  const multi = '$$\nsolve(\n  [\n    2x+17y==23;\n    x-y==5\n  ],\n  [x; y]\n)=\n$$';
+  const one = '$$solve([2x+17y==23;x-y==5],[x; y])=$$';
+  const show = (s) => {
+    const d = newDoc();
+    addText(d, addPoint(d, 0, 100), '$x:1$', {}); addText(d, addPoint(d, 0, 90), '$y:1$', {});
+    const t = d.texts[addText(d, addPoint(d, 0, 0), s, {})];
+    assert.deepEqual(textVarErrors(d), []);
+    return { d, t, out: shownText(d, t).text.replace(/[\uE000-\uF8FF]/g, '') }; // sin las marcas internas de las salidas
+  };
+  const m = show(multi), o = show(one);
+  assert.equal(m.out, '$$\nsolve( [ 2x+17y==23; x-y==5 ], [x; y] )=[x=5.684; y=0.684]\n$$');
+  assert.equal(o.out, '$$solve([2x+17y==23;x-y==5],[x; y])=[x=5.684; y=0.684]$$');
+  assert.equal(m.t.text, multi); // se guarda como se escribio
+  const d = newDoc(); // una matriz partida en filas
+  const t = d.texts[addText(d, addPoint(d, 0, 0), '$$A:[\n  1, 2;\n  3, 4\n]\nA=$$', {})];
+  assert.equal(shownText(d, t).text.replace(/[\uE000-\uF8FF]/g, ''), '$$A:=[1, 2; 3, 4]\nA=[1, 2; 3, 4]$$');
+  const lit = newDoc(); // dentro de un literal `…` el salto sigue siendo un salto
+  const tl = lit.texts[addText(lit, addPoint(lit, 0, 0), '$$`(`\nk:2$$', {})];
+  assert.equal(shownText(lit, tl).text.replace(/[-]/g, ''), '$$(\nk:=2$$');
+});
+
 console.log(`\n${passed} pruebas de ecuaciones pasaron`);

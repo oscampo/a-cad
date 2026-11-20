@@ -96,8 +96,9 @@ export function calcParse(s) {
   if (r) return r;
   r = splitMath(s).map((tk) => {
     if (tk.t === 'txt') return { t: 'txt', raw: tk.raw };
-    const conts = [], src = tk.src.replace(CONT, (m) => (conts.push(m), CONT_MARK));
-    return { t: 'math', disp: tk.disp, lines: src.split('\n').map(calcPieces), ...(conts.length ? { conts } : {}) };
+    const ex = [], src0 = tk.src.replace(CONT, (m) => (ex.push(m), CONT_MARK));
+    const { src, conts, imp } = joinOpen(src0, ex);
+    return { t: 'math', disp: tk.disp, lines: src.split('\n').map(calcPieces), ...(conts.length ? { conts } : {}), ...(imp.size ? { imp } : {}) };
   });
   if (PARSED.size > 2000) PARSED.clear();
   PARSED.set(s, r);
@@ -109,7 +110,41 @@ export const calcSrc = (toks) => toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk
 // tk.conts guarda los cortes tal como estaban y contBack los devuelve al reescribir o mostrar la formula.
 const CONT = /[ \t]*\.\.\.[ \t]*\n[ \t]*(?:\.\.\.)?[ \t]*/g;
 export const CONT_MARK = '　';
-export const contBack = (tk, s) => { let i = 0; return tk.conts ? s.replace(/　/g, () => tk.conts[i++] ?? ' ') : s; };
+// show: para dibujar. Un corte dentro de un parentesis o corchete abierto se dibuja como si todo estuviera en una linea; uno con «...»,
+// partido como se escribio. Sin show (para reescribir la formula) todos vuelven tal como estaban.
+export const contBack = (tk, s, show = false) => { let i = 0; return tk.conts ? s.replace(/　/g, () => { const k = i++; return show && tk.imp?.has(k) ? ' ' : tk.conts[k] ?? ' '; }) : s; };
+// Dentro de un parentesis o corchete abierto el salto de linea no termina el enunciado (como en Python): «solve(» / «[2x+17y==23;» /
+// «x-y==5]» / «[x; y])=» es un solo enunciado, «solve([2x+17y==23; x-y==5], [x; y])=». El corte (con los espacios de sangria) se cambia
+// por CONT_MARK como los de «...»; ex: los cortes con «...» que ya estan en src, en orden. Devuelve { src, conts (todos, en orden), imp
+// (indices de conts que son de este tipo) }. Lo que va entre comillas invertidas (literal) no cuenta.
+function joinOpen(src, ex) {
+  const conts = [], imp = new Set();
+  if (!src.includes('\n') || !/[([]/.test(src)) return { src, conts: ex, imp };
+  let out = '', d = 0, lit = false, e = 0;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === CONT_MARK) { conts.push(ex[e++]); out += c; continue; }
+    if (c === '`') lit = !lit;
+    else if (!lit && (c === '(' || c === '[')) d++;
+    else if (!lit && (c === ')' || c === ']')) d = Math.max(0, d - 1);
+    else if (!lit && c === '\n' && d > 0) {
+      const a = /[ \t]*$/.exec(out)[0], b = /^[ \t]*/.exec(src.slice(i + 1))[0];
+      out = out.slice(0, out.length - a.length) + CONT_MARK;
+      imp.add(conts.length); conts.push(a + '\n' + b);
+      i += b.length; continue;
+    }
+    out += c;
+  }
+  return { src: out, conts, imp };
+}
+// El texto como se dibuja si tiene formulas partidas dentro de parentesis o corchetes (ver joinOpen); si no, tal cual.
+export function showFlat(s) {
+  s = String(s ?? '');
+  if (!s.includes('$') || !s.includes('\n')) return s;
+  const toks = calcParse(s);
+  if (!toks.some((tk) => tk.imp)) return s;
+  return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + contBack(tk, tk.lines.map((l) => l.map(pieceSrc).join('')).join('\n'), true) + (tk.disp ? '$$' : '$'))).join('');
+}
 // Enunciados (asignaciones y salidas) de un texto, en orden.
 export const calcStmts = (s) => (hasCalc(s) ? calcParse(s).flatMap((tk) => (tk.t === 'math' ? tk.lines.flat().filter((p) => p.k === 'def' || p.k === 'out') : [])) : []);
 
@@ -236,7 +271,7 @@ function readingItems(doc, probes = []) {
   for (const [tid, t] of Object.entries(doc.texts || {})) {
     const s = String(t.text ?? '');
     if (!calcStmts(s).length) continue;
-    const P = doc.pts?.[t.pt] || { x: 0, y: 0 }, h = t.h > 0 ? t.h : 1, lines = s.split('\n');
+    const P = doc.pts?.[t.pt] || { x: 0, y: 0 }, h = t.h > 0 ? t.h : 1, lines = showFlat(s).split('\n'); // como se dibuja (una formula partida entre parentesis es una linea)
     const hh = lines.length * 1.2 * h, w = Math.max(1, ...lines.map((l) => l.length)) * 0.55 * h, an = t.anchor || 'bl';
     items.push({ tid, t, h, n: n++, top: P.y + { t: 0, m: hh / 2, b: hh }[an[0]], left: P.x - { l: 0, c: w / 2, r: w }[an[1]] });
   }
