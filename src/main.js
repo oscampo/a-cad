@@ -29,7 +29,7 @@ import { attachAutoPair } from './autopair.js';
 import { attachGreek } from './greek.js';
 import { migrateCalcDoc } from './tvars.js';
 import { codeKeyEvent } from './codeedit.js';
-import { isScript } from './script.js';
+import { isScript, parseScript } from './script.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
@@ -4462,14 +4462,36 @@ function openProps(h) {
     const ta = document.createElement('textarea');
     // el cuadro ocupa todo el ancho de la ventana (en su propia linea, bajo «Texto») y crece con las lineas del texto (de 3 a 14)
     ta.value = o.text;
-    ta.style.cssText = 'flex:1 1 100%;width:100%;box-sizing:border-box;min-height:56px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);font:inherit;resize:vertical';
+    ta.style.cssText = 'flex:1 1 auto;min-width:0;width:100%;box-sizing:border-box;min-height:56px;padding:6px 8px;border:0;border-radius:0;background:transparent;color:var(--fg);font:inherit;line-height:1.4;resize:vertical;outline-offset:-2px';
+    // el campo va en un marco con una columna de numeros de linea a la izquierda (solo en un script: ver taFont)
+    const taBox = document.createElement('div'), gut = document.createElement('div');
+    taBox.style.cssText = 'flex:1 1 100%;width:100%;display:flex;align-items:stretch;border:1px solid var(--line);border-radius:8px;background:var(--btn);overflow:hidden';
+    gut.style.cssText = 'flex:none;padding:6px 6px 6px 8px;text-align:right;color:var(--muted);border-right:1px solid var(--line);user-select:none;-webkit-user-select:none;overflow:hidden;white-space:pre;font:inherit;line-height:1.4';
+    gut.setAttribute('aria-hidden', 'true');
+    taBox.append(gut, ta);
+    const taErr = document.createElement('div'); // el error de sintaxis de un script, bajo el campo
+    taErr.style.cssText = 'flex:1 1 100%;color:var(--warn);font-size:14px;margin-top:4px';
     const taRows = () => { ta.rows = Math.max(3, Math.min(14, ta.value.split('\n').length + 1)); };
     taRows(); ta.addEventListener('input', taRows);
     attachAutoPair(ta); // lo guardado: texto con Markdown y formulas entre $...$
     // un script se edita como codigo: monoespaciada, Enter con sangria, Tab; al salir del campo se colapsa (salvo «Mostrar el código»)
     const isSc = () => ta.value[0] === '%';
-    const taFont = () => { ta.style.fontFamily = isSc() ? fontCss('mono') : ''; ta.spellcheck = !isSc(); };
+    // en un script: numeros de linea (el de la linea con un error de sintaxis, en rojo) y sin partir las lineas largas, para que cada
+    // numero quede a la altura de su linea (las largas se recorren de lado)
+    const taFont = () => {
+      const sc = isSc();
+      ta.style.fontFamily = gut.style.fontFamily = sc ? fontCss('mono') : '';
+      ta.spellcheck = !sc; ta.wrap = sc ? 'off' : 'soft'; ta.style.whiteSpace = sc ? 'pre' : '';
+      gut.hidden = !sc;
+      const err = sc ? parseScript(ta.value).err || '' : '';
+      taErr.textContent = err ? '⚠ ' + err : ''; taErr.hidden = !err;
+      if (!sc) return;
+      const bad = Number(/^línea (\d+)/.exec(err)?.[1] || 0);
+      gut.innerHTML = ta.value.split('\n').map((_, i) => (i + 1 === bad ? `<b style="color:var(--warn)">${i + 1}</b>` : String(i + 1))).join('\n');
+      gut.scrollTop = ta.scrollTop;
+    };
     taFont(); ta.addEventListener('input', taFont);
+    ta.addEventListener('scroll', () => { gut.scrollTop = ta.scrollTop; });
     ta.addEventListener('keydown', (e) => { if (isSc()) codeKeyEvent(e, ta); });
     ta.onchange = () => {
       if (!ta.value.trim()) { ta.value = propObj().text; return; }
@@ -4478,7 +4500,7 @@ function openProps(h) {
       if (isSc() && !shc.checked) delete propObj().open;
       if (textEditOk(before)) afterChange();
     };
-    body.appendChild(propRow('Texto', ta));
+    body.appendChild(propRow('Texto', taBox, taErr));
     const shc = document.createElement('input');
     shc.type = 'checkbox'; shc.checked = !!o.open; shc.style.cssText = 'width:22px;height:22px;min-height:22px;margin:0;flex:none';
     shc.onchange = () => { pushUndo(); if (shc.checked) propObj().open = true; else delete propObj().open; afterChange(); };
