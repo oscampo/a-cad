@@ -7,6 +7,7 @@ import { dimText, dimUnit, dimShown, isScaledDim, layoutDim } from '../src/dims.
 import { initSolver, solve } from '../src/solver.js';
 import { settle, splitUnit, dimEval, varValue, varsList, scaleEval, noScaleWarn } from '../src/params.js';
 import { setDecimal } from '../src/locale.js';
+import { evalExpr } from '../src/expr.js';
 
 await initSolver();
 setDecimal('.');
@@ -126,6 +127,16 @@ t('sistema de unidades del documento: decide la unidad de las salidas sin unidad
   d.units = 'US';
   assert.equal(clean(shownText(d, tx).text), "$D1=126 \" in\"$\n$F:=30 \" kN\"$\n$M:=F*D1=849.778 \" kip·in\"$\n$d:=5 \" cm\"$\n$d=5 \" cm\"$\n$A:=d^2=3.875 \" in²\"$\n$D1=126 \" in\"$");
   delete d.units; shownText(d, tx); // deja el SI activo para lo que siga
+});
+
+t('el 0 sin unidades vale con cualquier unidad: se compara, se suma y va en una matriz; otro numero no', () => {
+  const vars = { x: { v: 0.508, d: L } };
+  const e = (s) => evalExpr(s, { vars, allowMat: true });
+  assert.equal(e('x>0').value, 1); assert.equal(e('0<x').value, 1); assert.equal(e('x<=0').value, 0);
+  assert.deepEqual(e('x+0').dim, L); assert.deepEqual(e('0-x').dim, L);
+  assert.deepEqual(e('[0, x]').dim, L); assert.deepEqual(e('[x, 0]').dim, L); assert.deepEqual(e('[0; 0; x]').dim, L);
+  assert.deepEqual(e('if(x>0; x; 0)').dim, L);
+  assert.throws(() => e('x+1')); assert.throws(() => e('x>1')); assert.throws(() => e('[1, x]')); assert.throws(() => e('[0, x, 1]'));
 });
 
 console.log(`\n${passed} pruebas de cotas con unidad pasaron`);

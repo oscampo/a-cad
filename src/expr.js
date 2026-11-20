@@ -206,6 +206,9 @@ export function renameInExpr(src, from, to) {
 
 // Matrices: un valor puede ser una matriz { m: [[...], ...] } (un vector fila es de 1 x n; la transpuesta de un vector fila, de n x 1).
 const isM = (a) => !!a?.m;
+// Un 0 sin unidades vale con cualquier unidad (0 m = 0 kN = 0): se puede sumar, restar y comparar con una cantidad, y estar en una matriz
+// con elementos que la tienen («x>0» con x en in, «if(x>a; x-a; 0)»). Solo el cero exacto: 1 + 2 m sigue siendo ⚠.
+const zero0 = (a) => !isM(a) && !a?.d && a?.v === 0;
 const dimsOf = (a) => `${a.m.length}×${a.m[0].length}`;
 const nameM = (a) => (a.m.length === 1 ? `un vector fila de ${a.m[0].length}` : a.m[0].length === 1 ? `un vector columna de ${a.m.length}` : `una matriz de ${dimsOf(a)}`);
 const mapM = (a, f) => ({ m: a.m.map((r) => r.map(f)) });
@@ -412,7 +415,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
       default: return a.d; // sum, mean, median, std, norm, trace, diag, cumsum
     }
   };
-  const addU = (a, b, s) => { if (!sameDim(a.d, b.d)) throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} ${unitMsg(a.d)} y ${unitMsg(b.d)}`); return a.d || b.d; };
+  const addU = (a, b, s) => { if (!sameDim(a.d, b.d)) { if (zero0(b)) return a.d; if (zero0(a)) return b.d; throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} ${unitMsg(a.d)} y ${unitMsg(b.d)}`); } return a.d || b.d; };
   const mulU = (a, b, s, v) => ({ v, r: a.r || b.r, d: mulDim(a.d, b.d, s) });
 
   // comparacion (la de menor precedencia): da 1 si se cumple y 0 si no. «==» y «!=» toleran el error de redondeo.
@@ -422,7 +425,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     p++;
     const b = expr();
     if (isM(a) || isM(b)) throw new Error('No se pueden comparar vectores o matrices');
-    if (!sameDim(a.d, b.d)) throw new Error(`No se puede comparar ${unitMsg(a.d)} con ${unitMsg(b.d)}`);
+    if (!sameDim(a.d, b.d) && !zero0(a) && !zero0(b)) throw new Error(`No se puede comparar ${unitMsg(a.d)} con ${unitMsg(b.d)}`);
     const x = a.v, y = b.v, eq = Math.abs(x - y) <= 1e-9 * Math.max(a.d ? 0 : 1, Math.abs(x), Math.abs(y)); // con unidades, la tolerancia es relativa (3'pF no es 0)
     const ok = { '<': x < y && !eq, '>': x > y && !eq, '<=': x < y || eq, '>=': x > y || eq, '==': eq, '!=': !eq }[k.v];
     return { v: ok ? 1 : 0, r: false };
@@ -591,10 +594,11 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
       // columnas): con V y M filas de 2, [V; M] es la matriz de 2×2 y [V, M] una fila de 4.
       if (isOp(']')) throw new Error('Una matriz no puede estar vacía');
       const brow = [[]]; // filas de bloques; cada bloque, una matriz (un numero es de 1×1)
-      let d0 = null; // todos los elementos con la misma dimension (la de la matriz)
+      let d0 = null, z0 = true; // todos los elementos con la misma dimension (la de la matriz); z0: hasta aqui solo ceros sin unidades
       for (;;) {
         const a = cmp();
-        if (d0 === null) d0 = a.d; else if (!sameDim(a.d, d0)) throw new Error(`Los elementos de una matriz deben tener las mismas unidades (hay ${unitMsg(d0)} y ${unitMsg(a.d)})`);
+        if (d0 === null || (z0 && !zero0(a))) { if (!zero0(a) || d0 === null) d0 = a.d; } else if (!sameDim(a.d, d0) && !zero0(a)) throw new Error(`Los elementos de una matriz deben tener las mismas unidades (hay ${unitMsg(d0)} y ${unitMsg(a.d)})`);
+        if (!zero0(a)) z0 = false;
         brow.at(-1).push(isM(a) ? a : { m: [[a.v]] });
         const s = peek();
         if (s?.t === 'sep') { p++; if (s.c === rowChar()) brow.push([]); continue; } // filas: «;» (o «|» con coma decimal); elementos: «,» (o «;»)
