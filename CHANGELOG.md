@@ -2,19 +2,23 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
-## Sin publicar
+## v2.9.3 (2026-11-20)
 
 ### Nuevo
 
-- Cálculo: **`clear()` borra también cotas y medidas del dibujo**. `clear(D1)=` o `clear(l3.len)=` hacen que desde ese punto del orden de lectura ya no se lean (una fórmula, una cota, una gráfica o una salida que las lea más abajo da ⚠ y el aviso dice que se borraron con `clear()`); la cota sigue gobernando el dibujo. Tras borrarla, su nombre queda libre para una variable de texto (`D1:7`). Si ya hay una variable de texto con ese nombre, el primer `clear` borra la variable y otro después la cota. `clear(all)=` borra todo: variables de texto, cotas y medidas del dibujo (para revertirlo basta quitarlo y borrar solo lo necesario). Antes `clear(D1)=` daba ⚠.
+- Cálculo: **`clear()` borra también cotas y medidas del dibujo**. `clear(D1)=` o `clear(l3.len)=` hacen que desde ese punto del orden de lectura ya no se lean (una fórmula, una cota, una gráfica o una salida que las lea más abajo da ⚠ y el aviso dice que se borraron con `clear()`); la cota sigue gobernando el dibujo. Tras borrarla, su nombre queda libre para una variable de texto (`D1:7`). Si ya hay una variable de texto con ese nombre, el primer `clear` borra la variable y otro después la cota. Antes `clear(D1)=` daba ⚠.
+- Cálculo: **`clear(all)=` borra todo**: variables y funciones de texto, cotas y medidas del dibujo. Para revertirlo basta quitarlo y borrar solo lo necesario.
+- Cálculo: **la página es una cronología**. `clear` borra lo que existe hasta ese punto, y una cota cuya etiqueta está más abajo vuelve a valer desde su etiqueta (en `Tutorial.json`, un `clear(all)` encima de la viga deja leer la cota L en `x:L+…`). Las medidas del dibujo (`l3.len`, `p1.x`) no tienen lugar en la página: una vez borradas no vuelven.
 - Cálculo: **una fórmula sigue en la línea siguiente mientras un paréntesis o un corchete esté abierto**, sin `...`, como en Python. Así una matriz o un `solve([ecuaciones], [incógnitas])` se escriben en columnas, con sangría (`solve(` / `[` / `2x+17y==23;` / `x-y==5` / `],` / `[x; y]` / `)=`), y se dibujan como si estuvieran en una sola línea. El texto se guarda tal como se escribió. Con `...` todo sigue igual (se dibuja partido). Dentro de un literal `` `…` `` el salto no cuenta.
+
+### Cambia el comportamiento
+
+- Cálculo: si una variable de texto se llama como una cota y se borra con `clear()`, el nombre queda vacío (⚠) hasta el lugar de la página donde está la etiqueta de la cota; antes la cota volvía a valer en el mismo `clear`, aunque su etiqueta estuviera mucho más abajo. En `Tutorial.json`, `a='in` (t349) queda por encima de la cota y ahora da ⚠: hay que bajarlo debajo de la cota.
 
 ### Corregido
 
-- Cálculo: si una variable de texto se llama como una cota y se borra con `clear()`, el nombre queda vacío (⚠) hasta el lugar de la página donde está la etiqueta de la cota; antes la cota reaparecía en el mismo `clear`, aunque su etiqueta estuviera mucho más abajo. En `Tutorial.json`, `a='in` (t349) queda por encima de la cota y ahora da ⚠: hay que bajarlo debajo de la cota.
-- Cálculo: `clear(all)` (y `clear()` de una cota) borra solo lo que existe hasta ese punto de la página: una cota cuya etiqueta está más abajo vuelve a valer desde su etiqueta. Antes `clear(all)` ocultaba para siempre todas las cotas, también las de más abajo, y una fórmula debajo que las leía (en `Tutorial.json`, `x:L+…` con la cota L) daba ⚠.
 - Cálculo: en `fzero(ecuación, x, inicial)` la incógnita puede llamarse como una función definida antes (`F(x):…` y luego `fzero(F*2'm == 30'kN*'m, F, 10'kN)`): antes daba «Carácter no válido «,»», porque la coma después de un nombre de función no se leía como separador.
-- Cálculo: un `clear()` pone en juego el orden de lectura aunque el dibujo no tenga ninguna variable de texto definida.
+- Cálculo: leer una variable borrada con `clear()` avisa «se borró con clear() antes de este punto»; antes decía, por error, que se definía más abajo.
 
 ## v2.9.2 (2026-11-20)
 
