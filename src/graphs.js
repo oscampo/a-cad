@@ -25,20 +25,15 @@ export function addGraph(doc, x, y, w, h, series = []) {
 // «y vs x» -> { y, x, ax, ay }. Cada lado es una variable o una expresion con ellas («p1.x/p1.y», «ML1.d-p2.x»).
 // Al final se puede elegir los ejes con «@»: «MR1.v vs t @y2», «p3.y vs t @x2 y2» (por defecto x1 e y1).
 export const AXES = ['x1', 'x2', 'y1', 'y2'];
-// Intervalo por defecto del vector generico de «x» (sin limites en el eje). Cada grafica puede guardar el suyo en g.xdef = [lo, hi]:
-// es el que usa con el eje x1 en automatico (y al que vuelve el doble toque en su deslizador horizontal).
+// Intervalo por defecto del vector generico de «x» (sin limites en el eje).
 export const GEN_X = [-10, 10];
-export function genDefault(g) {
-  const d = g?.xdef, lo = Number(d?.[0]), hi = Number(d?.[1]);
-  return Array.isArray(d) && Number.isFinite(lo) && Number.isFinite(hi) && hi > lo ? [lo, hi] : GEN_X.slice();
-}
 // Valores de «x» de una grafica: n valores entre los limites de su eje k (escala lineal, o geometrica si el eje es logaritmico y los limites son positivos).
 export function genericRange(g, k = 'x1') {
   const c = { min: null, max: null, scale: 'lin', ...(g.axes?.[k] || {}) }, num = (v) => (v !== null && v !== '' && v !== undefined && Number.isFinite(Number(v)) ? Number(v) : null);
   let lo = num(c.min), hi = num(c.max);
-  const def = genDefault(g), w = def[1] - def[0];
-  if (lo === null && hi === null) [lo, hi] = def; else if (lo === null) lo = hi - w; else if (hi === null) hi = lo + w;
-  if (!(hi > lo)) [lo, hi] = def;
+  const w = GEN_X[1] - GEN_X[0];
+  if (lo === null && hi === null) [lo, hi] = GEN_X; else if (lo === null) lo = hi - w; else if (hi === null) hi = lo + w;
+  if (!(hi > lo)) [lo, hi] = GEN_X;
   return [lo, hi];
 }
 export function genericX(g, k = 'x1', n = 100) {
