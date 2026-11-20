@@ -3,7 +3,7 @@
 // de measureText; en las pruebas puede ser una aproximacion).
 import { evalExpr, setAngleMode } from './expr.js';
 import { varsOf, textVars } from './params.js';
-import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, showFlat, clearCall, solveCall, unitDefOf, UDEF_ERR } from './tvars.js';
+import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, showFlat, scriptStmt, clearCall, solveCall, unitDefOf, UDEF_ERR } from './tvars.js';
 import { normName, exprRefs } from './expr.js';
 import { parseUnit, sameDim, autoUnit } from './units.js';
 export { runsOf, plainText } from './tvars.js';
@@ -65,9 +65,21 @@ export function textValue(doc, t) {
   KEEP_DIM_UNIT = !!t?.vecOf;
   try { return textValue1(doc, t); } finally { KEEP_DIM_UNIT = false; }
 }
+// Un script («%f(x):» con su programa, ver script.js) se dibuja como un bloque de codigo: colapsado, solo su firma en un cuadro
+// («▸ suma2(n)», con ⚠ si tiene un error); expandido (t.open), la firma y el programa tal como se escribio, y el error al final.
+function scriptShown(doc, t, s) {
+  const p = scriptStmt(s);
+  let err = p.err || null;
+  if (!err && p.name) { const e = textVars(doc).errs.get(p.name); if (e) err = e.replace(/^script «[^»]*»: /, ''); }
+  const fence = (body) => '```\n' + body + '\n```';
+  if (!t.open) return fence('▸ ' + p.sig + (err ? '  ⚠' : ''));
+  const lines = s.split('\n'), head = lines[0].replace(/^%\s*/, '');
+  return fence(['▾ ' + head, ...lines.slice(1), ...(err ? ['⚠ ' + err] : [])].join('\n'));
+}
 function textValue1(doc, t) {
   setAngleMode(doc);
   const s = String(t.text ?? '');
+  if (s[0] === '%') return scriptShown(doc, t, s);
   const hasSub = s.includes('$') && s.includes('_(');
   if (!hasSub && !(s.includes('$') && /[:=`]/.test(s))) return showFlat(s);
   const toks = calcParse(s), pieces = toks.flatMap((tk) => (tk.t === 'math' ? tk.lines.flat() : []));

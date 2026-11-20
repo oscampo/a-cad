@@ -213,7 +213,7 @@ Toca el punto de una esquina	Tap the point of a corner
 No se pudo: entra en conflicto con otras restricciones	Could not do it: it conflicts with other constraints
 Texto normal · Enter dibuja · Shift+Enter otra línea	Plain text · Enter draws · Shift+Enter new line
 Ecuación · x:valor asigna · x:valor'unidad · expr= calcula · " o espacio al empezar = texto	Equation · x:value assigns · x:value'unit · expr= calculates · " or a space at the start = text
-Escribe una ecuación (AsciiMath): Enter la dibuja, Shift+Enter hace otra línea y empezar con " (o un espacio) escribe texto normal	Type an equation (AsciiMath): Enter draws it, Shift+Enter makes a new line and starting with " (or a space) writes plain text
+Escribe una ecuación (AsciiMath): Enter la dibuja, Shift+Enter hace otra línea; empezar con " (o un espacio) escribe texto normal, y con % un script	Type an equation (AsciiMath): Enter draws it, Shift+Enter makes another line; starting with " (or a space) types normal text, and with % a script
 Restricciones en conflicto: se deshizo la acción	Constraints in conflict: the action was undone
 Las rectas son paralelas	The lines are parallel
 No se intersectan (dentro del tramo del arco)	They do not intersect (within the arc's span)

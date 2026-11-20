@@ -7,6 +7,7 @@ import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName
 import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg, setUserUnits, addUserUnit, onDocUnits, unitsVersion, UNIT_NAME_RE } from './units.js';
 import { solveEqs, splitEq, eqResiduals } from './nsolve.js';
+import { isScript, parseScript } from './script.js';
 // Tolerancia de una meta sobre el dibujo («solve(D5 == 40'mm; D1)=»): el solver geometrico no es exacto.
 export const GOAL_TOL = 1e-6;
 
@@ -149,7 +150,19 @@ export function showFlat(s) {
   return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + contBack(tk, tk.lines.map((l) => l.map(pieceSrc).join('')).join('\n'), true) + (tk.disp ? '$$' : '$'))).join('');
 }
 // Enunciados (asignaciones y salidas) de un texto, en orden.
-export const calcStmts = (s) => (hasCalc(s) ? calcParse(s).flatMap((tk) => (tk.t === 'math' ? tk.lines.flat().filter((p) => p.k === 'def' || p.k === 'out') : [])) : []);
+// Un script («%f(x):» y el programa con sangria, ver script.js) es una sola definicion: la funcion (o la variable) que nombra su firma.
+const SCRIPTS = new Map();
+export function scriptStmt(s) {
+  let r = SCRIPTS.get(s);
+  if (!r) {
+    const q = parseScript(s);
+    r = { k: 'def', script: true, name: q.name || '', sig: q.sig, expr: q.body || '0', ...(q.params ? { params: q.params.join(';') } : {}), ...(q.lib && Object.keys(q.lib).length ? { lib: q.lib } : {}), ...(q.err ? { err: q.err } : {}) };
+    if (SCRIPTS.size > 500) SCRIPTS.clear();
+    SCRIPTS.set(s, r);
+  }
+  return r;
+}
+export const calcStmts = (s) => (isScript(s) ? [scriptStmt(s)] : hasCalc(s) ? calcParse(s).flatMap((tk) => (tk.t === 'math' ? tk.lines.flat().filter((p) => p.k === 'def' || p.k === 'out') : [])) : []);
 
 // ---- Cambio de indicador decimal (doc.decimal): reescribe las expresiones de un texto de calculo ----
 // Un rango «x:0.5..2,10» (punto) o «x:0,5..2;10» (coma) se convierte parte por parte, con el separador de «n» del indicador nuevo; los parametros de una funcion se separan con el separador nuevo.
@@ -274,7 +287,7 @@ function readingItems(doc, probes = []) {
   for (const [tid, t] of Object.entries(doc.texts || {})) {
     const s = String(t.text ?? '');
     if (!calcStmts(s).length) continue;
-    const P = doc.pts?.[t.pt] || { x: 0, y: 0 }, h = t.h > 0 ? t.h : 1, lines = showFlat(s).split('\n'); // como se dibuja (una formula partida entre parentesis es una linea)
+    const P = doc.pts?.[t.pt] || { x: 0, y: 0 }, h = t.h > 0 ? t.h : 1, lines = isScript(s) ? (t.open ? s.split('\n') : ['  ' + scriptStmt(s).sig + '  ']) : showFlat(s).split('\n'); // como se dibuja (una formula partida entre parentesis es una linea; un script colapsado, su firma)
     const hh = lines.length * 1.2 * h, w = Math.max(1, ...lines.map((l) => l.length)) * 0.55 * h, an = t.anchor || 'bl';
     items.push({ tid, t, h, n: n++, top: P.y + { t: 0, m: hh / 2, b: hh }[an[0]], left: P.x - { l: 0, c: w / 2, r: w }[an[1]] });
   }
@@ -301,7 +314,7 @@ function readingEvents(doc, probes = []) {
     if (it.probe !== undefined) { out.push({ kind: 'dim', id: it.probe, name: it.pname }); continue; }
     let di = 0, oi = 0;
     for (const p of calcStmts(it.t.text)) {
-      if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(paramSep()).map((q) => normName(q.trim())), ...(p.eq !== undefined && p.params !== undefined ? { eq: true } : {}), ...(p.unit ? { unit: p.unit } : {}) });
+      if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(paramSep()).map((q) => normName(q.trim())), ...(p.eq !== undefined && p.params !== undefined ? { eq: true } : {}), ...(p.unit ? { unit: p.unit } : {}), ...(p.script ? { script: true } : {}), ...(p.lib ? { lib: p.lib } : {}), ...(p.err ? { err: p.err } : {}) });
       else out.push({ kind: 'out', tid: it.tid, idx: oi++, expr: p.expr });
     }
   }
@@ -480,6 +493,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   const key = JSON.stringify([events, dimVars, [...dimNames], angleRad(), unitsVersion()]);
   if (key === memoKey) return memoSt; // las mismas definiciones, posiciones y cotas: el mismo resultado
   const check = (d) => { // ¿vale la definicion? (motivo si no)
+    if (d.err) return `script «${d.name || '…'}»: ${d.err}`; // un script con un error de sintaxis (con su linea)
     if (isReservedName(d.name)) return reservedWhy(d.name);
     if (!TEXT_NAME_RE.test(d.name)) return `«${d.name}» no es un nombre válido`;
     if (d.params) {
@@ -584,11 +598,11 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
     st.win.set(e.name, e);
     (st.byName.get(e.name) || st.byName.set(e.name, []).get(e.name)).push(e);
     let val = null;
-    if (e.params) val = { fn: { params: e.params, body: e.expr } }; // una funcion no se calcula: se calcula al llamarla (con las variables de ese punto)
+    if (e.params) val = { fn: { params: e.params, body: e.expr, ...(e.lib ? { lib: e.lib } : {}) } }; // una funcion no se calcula: se calcula al llamarla (con las variables de ese punto)
     else {
       try {
-        const rg = parseRange(e.expr);
-        const r = rg ? evalRangeDef(rg, e.unit, cur) : evalDef(e.expr, e.unit, cur);
+        const rg = e.script ? null : parseRange(e.expr); // un script puede llevar «1..n» de un for: no es un rango
+        const r = rg ? evalRangeDef(rg, e.unit, cur) : evalDef(e.expr, e.unit, e.lib ? { ...cur, ...e.lib } : cur); // las funciones locales de un script
         const u = { ...(r.dim ? { d: r.dim } : {}), ...(r.pu ? { pu: r.pu, pf: r.pf } : {}) };
         val = r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false, ...u } : { mat: r.mat, r: false, ...u }) : { v: r.value, r: r.rad, ...u }; // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
       } catch (err) { st.bad.add(k); st.errs.set(e.name, `«${e.name}»: ${hint(err.message)}`); }

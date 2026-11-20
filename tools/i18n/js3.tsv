@@ -237,3 +237,23 @@ La condición de while es un número, no un vector ni una matriz	The while condi
 «{0}» se usa antes de darle un valor	«{0}» is used before giving it a value
 «{0}» no es un vector ni una matriz: no lleva índice	«{0}» is not a vector or a matrix: it takes no index
 «{0}» se usa antes de darle un valor (dentro del programa: {1}:valor)	«{0}» is used before giving it a value (inside the program: {1}:value)
+Script · %nombre(x): y el programa con sangría · Enter otra línea (con sangría) · Tab sangra · Shift+Enter dibuja	Script · %name(x): and the program indented · Enter new line (indented) · Tab indents · Shift+Enter draws
+Mostrar el código en el dibujo (si no, solo su nombre)	Show the code in the drawing (otherwise only its name)
+línea 1: un script empieza con su firma, p. ej. %f(x): (y debajo, con sangría, el programa)	line 1: a script starts with its signature, e.g. %f(x): (and below, indented, the program)
+línea 1: los parámetros son nombres separados por «,»	line 1: the parameters are names separated by «,»
+línea 2: falta el programa (con sangría, debajo de la firma)	line 2: the program is missing (indented, below the signature)
+línea {0}: con el programa en la misma línea de la firma no puede haber más líneas	line {0}: with the program on the signature line there can be no more lines
+línea {0}: {1}	line {0}: {1}
+sangría de más: solo después de una línea que termina en «:» (for, while, if)	too much indentation: only after a line ending in «:» (for, while, if)
+falta el cuerpo de {0} (las líneas de debajo, con más sangría)	the body of {0} is missing (the lines below, with more indentation)
+«elif» y «else» van después de un «if», con la misma sangría	«elif» and «else» go after an «if», with the same indentation
+«{0}» lleva la forma {1}	«{0}» takes the form {1}
+«for i in 1..n:»	«for i in 1..n:»
+«while condición:»	«while condition:»
+«if condición:»	«if condition:»
+las funciones locales van en el nivel principal del script, no dentro de un for, while o if	local functions go at the main level of the script, not inside a for, while or if
+los parámetros de «{0}» son nombres separados por «,»	the parameters of «{0}» are names separated by «,»
+a «{0}» le falta el valor ({1}:valor)	«{0}» is missing its value ({1}:value)
+una línea que termina en «:» abre un bloque: for i in …:, while …:, if …: o una función g(x):	a line ending in «:» opens a block: for i in …:, while …:, if …: or a function g(x):
+el script no tiene ningún paso que dé un valor (la última línea es el valor)	the script has no step that gives a value (the last line is the value)
+esta línea queda fuera del programa: revisa la sangría (el programa va con sangría, debajo de la firma)	this line is outside the program: check the indentation (the program goes indented, below the signature)

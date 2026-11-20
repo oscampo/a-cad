@@ -647,7 +647,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     const f = vars[name].fn;
     if (A.length !== f.params.length) throw new Error(`«${name}» recibe ${f.params.length === 1 ? 'un valor' : dotArgs() ? `${f.params.length} valores separados por «,»` : `${f.params.length} valores separados por «;»`}: ${name}(${f.params.join(argText() + ' ')})`);
     if (depth >= 200) throw new Error(`«${name}» se llama a sí misma demasiadas veces (200 niveles)`);
-    const g = globals || vars, local = { ...g };
+    const g = globals || vars, local = { ...g, ...(f.lib || {}) }; // f.lib: las funciones locales de un script (ver script.js)
     f.params.forEach((q, i) => { local[q] = isM(A[i]) ? wd({ mat: A[i].m }, A[i].d) : { v: A[i].v, r: !!A[i].r, d: A[i].d }; });
     try {
       const r = evalExpr(f.body, { radians, vars: local, allowMat: true, depth: depth + 1, globals: g });

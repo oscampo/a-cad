@@ -28,6 +28,8 @@ import { linkTarget, resolveRepoPath, findAnchor } from './links.js';
 import { attachAutoPair } from './autopair.js';
 import { attachGreek } from './greek.js';
 import { migrateCalcDoc } from './tvars.js';
+import { codeKeyEvent } from './codeedit.js';
+import { isScript } from './script.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
@@ -2508,6 +2510,7 @@ function textEditOk(before) {
 const txLiveBox = $('txLiveBox'), txLive = $('txLive');
 const TX_MARK = /^["“” ]/; // «'» queda para las unidades («x:valor'unidad»)
 const txIsText = () => TX_MARK.test(txLive.value);
+const txIsScript = () => txLive.value[0] === '%'; // «%f(x):» y el programa con sangria (ver script.js)
 function txLayout() {
   if (!txState) return;
   const P = txState.sUp.type === 'pt' ? doc.pts[txState.sUp.id] : txState.sUp;
@@ -2519,8 +2522,8 @@ function txLayout() {
   const W = Math.min(cv.clientWidth * 0.92, Math.max(170, mx * px * 0.62 + 26)), Hh = lines.length * px * 1.25 + 6;
   txLive.rows = lines.length; txLive.style.height = Hh - 2 + 'px';
   txLiveBox.style.width = W + 'px';
-  txLiveBox.dataset.tag = txIsText() ? 'A' : 'α'; // insignia azul junto a la esquina: α ecuacion, A texto normal
-  txLiveBox.title = txIsText() ? 'Texto normal · Enter dibuja · Shift+Enter otra línea' : 'Ecuación · x:valor asigna · x:valor\'unidad · expr= calcula · " o espacio al empezar = texto';
+  txLiveBox.dataset.tag = txIsScript() ? '{}' : txIsText() ? 'A' : 'α'; // insignia azul junto a la esquina: α ecuacion, A texto normal, {} script
+  txLiveBox.title = txIsScript() ? 'Script · %nombre(x): y el programa con sangría · Enter otra línea (con sangría) · Tab sangra · Shift+Enter dibuja' : txIsText() ? 'Texto normal · Enter dibuja · Shift+Enter otra línea' : 'Ecuación · x:valor asigna · x:valor\'unidad · expr= calcula · " o espacio al empezar = texto';
   const an = cur.tx.anchor || 'bl', ax = { l: 0, c: 0.5, r: 1 }[an[1]], ay = txState.cursor ? 0 : { t: 0, m: 0.5, b: 1 }[an[0]]; // las entradas siguientes cuelgan de la linea anterior
   txLiveBox.style.left = Math.max(26, Math.min(S.x - ax * W, cv.clientWidth - W - 2)) + 'px'; // a la izquierda queda sitio para la insignia
   txLiveBox.style.top = Math.max(24, Math.min(S.y - ay * Hh, cv.clientHeight - Hh - 2)) + 'px';
@@ -2531,12 +2534,12 @@ function commitTextLive() {
   if (!txState) return false;
   const raw = txLive.value.replace(/\s+$/, ''), asText = TX_MARK.test(raw), body = asText ? raw.slice(1) : raw;
   if (!body.trim()) { endTextLive(); return true; }
-  const text = asText ? body : '$$' + body.trim() + '$$';
+  const text = raw[0] === '%' ? raw : asText ? body : '$$' + body.trim() + '$$'; // un script se guarda tal cual (colapsado al dibujarlo)
   pushUndo();
   const before = textVarErrors(doc), sUp = txState.sUp, reuse = sUp.type === 'pt';
   const pid = pointFrom(sUp); // el punto de insercion es un punto real: admite restricciones
   if (!reuse) doc.pts[pid].txOnly = true; // punto propio del texto: solo se ve al seleccionarlo
-  const id = addText(doc, pid, text, { h: cur.tx.h ?? niceHeight(), ang: cur.tx.ang, anchor: cur.tx.anchor, color: cur.color, readable: cur.tx.readable, font: cur.tx.font });
+  const id = addText(doc, pid, text, { h: cur.tx.h ?? niceHeight(), ang: cur.tx.ang, anchor: text[0] === '%' ? 'tl' : cur.tx.anchor, color: cur.color, readable: cur.tx.readable, font: cur.tx.font }); // un script cuelga de su esquina superior: al expandirlo crece hacia abajo
   if (!textEditOk(before)) return false;
   // La siguiente entrada va justo debajo de este texto (sea cual sea su altura): las entradas siguientes cuelgan de un cursor, y su texto se
   // coloca con el borde superior en el cursor.
@@ -2554,11 +2557,16 @@ function commitTextLive() {
 function startTextLive(sUp) {
   if (txState && txLive.value.trim() && !commitTextLive()) return; // lo escrito se dibuja antes de mover la entrada
   txState = { sUp }; txLive.value = ''; txLiveBox.hidden = false; txLayout(); txLive.focus();
-  if (!txHint) { txHint = true; toast('Escribe una ecuación (AsciiMath): Enter la dibuja, Shift+Enter hace otra línea y empezar con " (o un espacio) escribe texto normal'); }
+  if (!txHint) { txHint = true; toast('Escribe una ecuación (AsciiMath): Enter la dibuja, Shift+Enter hace otra línea; empezar con " (o un espacio) escribe texto normal, y con % un script'); }
 }
 txLive.addEventListener('keydown', (e) => {
   e.stopPropagation(); // ningun atajo del dibujo mientras se escribe
   if (e.key === 'Escape') { e.preventDefault(); endTextLive(); return; }
+  if (txIsScript()) { // en un script Enter hace otra linea (con su sangria) y Tab sangra; Shift+Enter (o Ctrl/Cmd+Enter) lo dibuja
+    if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); commitTextLive(); return; }
+    if (codeKeyEvent(e, txLive)) return;
+    return;
+  }
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (txLive.value.trim()) commitTextLive(); else endTextLive(); }
 });
 txLive.addEventListener('input', txLayout);
@@ -4458,13 +4466,23 @@ function openProps(h) {
     const taRows = () => { ta.rows = Math.max(3, Math.min(14, ta.value.split('\n').length + 1)); };
     taRows(); ta.addEventListener('input', taRows);
     attachAutoPair(ta); // lo guardado: texto con Markdown y formulas entre $...$
+    // un script se edita como codigo: monoespaciada, Enter con sangria, Tab; al salir del campo se colapsa (salvo «Mostrar el código»)
+    const isSc = () => ta.value[0] === '%';
+    const taFont = () => { ta.style.fontFamily = isSc() ? fontCss('mono') : ''; ta.spellcheck = !isSc(); };
+    taFont(); ta.addEventListener('input', taFont);
+    ta.addEventListener('keydown', (e) => { if (isSc()) codeKeyEvent(e, ta); });
     ta.onchange = () => {
       if (!ta.value.trim()) { ta.value = propObj().text; return; }
       const before = textVarErrors(doc);
       pushUndo(); propObj().text = ta.value;
+      if (isSc() && !shc.checked) delete propObj().open;
       if (textEditOk(before)) afterChange();
     };
     body.appendChild(propRow('Texto', ta));
+    const shc = document.createElement('input');
+    shc.type = 'checkbox'; shc.checked = !!o.open; shc.style.cssText = 'width:22px;height:22px;min-height:22px;margin:0;flex:none';
+    shc.onchange = () => { pushUndo(); if (shc.checked) propObj().open = true; else delete propObj().open; afterChange(); };
+    if (isScript(o.text)) body.appendChild(propRow('Mostrar el código en el dibujo (si no, solo su nombre)', shc));
     body.appendChild(propRow('Fuente', propSelect(FONTS.map((f) => [f[0], f[1]]), o.font || '', (v) => txSet('font', v))));
     if (globalDoc().page) body.appendChild(propRow('Altura (pt)', propNumber(ptOf(o.h), (v, i) => { const n = Number(v); if (n > 0) txSet('h', n * PT); else i.value = String(ptOf(propObj().h)); }, { min: '1', step: '0.5' })));
     else body.appendChild(propRow('Altura', propNumber(o.h, (v, i) => { const n = Number(v); if (n > 0) txSet('h', n); else i.value = String(propObj().h); }, { min: '0.01' })));
