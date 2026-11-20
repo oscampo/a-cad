@@ -227,6 +227,15 @@ t('clear(a) de una variable que se llama como una cota: la cota vuelve a leerse 
   assert.deepEqual(show, ['$a:=5$', '$a=5$', '$clear(a)=1$', '$a=⚠$', '$a=30$']); // entre el clear y la cota «a» no existe
 });
 
+t('clear(): leer una variable borrada avisa que se borro con clear(), no que se define mas abajo', () => {
+  const r = mkLine(30, { ref: true, name: 'z' });
+  const tx = (y, s) => addText(r.d, addPoint(r.d, 0, y), s, {});
+  tx(80, '$a:5$'); tx(70, '$b:3$'); tx(60, '$clear(a, b)=$'); tx(40, '$A:[a, b]$');
+  const msgs = textVarErrors(r.d).map((e) => e.msg);
+  assert.ok(msgs.some((m) => /«a» se borró con clear\(\) antes de este punto/.test(m)), msgs.join(' | '));
+  assert.ok(!msgs.some((m) => /se define más abajo/.test(m)));
+});
+
 t('clear(all): borra todo tipo de variable (texto, cotas y medidas); quitarlo devuelve todo como estaba', () => {
   const mk = (withClear) => {
     const r = mkLine(30, { ref: true, name: 'D1' });

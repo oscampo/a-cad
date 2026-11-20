@@ -472,7 +472,13 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   const dimLater = new Set(events.filter((e) => e.kind === 'dim' && e.name).map((e) => e.name)), pend = new Set();
   const hid = new Set(); // cotas y medidas del dibujo borradas con clear() hasta este punto: ya no se leen
   const later = st.names; // para avisar «se define mas abajo»
-  const hint = (msg) => { const m = /No reconozco «(.+?)»/.exec(msg); return m && later.has(m[1]) && !(m[1] in cur) ? `«${m[1]}» se define más abajo o más a la derecha: en el orden de lectura debe definirse antes` : msg; };
+  const hint = (msg) => {
+    const m = /No reconozco «(.+?)»/.exec(msg);
+    if (!m || m[1] in cur) return msg;
+    if (pend.has(m[1])) return `«${m[1]}» es una cota que se lee desde el lugar de su etiqueta, más abajo (la variable de texto se borró con clear())`;
+    if (st.cleared.has(m[1])) return `«${m[1]}» se borró con clear() antes de este punto: vuelve a definirla o quita el clear`;
+    return later.has(m[1]) ? `«${m[1]}» se define más abajo o más a la derecha: en el orden de lectura debe definirse antes` : msg;
+  };
   for (const e of events) {
     const k = e.tid + ':' + e.idx;
     if (e.kind === 'dim') {
