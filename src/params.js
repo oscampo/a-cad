@@ -87,7 +87,10 @@ export const freezeDimOrder = (doc) => { FROZEN.set(doc, new Map(probesOf(doc).m
 export const thawDimOrder = (doc) => { FROZEN.delete(doc); };
 const probesOf = (doc) => {
   const fz = FROZEN.get(doc);
-  return named(doc).filter(([, k]) => (!k.ref && k.expr) || k.scaleExpr).map(([id, k]) => (fz?.get(id) ?? { id, ...dimPos(doc, k) }));
+  // tambien las cotas que se llaman como una variable de texto: tras borrar la variable con clear(), la cota vuelve a leerse en su lugar de la pagina
+  const defs = new Set();
+  for (const t of Object.values(doc.texts || {})) for (const p of calcStmts(t.text)) if (p.k === 'def') defs.add(normName(p.name));
+  return named(doc).filter(([, k]) => (!k.ref && k.expr) || k.scaleExpr || defs.has(k.name)).map(([id, k]) => (fz?.get(id) ?? { id, name: k.name, ...dimPos(doc, k) }));
 };
 export function textVars(doc, exceptId = null) {
   const dimVars = geoVars(doc);

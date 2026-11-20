@@ -10,6 +10,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Corregido
 
+- Cálculo: si una variable de texto se llama como una cota y se borra con `clear()`, el nombre queda vacío (⚠) hasta el lugar de la página donde está la etiqueta de la cota; antes la cota reaparecía en el mismo `clear`, aunque su etiqueta estuviera mucho más abajo. En `Tutorial.json`, `a='in` (t349) queda por encima de la cota y ahora da ⚠: hay que bajarlo debajo de la cota.
 - Cálculo: un `clear()` pone en juego el orden de lectura aunque el dibujo no tenga ninguna variable de texto definida.
 
 ## v2.9.2 (2026-11-20)

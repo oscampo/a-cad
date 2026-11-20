@@ -217,6 +217,16 @@ t('clear(): borra tambien una cota o una medida del dibujo (se deja de leer mas 
   near(r.d.cons[r.k].v, 30); // la cota sigue gobernando el dibujo
 });
 
+t('clear(a) de una variable que se llama como una cota: la cota vuelve a leerse en SU lugar de la pagina, no al borrar la variable', () => {
+  const r = mkLine(30, { ref: true, name: 'a' });
+  const tx = (y, s) => addText(r.d, addPoint(r.d, 0, y), s, {});
+  tx(80, '$a:5$'); tx(60, '$a=$'); tx(40, '$clear(a)=$'); tx(20, '$a=$'); tx(-80, '$a=$'); // la etiqueta de la cota queda entre el 20 y el -80
+  assert.ok(settle(r.d, solve, []).ok);
+  assert.deepEqual(textVarErrors(r.d), []);
+  const show = Object.values(r.d.texts).map((q) => clean(shownText(r.d, q).text));
+  assert.deepEqual(show, ['$a:=5$', '$a=5$', '$clear(a)=1$', '$a=⚠$', '$a=30$']); // entre el clear y la cota «a» no existe
+});
+
 t('clear(all): borra todo tipo de variable (texto, cotas y medidas); quitarlo devuelve todo como estaba', () => {
   const mk = (withClear) => {
     const r = mkLine(30, { ref: true, name: 'D1' });

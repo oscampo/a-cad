@@ -243,7 +243,7 @@ function readingItems(doc, probes = []) {
   if (probes.length) {
     const hs = items.map((i) => i.h).sort((a, b) => a - b), hm = hs.length ? hs[hs.length >> 1] : 1; // una cota pesa como un texto de altura tipica
     // una gráfica da su esquina superior izquierda (top, left); una cota, el centro de su etiqueta (x, y, len)
-    for (const p of probes) items.push({ probe: p.id, h: hm, n: n++, top: p.top ?? p.y + 0.6 * hm, left: p.left ?? p.x - (p.len * 0.55 * hm) / 2 });
+    for (const p of probes) items.push({ probe: p.id, pname: p.name, h: hm, n: n++, top: p.top ?? p.y + 0.6 * hm, left: p.left ?? p.x - (p.len * 0.55 * hm) / 2 });
   }
   items.sort((a, b) => b.top - a.top || a.n - b.n);
   const rows = [];
@@ -260,7 +260,7 @@ export const textOrder = (doc) => readingItems(doc).map((it) => [it.tid, it.t]);
 function readingEvents(doc, probes = []) {
   const out = [];
   for (const it of readingItems(doc, probes)) {
-    if (it.probe !== undefined) { out.push({ kind: 'dim', id: it.probe }); continue; }
+    if (it.probe !== undefined) { out.push({ kind: 'dim', id: it.probe, name: it.pname }); continue; }
     let di = 0, oi = 0;
     for (const p of calcStmts(it.t.text)) {
       if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(paramSep()).map((q) => normName(q.trim())), ...(p.eq !== undefined && p.params !== undefined ? { eq: true } : {}), ...(p.unit ? { unit: p.unit } : {}) });
@@ -467,13 +467,19 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   for (const d of defs) if (!d.why) st.names.add(d.name);
   st.defs = defs;
   const cur = { ...dimVars }, env = st.vals; // cur: lo que ve una expresion en este punto de la lectura (cotas + variables de texto)
+  // Una cota que comparte nombre con una variable de texto (borrada con clear) vuelve a leerse en SU lugar de la pagina, no al borrar la
+  // variable: pend = esas cotas, esperando su lugar; dimLater = cotas con nombre de variable de texto cuyo lugar aun no se lee.
+  const dimLater = new Set(events.filter((e) => e.kind === 'dim' && e.name).map((e) => e.name)), pend = new Set();
   const hid = new Set(); // cotas y medidas del dibujo borradas con clear() hasta este punto: ya no se leen
   const later = st.names; // para avisar «se define mas abajo»
   const hint = (msg) => { const m = /No reconozco «(.+?)»/.exec(msg); return m && later.has(m[1]) && !(m[1] in cur) ? `«${m[1]}» se define más abajo o más a la derecha: en el orden de lectura debe definirse antes` : msg; };
   for (const e of events) {
     const k = e.tid + ':' + e.idx;
-    if (e.kind === 'dim') { st.dimEnv.set(e.id, { ...env }); st.dimHide.set(e.id, new Set(hid)); continue; } // una cota ve las variables de texto de este punto de la lectura
-    const back = (n) => { delete env[n]; if (n in dimVars && !hid.has(n)) cur[n] = dimVars[n]; else delete cur[n]; };
+    if (e.kind === 'dim') {
+      if (e.name) { dimLater.delete(e.name); if (pend.delete(e.name) && !hid.has(e.name) && !(e.name in env)) cur[e.name] = dimVars[e.name]; } // llego el lugar de la cota: vuelve a leerse
+      st.dimEnv.set(e.id, { ...env }); st.dimHide.set(e.id, new Set([...hid, ...pend])); continue;
+    } // una cota ve las variables de texto de este punto de la lectura
+    const back = (n) => { delete env[n]; if (n in dimVars && !hid.has(n) && !dimLater.has(n)) cur[n] = dimVars[n]; else { delete cur[n]; if (n in dimVars && !hid.has(n)) pend.add(n); } };
     if (e.kind === 'out' || e.kind === 'def') st.at.set(k, { live: new Set(Object.keys(env)), expr: e.expr });
     if (e.kind === 'out') {
       st.outEnv.set(k, { ...cur });
