@@ -171,6 +171,7 @@ function dimRefs(doc, expr, st = tvOf(doc), seen = new Set()) {
     for (const n of exprRefs(src, has)) {
       if (skip.includes(n)) continue;
       const es = st.byName?.get(n); // una variable puede tener varias definiciones (se redefine): depende de todo lo que leen
+      if (dn.has(n)) out.add(n); // tambien una cota (la variable de texto se borro con clear)
       if (es) { if (seen.has(n)) continue; seen.add(n); for (const e of es) walk(e.expr, e.params || []); } else out.add(n);
     }
   };
@@ -197,7 +198,14 @@ export function checkName(doc, raw, exceptId) {
   const name = normName(raw);
   if (isReservedName(name)) return reservedWhy(name);
   if (Object.entries(doc.cons).some(([id, k]) => id !== exceptId && k.name === name)) return `Ya existe una cota llamada «${name}»`;
-  if (textVarNames(doc).has(name)) return `Ya existe una variable de texto llamada «${name}»`;
+  const tv = hasDefs(doc) ? textVars(doc) : null;
+  if (tv?.names.has(name)) { // solo si la variable de texto se borra con clear() mas abajo (ver textVarState)
+    if (tv.openEnd.has(name)) return `Ya existe una variable de texto llamada «${name}» (para usar el nombre en una cota, bórrala con clear(${name}) más abajo)`;
+    const old = exceptId != null && doc.cons[exceptId]?.name, uses = (s) => !!old && !!s && renameInExpr(s, old, '\u0001') !== s;
+    // al cambiar el nombre, las formulas que leen la cota pasan a decir «name»: donde la variable de texto sigue viva leerian la variable
+    for (const { live, expr } of tv.at.values()) if (live.has(name) && uses(expr)) return `«${old}» se lee en un texto donde «${name}» todavía es la variable de texto (antes de clear(${name}))`;
+    for (const [id, env] of tv.dimEnv) { const o = doc.cons[id]; if (o && name in env && (uses(o.expr) || uses(o.scaleExpr))) return `La cota ${o.name || ''} lee «${old}» donde «${name}» todavía es la variable de texto (antes de clear(${name}))`; }
+  }
   return null;
 }
 

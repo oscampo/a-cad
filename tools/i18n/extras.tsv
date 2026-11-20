@@ -14,3 +14,41 @@ sin elegir (se aceptan las dos formas)	not chosen (both forms are accepted)
 «{0} vs {1}»: la x genérica no se combina con t ni con actuadores	«{0} vs {1}»: the generic x cannot be combined with t or actuators
 Eje con límites automáticos	Axis with automatic limits
 Revisa la posición, el tamaño y las muestras	Check the position, size and samples
+Vista guardada borrada: el doble toque en ↔ o ↕ vuelve a límites automáticos	Saved view cleared: double tap on ↔ or ↕ returns to automatic limits
+Vista guardada: x de {0} a {1}, y de {2} a {3}. Doble toque en ↔ o ↕ vuelve a ella	View saved: x from {0} to {1}, y from {2} to {3}. Double tap on ↔ or ↕ returns to it
+Aún no hay una vista que guardar	There is no view to save yet
+Eje {0}: vista guardada, de {1} a {2}	Axis {0}: saved view, from {1} to {2}
+«{0}» se define después de la gráfica (más abajo, o a su derecha en la misma fila): la gráfica ve solo lo que está antes en el orden de lectura	«{0}» is defined after the graph (further down, or to its right on the same row): the graph only sees what comes before it in reading order
+Para poner lado a lado (con «{0}») los bloques deben tener el mismo número de filas: en la fila {1} hay {2} y {3}	To place blocks side by side (with «{0}») they must have the same number of rows: row {1} has {2} and {3}
+Para apilar (con «{0}») las filas deben tener el mismo número de columnas: la 1.ª tiene {1} y la {2}.ª {3}	To stack rows (with «{0}») they must have the same number of columns: row 1 has {1} and row {2} has {3}
+Cota «{0}{1}» (subrayada) · medida {2} ÷ {3}	Dimension «{0}{1}» (underlined) · measured {2} ÷ {3}
+Cota «{0}{1}» · medida {2}	Dimension «{0}{1}» · measured {2}
+Cota «{0}{1}»{2} · medida {3} ÷ {4}	Dimension «{0}{1}»{2} · measured {3} ÷ {4}
+Cota «{0}{1}»{2} · dibujo = {3}	Dimension «{0}{1}»{2} · drawing = {3}
+Anglosajón	US customary
+«{0}» está reservada para clear(all)	«{0}» is reserved for clear(all)
+«{0}» debe ser un número mayor que cero	«{0}» must be a number greater than zero
+«{0}» no es un nombre de unidad (letras, _ y números, sin empezar por número)	«{0}» is not a unit name (letters, _ and digits, not starting with a digit)
+La unidad «{0}» ya existe	The unit «{0}» already exists
+«{0}» y «{1}» ya existen: una definición de unidad necesita una unidad nueva	«{0}» and «{1}» already exist: a unit definition needs a new unit
+No conozco «{0}» ni «{1}»: una de las dos unidades debe existir	I don't know «{0}» or «{1}»: one of the two units must exist
+La unidad «{0}» se define más de una vez	The unit «{0}» is defined more than once
+«{0}» no está definida en el lugar de esta cota: se borró con clear() antes o se define más abajo	«{0}» is not defined where this dimension is: it was cleared with clear() before or is defined further down
+clear(…) lleva all o nombres de variables separados por «{0}»	clear(…) takes all or variable names separated by «{0}»
+«{0}» no es un nombre de variable	«{0}» is not a variable name
+«{0}» es una cota (o una medida del dibujo): clear solo borra variables de texto	«{0}» is a dimension (or a drawing measurement): clear only clears text variables
+En qué unidades se muestran los resultados de los textos de cálculo cuando no pides una (las habituales del sistema: mm o m, kN, kN·m, MPa; o in o ft, kip, kip·in, ksi). Los cálculos no cambian, y el dibujo sigue en mm.	Which units calculation results are shown in when you don't ask for one (the system's usual ones: mm or m, kN, kN·m, MPa; or in or ft, kip, kip·in, ksi). Calculations don't change, and the drawing stays in mm.
+Resultados en unidades anglosajonas: in, ft, kip, kip·in, ksi	Results in US customary units: in, ft, kip, kip·in, ksi
+Resultados en unidades del SI: mm, m, kN, kN·m, MPa	Results in SI units: mm, m, kN, kN·m, MPa
+⚠ Para leer la medida en {0} hace falta una escala con unidades, p. ej. 1'mm/{1}	⚠ To read the measurement in {0} you need a scale with units, e.g. 1'mm/{1}
+Para leer la medida en {0} hace falta una escala con unidades, p. ej. 1'mm/{1}	To read the measurement in {0} you need a scale with units, e.g. 1'mm/{1}
+sin unidad; kN, N, m/s...	no unit; kN, N, m/s...
+vacío = sin escala; 1'mm/kN, eF	empty = no scale; 1'mm/kN, eF
+Pon primero una escala con unidades	Set a scale with units first
+La escala ({0}) por la magnitud de la cota ({1}) da {2}, no una longitud: para una fuerza en kN, p. ej. 1'mm/kN	The scale ({0}) times the dimension's quantity ({1}) gives {2}, not a length: for a force in kN, e.g. 1'mm/kN
+Sin escala de representación el dibujo mide {0} (en el SI). Usa una escala con unidades, p. ej. [*1'mm/{1}]	Without a representation scale the drawing measures {0} (in SI). Use a scale with units, e.g. [*1'mm/{1}]
+Cota «{0}{1}» · dibujo = {2}	Dimension «{0}{1}» · drawing = {2}
+El resultado es una matriz, no un número	The result is a matrix, not a number
+sin unidad	no unit
+Unidad de la cota	Dimension unit
+Cota «{0}{1}» (subrayada) · dibujo = {2} × {3} = {4}	Dimension «{0}{1}» (underlined) · drawing = {2} × {3} = {4}

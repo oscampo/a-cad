@@ -117,6 +117,10 @@ matriz de {0}×{1}	matrix of {0}×{1}
 El nombre usa letras, números y _, y empieza con una letra	The name uses letters, numbers and _, and starts with a letter
 Ya existe una cota llamada «{0}»	A dimension named «{0}» already exists
 Ya existe una variable de texto llamada «{0}»	A text variable named «{0}» already exists
+Ya existe una variable de texto llamada «{0}» (para usar el nombre en una cota, bórrala con clear({1}) más abajo)	A text variable named «{0}» already exists (to use the name for a dimension, delete it with clear({1}) further down)
+«{0}» se lee en un texto donde «{1}» todavía es la variable de texto (antes de clear({2}))	«{0}» is read in a text where «{1}» is still the text variable (before clear({2}))
+La cota {0} lee «{1}» donde «{2}» todavía es la variable de texto (antes de clear({3}))	Dimension {0} reads «{1}» where «{2}» is still the text variable (before clear({3}))
+«{0}» ya es el nombre de una cota: para usarlo antes en un texto, bórralo con clear({1}) más abajo	«{0}» is already the name of a dimension: to use it earlier in a text, delete it with clear({1}) further down
 «{0}» se define después de esta cota en el orden de lectura (más abajo o más a la derecha de su etiqueta)	«{0}» is defined after this dimension in the reading order (further down or further right than its label)
 {0} no puede usarse en su propia fórmula	{0} cannot be used in its own formula
 En la fórmula de {0}: «{1}» no es una cota ni una variable	In the formula of {0}: «{1}» is neither a dimension nor a variable

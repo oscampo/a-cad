@@ -5,7 +5,7 @@ import { newDoc, addPoint, addLine, addCon, addText } from '../src/model.js';
 import { shownText } from '../src/text.js';
 import { dimText, dimUnit, dimShown, isScaledDim, layoutDim } from '../src/dims.js';
 import { initSolver, solve } from '../src/solver.js';
-import { settle, splitUnit, dimEval, varValue, varsList, scaleEval, noScaleWarn, textVarErrors } from '../src/params.js';
+import { settle, splitUnit, dimEval, varValue, varsList, scaleEval, noScaleWarn, textVarErrors, checkName, renameDim } from '../src/params.js';
 import { setDecimal } from '../src/locale.js';
 import { evalExpr } from '../src/expr.js';
 
@@ -157,6 +157,25 @@ t('clear(): una cota o un vector debajo de clear(eF) ya no ve la escala; encima 
   addText(drv.d, addPoint(drv.d, 0, 40), '$clear(eF)=$', {});
   const r = settle(drv.d, solve, []);
   assert.equal(r.ok, false); assert.match(r.error, /se borró con clear/);
+});
+
+t('clear(): una cota puede tomar el nombre de una variable de texto que se borra mas abajo', () => {
+  const r = mkLine(30, { ref: true, name: 'D1' });
+  const tx = (y, s) => addText(r.d, addPoint(r.d, 0, y), s, {});
+  tx(80, '$a:5$'); tx(60, '$a=$'); tx(40, '$clear(a)=$'); tx(-80, '$a=$');
+  assert.equal(checkName(r.d, 'a', r.k), null);
+  tx(70, '$D1=$'); // lee la cota donde «a» todavia es la variable de texto: al renombrarla diria «a» y leeria la variable
+  assert.match(checkName(r.d, 'a', r.k), /todavía es la variable de texto/);
+  delete r.d.texts[Object.keys(r.d.texts).pop()];
+  renameDim(r.d, r.k, 'a');
+  const show = Object.values(r.d.texts).map((t) => clean(shownText(r.d, t).text));
+  assert.deepEqual(show, ['$a:=5$', '$a=5$', '$clear(a)=1$', '$a=30$']); // antes del clear la variable, despues la cota
+  assert.deepEqual(textVarErrors(r.d), []);
+  const n = mkLine(30, { ref: true, name: 'D1' }); // sin clear el nombre sigue ocupado
+  addText(n.d, addPoint(n.d, 0, 80), '$a:5$', {});
+  assert.match(checkName(n.d, 'a', n.k), /bórrala con clear\(a\)/);
+  n.d.cons[n.k].name = 'a'; // (un dibujo viejo que ya choca) la definicion de texto no vale
+  assert.ok(textVarErrors(n.d).some((e) => /ya es el nombre de una cota: para usarlo antes/.test(e.msg)));
 });
 
 t('unidades de usuario: valen en todo el dibujo, una sola unidad nueva por linea, sin redefinir las que existen', () => {
