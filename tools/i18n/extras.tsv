@@ -79,3 +79,7 @@ solve(…): {0} tiene fórmula; quítasela para que la meta la mueva	solve(…):
 solve(…): {0} es incógnita de dos solve	solve(…): {0} is the unknown of two solve
 una cota quedaría en cero o negativa	a dimension would become zero or negative
 el dibujo no se pudo resolver	the drawing could not be solved
+solve([ecuaciones]{0} [incógnitas]) lleva dos vectores: las ecuaciones (con «==») y los nombres de las incógnitas	solve([equations]{0} [unknowns]) takes two vectors: the equations (with «==») and the names of the unknowns
+{0} elemento{1} seleccionado{2} ({3} gráfica{4})	{0} element{1} selected ({3} graph{4})
+{0} elementos seleccionados ({1} gráfica{2})	{0} elements selected ({1} graph{2})
+{0} elemento{1} seleccionado{2}	{0} element{1} selected

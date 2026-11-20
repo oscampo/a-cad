@@ -386,25 +386,39 @@ export function clearCall(expr) {
 }
 
 // Los argumentos de una llamada, separados por «;» (o por «,» con punto decimal) fuera de parentesis y corchetes.
-function splitArgs(s) {
+function splitArgs(s, bar = false) {
   const out = [];
   let d = 0, from = 0;
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
     if (c === '(' || c === '[') d++;
     else if (c === ')' || c === ']') d--;
-    else if (d === 0 && (c === ';' || (c === ',' && decimalMode() !== ',' && !(decimalMode() === null && /\d/.test(s[i - 1] || '') && /\d/.test(s[i + 1] || ''))))) { out.push(s.slice(from, i)); from = i + 1; }
+    else if (d === 0 && (c === ';' || (bar && c === '|' && decimalMode() === ',') || (c === ',' && decimalMode() !== ',' && !(decimalMode() === null && /\d/.test(s[i - 1] || '') && /\d/.test(s[i + 1] || ''))))) { out.push(s.slice(from, i)); from = i + 1; }
   }
   out.push(s.slice(from));
   return out.map((x) => x.trim());
 }
 // «solve(ec1; ec2; x; y)=»: resuelve las ecuaciones (las que llevan «==») para las incognitas (los nombres sueltos), que deben estar definidas
 // antes con su valor inicial; desde ese punto del orden de lectura valen la solucion. Devuelve null si la salida no es un solve, o
-// { eqs, names } / { err }.
+// { eqs, names, vec } / { err }. Dos formas: «solve(ec1; ec2; x; y)=» (una lista) o «solve([ec1; ec2], [x; y])=» (dos vectores; en una pagina
+// angosta un sistema grande se lee mejor en columnas; con coma decimal, «solve([ec1 | ec2]; [x | y])=»). La salida de la segunda es un vector columna.
+const wholeBracket = (q) => {
+  if (q[0] !== '[' || q[q.length - 1] !== ']') return false;
+  let d = 0;
+  for (let i = 0; i < q.length; i++) { if (q[i] === '[') d++; else if (q[i] === ']') { d--; if (d === 0 && i < q.length - 1) return false; } }
+  return d === 0;
+};
 export function solveCall(expr) {
   const m = /^\s*solve\s*\(([\s\S]*)\)\s*$/i.exec(String(expr ?? ''));
   if (!m) return null;
-  const parts = splitArgs(m[1]), eqs = [], names = [];
+  let parts = splitArgs(m[1]), vec = false;
+  if (parts.some(wholeBracket)) { // la forma de dos vectores: [ecuaciones], [incognitas]
+    const sep = argChar() === ',' ? ',' : ';';
+    if (parts.length !== 2 || !parts.every(wholeBracket)) return { err: `solve([ecuaciones]${sep} [incógnitas]) lleva dos vectores: las ecuaciones (con «==») y los nombres de las incógnitas` };
+    const [a, b] = parts.map((q) => splitArgs(q.slice(1, -1), true));
+    parts = [...a, ...b]; vec = true;
+  }
+  const eqs = [], names = [];
   for (const q of parts) {
     if (!q) return { err: `solve(…) lleva las ecuaciones (con «==») y los nombres de las incógnitas, separados por «${argChar() === ',' ? ',' : ';'}»` };
     if (splitEq(q)) eqs.push(q);
@@ -414,7 +428,7 @@ export function solveCall(expr) {
   if (!eqs.length) return { err: 'solve(…) necesita al menos una ecuación con «==», p. ej. solve(x^2 == 2; x)' };
   if (!names.length) return { err: 'solve(…) necesita el nombre de las incógnitas, p. ej. solve(x^2 == 2; x)' };
   if (new Set(names).size !== names.length) return { err: 'solve(…) nombra una incógnita dos veces' };
-  return { eqs, names };
+  return { eqs, names, vec };
 }
 
 export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = []) {
@@ -482,7 +496,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
             const calc = (s, vv) => { const r = evalExpr(s, { vars: vv, allowMat: true }); if (r.mat) throw new Error(`«${s.trim()}» da un vector o una matriz: cada ecuación es entre números`); return r; };
             const bad = eqResiduals(sv.eqs, calc)(cur).findIndex((q) => !(Math.abs(q.r) <= GOAL_TOL * q.c || Math.abs(q.r) < 1e-12));
             if (bad >= 0) throw new Error(`la ecuación ${bad + 1} no se cumple en el dibujo (¿no hay una solución cerca de las cotas actuales?)`);
-            res = { vals: sv.names.map((n) => ({ name: n, val: dimVars[n] })) };
+            res = { vec: sv.vec, vals: sv.names.map((n) => ({ name: n, val: dimVars[n] })) };
             st.solveRes.set(k, res);
             continue;
           }
@@ -494,7 +508,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
           });
           const calc = (s, vv) => { const r = evalExpr(s, { vars: vv, allowMat: true }); if (r.mat) throw new Error(`«${s.trim()}» da un vector o una matriz: cada ecuación es entre números`); return r; };
           const xs = solveEqs(us, sv.eqs, calc, cur);
-          res = { vals: us.map((u, i) => { const old = env[u.name], val = { ...old, v: xs[i] }; cur[u.name] = val; env[u.name] = val; return { name: u.name, val }; }) };
+          res = { vec: sv.vec, vals: us.map((u, i) => { const old = env[u.name], val = { ...old, v: xs[i] }; cur[u.name] = val; env[u.name] = val; return { name: u.name, val }; }) };
           for (const u of us) (st.byName.get(u.name) || st.byName.set(u.name, []).get(u.name)).push({ name: u.name, expr: sv.eqs.map((q) => { const [a, b] = splitEq(q); return `(${a})-(${b})`; }).join('+') }); // dependencias: lo que leen las ecuaciones
         } catch (err) { res = { err: err.message }; st.errs.set('solve(' + sv.names?.join(', ') + ')', `solve(…): ${hint(err.message)}`); }
         st.solveRes.set(k, res);

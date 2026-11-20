@@ -1350,6 +1350,16 @@ t('seleccion por cuadro: ventana (dentro) y cruce (toca)', () => {
   assert.ok(!ids({ x0: 2.5, y0: 2.5, x1: 3.5, y1: 3.5 }, { cross: true }).includes(bigC));
 });
 
+t('seleccion por cuadro: las graficas entran enteras (ventana) o tocando (cruce)', () => {
+  const d = newDoc();
+  d.graphs = { gIn: { x: 1, y: 1, w: 3, h: 3 }, gHalf: { x: 3, y: 3, w: 6, h: 6 }, gOut: { x: 20, y: 20, w: 4, h: 4 }, gBig: { x: -5, y: -5, w: 30, h: 30 } };
+  const gr = (r, o) => boxSelect(d, r, o).filter((x) => x.k === 'gr').map((x) => x.id).sort();
+  const box = { x0: 0, y0: 0, x1: 5, y1: 5 };
+  assert.deepEqual(gr(box, { cross: false }), ['gIn']); // ventana: solo la que cabe entera
+  assert.deepEqual(gr(box, { cross: true }), ['gBig', 'gHalf', 'gIn']); // cruce: tambien la que toca y la que rodea el cuadro
+  assert.deepEqual(gr({ x0: 5, y0: 5, x1: 0, y1: 0 }, { cross: false }), ['gIn']); // esquinas en cualquier orden
+});
+
 
 t('bloqueo suave: por defecto H, V y 45; con paso 15 cada 15 grados', () => {
   const d = newDoc(), S = { x: 0, y: 0 }, none = { lines: [], curves: [] }, free = { type: 'free' };

@@ -93,7 +93,10 @@ function textValue1(doc, t) {
       const res = st.solveRes.get(tid + ':' + oidx++);
       if (!res || res.err) return '⚠';
       const env = Object.fromEntries(res.vals.map(({ name, val }) => [name, val]));
-      return res.vals.map(({ name, val }) => name + '=' + qty({ value: val.v, rad: !!val.r, dim: val.d }, env, name, null, math)).join(argText() + ' ');
+      const cells = res.vals.map(({ name, val }) => name + '=' + qty({ value: val.v, rad: !!val.r, dim: val.d }, env, name, null, math));
+      if (!res.vec) return cells.join(argText() + ' ');
+      const col = '[' + cells.join(rowChar() === ';' ? '; ' : ' | ') + ']'; // un sistema con vectores da un vector columna «[x=3; y=4]»
+      return math ? VB0 + col + VB1 : col;
     }
     try {
       const env = st?.outEnv.get(tid + ':' + oidx++) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre

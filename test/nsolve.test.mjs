@@ -16,8 +16,10 @@ const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
 const near = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) <= e * Math.max(1, Math.abs(b)), `${a} != ${b}`);
 const L = [1, 0, 0, 0, 0, 0, 0];
 const clean = (s) => s.replace(/[-]/g, '');
+let DEC = null; // indicador decimal del documento de prueba (null: el de siempre, punto)
 const page = (...xs) => {
   const d = newDoc();
+  if (DEC) d.decimal = DEC;
   xs.forEach((x, i) => addText(d, addPoint(d, 0, -10 * i), '$$' + x + '$$', {}));
   return { show: Object.values(d.texts).map((tx) => clean(shownText(d, tx).text)), errs: textVarErrors(d).map((e) => e.msg) };
 };
@@ -55,6 +57,20 @@ t('solve: las incognitas valen la solucion desde ahi, con la unidad de su valor 
   assert.equal(b.show[1], '$$solve(F*L==30 " kN"* " m", F==10 " kN"*L/ " m", F, L)=F=17.321 " kN"; L=1.732 " m"$$');
   const c = page('x:5', 'x=', 'solve(x^2==4, x)=', 'x='); // antes del solve, el valor inicial
   assert.equal(c.show[1], '$$x=5$$'); assert.equal(c.show[3], '$$x=2$$');
+});
+
+t('solve con vectores: [ecuaciones], [incognitas] da un vector columna', () => {
+  const a = page('x:1\ny:1', 'solve([2x+17y==23; x-y==5], [x; y])=');
+  assert.equal(a.show[1], '$$solve([2x+17y==23; x-y==5], [x; y])=[x=5.684; y=0.684]$$');
+  assert.deepEqual(a.errs, []);
+  const b = page("x:1'm\ny:1'm\nz:1'm", "solve([x+y+z==6'm; x-y==1'm; y-z==1'm], [x; y; z])="); // tres incognitas, con unidades
+  assert.equal(b.show[1], '$$solve([x+y+z==6 " m"; x-y==1 " m"; y-z==1 " m"], [x; y; z])=[x=3 " m"; y=2 " m"; z=1 " m"]$$');
+  DEC = ',';
+  const c = page('x:1\ny:1', 'solve([2x+17y==23,5 | x-y==5]; [x | y])='); // coma decimal: filas con «|», vectores con «;»
+  DEC = null;
+  assert.equal(c.show[1], '$$solve([2x+17y==23,5 | x-y==5]; [x | y])=[x=5,711 | y=0,711]$$');
+  assert.match(page('x:1', 'solve([x==1], x)=').errs.join('|'), /lleva dos vectores/);
+  assert.match(page('x:1', 'solve(x==1, [x])=').errs.join('|'), /lleva dos vectores/);
 });
 
 t('solve: errores claros (sin solucion, sin valor inicial, pocas ecuaciones, una cota)', () => {

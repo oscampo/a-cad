@@ -199,7 +199,7 @@ function updateEnabled() {
   $('trSpline').disabled = !(selPts.length === 1 && doc.traces[selPts[0]]?.pts.length >= 3);
   $('spClose').disabled = !n.sp;
   $('spOffset').disabled = !n.sp;
-  $('del').disabled = !sel.length && !(selGraph && doc.graphs?.[selGraph]);
+  $('del').disabled = !sel.length && !multiGraphs().size;
 }
 
 // ---------------------------------------------------------------- arbol de elementos y menu
@@ -1688,6 +1688,15 @@ function pickLine(msg, kind = 'ln') {
 
 let lastCoTap = null, lastTap = null, lastGraphTap = null;
 let selGraph = null; // grafica seleccionada (resaltada; se mueve y se redimensiona)
+// Graficas elegidas con un cuadro de seleccion junto con otros elementos (o varias): valen mientras sel sea el mismo arreglo (owner); cualquier
+// seleccion nueva (sel = [...]) las suelta sola. selGraph, la de un toque, tambien cuenta.
+let selMulti = null;
+const multiGraphs = () => {
+  const s = new Set(selMulti && selMulti.owner === sel ? selMulti.ids : []);
+  if (selGraph) s.add(selGraph);
+  for (const id of [...s]) if (!doc.graphs?.[id]) s.delete(id);
+  return s;
+};
 
 // ---- herramienta Acotar: una sola herramienta que elige la cota segun lo seleccionado
 const DIMMABLE = ['pt', 'ln', 'ci', 'ar', 'el', 'sp', 'tx'];
@@ -1892,7 +1901,16 @@ function toolDown(p) {
     if (gz) { ctlDown(gz, p); return; }
     const gh = !sim && fkOn('ac') ? graphAt(p.x, p.y) : null;
     if (gh && graphHold) { graphHold = null; gcalcMark(null); scheduleGraphs(); draw(); return; }
-    if (gh) { const g = doc.graphs[gh.id]; drag = { p0: p, graph: gh.id, mode: gh.mode, orig: { x: g.x, y: g.y, w: g.w, h: g.h }, m0: toModel(p.x, p.y), started: false }; return; }
+    if (gh) {
+      const g = doc.graphs[gh.id], gs = multiGraphs();
+      if (gh.mode.move && gs.has(gh.id) && (gs.size > 1 || sel.length > 0)) { // una grafica de una seleccion de varios: se mueve todo lo seleccionado
+        const pts = selPoints();
+        drag = { p0: p, gmove: true, gid: gh.id, m0: toModel(p.x, p.y), started: false, orig: Object.fromEntries([...pts].map((id) => [id, { ...doc.pts[id] }])), gorig: Object.fromEntries([...gs].map((id) => [id, { x: doc.graphs[id].x, y: doc.graphs[id].y }])) };
+        return;
+      }
+      drag = { p0: p, graph: gh.id, mode: gh.mode, orig: { x: g.x, y: g.y, w: g.w, h: g.h }, m0: toModel(p.x, p.y), started: false };
+      return;
+    }
     const h = hitTest(p.x, p.y);
     drag = { p0: p, hit: h, started: false };
     if (!h || h.k === 'ha') drag.box = true; // arrastrar desde un lugar vacio: cuadro de seleccion
@@ -1912,10 +1930,12 @@ function toolDown(p) {
       drag.orig = { [pid]: { ...doc.pts[pid] } };
     }
     // arrastrar algo que esta dentro de una seleccion de varios elementos: se mueven todos (sus puntos libres) a la vez
-    const many = h && sel.length > 1 ? selPoints() : null;
+    const gsel = multiGraphs();
+    const many = h && sel.length + gsel.size > 1 ? selPoints() : null;
     if (many && many.size && (sel.some((x) => x.k === h.k && x.id === h.id) || (h.k === 'pt' && many.has(h.id)))) {
       drag.m0 = toModel(p.x, p.y); drag.multi = true; drag.box = false;
       drag.orig = Object.fromEntries([...many].map((id) => [id, { ...doc.pts[id] }]));
+      if (gsel.size) drag.gorig = Object.fromEntries([...gsel].map((id) => [id, { x: doc.graphs[id].x, y: doc.graphs[id].y }])); // las graficas seleccionadas se mueven con ellos
     }
   } else {
     drag = { p0: p, moved: false };
@@ -1932,10 +1952,15 @@ function toolDown(p) {
 // izquierda, lo que queda dentro o lo toca. Con Mayus se suma a la seleccion.
 function finishBox(d, p) {
   const a = toModel(d.p0.x, d.p0.y), b = toModel(p.x, p.y);
-  const found = boxSelect(doc, { x0: a.x, y0: a.y, x1: b.x, y1: b.y }, { cross: p.x < d.p0.x, shown: shownPoints() }).filter(selOk);
+  const all = boxSelect(doc, { x0: a.x, y0: a.y, x1: b.x, y1: b.y }, { cross: p.x < d.p0.x, shown: shownPoints() }).filter(selOk);
+  const found = all.filter((x) => x.k !== 'gr'), gfound = fkOn('ac') ? all.filter((x) => x.k === 'gr').map((x) => x.id) : []; // las graficas siguen el filtro de actuadores
   const keep = shiftDown ? sel.filter((x) => !found.some((f) => same(f, x))) : [];
-  sel = [...keep, ...found]; selGraph = null;
-  toast(found.length ? `${found.length} elemento${found.length === 1 ? '' : 's'} seleccionado${found.length === 1 ? '' : 's'}` : 'No hay elementos en el cuadro');
+  const gkeep = shiftDown ? [...multiGraphs()] : [], gids = [...new Set([...gkeep, ...gfound])];
+  sel = [...keep, ...found];
+  if (gids.length === 1 && !sel.length) { selGraph = gids[0]; selMulti = null; } // una sola grafica: como al tocarla (con manijas)
+  else { selGraph = null; selMulti = gids.length ? { ids: new Set(gids), owner: sel } : null; }
+  const n = found.length + gfound.length, g = gfound.length, pl = n === 1 ? '' : 's', gp = g === 1 ? '' : 's';
+  toast(!n ? 'No hay elementos en el cuadro' : g ? `${n} elemento${pl} seleccionado${pl} (${g} gráfica${gp})` : `${n} elemento${pl} seleccionado${pl}`);
   afterChange();
 }
 
@@ -1965,6 +1990,18 @@ function toolMove(p) {
   }
   if (tool !== 'select') { if (dist(p, drag.p0) > 8) drag.moved = true; return; }
   if (drag.ctl) { ctlMove(p); return; } // deslizadores de zoom de una grafica
+  if (drag.gmove) { // varias graficas (y lo seleccionado) a la vez
+    if (!drag.started) { if (dist(p, drag.p0) < 6) return; drag.started = true; pushUndo(); if (Object.keys(drag.orig).length) { beginSession(doc, !hasReactive(doc)); freezeDimOrder(doc); } }
+    const m = toModel(p.x, p.y), dx = m.x - drag.m0.x, dy = m.y - drag.m0.y;
+    for (const [id, o] of Object.entries(drag.gorig)) { const g = doc.graphs[id]; if (g) { g.x = o.x + dx; g.y = o.y + dy; } }
+    const ids = Object.keys(drag.orig);
+    if (ids.length) {
+      const tg = ids.map((id) => ({ id, x: drag.orig[id].x + dx, y: drag.orig[id].y + dy })), reac = hasReactive(doc);
+      const r = dragToStops(doc, tg, (t2) => (reac ? settle(doc, solveSteps, t2, { maxIter: 20 }) : solve(doc, t2)), !reac);
+      if (r.ok) trackAngles(doc);
+    }
+    return;
+  }
   if (drag.graph) { // mover o redimensionar la grafica
     if (!drag.started) { if (dist(p, drag.p0) < 6) return; drag.started = true; pushUndo(); selGraph = drag.graph; sel = []; }
     const g = doc.graphs[drag.graph], m = toModel(p.x, p.y), dx = m.x - drag.m0.x, dy = m.y - drag.m0.y, o = drag.orig, mn = 60 / view.s, M = drag.mode;
@@ -2015,6 +2052,7 @@ function toolMove(p) {
       if (r.ok && tracing) recordTraces(doc, r.stopped ? 2e-4 : 1.5 / view.s); // al llegar a un tope se guarda la posicion exacta, por corto que sea el ultimo paso
     }
     drag.lastD = cur2;
+    if (drag.gorig) for (const [id, o] of Object.entries(drag.gorig)) { const g = doc.graphs[id]; if (g) { g.x = o.x + cur2.dx; g.y = o.y + cur2.dy; } }
   }
 }
 
@@ -2025,6 +2063,11 @@ function toolUp(p, q) {
   if (tool === 'graph') { graphTool(p); return; }
   if (tool === 'select') {
     if (d?.ctl) { ctlUp(d); return; }
+    if (d?.gmove) {
+      if (d.started) { if (Object.keys(d.orig).length) { recordTraces(doc, 2e-4); reparamSplines(doc); } afterChange(); return; }
+      selGraph = d.gid; selMulti = null; sel = []; // un toque sobre una grafica de la seleccion: queda ella sola
+      afterChange(); return;
+    }
     if (d?.graph) {
       if (d.started) { afterChange(); return; }
       const id = d.graph, now = performance.now(), dbl = lastGraphTap && lastGraphTap.id === id && now - lastGraphTap.t < 450 && dist(lastGraphTap, p) < 24;
@@ -3243,6 +3286,8 @@ function updateStatus(p) {
     else if (s.k === 'ha') txt = 'Relleno seleccionado';
     else if (s.k === 'co') txt = 'Restricción/cota seleccionada';
   } else if (sel.length > 1) txt = `${sel.length} elementos seleccionados`;
+  const gn = selMulti && selMulti.owner === sel ? multiGraphs().size : 0;
+  if (gn && (sel.length || gn > 1)) txt = `${sel.length + gn} elementos seleccionados (${gn} gráfica${gn === 1 ? '' : 's'})`;
   if (p && tool !== 'select') { const m = snapAt(p.x, p.y); txt += `   (${fmt(m.x)}, ${fmt(m.y)})${m.type !== 'free' ? ' ' + { pt: 'punto', ln: 'sobre línea', ci: 'sobre círculo' }[m.type] : ''}`; }
   $('status').textContent = txt;
 }
@@ -3644,6 +3689,7 @@ function drawGraphs(c, o) {
   let need = false;
   graphCtl.length = 0;
   if (selGraph && !doc.graphs?.[selGraph]) selGraph = null;
+  const gsel = multiGraphs();
   const F = (px, st = '') => st + px * dpr + 'px -apple-system, system-ui, sans-serif';
   for (const [id, g] of Object.entries(doc.graphs || {})) {
     const A = toScreen({ x: g.x, y: g.y + g.h }), B = toScreen({ x: g.x + g.w, y: g.y });
@@ -3735,10 +3781,10 @@ function drawGraphs(c, o) {
       if (D.error) { c.textAlign = 'right'; c.fillStyle = '#dc2626'; c.fillText('⚠ ' + D.error.slice(0, 70), x0 + W - 6 * dpr, y0 + H - 7 * dpr); }
     }
     if (D) { c.textAlign = 'left'; D.series.forEach((s, i) => { const ly = y0 + (g.title ? 24 : 10) * dpr + i * 13 * dpr; c.fillStyle = s.color; c.fillRect(x0 + 8 * dpr, ly - 1.5 * dpr, 14 * dpr, 3 * dpr); c.fillStyle = o.fg; c.fillText(s.label + (s.ax === 'x2' || s.ay === 'y2' ? ' (' + (s.ax === 'x2' ? 'x2' : '') + (s.ax === 'x2' && s.ay === 'y2' ? ', ' : '') + (s.ay === 'y2' ? 'y2' : '') + ')' : ''), x0 + 28 * dpr, ly); }); }
-    if (o.ui && selGraph === id && tool === 'select') { // resaltada: borde grueso y manijas en esquinas y centros de lados
+    if (o.ui && gsel.has(id) && tool === 'select') { // resaltada: borde grueso y, la de un toque, manijas en esquinas y centros de lados
       c.strokeStyle = theme.sel; c.lineWidth = 2.5 * dpr; c.strokeRect(x0, y0, W, H);
       c.fillStyle = o.bg; c.lineWidth = 1.5 * dpr;
-      for (const [hx, hy] of [[0, 0], [.5, 0], [1, 0], [0, .5], [1, .5], [0, 1], [.5, 1], [1, 1]]) { const r = 5 * dpr; c.beginPath(); c.rect(x0 + hx * W - r, y0 + hy * H - r, 2 * r, 2 * r); c.fill(); c.stroke(); }
+      if (selGraph === id) for (const [hx, hy] of [[0, 0], [.5, 0], [1, 0], [0, .5], [1, .5], [0, 1], [.5, 1], [1, 1]]) { const r = 5 * dpr; c.beginPath(); c.rect(x0 + hx * W - r, y0 + hy * H - r, 2 * r, 2 * r); c.fill(); c.stroke(); }
     }
     if (o.ui && !sim && tool === 'select') drawGraphCtl(c, id, A, B, o);
     c.restore();
@@ -4708,10 +4754,15 @@ $('mkint').onclick = () => {
 $('undo').onclick = undo; $('redo').onclick = redo;
 $('fit').onclick = fitView;
 $('del').onclick = () => {
-  if (selGraph && doc.graphs?.[selGraph] && !sel.length) { pushUndo(); delete doc.graphs[selGraph]; delete graphData[selGraph]; selGraph = null; afterChange(); return; }
-  if (!sel.length) return;
-  pushUndo(); deleteItems(doc, sel); sel = [];
-  const r = solve(doc, []); if (!r.ok) { /* las restricciones restantes siguen siendo validas */ }
+  const gs = [...multiGraphs()];
+  if (!sel.length && !gs.length) return;
+  pushUndo();
+  for (const id of gs) { delete doc.graphs[id]; delete graphData[id]; }
+  selGraph = null; selMulti = null;
+  if (sel.length) {
+    deleteItems(doc, sel); sel = [];
+    const r = solve(doc, []); if (!r.ok) { /* las restricciones restantes siguen siendo validas */ }
+  }
   afterChange();
 };
 $('weight').onchange = (e) => applyStyle('w', Number(e.target.value));

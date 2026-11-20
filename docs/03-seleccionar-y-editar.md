@@ -8,7 +8,7 @@ Seleccionar (con toque, cuadro o filtro), ver y cambiar las propiedades de un el
 
 ## Seleccionar (V)
 
-Selecciona, arrastra puntos, líneas o el borde de un círculo (el mecanismo se mueve según las restricciones) y, arrastrando desde un lugar vacío, selecciona con un cuadro.
+Selecciona, arrastra puntos, líneas o el borde de un círculo (el mecanismo se mueve según las restricciones) y, arrastrando desde un lugar vacío, selecciona con un cuadro. El cuadro de izquierda a derecha toma lo que queda entero dentro; de derecha a izquierda, también lo que toca. Las **gráficas** entran en la selección (una sola queda como al tocarla; varias, o con otros elementos, se resaltan, se borran y se mueven junto con ellos).
 
 Con **varios elementos seleccionados**, arrastrar cualquiera de ellos mueve todos juntos: sus puntos libres (extremos, centros, puntos de control y el punto de inserción de los textos). Los puntos fijos y las marcas de referencia se quedan donde están, y las restricciones siguen valiendo, así que lo que está ligado a algo fijo se acomoda en vez de trasladarse. Con un solo elemento seleccionado, arrastrar es como siempre (el borde de un círculo cambia su radio).
 
