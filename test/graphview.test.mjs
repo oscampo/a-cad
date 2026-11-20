@@ -1,7 +1,7 @@
 // Graficas: x generica propia, x como vector del dibujo, tiempo solo del reproductor, zoom y paneo de los ejes.
 import assert from 'node:assert/strict';
 import { newDoc, addPoint, addText } from '../src/model.js';
-import { addGraph, computeGraph, genericRange, genericX, GEN_X } from '../src/graphs.js';
+import { addGraph, computeGraph, genericRange, genericX, genDefault, GEN_X } from '../src/graphs.js';
 import { panWin, zoomWin, zoomStep, zoomPos, zoomFromPos, winCenter, setWindow, clearWindow, ZOOM_R, ZOOM_RATE } from '../src/graphview.js';
 
 let passed = 0;
@@ -35,6 +35,17 @@ t('«y vs x» sin definir x: cada grafica usa su vector y se resamplea con sus l
   assert.deepEqual(r.series[0].pts.map((p) => p[0]), [0, 0.5, 1, 1.5, 2]);
   const a = run(d, ['x vs x'], { axes: { x1: { min: 0, max: 1 } } }), b = run(d, ['x vs x']); // dos graficas, dos ventanas independientes
   assert.equal(a.series[0].pts.at(-1)[0], 1); assert.equal(b.series[0].pts.at(-1)[0], 10);
+});
+
+t('cada grafica guarda su propio rango de x generica por defecto (xdef)', () => {
+  assert.deepEqual(genDefault({}), GEN_X);
+  assert.deepEqual(genDefault({ xdef: [0, 1] }), [0, 1]);
+  assert.deepEqual(genDefault({ xdef: [1, 0] }), GEN_X); // al reves o roto: el de siempre
+  assert.deepEqual(genericRange({ xdef: [0, 1] }), [0, 1]); // eje x1 automatico: el rango propio
+  assert.deepEqual(genericRange({ xdef: [0, 1], axes: { x1: { min: 2, max: 5 } } }), [2, 5]); // con limites puestos mandan los limites
+  assert.deepEqual(genericRange({ xdef: [0, 1], axes: { x1: { min: 3, max: null } } }), [3, 4]); // un solo limite: el ancho del rango propio
+  const r = run(mk('$f(x):x^2$'), ['f(x) vs x'], { xdef: [0, 1] });
+  assert.equal(r.generic, true); assert.deepEqual(r.series[0].pts.map((p) => p[0]), [0, 0.25, 0.5, 0.75, 1]);
 });
 
 t('x definida como rango o vector: se usan esos valores', () => {

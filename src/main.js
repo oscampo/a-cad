@@ -21,7 +21,7 @@ import { layoutDim, dragDim, dimValue, dimScale, splitScale, angSector, angTrue,
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
-import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, genericRange, GEN_X, AXES } from './graphs.js';
+import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, genericRange, genDefault, AXES } from './graphs.js';
 import { panWin, zoomStep, setWindow, clearWindow } from './graphview.js';
 import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD, textLinkAt, textLinkBoxes } from './text.js';
 import { linkTarget, resolveRepoPath, findAnchor } from './links.js';
@@ -3580,7 +3580,8 @@ function ctlUp(d) {
   const z = d.ctl, now = performance.now();
   if (d.zoom) springBack(z.id + '|' + d.k);
   if (d.zoom && !d.moved && now - d.tdown < 300 && lastCtlTap && lastCtlTap.kind === z.kind && lastCtlTap.id === z.id && now - lastCtlTap.t < 450) { // doble toque en un zoom: limites automaticos
-    clearWindow(doc.graphs[z.id], d.k); lastCtlTap = null; toast('Eje con límites automáticos');
+    const gz = doc.graphs[z.id]; clearWindow(gz, d.k); lastCtlTap = null;
+    toast(d.k === 'x1' && graphData[z.id]?.generic ? `Eje con límites automáticos: x de ${fmtG(genDefault(gz)[0])} a ${fmtG(genDefault(gz)[1])}` : 'Eje con límites automáticos');
   } else lastCtlTap = d.zoom ? { kind: z.kind, id: z.id, t: now } : null;
   afterChange();
 }
@@ -3618,10 +3619,10 @@ function drawGraphs(c, o) {
         const cf = axisCfg(g, k), r = axisRange(D.series, k, cf.scale === 'log') || { lo: 0, hi: 1 };
         lay[k] = axisLayout(cf, r.lo, r.hi);
       }
-      for (const k of ['x1', 'y1']) { // ventana y ventana de partida (la de los datos, o GEN_X en una x generica) para los controles de zoom y paneo
+      for (const k of ['x1', 'y1']) { // ventana y ventana de partida (la de los datos, o el rango por defecto de la grafica en una x generica) para los controles de zoom y paneo
         const cf = axisCfg(g, k), r = axisRange(D.series, k, cf.scale === 'log');
         const hl = r ? axisLayout({ ...cf, min: null, max: null }, r.lo, r.hi) : lay[k];
-        (gview[id] ||= {})[k] = { lo: lay[k].lo, hi: lay[k].hi, home: k === 'x1' && D.generic ? GEN_X.slice() : [hl.lo, hl.hi], log: lay[k].log };
+        (gview[id] ||= {})[k] = { lo: lay[k].lo, hi: lay[k].hi, home: k === 'x1' && D.generic ? genDefault(g) : [hl.lo, hl.hi], log: lay[k].log };
       }
       const posX = (k) => (v) => px + lay[k].f(v) * pw, posY = (k) => (v) => py + ph - lay[k].f(v) * ph;
       const gx = posX('x1'), gy = posY('y1');
@@ -3699,7 +3700,7 @@ function scheduleGraphs() {
     const base = JSON.stringify({ ...doc, graphs: undefined, traces: undefined, layers: undefined });
     const ns = {}, todo = [];
     for (const [id, g] of Object.entries(doc.graphs || {})) {
-      ns[id] = base + '|' + JSON.stringify([g.series, g.n, g.angles, graphData[id]?.generic ? [g.axes?.x1, g.axes?.x2] : null, g.x, g.y + g.h]); // con x generica, los limites del eje x1 definen los valores de x; su esquina superior izquierda, su lugar en el orden de lectura
+      ns[id] = base + '|' + JSON.stringify([g.series, g.n, g.angles, graphData[id]?.generic ? [g.axes?.x1, g.axes?.x2, g.xdef] : null, g.x, g.y + g.h]); // con x generica, los limites del eje x1 definen los valores de x; su esquina superior izquierda, su lugar en el orden de lectura
       if (!(graphData[id] && graphSig[id] === ns[id])) todo.push(id);
     }
     for (const id of Object.keys(graphData)) if (!doc.graphs?.[id]) delete graphData[id];
@@ -3764,6 +3765,7 @@ function editGraph(id, nuevo) {
   $('grTitle').value = g.title || ''; $('grSeries').value = g.series.join('\n'); $('grN').value = g.n;
   $('grAng').value = g.angles === 'rad' || g.angles === 'deg' ? g.angles : '';
   $('grAng').options[0].textContent = 'Del documento (' + (doc.angles === 'rad' ? 'radianes' : 'grados') + ')';
+  const xd = g.xdef ? genDefault(g) : null; $('grXd0').value = xd ? fmtG(xd[0]) : ''; $('grXd1').value = xd ? fmtG(xd[1]) : '';
   $('grX').value = fmtG(g.x); $('grY').value = fmtG(g.y); $('grW').value = fmtG(g.w); $('grH').value = fmtG(g.h);
   $('grVars').textContent = 'Variables: ' + graphVarNames(doc).join(', ') + '. También p1.x, l1.len, c1.r… y funciones (sin, sqrt…)';
   buildAxesUI();
@@ -3776,6 +3778,8 @@ function editGraph(id, nuevo) {
     const nv = { x: num('grX'), y: num('grY'), w: num('grW'), h: num('grH'), n: Math.round(num('grN')) };
     if (!series.length) { toast('Escribe al menos una relación, por ejemplo «MR1 vs t»'); return; }
     if (![nv.x, nv.y, nv.w, nv.h, nv.n].every(Number.isFinite) || nv.w <= 0 || nv.h <= 0 || nv.n < 2) { toast('Revisa la posición, el tamaño y las muestras'); return; }
+    const xs = ['grXd0', 'grXd1'].map((e) => String($(e).value).trim().replace(',', '.')), xdef = xs.every((v) => v === '') ? null : xs.map(Number);
+    if (xdef && !(xdef.every(Number.isFinite) && xdef[1] > xdef[0])) { toast('x genérica: escribe los dos valores, el segundo mayor que el primero (o deja ambos vacíos para −10 a 10)'); return; }
     const axes = {};
     for (const k of AXES) {
       const v = (f) => String($('ax_' + k + '_' + f).value).trim().replace(',', '.'), a = { name: $('ax_' + k + '_name').value.trim(), scale: $('ax_' + k + '_scale').value };
@@ -3787,7 +3791,8 @@ function editGraph(id, nuevo) {
     }
     if (!nuevo) pushUndo();
     Object.assign(doc.graphs[id], nv, { title: $('grTitle').value.trim(), series, axes });
-    if ($('grAng').value) doc.graphs[id].angles = $('grAng').value; else delete doc.graphs[id].angles;
+    if ($('grAng').value) doc.graphs[id].angles = $('grAng').value; else Reflect.deleteProperty(doc.graphs[id], 'angles');
+    if (xdef) doc.graphs[id].xdef = xdef; else Reflect.deleteProperty(doc.graphs[id], 'xdef');
     delete graphData[id];
     done = true; dlg.close(); afterChange();
   };
