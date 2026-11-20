@@ -108,6 +108,15 @@ Se definen en un texto y se usan en las salidas, en las variables y en las cotas
 | `f(x):…` | Función de un parámetro. | `f(x):x^2+1`<br>`f(3)=` | `10` |
 | `g(a; b):…` | Varios parámetros, separados por `;` o `,`. | `g(a; b):a*b+1`<br>`g(2; 5)=` | `11` |
 
+## Ecuaciones
+
+Se resuelven numéricamente (Levenberg-Marquardt): desde un valor inicial se busca el valor que cumple la ecuación. Con varias raíces da la más cercana al valor inicial; si no encuentra una, avisa. Para un sistema de ecuaciones, `solve(…)=` en un texto (ver «Orden de lectura» en Texto y cálculo).
+
+| Función | Qué hace | Ejemplo | Da |
+|---|---|---|---|
+| `fzero(ecuación; x; inicial)` | El valor de x que cumple la ecuación, escrita con `==` (`x^2 == 2`) o como una expresión que vale 0 (`x^2-2`). El valor inicial lleva las unidades de x; sin él usa el valor de x en ese punto, o 1. | `fzero(x^2 == 2; x; 1)` | `1.4142` |
+|  | Con unidades: la fuerza que da un momento de 30 kN·m con un brazo de 2 m (en kN). | `fzero(F*2'm == 30'kN*'m; F; 1'kN)/(1'kN)` | `15` |
+
 ## Valores del dibujo
 
 Nombres que una fórmula puede leer. Siempre valen lo que tiene el dibujo en ese momento.

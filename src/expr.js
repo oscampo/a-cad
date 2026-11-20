@@ -5,6 +5,7 @@
 // Un angulo vale su medida en radianes (r = true), igual que π: sin(A1) funciona y R*A1 es la longitud de arco.
 
 import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem, docUnitsHook } from './units.js';
+import { solveEqs } from './nsolve.js';
 import { GREEK, GREEK_UP, addCalcFns } from './asciimath.js';
 import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText } from './locale.js';
 
@@ -40,7 +41,7 @@ const MULTI = {
   round: { n: [1, 2], f: (A) => { const d = A.length > 1 ? A[1].v : 0; if (!Number.isInteger(d) || d < 0 || d > 12) throw new Error('round(x; n): n debe ser un entero de 0 a 12'); return { v: rnd(A[0].v, d), r: A[0].r }; } },
 };
 MULTI.redondear = MULTI.round;
-const LAZY = new Set(['if', 'si']); // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
+const LAZY = new Set(['if', 'si', 'fzero']); // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
 // Funciones de vectores y matrices (reciben un vector o una matriz): inv, det; resumenes (sobre todos los elementos): sum, prod, mean, median, std, variance, norm, len;
 // forma: rows, cols, trace, diag, eye(n); acumuladas: cumsum, cumprod; entre dos vectores: dot, cross. min(x) y max(x) con un solo vector tambien resumen.
 const MATFN = new Set(['inv', 'det', 'sum', 'prod', 'mean', 'median', 'std', 'variance', 'norm', 'len', 'rows', 'cols', 'trace', 'diag', 'eye', 'cumsum', 'cumprod', 'dot', 'cross']);
@@ -52,11 +53,11 @@ const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
 // quedan guardadas para los motores, las animaciones y los calculos dinamicos. Todavia no valen nada.
 export const TIME_VAR = 't';
 export const FUTURE_VARS = new Set([TIME_VAR, 'j', 'ω', 'θ', 'α']);
-export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l === 'log10' || l === 'clear' || l === 'all'; };
+export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l === 'log10' || l === 'clear' || l === 'all' || l === 'solve'; };
 export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : String(n).toLowerCase() === 'all' ? `«${n}» está reservada para clear(all)` : `«${n}» es una función o constante`);
 // Todos los nombres de funciones y constantes del evaluador (la referencia de la ayuda debe nombrarlos todos: test/funcref.test.mjs).
 export const FUNC_NAMES = [...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(CONSTS)];
-addCalcFns([...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY]); // se dibujan como funcion (ver asciimath.js)
+addCalcFns([...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, 'solve']); // se dibujan como funcion (ver asciimath.js)
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*$/;
 const ID_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*/;
 // Variables de texto con subindice: «var_(texto-del-subindice)». El subindice es texto libre (sin parentesis ni llaves); espacios sobrantes no cuentan.
@@ -373,8 +374,24 @@ export function evalExpr(src, opts = {}) {
     try { return evalExpr1(src, opts); } catch (e2) { throw e; } finally { setDecimal(null); }
   }
 }
+// La incognita de fzero(…; x; …) puede no existir todavia: se le da un lugar para poder leer la formula (no tiene valor; lo pone fzero).
+function withUnknowns(s, vars) {
+  if (!/fzero/i.test(s)) return vars;
+  let out = vars;
+  const lt = tokenize(s, vars, true);
+  for (let i = 0; i < lt.length; i++) {
+    if (!(lt[i].t === 'id' && lt[i].v === 'fzero' && lt[i + 1]?.t === 'op' && lt[i + 1].v === '(')) continue;
+    let d = 0, j = i + 2;
+    for (; j < lt.length; j++) { const t = lt[j]; if (t.t === 'op' && (t.v === '(' || t.v === '[')) d++; else if (t.t === 'op' && (t.v === ')' || t.v === ']')) { if (d === 0) break; d--; } else if (t.t === 'sep' && d === 0) break; }
+    const x = lt[j]?.t === 'sep' ? lt[j + 1] : null;
+    if (x?.t === 'var' && !(vars && Object.prototype.hasOwnProperty.call(vars, x.v))) { out = { ...(out || {}) }; out[x.v] = { v: NaN, r: false, unk: true }; }
+  }
+  return out;
+}
 function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, depth = 0, globals = null } = {}) {
-  const toks = tokenize(String(src ?? ''), vars);
+  const S = String(src ?? '');
+  vars = withUnknowns(S, vars);
+  const toks = tokenize(S, vars);
   if (!toks.length) throw new Error('Escribe un valor');
   let p = 0;
   const peek = () => toks[p];
@@ -453,6 +470,29 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     if (!isOp(')')) throw new Error(peek()?.t === 'sep' ? SI_MSG() : 'Falta cerrar un paréntesis');
     p++;
     return pick;
+  }
+  // fzero(ecuacion; x) o fzero(ecuacion; x; inicial): el valor de x que cumple la ecuacion («a == b», o una expresion que vale 0).
+  // Sin valor inicial usa el de x en ese punto (si x es una variable) o 1. La x de la ecuacion es la incognita, no la variable de afuera.
+  const FZ_MSG = () => `fzero(ecuación${argText()} x${argText()} inicial): la ecuación, el nombre de la incógnita y (si quieres) su valor inicial`;
+  function lazyFzero() { // ya se leyo «fzero(»
+    const a0 = p; skipArg(); const a1 = p;
+    if (a1 === a0 || peek()?.t !== 'sep') throw new Error(FZ_MSG());
+    p++;
+    const xt = peek();
+    if (xt?.t !== 'var' || (toks[p + 1] && !(toks[p + 1].t === 'sep' || (toks[p + 1].t === 'op' && toks[p + 1].v === ')')))) throw new Error(FZ_MSG());
+    p++;
+    let g = null;
+    if (peek()?.t === 'sep') { p++; g = cmp(); }
+    if (!isOp(')')) throw new Error(FZ_MSG());
+    p++;
+    const name = xt.v, here = vars?.[name];
+    if (!g) g = here && !here.unk && !here.fn && Number.isFinite(here.v) ? { v: here.v, r: !!here.r, d: here.d } : { v: 1, r: false };
+    if (isM(g)) throw new Error('fzero busca un número: el valor inicial no puede ser un vector');
+    const calc = (s, vv) => { const r = evalExpr(s, { radians, vars: vv, depth: depth + 1, globals: globals || vars }); if (r.mat) throw new Error('la ecuación da un vector: fzero resuelve una ecuación de una incógnita'); return r; };
+    try {
+      const [x] = solveEqs([{ name, v: g.v, r: g.r, d: g.d }], [S.slice(toks[a0].i, toks[a1 - 1].j)], calc, vars || {});
+      return wd({ v: x, r: g.r }, g.d);
+    } catch (e) { throw new Error(`fzero: ${e.message}`); }
   }
   function call(name, A) {
     const sep = decimalMode() === '.' ? ' (sepáralos con «,»)' : decimalMode() === ',' ? ' (sepáralos con «;»)' : ' (sepáralos con «;»: «2,5» es un solo número)';
@@ -634,6 +674,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
       if (k.v in CONSTS) return { v: CONSTS[k.v], r: k.v === 'pi' || k.v === 'π' };
       if (!isOp('(')) throw new Error(`«${k.v}» necesita paréntesis, p. ej. ${k.v}(30)`);
       p++;
+      if (k.v === 'fzero') return lazyFzero();
       if (LAZY.has(k.v)) return lazyIf(k.v);
       const A = [];
       if (isOp(')')) throw new Error(`«${k.v}» necesita al menos un valor`);

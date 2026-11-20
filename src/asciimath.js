@@ -78,7 +78,7 @@ export const symbolWords = () => [...WORDS.keys()].filter((k) => !PLAIN.has(k) &
 const op = (v, k) => ({ t: 'op', v, k });
 const SYMS = [
   ['<=>', op('⇔', 'rel')], ['|->', op('↦', 'rel')], ['...', { t: 'sym', v: '…' }], ['>->>', op('⤖', 'rel')],
-  ['!in', op('∉', 'rel')], ['!=', op('≠', 'rel')], ['<=', op('≤', 'rel')], ['>=', op('≥', 'rel')], ['->', op('→', 'rel')], ['=>', op('⇒', 'rel')], ['<-', op('←', 'rel')],
+  ['!in', op('∉', 'rel')], ['==', op('=', 'rel')], ['!=', op('≠', 'rel')], ['<=', op('≤', 'rel')], ['>=', op('≥', 'rel')], ['->', op('→', 'rel')], ['=>', op('⇒', 'rel')], ['<-', op('←', 'rel')],
   ['~~', op('≈', 'rel')], ['~=', op('≅', 'rel')], ['-=', op('≡', 'rel')], [':=', op(':=', 'rel')], ['-<=', op('⪯', 'rel')], ['-<', op('≺', 'rel')],
   ['>-=', op('⪰', 'rel')], ['>-', op('≻', 'rel')], ['>->', op('↣', 'rel')], ['->>', op('↠', 'rel')], ['|--', op('⊢', 'rel')], ['|==', op('⊨', 'rel')],
   // operadores elemento a elemento: el punto antecede a la operacion (antes de la raya de la fraccion, antes del ⋅); .^ es una potencia

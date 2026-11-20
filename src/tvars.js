@@ -6,6 +6,7 @@ const paramSep = () => (decimalMode() === ',' ? /;/ : /[;,]/); // parametros de 
 import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName } from './expr.js';
 import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg, setUserUnits, addUserUnit, onDocUnits, unitsVersion, UNIT_NAME_RE } from './units.js';
+import { solveEqs, splitEq } from './nsolve.js';
 
 // Marcas de cursiva dentro de un texto ya expandido (caracteres de uso privado: no se escriben a mano).
 export const IT0 = '', IT1 = '';
@@ -382,9 +383,41 @@ export function clearCall(expr) {
   return { names: parts.map(normName) };
 }
 
+// Los argumentos de una llamada, separados por «;» (o por «,» con punto decimal) fuera de parentesis y corchetes.
+function splitArgs(s) {
+  const out = [];
+  let d = 0, from = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '(' || c === '[') d++;
+    else if (c === ')' || c === ']') d--;
+    else if (d === 0 && (c === ';' || (c === ',' && decimalMode() !== ',' && !(decimalMode() === null && /\d/.test(s[i - 1] || '') && /\d/.test(s[i + 1] || ''))))) { out.push(s.slice(from, i)); from = i + 1; }
+  }
+  out.push(s.slice(from));
+  return out.map((x) => x.trim());
+}
+// «solve(ec1; ec2; x; y)=»: resuelve las ecuaciones (las que llevan «==») para las incognitas (los nombres sueltos), que deben estar definidas
+// antes con su valor inicial; desde ese punto del orden de lectura valen la solucion. Devuelve null si la salida no es un solve, o
+// { eqs, names } / { err }.
+export function solveCall(expr) {
+  const m = /^\s*solve\s*\(([\s\S]*)\)\s*$/i.exec(String(expr ?? ''));
+  if (!m) return null;
+  const parts = splitArgs(m[1]), eqs = [], names = [];
+  for (const q of parts) {
+    if (!q) return { err: `solve(…) lleva las ecuaciones (con «==») y los nombres de las incógnitas, separados por «${argChar() === ',' ? ',' : ';'}»` };
+    if (splitEq(q)) eqs.push(q);
+    else if (TEXT_NAME_RE.test(q)) names.push(normName(q));
+    else return { err: `«${q}» no es una ecuación (le falta «==») ni el nombre de una incógnita` };
+  }
+  if (!eqs.length) return { err: 'solve(…) necesita al menos una ecuación con «==», p. ej. solve(x^2 == 2; x)' };
+  if (!names.length) return { err: 'solve(…) necesita el nombre de las incógnitas, p. ej. solve(x^2 == 2; x)' };
+  if (new Set(names).size !== names.length) return { err: 'solve(…) nombra una incógnita dos veces' };
+  return { eqs, names };
+}
+
 export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = []) {
   setAngleMode(doc);
-  const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map(), clearRes: new Map(), cleared: new Set(), openEnd: new Set(), at: new Map() };
+  const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map(), clearRes: new Map(), cleared: new Set(), openEnd: new Set(), at: new Map(), solveRes: new Map() };
   const events = readingEvents(doc, probes);
   if (!events.some((e) => e.kind !== 'dim')) return st; // sin definiciones ni salidas: nada que leer
   const key = JSON.stringify([events, dimVars, [...dimNames], angleRad(), unitsVersion()]);
@@ -434,6 +467,25 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
           else { let all = true; for (const n of cl.names) { if (n in env) { back(n); st.cleared.add(n); } else all = false; } res = { v: all ? 1 : 0 }; }
         }
         st.clearRes.set(k, res);
+      }
+      const sv = !cl && solveCall(e.expr);
+      if (sv) { // solve: las incognitas valen la solucion desde aqui (su unidad y su marca de radianes son las del valor inicial)
+        let res;
+        try {
+          if (sv.err) throw new Error(sv.err);
+          const us = sv.names.map((n) => {
+            const x = env[n];
+            if (!x && n in dimVars) throw new Error(`«${n}» es una cota (o una medida del dibujo): solve resuelve variables de texto`);
+            if (!x) throw new Error(`define «${n}» antes del solve, con su valor inicial (p. ej. ${n}:1)`);
+            if (x.fn || x.vec || x.mat) throw new Error(`«${n}» debe ser un número (el valor inicial), no una función, un vector ni una matriz`);
+            return { name: n, v: x.v, r: !!x.r, d: x.d };
+          });
+          const calc = (s, vv) => { const r = evalExpr(s, { vars: vv, allowMat: true }); if (r.mat) throw new Error(`«${s.trim()}» da un vector o una matriz: cada ecuación es entre números`); return r; };
+          const xs = solveEqs(us, sv.eqs, calc, cur);
+          res = { vals: us.map((u, i) => { const old = env[u.name], val = { ...old, v: xs[i] }; cur[u.name] = val; env[u.name] = val; return { name: u.name, val }; }) };
+          for (const u of us) (st.byName.get(u.name) || st.byName.set(u.name, []).get(u.name)).push({ name: u.name, expr: sv.eqs.map((q) => { const [a, b] = splitEq(q); return `(${a})-(${b})`; }).join('+') }); // dependencias: lo que leen las ecuaciones
+        } catch (err) { res = { err: err.message }; st.errs.set('solve(' + sv.names?.join(', ') + ')', `solve(…): ${hint(err.message)}`); }
+        st.solveRes.set(k, res);
       }
       continue;
     }

@@ -3,14 +3,14 @@
 // de measureText; en las pruebas puede ser una aproximacion).
 import { evalExpr, setAngleMode } from './expr.js';
 import { varsOf, textVars } from './params.js';
-import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, clearCall, unitDefOf, UDEF_ERR } from './tvars.js';
+import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, clearCall, solveCall, unitDefOf, UDEF_ERR } from './tvars.js';
 import { normName, exprRefs } from './expr.js';
 import { parseUnit, sameDim, autoUnit } from './units.js';
 export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
 import { hasMath, layoutText, splitMath } from './mathlayout.js';
 import { hasMd } from './markdown.js';
-import { localNum, elemChar, rowChar } from './locale.js';
+import { localNum, elemChar, rowChar, argText } from './locale.js';
 export { hasMath } from './mathlayout.js';
 
 // Calculo en los textos (dentro de una formula, ver tvars.js): una salida «expr=» se dibuja «expr=valor»; la expresion puede usar los nombres
@@ -87,6 +87,13 @@ function textValue1(doc, t) {
       if (!st) { st = textVars(doc); tid = Object.keys(doc.texts || {}).find((x) => doc.texts[x] === t); }
       const res = st.clearRes.get(tid + ':' + oidx++);
       return res && !res.err ? String(res.v) : '⚠';
+    }
+    if (solveCall(p.expr)) { // «solve(...)=»: «x = 3 m, y = 4 m» (lo resuelve el orden de lectura, textVarState)
+      if (!st) { st = textVars(doc); tid = Object.keys(doc.texts || {}).find((x) => doc.texts[x] === t); }
+      const res = st.solveRes.get(tid + ':' + oidx++);
+      if (!res || res.err) return '⚠';
+      const env = Object.fromEntries(res.vals.map(({ name, val }) => [name, val]));
+      return res.vals.map(({ name, val }) => name + '=' + qty({ value: val.v, rad: !!val.r, dim: val.d }, env, name, null, math)).join(argText() + ' ');
     }
     try {
       const env = st?.outEnv.get(tid + ':' + oidx++) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
