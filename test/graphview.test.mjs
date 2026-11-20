@@ -8,7 +8,7 @@ let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
 const near = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) < e, a + ' ~ ' + b);
 const mk = (...texts) => { const d = newDoc(); d.angles = 'rad'; texts.forEach((s, i) => addText(d, addPoint(d, 0, -i), s, {})); return d; };
-const run = (d, series, extra = {}) => { const g = { x: 0, y: 0, w: 50, h: 30, series, n: 5, ...extra }; return computeGraph(d, g, () => ({ ok: true })); };
+const run = (d, series, extra = {}) => { const g = { x: 0, y: -100, w: 50, h: 30, series, n: 5, ...extra }; return computeGraph(d, g, () => ({ ok: true })); };
 
 t('una grafica nueva no tiene tiempo final propio', () => {
   const d = newDoc(); const id = addGraph(d, 0, 0, 40, 30, ['x vs x']);
@@ -55,6 +55,30 @@ t('una formula con if() que no admite vectores se evalua elemento por elemento',
 t('la x generica no se combina con t', () => {
   const r = run(mk(), ['t vs x']);
   assert.match(r.error, /x genérica no se combina con t/);
+});
+
+t('orden de lectura: la grafica ve lo que esta antes de ella (arriba, o a la izquierda en la misma fila)', () => {
+  // como en Tutorial.json: V(x) y M(x) se definen arriba; abajo de la grafica, V, M y x se redefinen como vectores
+  const d = newDoc(); d.angles = 'rad';
+  addText(d, addPoint(d, 0, 0), '$$V(x):2*x\nM(x):x^2$$', {});
+  addText(d, addPoint(d, 0, -200), '$$V:[1,1]\nM:[1,0]\nx:0..1;3$$', {});
+  const g = { x: 0, y: -100, w: 50, h: 30, series: ['V(x) vs x', 'M(x) vs x'], n: 3, axes: { x1: { min: 0, max: 2 } } };
+  const r = computeGraph(d, g, () => ({ ok: true }));
+  assert.equal(r.error, null);
+  assert.equal(r.generic, true); // la x de abajo no cuenta: x generica
+  assert.deepEqual(r.series.map((s) => s.pts), [[[0, 0], [1, 2], [2, 4]], [[0, 0], [1, 1], [2, 4]]]);
+  // la misma grafica debajo de todo ve los vectores: V(x) ya no es la funcion
+  assert.ok(computeGraph(d, { ...g, y: -400 }, () => ({ ok: true })).error);
+  // algo que solo se define mas abajo: el mensaje lo dice
+  const e = mk('$$f(x):x^2$$');
+  const up = computeGraph(e, { x: 0, y: 50, w: 50, h: 30, series: ['f(x) vs x'], n: 3 }, () => ({ ok: true }));
+  assert.match(up.error, /«f» se define después de la gráfica/);
+  // a la derecha en la misma fila tambien es despues; a la izquierda, antes
+  const s = newDoc();
+  addText(s, addPoint(s, 100, 0), '$$k:3$$', { anchor: 'tl' });
+  const row = (x) => computeGraph(s, { x, y: -20, w: 40, h: 20, series: ['k*x vs x'], n: 2, axes: { x1: { min: 0, max: 1 } } }, () => ({ ok: true }));
+  assert.deepEqual(row(150).series[0].pts, [[0, 0], [1, 3]]);
+  assert.match(row(0).error, /se define después de la gráfica/);
 });
 
 t('t sigue siendo el tiempo del reproductor (doc.tEnd), no de la grafica', () => {

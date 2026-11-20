@@ -47,6 +47,17 @@ export function varsOf(doc, exceptId = null) {
   const st = textVarState(doc, out, new Set(named(doc).map(([, k]) => k.name)), probesOf(doc));
   return Object.assign(out, exceptId != null && st.dimEnv.has(exceptId) ? st.dimEnv.get(exceptId) : st.vals); // una cota con formula ve las variables de su lugar de la pagina
 }
+// Variables que ve algo que esta en la pagina en (top, left) (una grafica: su esquina superior izquierda): las de las cotas y las de
+// los textos definidas ANTES en el orden de lectura, como una cota con formula. later: las que se definen mas abajo (para avisar).
+const AT = '\u0000at';
+export function varsAt(doc, top, left) {
+  const out = geoVars(doc);
+  for (const [, k] of named(doc)) out[k.name] = varValue(doc, k);
+  if (!hasDefs(doc)) return { vars: out, later: new Set() };
+  const st = textVarState(doc, { ...out }, new Set(named(doc).map(([, k]) => k.name)), [...probesOf(doc), { id: AT, top, left }]);
+  const here = st.dimEnv.get(AT) || {};
+  return { vars: Object.assign(out, here), later: new Set(Object.keys(st.vals).filter((n) => !(n in here))) };
+}
 // Texto corto de las variables para mostrarlas al escribir una formula: "D1 = 25, A1 = 45°".
 export function varsList(doc, exceptId = null) {
   const dims = named(doc).filter(([id]) => id !== exceptId).map(([, k]) => {

@@ -292,6 +292,7 @@ export const EN = {
   "No reconozco «{0}» (propiedades: p1.x, p1.y, l1.len, l1.ang, c1.r, c1.d)": "I don't recognize «{0}» (properties: p1.x, p1.y, l1.len, l1.ang, c1.r, c1.d)",
   "{0} (todavía no tiene valor)": "{0} (it has no value yet)",
   "No reconozco «{0}»": "I don't recognize «{0}»",
+  "«{0}» se define después de la gráfica (más abajo, o a su derecha en la misma fila): la gráfica ve solo lo que está antes en el orden de lectura": "«{0}» is defined after the graph (further down, or to its right on the same row): the graph only sees what comes before it in reading order",
   " (no hay una cota con ese nombre)": " (there is no dimension with that name)",
   "Carácter no válido «{0}»": "Invalid character «{0}»",
   "un vector fila de {0}": "a row vector of {0}",

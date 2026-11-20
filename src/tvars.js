@@ -225,6 +225,7 @@ export function rangeValues(rg, ev) {
 // el valor nuevo. Una variable que aun no se definio no existe (avisa de que se define mas abajo). Como en SMath.
 // Los textos se ordenan por su esquina superior izquierda (aproximada: caja segun el punto de insercion, el ancla, la altura y las lineas).
 // Las cotas con formula tambien van en la pagina: se leen en el lugar de su etiqueta y ven las variables tal como estaban ahi (probes: [{ id, x, y, len }]).
+// Las graficas igual, en su esquina superior izquierda (probes: [{ id, top, left }]).
 const ROW_TOL = 0.5; // dos elementos estan en la misma fila si sus bordes superiores difieren menos de esta fraccion de su altura
 function readingItems(doc, probes = []) {
   const items = [];
@@ -238,7 +239,8 @@ function readingItems(doc, probes = []) {
   }
   if (probes.length) {
     const hs = items.map((i) => i.h).sort((a, b) => a - b), hm = hs.length ? hs[hs.length >> 1] : 1; // una cota pesa como un texto de altura tipica
-    for (const p of probes) items.push({ probe: p.id, h: hm, n: n++, top: p.y + 0.6 * hm, left: p.x - (p.len * 0.55 * hm) / 2 });
+    // una gráfica da su esquina superior izquierda (top, left); una cota, el centro de su etiqueta (x, y, len)
+    for (const p of probes) items.push({ probe: p.id, h: hm, n: n++, top: p.top ?? p.y + 0.6 * hm, left: p.left ?? p.x - (p.len * 0.55 * hm) / 2 });
   }
   items.sort((a, b) => b.top - a.top || a.n - b.n);
   const rows = [];

@@ -3699,7 +3699,7 @@ function scheduleGraphs() {
     const base = JSON.stringify({ ...doc, graphs: undefined, traces: undefined, layers: undefined });
     const ns = {}, todo = [];
     for (const [id, g] of Object.entries(doc.graphs || {})) {
-      ns[id] = base + '|' + JSON.stringify([g.series, g.n, g.angles, graphData[id]?.generic ? [g.axes?.x1, g.axes?.x2] : null]); // con x generica, los limites del eje x1 definen los valores de x
+      ns[id] = base + '|' + JSON.stringify([g.series, g.n, g.angles, graphData[id]?.generic ? [g.axes?.x1, g.axes?.x2] : null, g.x, g.y + g.h]); // con x generica, los limites del eje x1 definen los valores de x; su esquina superior izquierda, su lugar en el orden de lectura
       if (!(graphData[id] && graphSig[id] === ns[id])) todo.push(id);
     }
     for (const id of Object.keys(graphData)) if (!doc.graphs?.[id]) delete graphData[id];

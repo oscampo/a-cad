@@ -3699,7 +3699,7 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 10, 0), l = addLine(d, a, b);
   d.pts[a].fixed = true; addCon(d, { t: 'DIST', refs: [a, b], v: 10 });
   addRotary(d, l, a, { mode: 'vel', expr: '30' });
-  const g = addGraph(d, 0, 0, 100, 60, ['MR1 vs t', 'MR1.v vs t', 'MR1.d vs t']);
+  const g = addGraph(d, 0, -100, 100, 60, ['MR1 vs t', 'MR1.v vs t', 'MR1.d vs t']);
   d.tEnd = 4; d.graphs[g].n = 5;
   const r = computeGraph(d, d.graphs[g], solve);
   assert.equal(r.error, null);
@@ -3714,21 +3714,21 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   assert.match(computeGraph(d, d.graphs[g], solve).error, /vs/);
   const e = newDoc(), P = addPoint(e, 0, 0);
   addText(e, P, '$x:0..1;3$  $y:0..2..4$  $z:1..2;4$', {});
-  const h = addGraph(e, 0, 0, 100, 60, ['y vs x']);
+  const h = addGraph(e, 0, -100, 100, 60, ['y vs x']);
   assert.deepEqual(computeGraph(e, e.graphs[h], solve).series[0].pts, [[0, 0], [0.5, 2], [1, 4]]);
   e.graphs[h].series = ['z vs x'];
   assert.match(computeGraph(e, e.graphs[h], solve).error, /distinto/);
   // un lado con una expresion que da un vector (una funcion propia, «.^», un vector columna) tambien se grafica contra otro vector
   const fv = newDoc(), Q = addPoint(fv, 0, 0);
   addText(fv, Q, '$$x:0..1;3\nf(x):x.^2\nv:[1;2;3]$$', {});
-  const k = addGraph(fv, 0, 0, 100, 60, ['f(x) vs x', 'x.^2 vs x', 'v vs v.^2']);
+  const k = addGraph(fv, 0, -100, 100, 60, ['f(x) vs x', 'x.^2 vs x', 'v vs v.^2']);
   const rv = computeGraph(fv, fv.graphs[k], solve);
   assert.equal(rv.error, null);
   assert.deepEqual(rv.series.map((s) => s.pts), [[[0, 0], [0.5, 0.25], [1, 1]], [[0, 0], [0.5, 0.25], [1, 1]], [[1, 1], [4, 2], [9, 3]]]);
   // dibujo en radianes (doc.angles): sin(x)./x es la funcion sinc, como en el tutorial; en grados (por defecto) seria sin(x°)/x
   const sc = newDoc(), S0 = addPoint(sc, 0, 0);
   addText(sc, S0, '$$x:1..3;3\nf(x):sin(x)./x$$', {});
-  const ks = addGraph(sc, 0, 0, 100, 60, ['f(x) vs x']);
+  const ks = addGraph(sc, 0, -100, 100, 60, ['f(x) vs x']);
   const ys = (r) => r.series[0].pts.map((q) => Number(q[1].toFixed(4)));
   assert.deepEqual(ys(computeGraph(sc, sc.graphs[ks], solve)), [0.0175, 0.0174, 0.0174]);
   sc.angles = 'rad';
@@ -3754,7 +3754,7 @@ t('graficas: variable1 vs variable2 con varias series, actuadores y vectores', (
   // con unidades, cada lado se grafica en su unidad (la de la variable, o la del SI con prefijo) y la leyenda la dice
   const fu = newDoc(), U = addPoint(fu, 0, 0);
   addText(fu, U, "$$x:5..10;3'mm\nF:[1,2,3]'kN\nk:2'N/mm\nL:250'mm$$", {});
-  const ku = addGraph(fu, 0, 0, 100, 60, ['F vs x', 'k*x vs x', 'F./x vs x', 'L vs t']);
+  const ku = addGraph(fu, 0, -100, 100, 60, ['F vs x', 'k*x vs x', 'F./x vs x', 'L vs t']);
   fu.tEnd = 1; fu.graphs[ku].n = 2;
   const ru = computeGraph(fu, fu.graphs[ku], solve);
   assert.equal(ru.error, null);

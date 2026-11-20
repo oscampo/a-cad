@@ -7,7 +7,7 @@
 // se simula el dibujo (en una copia) de t = 0 a doc.tEnd; si solo usa vectores, se grafican tal cual.
 // La variable independiente «x»: si el dibujo ya define x (un rango o un vector) se grafican esos valores, uno por uno; si no, cada grafica
 // usa su propio vector generico de n valores entre los limites de su eje x1 (por defecto GEN_X), asi acercar o mover la ventana la vuelve a muestrear.
-import { varsOf } from './params.js';
+import { varsOf, varsAt } from './params.js';
 import { evalExpr, exprRefs, setAngleMode, angleRad } from './expr.js';
 import { actDisp, simBegin, simStep } from './actuators.js';
 import { autoUnit, sameDim } from './units.js';
@@ -81,7 +81,10 @@ function* graphGen(doc, g, solveFn) {
   delete clone.graphs;
   const acts = {};
   for (const [id, a] of Object.entries(clone.acts || {})) acts[actKey(a)] = a;
-  const base = varsOf(clone);
+  // la grafica se lee en su lugar de la pagina (su esquina superior izquierda), como una cota con formula: ve las variables definidas
+  // ANTES en el orden de lectura. Una x que se define mas abajo no cuenta: la grafica usa su x generica.
+  const at = () => varsAt(clone, g.y + g.h, g.x);
+  const { vars: base, later } = at();
   // Un lado con unidades se grafica en una unidad fija: la de la variable, la de una variable de la expresion con la misma magnitud o
   // la del SI con prefijo (segun el primer valor, o el mayor de un vector). units: lado -> { name, f }; la leyenda la muestra.
   const units = new Map();
@@ -120,7 +123,7 @@ function* graphGen(doc, g, solveFn) {
   for (const sp of specs) {
     const gen = usesGen(sp);
     for (const side of [sp.x, sp.y]) {
-      for (const r of exprRefs(side)) if (!known(r) && !(gen && r === 'x')) { out.error = 'No reconozco «' + r + '»'; return out; }
+      for (const r of exprRefs(side)) if (!known(r) && !(gen && r === 'x')) { out.error = later.has(r) ? `«${r}» se define después de la gráfica (más abajo, o a su derecha en la misma fila): la gráfica ve solo lo que está antes en el orden de lectura` : 'No reconozco «' + r + '»'; return out; }
       try { vecOf(side); } catch (e) {
         if (side === sp.y && bareRe.test(sp.x) && base[sp.x]?.vec) { elem.add(sp); vecs.set(side, null); } else { out.error = e.message; return out; }
       }
@@ -146,7 +149,7 @@ function* graphGen(doc, g, solveFn) {
       const t = i * dt;
       if (sim) { const r = simStep(clone, sim, t, solveFn); if (!r.ok) { out.error = 'Se detuvo en t = ' + Math.round(t * 1000) / 1000 + ': ' + r.error; break; } }
       const env = { t: { v: t, r: false } };
-      for (const [nm, x] of Object.entries(varsOf(clone))) if (!x.vec && !x.mat) env[nm] = x;
+      for (const [nm, x] of Object.entries(at().vars)) if (!x.vec && !x.mat) env[nm] = x;
       try {
         for (const [k, a] of Object.entries(acts)) {
           const d = actDisp(clone, a, t, cch);
