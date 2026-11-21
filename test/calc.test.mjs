@@ -155,6 +155,7 @@ t("nombres con prima: «Se'», «Se''», «β'», «σ'_(a)» y la funcion «f'(
   assert.match(p("$$f'(x):2x\nf'(3)=$$"), /f'\(3\)=6/);
   assert.match(p("$$x:2\nx'm=$$"), /=2 m/); // «x'm»: x en metros, como siempre
   assert.match(p("$$y:3'(m/s)\ny=$$"), /y=3/);
+  assert.match(p("$$S_e'(Sut):Sut/2\nS_e'(500'MPa)=$$"), /S_e'\(500 MPa\)=250 MPa/); // la unidad dentro del argumento de una funcion con prima
 });
 
 console.log(`\n${passed} pruebas de la sintaxis de calculo`);

@@ -31,7 +31,8 @@ const unitMath = (u) => ' " ' + u.split('^2').join('²').split('^3').join('³') 
 const showU = (seg) => (seg.includes("'") ? seg.replace(/'\s*(\([^()]*\)|[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*[²³]?)/g, (m, u, at) => {
   const v = u.replace(/^\(|\)$/g, '');
   // pegada a un nombre, la comilla es una prima si lo que sigue no es una unidad: «f'(3)», «σ'_(a)» (ver primesAt en expr.js)
-  if (/[A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_']/.test(seg[at - 1] || '')) { if (u[0] === '(' && !/[A-Za-zµμΩ°%]/.test(v)) return m; try { parseUnit(v); } catch (e) { return m; } }
+  const keep = () => "'" + showU(m.slice(1)); // una prima: lo que sigue se sigue revisando («S_e'(500'MPa)»: la unidad de dentro si se dibuja)
+  if (/[A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_']/.test(seg[at - 1] || '')) { if (u[0] === '(' && !/[A-Za-zµμΩ°%]/.test(v)) return keep(); try { parseUnit(v); } catch (e) { return keep(); } }
   return unitMath(v);
 }) : seg);
 // Un numero en una unidad: los muy pequeños con 4 cifras significativas (fmtNum los dejaria en 0); sin el «.0» de fmtNum en los miles.
