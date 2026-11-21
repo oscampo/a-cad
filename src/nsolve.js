@@ -55,10 +55,16 @@ export function lmRoots(x0, evalFn, m, { tol = 1e-9, step = 1e-6, maxIterations 
   };
   const u0 = new Float64Array(x0.map((x, i) => x / sx[i]));
   const lim = tol * 1e-3;
-  const out = levenbergMarquardt(u0, resid, { maxIterations, tolResidual: lim, tolStep: lim, tolGradient: lim, jacobianStep: step });
-  const xs = Array.from(out.finalParameters, (ui, i) => ui * sx[i]);
-  const fin = evalFn(xs);
-  const bad = fin.findIndex((e, j) => !(Math.abs(e.r) <= tol * Math.max(e.c, sr[j]) || Math.abs(e.r) < 1e-300));
+  const run = (extra) => {
+    const out = levenbergMarquardt(u0, resid, { maxIterations, tolResidual: lim, tolStep: lim, tolGradient: lim, jacobianStep: step, ...extra });
+    const xs = Array.from(out.finalParameters, (ui, i) => ui * sx[i]);
+    let fin; try { fin = evalFn(xs); } catch { return { xs, bad: 0 }; }
+    return { xs, bad: fin.findIndex((e, j) => !(Math.abs(e.r) <= tol * Math.max(e.c, sr[j]) || Math.abs(e.r) < 1e-300)) };
+  };
+  // la amortiguacion de partida es aditiva: con un valor inicial muy lejos (Ay:1'N para 1500 N) los pasos salen diminutos y se agotan las
+  // vueltas. Si no llega, un segundo intento casi sin amortiguar (Gauss-Newton) resuelve en pocos pasos esos casos mal escalados.
+  let { xs, bad } = run({});
+  if (bad >= 0) { const r2 = run({ lambdaInitial: 1e-12 }); if (r2.bad < 0) ({ xs, bad } = r2); }
   if (bad >= 0) throw new Error(`no encontré una solución desde el valor inicial (la ecuación ${bad + 1} no se cumple); prueba otro valor inicial`);
   return xs;
 }

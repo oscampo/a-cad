@@ -988,6 +988,7 @@ function withLocals(s, vars) {
     const ip = indexParts(n);
     if (ip && ip.base !== n && has(ip.base) && !Object.prototype.hasOwnProperty.call(out, n)) continue; // «v_1:…»: un elemento de v, no una variable nueva (stmt avisa)
     if (!Object.prototype.hasOwnProperty.call(out, n)) out[n] = { v: NaN, r: false, loc: true, unset: true };
+    else if (!out[n]?.fn && !out[n]?.loc) out[n] = { ...out[n], loc: true }; // ya existe afuera (b:-0.113) y el programa lo asigna (b:[…]): b_k es un indice aunque afuera b sea un numero; conserva su valor por si se lee antes
   }
   return out;
 }

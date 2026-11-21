@@ -33,6 +33,9 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Corregido
 
+- Gráficas: una cantidad con unidades cuya fórmula lleva π (`σ:32*M/(π*d^3)`) se dibujaba como si fuera un ángulo, pasada a grados (×57,3): la línea de σ = 196 MPa salía en 1,1·10¹⁰. Ahora solo un número sin unidades se toma como ángulo.
+- Cálculo: `solve` no llegaba a la solución cuando el valor inicial estaba muy lejos (`Ay:1'N` para una reacción de 1500 N) y avisaba «no encontré una solución». Si el primer intento no llega, ahora hace un segundo, casi sin amortiguar, que resuelve en pocos pasos esos casos mal escalados. Una ecuación sin solución sigue avisando.
+- Programas y scripts: una variable local que se llama como una global de otro tipo (un vector `b:[…]` dentro de una función, con `b:-0.113` en el dibujo) no se podía indexar: `b_k` daba «No reconozco b_k». La global no cambia.
 - Scripts: una línea que llama a la función `if(…)`, `for(…)` o `while(…)` con el paréntesis pegado (`if(v ≈ 0, 0, v)` como última línea) daba «lleva la forma if condición:»; ahora es una expresión, y `if c:` sigue abriendo un bloque.
 - Scripts: el nombre puede llevar un subíndice de varias letras, como en los textos: `%C_(surf)(Sut, finish):`. Dentro de un script, `k_(a):…` es la variable `k_(a)`, no una función local `k_`.
 - Cálculo: **un número con su unidad es una sola cantidad**: `10'kN/2'm` da 5 kN/m (antes se leía como (10 kN / 2)·m y daba 5 kN·m), y `500'°C/1'°C` da 500 sin unidades. El exponente sigue siendo de la unidad: `2'm^2` son 2 m². Se revisaron los dibujos de ejemplo y ninguno cambia; si una fórmula tuya dependía de la lectura anterior, su resultado cambia.

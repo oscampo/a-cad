@@ -134,10 +134,11 @@ function* graphGen(doc, g, solveFn) {
   if (specs.some(usesGen)) out.generic = true; // los limites del eje x1 definen los valores de x: cambiarlos vuelve a calcular
   const bufs = specs.map(() => []), errs = specs.map(() => null);
   // valor de una variable o expresion con el entorno env: un angulo suelto se muestra en grados
+  const dimless = (d) => !d || d.every((q) => !q); // un angulo es un numero sin unidades: σ = 32·M/(π·d³) lleva la marca de π pero es una presion
   const value = (src, env) => {
     let v, d;
-    if (bareRe.test(src) && src in env) { const x = env[src]; if (x.str !== undefined || x.strs) throw new Error(`«${src}» es una cadena: una gráfica dibuja números`); if (x.im) throw new Error(`«${src}» es un número complejo: grafica abs(${src}), angle(${src}), real(${src}) o imag(${src})`); if (x.r) return x.v * deg; v = x.v; d = x.d; }
-    else { const r = evalExpr(src, { vars: env, radians: rad }); if (r.rad) return r.value * deg; v = r.value; d = r.dim; }
+    if (bareRe.test(src) && src in env) { const x = env[src]; if (x.str !== undefined || x.strs) throw new Error(`«${src}» es una cadena: una gráfica dibuja números`); if (x.im) throw new Error(`«${src}» es un número complejo: grafica abs(${src}), angle(${src}), real(${src}) o imag(${src})`); if (x.r && dimless(x.d)) return x.v * deg; v = x.v; d = x.d; }
+    else { const r = evalExpr(src, { vars: env, radians: rad }); if (r.rad && dimless(r.dim)) return r.value * deg; v = r.value; d = r.dim; }
     return d && Number.isFinite(v) ? v / unitOf(src, d, v).f : v;
   };
   if (needSim) {

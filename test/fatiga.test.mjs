@@ -6,6 +6,8 @@ import { setDecimal } from '../src/locale.js';
 import { newDoc, addPoint, addText } from '../src/model.js';
 import { shownText } from '../src/text.js';
 import { textVarErrors } from '../src/params.js';
+import { solveEqs } from '../src/nsolve.js';
+import { computeGraph } from '../src/graphs.js';
 
 setDecimal('.');
 let passed = 0;
@@ -68,6 +70,23 @@ t('varargin y nargin: valores opcionales de cualquier tipo', () => {
   const show = (q) => shownText(d, q).text.replace(/[\uE000-\uF8FF]/g, '');
   assert.equal(show(T[1]), '$$f(2)=2$$'); assert.equal(show(T[2]), '$$f(2, 3)=5$$'); assert.equal(show(out), '$$suma(4, 5)=9$$');
   assert.deepEqual(textVarErrors(d).map((e) => e.msg), ['«m(…)»: «varargin» va al final de los parámetros (recibe los valores que sobran)']);
+});
+
+t('el problema de la clase: solve lejos del valor inicial, una local que tapa a una global, σ con π en una gráfica', () => {
+  const N = [1, 1, -2, 0, 0, 0, 0];
+  const base = { V: { fn: { params: ['x'], body: "Ay - 1500'N*x" } }, Ay: { v: 1, r: false, d: N } };
+  const calc = (q, vv) => evalExpr(q, { vars: vv, allowMat: true });
+  near(solveEqs([{ name: 'Ay', v: 1, r: false, d: N }], ['V(1) == 0'], calc, base)[0], 1500); // desde 1 N: antes no llegaba
+  assert.throws(() => solveEqs([{ name: 'x', v: 1, r: false }], ['x^2 == -1'], calc, {}), /no encontré una solución/);
+  // un programa que asigna b:[…] con una b global numero: b_k es un indice (antes «No reconozco b_k»); afuera b no cambia
+  const G = { b: { v: -0.113, r: false }, g: { fn: { params: ['k'], body: 'line(b:[10, 20, 30], b_k)' } } };
+  assert.equal(evalExpr('g(2)', { vars: G, allowMat: true }).value, 20); assert.equal(G.b.v, -0.113);
+  // σ = 32·M/(π·d³) lleva la marca de π, pero es una presion: la grafica la dibuja en MPa, no la pasa a grados
+  const d = newDoc(); d.decimal = '.';
+  addText(d, addPoint(d, 0, 10), "$$σ:32*300'N*1'm/(π*(25'mm)^3)$$", {});
+  const g = { x: 0, y: -60, w: 100, h: 50, series: ['σ vs x'], n: 5, axes: {} };
+  const r = computeGraph(d, g, () => ({ ok: true }));
+  near(r.series[0].pts[0][1], 195.57, 1e-4);
 });
 
 console.log(`\n${passed} pruebas de fatiga pasaron`);
