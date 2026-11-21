@@ -1,6 +1,6 @@
 // Funciones de MATLAB (tanda 1): casos limite de unidades, complejos y errores (cada funcion ya tiene un ejemplo verificado en la ayuda).
 import assert from 'node:assert/strict';
-import { evalExpr, isReservedName } from '../src/expr.js';
+import { evalExpr, isReservedName, rngReset } from '../src/expr.js';
 import { setDecimal } from '../src/locale.js';
 
 setDecimal('.');
@@ -53,6 +53,16 @@ t('errores claros', () => {
 t('los nombres nuevos quedan reservados', () => {
   for (const n of ['linspace', 'interp1', 'roots', 'eig', 'integral', 'zeros', 'real', 'imag', 'conj', 'angle']) assert.ok(isReservedName(n), n);
   assert.ok(!isReservedName('total') && !isReservedName('area'));
+});
+
+t('rand, randn, randi y rng: tamaños, rangos y una secuencia reproducible', () => {
+  rngReset(); const a = E('rand()').value; rngReset(); assert.equal(E('rand()').value, a); // la misma semilla, el mismo numero
+  assert.ok(a >= 0 && a < 1); assert.deepEqual(E('size(rand(2, 3))').mat, [[2, 3]]); assert.deepEqual(E('size(rand(3))').mat, [[3, 3]]);
+  const k = E('randi([3, 5], 1, 200)').mat[0]; assert.ok(k.every((v) => Number.isInteger(v) && v >= 3 && v <= 5)); assert.ok(new Set(k).size === 3);
+  const z = E('randn(1, 4000)').mat[0], mu = z.reduce((s, v) => s + v, 0) / z.length, sd = Math.sqrt(z.reduce((s, v) => s + (v - mu) ** 2, 0) / z.length);
+  assert.ok(Math.abs(mu) < 0.06 && Math.abs(sd - 1) < 0.05, `${mu} ${sd}`);
+  E('rng(7)'); const b = E('rand()').value; E('rng(7)'); assert.equal(E('rand()').value, b);
+  assert.throws(() => E('randi(2.5)'), /enteros/); assert.throws(() => E('rng(-1)'), /entero ≥ 0/);
 });
 
 console.log(`\n${passed} pruebas de funciones de MATLAB pasaron`);

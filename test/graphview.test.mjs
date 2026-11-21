@@ -1,7 +1,7 @@
 // Graficas: x generica propia, x como vector del dibujo, tiempo solo del reproductor, zoom y paneo de los ejes.
 import assert from 'node:assert/strict';
 import { newDoc, addPoint, addText } from '../src/model.js';
-import { addGraph, computeGraph, genericRange, genericX, GEN_X, axisRange } from '../src/graphs.js';
+import { addGraph, computeGraph, genericRange, genericX, GEN_X, axisRange, parseSeries, parseLineSpec, withSpec, splitSpec } from '../src/graphs.js';
 import { panWin, panStep, PAN_RATE, zoomWin, zoomStep, zoomPos, zoomFromPos, winCenter, setWindow, clearWindow, saveHome, homeWin, forgetHome, resetAxis, ZOOM_R, ZOOM_RATE } from '../src/graphview.js';
 
 let passed = 0;
@@ -177,6 +177,24 @@ t('enfoque automatico sin unidades: el tramo donde la curva hace algo (una viga 
   const [s0, s1] = win(['if(x>3, 1, 0) vs x']); assert.equal(s0, 0); near(s1, 6, 0.01); // un escalon: abierto alrededor, con el 0
   const [q0, q1] = win(['fsn(x,2,2)/2-fsn(x,5,2)/2 vs x']); assert.ok(q0 > 1.9 && q0 < 2 && q1 > 5 && q1 < 5.1, `${q0} ${q1}`);
   for (const f of ['sin(x)/x', 'x^2', 'abs(x)', '2x+1']) assert.deepEqual(win([f + ' vs x']), GEN_X, f); // hace algo en todo el rango (o nada): como siempre
+});
+
+t('estilo de una relación (LineSpec de MATLAB): color, línea y símbolo; escribirlo desde el diálogo', () => {
+  assert.deepEqual(parseSeries('σ vs N "rx"').style, { color: 'r', line: '', marker: 'x' });
+  assert.deepEqual(parseSeries('y vs x "k--d" @y2'), { y: 'y', x: 'x', ax: 'x1', ay: 'y2', style: { color: 'k', line: '--', marker: 'd' } });
+  assert.deepEqual(parseSeries('y vs x @y2 “#ff8800-.s”').style, { color: '#ff8800', line: '-.', marker: 's' }); // comillas del iPad, despues de los ejes
+  assert.deepEqual(parseLineSpec('o'), { color: null, line: '', marker: 'o' }); // solo simbolo: nube de puntos
+  assert.deepEqual(parseLineSpec('b'), { color: 'b', line: '-', marker: '' });
+  assert.throws(() => parseLineSpec('rq'), /no es un color/); assert.throws(() => parseLineSpec('r--:'), /dos tipos de línea/);
+  assert.equal(parseSeries('y vs x').style, undefined);
+  assert.equal(withSpec('y vs x @y2', { color: 'r', line: '', marker: 'x' }), 'y vs x "rx" @y2');
+  assert.equal(withSpec('y vs x "rx"', { color: null, line: '-', marker: '' }), 'y vs x'); // lo de siempre: sin comillas
+  assert.equal(withSpec('y vs x', { color: 'g', line: '', marker: '' }), 'y vs x "go"'); // sin linea ni simbolo: circulos
+  assert.deepEqual(splitSpec('σ vs N "rx" @y2'), { base: 'σ vs N @y2', spec: 'rx' });
+  const d = newDoc(); addText(d, addPoint(d, 0, 0), '$$X:[1, 2, 3]\nY:[2, 4, 8]$$', {});
+  const r = computeGraph(d, { x: 0, y: -100, w: 50, h: 30, series: ['Y vs X "r:o"', 'Y vs X'], n: 3 }, () => ({ ok: true }));
+  assert.deepEqual([r.series[0].color, r.series[0].line, r.series[0].marker], ['#dc2626', ':', 'o']);
+  assert.deepEqual([r.series[1].line, r.series[1].marker], ['-', '']);
 });
 
 console.log(`\n${passed} pruebas de ventana de graficas pasaron`);

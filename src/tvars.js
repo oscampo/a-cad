@@ -3,7 +3,7 @@
 // y las cotas ven lo que valen al final. El valor puede usar cotas y variables definidas antes. El texto la muestra en cursiva como «nombre:=valor».
 import { argChar, decimalMode } from './locale.js';
 const paramSep = () => (decimalMode() === ',' ? /;/ : /[;,]/); // parametros de una funcion: con coma decimal solo «;»
-import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName } from './expr.js';
+import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName, rngReset } from './expr.js';
 import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg, setUserUnits, addUserUnit, onDocUnits, unitsVersion, UNIT_NAME_RE } from './units.js';
 import { solveEqs, splitEq, eqResiduals } from './nsolve.js';
@@ -494,6 +494,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   if (!events.some((e) => e.kind !== 'dim')) return st; // sin definiciones ni salidas: nada que leer
   const key = JSON.stringify([events, dimVars, [...dimNames], angleRad(), unitsVersion()]);
   if (key === memoKey) return memoSt; // las mismas definiciones, posiciones y cotas: el mismo resultado
+  rngReset(); // rand, randn, randi: la misma secuencia en cada calculo del dibujo (ver expr.js)
   const check = (d) => { // ¿vale la definicion? (motivo si no)
     if (d.err) return `script «${d.name || '…'}»: ${d.err}`; // un script con un error de sintaxis (con su linea)
     if (isReservedName(d.name)) return reservedWhy(d.name);

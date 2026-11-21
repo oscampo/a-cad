@@ -698,7 +698,25 @@ function integrate(f, a, b) {
   return segs.reduce((s, q) => s + q.v, 0);
 }
 
+// Numeros aleatorios (rand, randn, randi, como en MATLAB): una secuencia REPRODUCIBLE. El dibujo se recalcula con cada cambio; con azar de
+// verdad una nube de puntos cambiaria al mover cualquier cosa y una salida no coincidiria con su grafica. Cada calculo del dibujo empieza la
+// secuencia desde la misma semilla (rngReset, en textVarState); rng(n) en un texto la cambia desde ese punto de la lectura.
+let RNG = 0;
+export function rngReset(seed = 1) { RNG = (Math.abs(Math.round(seed)) * 2654435761 + 1013904223) >>> 0; }
+rngReset();
+function rnd01() { RNG = (RNG + 0x6d2b79f5) >>> 0; let t = RNG; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; } // mulberry32
+const gauss = () => { let u = 0; while (u === 0) u = rnd01(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rnd01()); };
+const randDims = (A, name, from = 0) => { const n = A[from] ? intArg(A[from], `${name}(n, m)`, 'n', 1, 10000) : 1, m = A[from + 1] ? intArg(A[from + 1], `${name}(n, m)`, 'm', 1, 10000) : A[from] ? n : 1; sizeLim(n, m, name); return [n, m]; };
+const randOut = ([n, m], f) => (n === 1 && m === 1 ? { v: f(), r: false } : { m: Array.from({ length: n }, () => Array.from({ length: m }, f)) });
 const NF = {
+  rand: { n: [0, 2], f: (A) => randOut(randDims(A, 'rand'), rnd01) }, // uniforme en [0, 1): rand(), rand(n) (n×n), rand(1, n) (una fila)
+  randn: { n: [0, 2], f: (A) => randOut(randDims(A, 'randn'), gauss) }, // normal estandar (media 0, desviacion 1)
+  randi: { n: [1, 3], f: (A) => { // enteros: randi(imax, …) de 1 a imax, randi([a, b], …) de a a b
+    const lim = isM(A[0]) ? A[0].m.flat() : [1, A[0].v];
+    if (lim.length !== 2 || !lim.every(Number.isInteger) || lim[1] < lim[0]) throw new Error('randi(imax, n, m) o randi([a, b], n, m): imax, a y b son enteros, con a ≤ b');
+    return randOut(randDims(A, 'randi', 1), () => lim[0] + Math.floor(rnd01() * (lim[1] - lim[0] + 1)));
+  } },
+  rng: { n: [1, 1], f: (A) => { const v = A[0].v; if (!Number.isInteger(v) || v < 0) throw new Error('rng(semilla): la semilla es un entero ≥ 0'); rngReset(v); return { v, r: false }; } }, // cambia la secuencia desde aqui
   zeros: { n: [1, 2], f: (A) => { const n = intArg(A[0], 'zeros(n, m)', 'n', 1, 10000), m = A[1] ? intArg(A[1], 'zeros(n, m)', 'm', 1, 10000) : n; sizeLim(n, m, 'zeros'); return { m: Array.from({ length: n }, () => Array(m).fill(0)) }; } },
   ones: { n: [1, 2], f: (A) => { const n = intArg(A[0], 'ones(n, m)', 'n', 1, 10000), m = A[1] ? intArg(A[1], 'ones(n, m)', 'm', 1, 10000) : n; sizeLim(n, m, 'ones'); return { m: Array.from({ length: n }, () => Array(m).fill(1)) }; } },
   linspace: { n: [2, 3], f: (A) => {
@@ -1554,6 +1572,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (k.v === 'while') return lazyWhile();
       if (LAZY.has(k.v)) return lazyIf(k.v);
       const A = [];
+      if (isOp(')') && (k.v === 'rand' || k.v === 'randn')) { p++; return call(k.v, A); } // rand() y randn(): un numero
       if (isOp(')')) throw new Error(`«${k.v}» necesita al menos un valor`);
       for (;;) {
         A.push(cmp());

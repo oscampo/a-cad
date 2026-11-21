@@ -21,7 +21,7 @@ import { layoutDim, dragDim, dimValue, dimScale, splitScale, angSector, angTrue,
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
-import { addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, genericRange, GEN_X, AXES } from './graphs.js';
+import { parseLineSpec, splitSpec, withSpec, addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, genericRange, GEN_X, AXES } from './graphs.js';
 import { panStep, zoomStep, setWindow, clearWindow, saveHome, homeWin, forgetHome, resetAxis } from './graphview.js';
 import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD, textLinkAt, textLinkBoxes } from './text.js';
 import { linkTarget, resolveRepoPath, findAnchor } from './links.js';
@@ -3769,6 +3769,27 @@ function ctlUp(d) {
   } else lastCtlTap = d.zoom ? { kind: z.kind, id: z.id, t: now } : null;
   afterChange();
 }
+// Estilo de una serie (ver parseLineSpec en graphs.js): trazo de la linea y forma del simbolo, centrado en (u, w) con radio r
+const seriesDash = (ln) => (ln === '--' ? [7 * dpr, 4 * dpr] : ln === ':' ? [1.5 * dpr, 3 * dpr] : ln === '-.' ? [8 * dpr, 3 * dpr, 1.5 * dpr, 3 * dpr] : []);
+function drawMarker(c, m, u, w, r) {
+  c.save(); c.setLineDash([]); c.lineWidth = 1.5 * dpr; c.lineJoin = 'miter'; c.beginPath();
+  const poly = (pts) => { pts.forEach(([a, b], k) => (k ? c.lineTo(u + a * r, w + b * r) : c.moveTo(u + a * r, w + b * r))); c.closePath(); };
+  const star = (n, inner) => poly(Array.from({ length: 2 * n }, (_, k) => { const t = -Math.PI / 2 + (k * Math.PI) / n, q = k % 2 ? inner : 1; return [Math.cos(t) * q, Math.sin(t) * q]; }));
+  if (m === 'o') c.arc(u, w, r, 0, 7);
+  else if (m === '.') { c.arc(u, w, r * 0.55, 0, 7); c.fill(); c.restore(); return; }
+  else if (m === '+') { c.moveTo(u - r, w); c.lineTo(u + r, w); c.moveTo(u, w - r); c.lineTo(u, w + r); }
+  else if (m === 'x') { const q = r * 0.8; c.moveTo(u - q, w - q); c.lineTo(u + q, w + q); c.moveTo(u - q, w + q); c.lineTo(u + q, w - q); }
+  else if (m === '*') { const q = r * 0.75; c.moveTo(u - r, w); c.lineTo(u + r, w); c.moveTo(u, w - r); c.lineTo(u, w + r); c.moveTo(u - q, w - q); c.lineTo(u + q, w + q); c.moveTo(u - q, w + q); c.lineTo(u + q, w - q); }
+  else if (m === 's') { const q = r * 0.85; c.rect(u - q, w - q, 2 * q, 2 * q); }
+  else if (m === 'd') poly([[0, -1.2], [0.85, 0], [0, 1.2], [-0.85, 0]]);
+  else if (m === '^') poly([[0, -1.1], [1, 0.75], [-1, 0.75]]);
+  else if (m === 'v') poly([[0, 1.1], [1, -0.75], [-1, -0.75]]);
+  else if (m === '>') poly([[1.1, 0], [-0.75, 1], [-0.75, -1]]);
+  else if (m === '<') poly([[-1.1, 0], [0.75, 1], [0.75, -1]]);
+  else if (m === 'p') star(5, 0.45);
+  else if (m === 'h') poly(Array.from({ length: 6 }, (_, k) => [Math.cos((k * Math.PI) / 3), Math.sin((k * Math.PI) / 3)]));
+  c.stroke(); c.restore();
+}
 function drawGraphs(c, o) {
   let need = false;
   graphCtl.length = 0;
@@ -3846,22 +3867,23 @@ function drawGraphs(c, o) {
       c.font = F(fs);
       c.save(); c.beginPath(); c.rect(px, py, pw, ph); c.clip();
       D.series.forEach((s) => {
-        const X = posX(s.ax), Y = posY(s.ay);
-        c.strokeStyle = s.color; c.lineWidth = 1.8 * dpr; c.beginPath();
-        let pen = false;
-        for (const [x, y] of s.pts) {
-          const u = X(x), w = Y(y);
-          if (!Number.isFinite(u) || !Number.isFinite(w)) { pen = false; continue; }
-          if (pen) c.lineTo(u, w); else c.moveTo(u, w);
-          pen = true;
+        const X = posX(s.ax), Y = posY(s.ay), col = s.color === 'fg' ? o.fg : s.color;
+        c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 1.8 * dpr;
+        if (s.line) {
+          c.setLineDash(seriesDash(s.line)); c.beginPath();
+          let pen = false;
+          for (const [x, y] of s.pts) {
+            const u = X(x), w = Y(y);
+            if (!Number.isFinite(u) || !Number.isFinite(w)) { pen = false; continue; }
+            if (pen) c.lineTo(u, w); else c.moveTo(u, w);
+            pen = true;
+          }
+          c.stroke(); c.setLineDash([]);
         }
-        c.stroke();
-        // una serie de un solo punto (σ vs N: el punto de trabajo) seria una linea de largo cero, invisible: se marca con un circulo
-        const p0 = s.pts[0];
-        if (p0 && s.pts.every(([x, y]) => x === p0[0] && y === p0[1])) {
-          const u = X(p0[0]), w = Y(p0[1]);
-          if (Number.isFinite(u) && Number.isFinite(w)) { c.lineWidth = 1.8 * dpr; c.beginPath(); c.arc(u, w, 4 * dpr, 0, 7); c.stroke(); }
-        }
+        // simbolos en cada punto; una serie de un solo punto sin simbolo (σ vs N: el punto de trabajo) seria una linea de largo cero: un circulo
+        const p0 = s.pts[0], single = p0 && s.pts.every(([x, y]) => x === p0[0] && y === p0[1]);
+        const mk = s.marker || (single ? 'o' : '');
+        if (mk) for (const [x, y] of single ? [p0] : s.pts) { const u = X(x), w = Y(y); if (Number.isFinite(u) && Number.isFinite(w)) drawMarker(c, mk, u, w, 4 * dpr); }
       });
       if (sim) { // linea del tiempo actual en cada eje horizontal que grafica contra t
         c.setLineDash([4 * dpr, 3 * dpr]); c.strokeStyle = ACT_COLOR;
@@ -3870,7 +3892,7 @@ function drawGraphs(c, o) {
       c.restore();
       if (D.error) { c.textAlign = 'right'; c.fillStyle = '#dc2626'; c.fillText('⚠ ' + D.error.slice(0, 70), x0 + W - 6 * dpr, y0 + H - 7 * dpr); }
     }
-    if (D) { c.textAlign = 'left'; D.series.forEach((s, i) => { const ly = y0 + (g.title ? 24 : 10) * dpr + i * 13 * dpr; c.fillStyle = s.color; c.fillRect(x0 + 8 * dpr, ly - 1.5 * dpr, 14 * dpr, 3 * dpr); c.fillStyle = o.fg; c.fillText(s.label + (s.ax === 'x2' || s.ay === 'y2' ? ' (' + (s.ax === 'x2' ? 'x2' : '') + (s.ax === 'x2' && s.ay === 'y2' ? ', ' : '') + (s.ay === 'y2' ? 'y2' : '') + ')' : ''), x0 + 28 * dpr, ly); }); }
+    if (D) { c.textAlign = 'left'; D.series.forEach((s, i) => { const ly = y0 + (g.title ? 24 : 10) * dpr + i * 13 * dpr, col = s.color === 'fg' ? o.fg : s.color; c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 1.8 * dpr; if (s.line) { c.setLineDash(seriesDash(s.line)); c.beginPath(); c.moveTo(x0 + 6 * dpr, ly); c.lineTo(x0 + 24 * dpr, ly); c.stroke(); c.setLineDash([]); } if (s.marker || !s.line) drawMarker(c, s.marker || 'o', x0 + 15 * dpr, ly, 3.5 * dpr); c.fillStyle = o.fg; c.fillText(s.label + (s.ax === 'x2' || s.ay === 'y2' ? ' (' + (s.ax === 'x2' ? 'x2' : '') + (s.ax === 'x2' && s.ay === 'y2' ? ', ' : '') + (s.ay === 'y2' ? 'y2' : '') + ')' : ''), x0 + 28 * dpr, ly); }); }
     if (o.ui && gsel.has(id) && tool === 'select') { // resaltada: borde grueso y, la de un toque, manijas en esquinas y centros de lados
       c.strokeStyle = theme.sel; c.lineWidth = 2.5 * dpr; c.strokeRect(x0, y0, W, H);
       c.fillStyle = o.bg; c.lineWidth = 1.5 * dpr;
@@ -3949,6 +3971,37 @@ function buildAxesUI() {
     box.appendChild(d);
   }
 }
+// Estilo de cada relacion en el dialogo de la grafica: color, linea y simbolo, que escriben el LineSpec entre comillas al final de la linea
+let styleTimer = 0;
+const ST_COLORS = [['', 'Color auto'], ['b', 'Azul'], ['r', 'Rojo'], ['g', 'Verde'], ['c', 'Cian'], ['m', 'Magenta'], ['y', 'Amarillo'], ['k', 'Negro (texto)'], ['w', 'Blanco'], ['#', 'Otro…']];
+const ST_LINES = [['-', 'Continua'], ['--', 'Discontinua'], [':', 'Punteada'], ['-.', 'Raya y punto'], ['', 'Sin línea']];
+const ST_MARKS = [['', 'Sin símbolo'], ['o', '○ Círculo'], ['x', '× Equis'], ['+', '+ Más'], ['*', '✱ Asterisco'], ['.', '• Punto'], ['s', '□ Cuadrado'], ['d', '◇ Rombo'], ['^', '△ Triángulo'], ['v', '▽ Triángulo abajo'], ['>', '▷ Triángulo der.'], ['<', '◁ Triángulo izq.'], ['p', '☆ Estrella'], ['h', '⬡ Hexágono']];
+function renderSeriesStyles() {
+  const box = $('grStyles'), ta = $('grSeries'), lines = ta.value.split('\n');
+  box.textContent = '';
+  lines.forEach((ln, i) => {
+    if (!ln.trim()) return;
+    const row = document.createElement('div'); row.className = 'gst';
+    const { base, spec } = splitSpec(ln);
+    let st = { color: null, line: '-', marker: '' }, bad = '';
+    if (spec !== null) { try { st = parseLineSpec(spec); } catch (e) { bad = e.message; } }
+    const name = document.createElement('span'); name.textContent = base.trim(); name.title = base.trim();
+    const sel = (opts, val) => { const s = document.createElement('select'); for (const [v, t] of opts) { const o = document.createElement('option'); o.value = v; o.textContent = t; s.append(o); } s.value = val; return s; };
+    const hex = st.color && st.color[0] === '#';
+    const sc = sel(ST_COLORS, hex ? '#' : st.color || ''), sl = sel(ST_LINES, st.line), sm = sel(ST_MARKS, st.marker);
+    const pick = document.createElement('input'); pick.type = 'color'; pick.value = hex && st.color.length === 7 ? st.color : '#ff8800'; pick.hidden = !hex;
+    const write = () => {
+      const color = sc.value === '#' ? pick.value : sc.value || null;
+      lines[i] = withSpec(lines[i], { color, line: sl.value, marker: sm.value });
+      ta.value = lines.join('\n'); renderSeriesStyles();
+    };
+    sc.onchange = () => { pick.hidden = sc.value !== '#'; write(); }; sl.onchange = write; sm.onchange = write; pick.onchange = write;
+    const cbox = document.createElement('span'); cbox.style.display = 'flex'; cbox.style.gap = '4px'; cbox.append(sc, pick);
+    row.append(name, cbox, sl, sm);
+    if (bad) { const w = document.createElement('span'); w.className = 'warn'; w.textContent = '⚠ ' + bad; row.append(w); }
+    box.append(row);
+  });
+}
 function editGraph(id, nuevo) {
   const g = doc.graphs?.[id];
   if (!g) return;
@@ -3957,6 +4010,7 @@ function editGraph(id, nuevo) {
   $('grAng').value = g.angles === 'rad' || g.angles === 'deg' ? g.angles : '';
   $('grAng').options[0].textContent = 'Del documento (' + (doc.angles === 'rad' ? 'radianes' : 'grados') + ')';
   $('grX').value = fmtG(g.x); $('grY').value = fmtG(g.y); $('grW').value = fmtG(g.w); $('grH').value = fmtG(g.h);
+  renderSeriesStyles(); $('grSeries').oninput = () => { clearTimeout(styleTimer); styleTimer = setTimeout(renderSeriesStyles, 250); };
   $('grVars').textContent = 'Variables: ' + graphVarNames(doc).join(', ') + '. También p1.x, l1.len, c1.r… y funciones (sin, sqrt…)';
   buildAxesUI();
   for (const k of AXES) { const a = axisCfg(g, k); $('ax_' + k + '_name').value = a.name; $('ax_' + k + '_scale').value = a.scale; for (const f of ['min', 'max', 'major', 'minor']) $('ax_' + k + '_' + f).value = a[f] ?? ''; }

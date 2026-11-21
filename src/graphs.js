@@ -40,8 +40,46 @@ export function genericX(g, k = 'x1', n = 100) {
   const [lo, hi] = genericRange(g, k), log = g.axes?.[k]?.scale === 'log' && lo > 0;
   return Array.from({ length: n }, (_, i) => { const f = n > 1 ? i / (n - 1) : 0; return log ? lo * (hi / lo) ** f : lo + (hi - lo) * f; });
 }
+// Estilo de una relacion, como el LineSpec de MATLAB, entre comillas al final: «σ vs N "rx"», «y vs x "k--d"», «Y vs X "o"» (solo simbolos:
+// una nube de puntos). Color: r g b c m y k w o #rrggbb (k es el color del texto, negro o blanco segun el tema); linea: - -- : -.; simbolo:
+// o + * . x s (cuadrado) d (rombo) ^ v > < (triangulos) p (estrella) h (hexagono). Con simbolo y sin linea no hay linea; sin nada, linea continua.
+export const LINE_COLORS = { b: '#2563eb', r: '#dc2626', g: '#16a34a', c: '#0891b2', m: '#c026d3', y: '#ca8a04', k: 'fg', w: '#ffffff' };
+export const LINES = ['-', '--', ':', '-.'];
+export const MARKERS = ['o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h'];
+export function parseLineSpec(spec) {
+  let t = String(spec ?? '').trim(), color = null, line = null, marker = null;
+  const hx = /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/.exec(t);
+  if (hx) { color = hx[0]; t = t.replace(hx[0], ''); }
+  while (t) {
+    const two = t.slice(0, 2);
+    if (two === '--' || two === '-.') { if (line) throw new Error(`«${spec}»: dos tipos de línea`); line = two; t = t.slice(2); continue; }
+    const c = t[0]; t = t.slice(1);
+    if (c === ' ') continue;
+    if (c === '-' || c === ':') { if (line) throw new Error(`«${spec}»: dos tipos de línea`); line = c; }
+    else if (c in LINE_COLORS) { if (color) throw new Error(`«${spec}»: dos colores`); color = c; }
+    else if (MARKERS.includes(c)) { if (marker) throw new Error(`«${spec}»: dos símbolos`); marker = c; }
+    else throw new Error(`«${spec}»: «${c}» no es un color (r g b c m y k w o #rrggbb), una línea (- -- : -.) ni un símbolo (o + * . x s d ^ v > < p h)`);
+  }
+  return { color, line: line || (marker ? '' : '-'), marker: marker || '' };
+}
+// El LineSpec de una relacion escrita: { base (la relacion sin el estilo), spec (el texto entre comillas o null) }; los ejes «@…» quedan en base
+const SPEC_RE = /\s*["“]([^"“”]*)["”]\s*(?=@|$)/;
+export function splitSpec(s) {
+  const src = String(s ?? ''), m = SPEC_RE.exec(src);
+  return m ? { base: (src.slice(0, m.index) + ' ' + src.slice(m.index + m[0].length)).replace(/\s+$/, '').replace(/\s{2,}@/, ' @'), spec: m[1] } : { base: src.replace(/\s+$/, ''), spec: null };
+}
+// Escribe el estilo { color, line, marker } en la relacion (antes de los ejes «@…»); sin nada que elegir, la relacion queda sin comillas
+export function withSpec(s, st) {
+  const { base } = splitSpec(s), mk = st.marker || (st.line === '' ? 'o' : ''); // sin linea ni simbolo no se veria nada: circulos (una nube de puntos)
+  const txt = (st.color || '') + (st.line === '-' && !mk ? '' : st.line || '') + mk;
+  if (!txt) return base;
+  const am = /\s@\s*[A-Za-z0-9 ,]*$/.exec(base);
+  return am ? base.slice(0, am.index) + ' "' + txt + '"' + base.slice(am.index) : base + ' "' + txt + '"';
+}
 export function parseSeries(s) {
-  let src = String(s ?? ''), ax = 'x1', ay = 'y1';
+  const { base, spec } = splitSpec(s);
+  const style = spec !== null ? parseLineSpec(spec) : null;
+  let src = base, ax = 'x1', ay = 'y1';
   const am = /\s@\s*([A-Za-z0-9 ,]*)$/.exec(src);
   if (am) {
     for (const k of am[1].toLowerCase().split(/[\s,]+/).filter(Boolean)) {
@@ -52,7 +90,7 @@ export function parseSeries(s) {
   }
   const m = /^\s*(.+?)\s+vs\.?\s+(.+?)\s*$/i.exec(src);
   if (!m) throw new Error('«' + String(s).trim() + '»: escribe «variable1 vs variable2»');
-  return { y: m[1], x: m[2], ax, ay };
+  return { y: m[1], x: m[2], ax, ay, ...(style ? { style } : {}) };
 }
 // Nombres de actuadores: «MR1», «ML2» (sin el simbolo de giro).
 const actKey = (a) => a.kind + a.n;
@@ -277,7 +315,8 @@ function* graphGen(doc, g, solveFn) {
     } else if (isVec(sp.x) || isVec(sp.y)) { out.error = '«' + sp.y + ' vs ' + sp.x + '»: un vector solo se grafica contra otro vector del mismo tamaño'; return; }
     const un = (s) => (units.get(s) ? s + ' (' + units.get(s).name + ')' : s), label = un(sp.y) + ' vs ' + un(sp.x);
     if (!pts.length && errs[i] && !out.error) out.error = '«' + label + '»: ' + errs[i];
-    out.series.push({ label, pts, color: GRAPH_COLORS[i % GRAPH_COLORS.length], ax: sp.ax, ay: sp.ay, tx: sp.x === 't', sx: sp.x, sy: sp.y });
+    const st = sp.style, col = st?.color ? (LINE_COLORS[st.color] || st.color) : GRAPH_COLORS[i % GRAPH_COLORS.length];
+    out.series.push({ label, pts, color: col, line: st ? st.line : '-', marker: st ? st.marker : '', ax: sp.ax, ay: sp.ay, tx: sp.x === 't', sx: sp.x, sy: sp.y });
   });
   // Una unidad por eje: las series de un mismo eje con la misma magnitud se muestran en la unidad de la primera (S_s en MPa y σ:38.2'ksi
   // en el mismo eje y se dibujaban cada una en su unidad, una escala para dos unidades).
