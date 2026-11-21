@@ -3854,6 +3854,12 @@ function drawGraphs(c, o) {
           pen = true;
         }
         c.stroke();
+        // una serie de un solo punto (σ vs N: el punto de trabajo) seria una linea de largo cero, invisible: se marca con un circulo
+        const p0 = s.pts[0];
+        if (p0 && s.pts.every(([x, y]) => x === p0[0] && y === p0[1])) {
+          const u = X(p0[0]), w = Y(p0[1]);
+          if (Number.isFinite(u) && Number.isFinite(w)) { c.lineWidth = 1.8 * dpr; c.beginPath(); c.arc(u, w, 4 * dpr, 0, 7); c.stroke(); }
+        }
       });
       if (sim) { // linea del tiempo actual en cada eje horizontal que grafica contra t
         c.setLineDash([4 * dpr, 3 * dpr]); c.strokeStyle = ACT_COLOR;

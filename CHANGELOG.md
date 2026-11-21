@@ -33,6 +33,8 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Corregido
 
+- Gráficas: **una unidad por eje**. Cada serie elegía su unidad por separado: un vector en MPa y una variable escrita en ksi en el mismo eje se dibujaban cada una en su unidad, con una sola escala (38,2 ksi quedaba a la altura de 38,2 MPa). Ahora las series de un eje con la misma magnitud se muestran en la unidad de la primera, y su etiqueta lo dice.
+- Gráficas: una serie de un solo punto (`σ vs N`, el punto de trabajo en un diagrama S-N) era una línea de largo cero y no se veía; ahora se marca con un círculo.
 - Gráficas: una cantidad con unidades cuya fórmula lleva π (`σ:32*M/(π*d^3)`) se dibujaba como si fuera un ángulo, pasada a grados (×57,3): la línea de σ = 196 MPa salía en 1,1·10¹⁰. Ahora solo un número sin unidades se toma como ángulo.
 - Cálculo: `solve` no llegaba a la solución cuando el valor inicial estaba muy lejos (`Ay:1'N` para una reacción de 1500 N) y avisaba «no encontré una solución». Si el primer intento no llega, ahora hace un segundo, casi sin amortiguar, que resuelve en pocos pasos esos casos mal escalados. Una ecuación sin solución sigue avisando.
 - Programas y scripts: una variable local que se llama como una global de otro tipo (un vector `b:[…]` dentro de una función, con `b:-0.113` en el dibujo) no se podía indexar: `b_k` daba «No reconozco b_k». La global no cambia.

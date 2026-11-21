@@ -89,4 +89,14 @@ t('el problema de la clase: solve lejos del valor inicial, una local que tapa a 
   near(r.series[0].pts[0][1], 195.57, 1e-4);
 });
 
+t('diagrama S-N con vectores: una unidad por eje (S_s en MPa y σ en ksi se dibujan en la misma unidad)', () => {
+  const d = newDoc(); d.decimal = '.';
+  ["Sut:110'ksi", "S_s:[Sut, 0.9*Sut, 30.25'ksi, 30.25'ksi]", 'N_s:[1, 1e3, 1e6, 1e9]', "σ:38.2'ksi", 'N:256914'].forEach((q, i) => addText(d, addPoint(d, 0, 300 - i * 10), '$$' + q + '$$', {}));
+  const r = computeGraph(d, { x: 0, y: 0, w: 100, h: 60, series: ['S_s vs N_s', 'σ vs N'], n: 3, axes: { x1: { scale: 'log' }, y1: { scale: 'log' } } }, () => ({ ok: true }));
+  const [s1, s2] = r.series, u = / \(([^)]+)\) vs/;
+  assert.equal(u.exec(s1.label)[1], u.exec(s2.label)[1]); // la misma unidad en las dos etiquetas
+  near(s2.pts[0][1] / s1.pts[0][1], 38.2 / 110, 1e-9); // y en la misma escala
+  assert.deepEqual(s1.pts.map((q) => q[0]), [1, 1e3, 1e6, 1e9]);
+});
+
 console.log(`\n${passed} pruebas de fatiga pasaron`);

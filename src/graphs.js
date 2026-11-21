@@ -87,13 +87,13 @@ function* graphGen(doc, g, solveFn) {
   const { vars: base, later } = at();
   // Un lado con unidades se grafica en una unidad fija: la de la variable, la de una variable de la expresion con la misma magnitud o
   // la del SI con prefijo (segun el primer valor, o el mayor de un vector). units: lado -> { name, f }; la leyenda la muestra.
-  const units = new Map();
+  const units = new Map(), udim = new Map(); // unidad con que se muestra cada lado, y su magnitud
   const unitOf = (side, dim, v) => {
     if (units.has(side)) return units.get(side);
     let u = null;
     if (dim) for (const nm of [side, ...exprRefs(side)]) { const x = base[nm]; if (x?.pu && !x.dv && sameDim(x.d, dim)) { u = { name: x.pu, f: x.pf }; break; } }
     if (dim && !u) u = autoUnit(v, dim);
-    units.set(side, u);
+    units.set(side, u); if (dim) udim.set(side, dim);
     return u;
   };
   // Un lado que da un vector: su nombre («x») o una expresion con vectores («f(x)», «x.^2»), que se calcula una vez con todos sus elementos.
@@ -277,8 +277,28 @@ function* graphGen(doc, g, solveFn) {
     } else if (isVec(sp.x) || isVec(sp.y)) { out.error = '«' + sp.y + ' vs ' + sp.x + '»: un vector solo se grafica contra otro vector del mismo tamaño'; return; }
     const un = (s) => (units.get(s) ? s + ' (' + units.get(s).name + ')' : s), label = un(sp.y) + ' vs ' + un(sp.x);
     if (!pts.length && errs[i] && !out.error) out.error = '«' + label + '»: ' + errs[i];
-    out.series.push({ label, pts, color: GRAPH_COLORS[i % GRAPH_COLORS.length], ax: sp.ax, ay: sp.ay, tx: sp.x === 't' });
+    out.series.push({ label, pts, color: GRAPH_COLORS[i % GRAPH_COLORS.length], ax: sp.ax, ay: sp.ay, tx: sp.x === 't', sx: sp.x, sy: sp.y });
   });
+  // Una unidad por eje: las series de un mismo eje con la misma magnitud se muestran en la unidad de la primera (S_s en MPa y σ:38.2'ksi
+  // en el mismo eje y se dibujaban cada una en su unidad, una escala para dos unidades).
+  for (const [axK, sideK, col] of [['ax', 'sx', 0], ['ay', 'sy', 1]]) {
+    const first = new Map();
+    for (const se of out.series) {
+      const side = se[sideK], u = units.get(side), d = udim.get(side);
+      if (!u || !d) continue;
+      const f0 = first.get(se[axK]);
+      if (!f0) { first.set(se[axK], { u, d }); continue; }
+      if (!sameDim(f0.d, d) || f0.u.f === u.f) continue;
+      const r = u.f / f0.u.f;
+      se.pts = se.pts.map((q) => { const w = q.slice(); w[col] *= r; return w; });
+      se[sideK === 'sx' ? 'ux' : 'uy'] = f0.u;
+    }
+  }
+  for (const se of out.series) {
+    const un = (side, u) => (u ? side + ' (' + u.name + ')' : units.get(side) ? side + ' (' + units.get(side).name + ')' : side);
+    if (se.ux || se.uy) se.label = un(se.sy, se.uy) + ' vs ' + un(se.sx, se.ux);
+    delete se.sx; delete se.sy; delete se.ux; delete se.uy;
+  }
   return out;
 }
 
