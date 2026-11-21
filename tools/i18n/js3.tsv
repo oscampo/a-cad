@@ -367,3 +367,9 @@ Pides «{0}_{1}», pero «{2}» trae {3} (revisa nargin)	You ask for «{0}_{1}»
 «{0}» está vacío: la función no recibió valores de más (revisa nargin)	«{0}» is empty: the function received no extra values (check nargin)
 «{0}» es la lista de los valores de más: usa {1}_1, {2}_(k) y nargin	«{0}» is the list of extra values: use {1}_1, {2}_(k) and nargin
 «{0}(…)»: «varargin» va al final de los parámetros (recibe los valores que sobran)	«{0}(…)»: «varargin» goes last among the parameters (it takes the extra values)
+Las imágenes no caben en el guardado automático del navegador: guarda el archivo (.json) para no perder cambios	The images do not fit in the browser's autosave: save the file (.json) so you don't lose changes
+⚠ Imagen sin datos	⚠ Image without data
+Elige una imagen (PNG, JPG, WebP…)	Choose an image (PNG, JPG, WebP…)
+No se pudo leer la imagen	The image could not be read
+Imagen de {0} × {1} px ({2} KB)	Image of {0} × {1} px ({2} KB)
+, reducida desde {0} × {1}	, reduced from {0} × {1}

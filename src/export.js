@@ -15,6 +15,7 @@ function bounds(doc) {
   for (const sp of Object.values(doc.splines || {})) for (const q of splinePolyline(doc, sp, 8)) { xs.push(q.x); ys.push(q.y); }
   for (const e of Object.values(doc.ellipses || {})) for (const q of ellipsePolyline(doc, e, 48)) { xs.push(q.x); ys.push(q.y); }
   for (const tr of Object.values(doc.traces || {})) for (const q of tr.pts) { xs.push(q.x); ys.push(q.y); }
+  for (const im of Object.values(doc.images || {})) { xs.push(im.x, im.x + im.w); ys.push(im.y, im.y + im.h); }
   if (!xs.length) return null;
   return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
 }
@@ -94,6 +95,8 @@ export function exportSVG(doc, ltScale = 1, vis = {}) {
   };
   const out = [];
   let clip = 0;
+  // imagenes: debajo de todo, con sus datos dentro del SVG
+  for (const im of Object.values(doc.images || {})) { const src = doc.assets?.[im.a]; if (src) out.push(`<image x="${X(im.x)}" y="${Y(im.y + im.h)}" width="${n(im.w * K)}" height="${n(im.h * K)}" preserveAspectRatio="none" href="${src}"/>`); }
   for (const h of Object.values(doc.hatches)) {
     const loops = hatchLoops(doc, h);
     if (!loops.length) continue;

@@ -38,6 +38,7 @@ import { setIconSource } from './iconpaths.js';
 setIconSource(ICONS); // los iconos de la app que un texto puede mostrar: ![Linea](icon:line)
 import { buildTree, kindOf, conLabel } from './tree.js';
 import { cleanFileBase } from './files.js';
+import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX } from './images.js';
 import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
 import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL } from './expr.js';
@@ -124,35 +125,35 @@ function readTheme() {
 }
 const colorOf = (c, o) => (!c || c === 'auto' ? o.fg : c);
 
-function snapshot() { return sim ? sim.snap : JSON.stringify(doc); } // durante la simulacion el dibujo es el guardado, sin las restricciones conductoras
+function snapshot() { return sim ? sim.snap : JSON.stringify(withoutAssets(doc)); } // durante la simulacion el dibujo es el guardado, sin las restricciones conductoras
 function pushUndo() { undoStack.push(snapshot()); if (undoStack.length > 150) undoStack.shift(); redoStack = []; updateButtons(); }
-function rollback() { if (undoStack.length) { doc = JSON.parse(undoStack.pop()); } updateButtons(); }
+function rollback() { if (undoStack.length) { doc = unsnap(undoStack.pop(), doc.assets); } updateButtons(); }
 // la capa actual no se deshace: sigue siendo la que elegiste (si todavia existe y esta encendida)
 function keepLayer(cl) { doc.curLayer = cl && doc.layers?.[cl]?.on ? cl : null; }
 function undo() {
   endTextLive();
   if (sim) stopSim();
   if (!undoStack.length) return;
-  const cl = doc.curLayer; redoStack.push(snapshot()); doc = JSON.parse(undoStack.pop()); keepLayer(cl);
+  const cl = doc.curLayer; redoStack.push(snapshot()); doc = unsnap(undoStack.pop(), doc.assets); keepLayer(cl);
   pending = null; sel = sel.filter(exists); afterChange();
 }
 function redo() {
   endTextLive();
   if (sim) stopSim();
   if (!redoStack.length) return;
-  const cl = doc.curLayer; undoStack.push(snapshot()); doc = JSON.parse(redoStack.pop()); keepLayer(cl);
+  const cl = doc.curLayer; undoStack.push(snapshot()); doc = unsnap(redoStack.pop(), doc.assets); keepLayer(cl);
   pending = null; sel = sel.filter(exists); afterChange();
 }
 function exists(s) {
   return s.k === 'pt' ? s.id in doc.pts : s.k === 'ln' ? s.id in doc.lines : s.k === 'ci' ? s.id in doc.circles : s.k === 'ar' ? s.id in doc.arcs : s.k === 'tx' ? s.id in doc.texts : s.k === 'sp' ? s.id in doc.splines : s.k === 'el' ? s.id in doc.ellipses : s.k === 'ha' ? s.id in doc.hatches : s.id in doc.cons;
 }
-let saveTimer = 0, autosaveAt = 0;
+let saveTimer = 0, autosaveAt = 0, quotaWarned = false;
 function persist() {
   clearTimeout(saveTimer);
   if (sim) return; // no se guarda el dibujo movido por la simulacion
   saveTimer = setTimeout(() => {
     autosaveAt = Date.now();
-    try { localStorage.setItem(STORE, JSON.stringify({ doc, view, cur, opts, at: autosaveAt })); } catch { /* sin almacenamiento */ }
+    try { localStorage.setItem(STORE, JSON.stringify({ doc: docForSave(doc), view, cur, opts, at: autosaveAt })); quotaWarned = false; } catch { if (doc.images && Object.keys(doc.images).length && !quotaWarned) { quotaWarned = true; toast('Las imágenes no caben en el guardado automático del navegador: guarda el archivo (.json) para no perder cambios'); } }
   }, 300);
 }
 // afterChange tambien mantiene al dia las cotas que leen medidas (si no se estabilizan, se deja como estaba)
@@ -161,7 +162,7 @@ function updateFileTag() {
   const el = $('fileTag'), t = opts.fileBase ? opts.fileBase + '.json' : 'sin nombre';
   if (el && el.textContent !== t) el.textContent = t;
 }
-function afterChange() { pageExt = null; scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = JSON.parse(bak); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); persist(); draw(); renderTree(); }
+function afterChange() { pageExt = null; scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = unsnap(bak, doc.assets); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); persist(); draw(); renderTree(); }
 
 // Un boton de restriccion solo se activa si la seleccion actual le sirve (mismas reglas que applyCon).
 function updateEnabled() {
@@ -944,6 +945,7 @@ export function render(c, W, H, v, o) {
   if (o.grid) drawGrid(c, W, H);
   if (o.ui && globalDoc().page) drawPage(c, W, H, globalDoc().page);
   labelHits = [];
+  drawImages(c, o);
   // rellenos
   for (const [id, h] of shownEntries(doc, 'hatches')) drawHatch(c, id, h, o);
   // circulos y lineas
@@ -1693,10 +1695,11 @@ let selGraph = null; // grafica seleccionada (resaltada; se mueve y se redimensi
 // Graficas elegidas con un cuadro de seleccion junto con otros elementos (o varias): valen mientras sel sea el mismo arreglo (owner); cualquier
 // seleccion nueva (sel = [...]) las suelta sola. selGraph, la de un toque, tambien cuenta.
 let selMulti = null;
+const boxOf = (id) => doc.graphs?.[id] || doc.images?.[id]; // una grafica o una imagen: un rectangulo que se mueve y se redimensiona
 const multiGraphs = () => {
   const s = new Set(selMulti && selMulti.owner === sel ? selMulti.ids : []);
   if (selGraph) s.add(selGraph);
-  for (const id of [...s]) if (!doc.graphs?.[id]) s.delete(id);
+  for (const id of [...s]) if (!boxOf(id)) s.delete(id);
   return s;
 };
 
@@ -1902,12 +1905,12 @@ function toolDown(p) {
     const gz = !sim && fkOn('ac') ? graphCtlAt(p.x, p.y) : null;
     if (gz) { ctlDown(gz, p); return; }
     const gh = !sim && fkOn('ac') ? graphAt(p.x, p.y) : null;
-    if (gh && graphHold) { graphHold = null; gcalcMark(null); scheduleGraphs(); draw(); return; }
+    if (gh && graphHold && doc.graphs?.[gh.id]) { graphHold = null; gcalcMark(null); scheduleGraphs(); draw(); return; }
     if (gh) {
-      const g = doc.graphs[gh.id], gs = multiGraphs();
+      const g = boxOf(gh.id), gs = multiGraphs();
       if (gh.mode.move && gs.has(gh.id) && (gs.size > 1 || sel.length > 0)) { // una grafica de una seleccion de varios: se mueve todo lo seleccionado
         const pts = selPoints();
-        drag = { p0: p, gmove: true, gid: gh.id, m0: toModel(p.x, p.y), started: false, orig: Object.fromEntries([...pts].map((id) => [id, { ...doc.pts[id] }])), gorig: Object.fromEntries([...gs].map((id) => [id, { x: doc.graphs[id].x, y: doc.graphs[id].y }])) };
+        drag = { p0: p, gmove: true, gid: gh.id, m0: toModel(p.x, p.y), started: false, orig: Object.fromEntries([...pts].map((id) => [id, { ...doc.pts[id] }])), gorig: Object.fromEntries([...gs].map((id) => [id, { x: boxOf(id).x, y: boxOf(id).y }])) };
         return;
       }
       drag = { p0: p, graph: gh.id, mode: gh.mode, orig: { x: g.x, y: g.y, w: g.w, h: g.h }, m0: toModel(p.x, p.y), started: false };
@@ -1937,7 +1940,7 @@ function toolDown(p) {
     if (many && many.size && (sel.some((x) => x.k === h.k && x.id === h.id) || (h.k === 'pt' && many.has(h.id)))) {
       drag.m0 = toModel(p.x, p.y); drag.multi = true; drag.box = false;
       drag.orig = Object.fromEntries([...many].map((id) => [id, { ...doc.pts[id] }]));
-      if (gsel.size) drag.gorig = Object.fromEntries([...gsel].map((id) => [id, { x: doc.graphs[id].x, y: doc.graphs[id].y }])); // las graficas seleccionadas se mueven con ellos
+      if (gsel.size) drag.gorig = Object.fromEntries([...gsel].map((id) => [id, { x: boxOf(id).x, y: boxOf(id).y }])); // las graficas seleccionadas se mueven con ellos
     }
   } else {
     drag = { p0: p, moved: false };
@@ -1971,7 +1974,7 @@ function trimStep(p, d) {
   if (!h) return;
   const bak = snapshot();
   if (!d.undone) { pushUndo(); d.undone = true; }
-  const fail = (msg) => { doc = JSON.parse(bak); if (!d.trimmed) { undoStack.pop(); d.undone = false; } toast(msg); };
+  const fail = (msg) => { doc = unsnap(bak, doc.assets); if (!d.trimmed) { undoStack.pop(); d.undone = false; } toast(msg); };
   const r = trimAt(doc, h.k, h.id, toModel(p.x, p.y));
   if (!r.ok) { fail(r.msg); return; }
   if (!solve(doc, []).ok) { fail('No se pudo recortar: conflicto con las restricciones'); return; }
@@ -1995,7 +1998,7 @@ function toolMove(p) {
   if (drag.gmove) { // varias graficas (y lo seleccionado) a la vez
     if (!drag.started) { if (dist(p, drag.p0) < 6) return; drag.started = true; pushUndo(); if (Object.keys(drag.orig).length) { beginSession(doc, !hasReactive(doc)); freezeDimOrder(doc); } }
     const m = toModel(p.x, p.y), dx = m.x - drag.m0.x, dy = m.y - drag.m0.y;
-    for (const [id, o] of Object.entries(drag.gorig)) { const g = doc.graphs[id]; if (g) { g.x = o.x + dx; g.y = o.y + dy; } }
+    for (const [id, o] of Object.entries(drag.gorig)) { const g = boxOf(id); if (g) { g.x = o.x + dx; g.y = o.y + dy; } }
     const ids = Object.keys(drag.orig);
     if (ids.length) {
       const tg = ids.map((id) => ({ id, x: drag.orig[id].x + dx, y: drag.orig[id].y + dy })), reac = hasReactive(doc);
@@ -2006,13 +2009,14 @@ function toolMove(p) {
   }
   if (drag.graph) { // mover o redimensionar la grafica
     if (!drag.started) { if (dist(p, drag.p0) < 6) return; drag.started = true; pushUndo(); selGraph = drag.graph; sel = []; }
-    const g = doc.graphs[drag.graph], m = toModel(p.x, p.y), dx = m.x - drag.m0.x, dy = m.y - drag.m0.y, o = drag.orig, mn = 60 / view.s, M = drag.mode;
+    const g = boxOf(drag.graph), m = toModel(p.x, p.y), dx = m.x - drag.m0.x, dy = m.y - drag.m0.y, o = drag.orig, mn = 60 / view.s, M = drag.mode;
     if (M.move) { g.x = o.x + dx; g.y = o.y + dy; return; }
     let x = o.x, y = o.y, w = o.w, h = o.h;
     if (M.l) { w = Math.max(mn, o.w - dx); x = o.x + o.w - w; }
     if (M.r) w = Math.max(mn, o.w + dx);
     if (M.t) h = Math.max(mn, o.h + dy);
     if (M.b) { h = Math.max(mn, o.h - dy); y = o.y + o.h - h; }
+    if (doc.images?.[drag.graph]) ({ x, y, w, h } = keepAspect(o, M, { x, y, w, h })); // una imagen no se deforma
     Object.assign(g, { x, y, w, h });
     return;
   }
@@ -2054,7 +2058,7 @@ function toolMove(p) {
       if (r.ok && tracing) recordTraces(doc, r.stopped ? 2e-4 : 1.5 / view.s); // al llegar a un tope se guarda la posicion exacta, por corto que sea el ultimo paso
     }
     drag.lastD = cur2;
-    if (drag.gorig) for (const [id, o] of Object.entries(drag.gorig)) { const g = doc.graphs[id]; if (g) { g.x = o.x + cur2.dx; g.y = o.y + cur2.dy; } }
+    if (drag.gorig) for (const [id, o] of Object.entries(drag.gorig)) { const g = boxOf(id); if (g) { g.x = o.x + cur2.dx; g.y = o.y + cur2.dy; } }
   }
 }
 
@@ -2075,7 +2079,7 @@ function toolUp(p, q) {
       const id = d.graph, now = performance.now(), dbl = lastGraphTap && lastGraphTap.id === id && now - lastGraphTap.t < 450 && dist(lastGraphTap, p) < 24;
       lastGraphTap = dbl ? null : { id, t: now, x: p.x, y: p.y };
       selGraph = id; sel = [];
-      if (dbl) { afterChange(); editGraph(id, false); return; }
+      if (dbl && doc.graphs?.[id]) { afterChange(); editGraph(id, false); return; }
       afterChange(); return;
     }
     if (d?.box && d.boxOn) { finishBox(d, p); return; }
@@ -2369,12 +2373,12 @@ function extendAt(p) {
   let r = extendEnd(doc, h.k, h.id, near);
   let ok = r.ok && solve(doc, []).ok;
   if (r.ok && !ok) { // quizá chocó con una cota de longitud: se reintenta liberándola
-    doc = JSON.parse(bak);
+    doc = unsnap(bak, doc.assets);
     r = extendEnd(doc, h.k, h.id, near, { dropLength: true });
     ok = r.ok && solve(doc, []).ok;
     if (ok) toast('Se quitaron las restricciones de longitud del segmento para poder extenderlo');
   }
-  if (!ok) { doc = JSON.parse(bak); undoStack.pop(); updateButtons(); toast(r.ok ? 'No se pudo extender: conflicto con las restricciones' : r.msg); draw(); return; }
+  if (!ok) { doc = unsnap(bak, doc.assets); undoStack.pop(); updateButtons(); toast(r.ok ? 'No se pudo extender: conflicto con las restricciones' : r.msg); draw(); return; }
   sel = [{ k: h.k, id: h.id }];
   afterChange();
 }
@@ -3339,7 +3343,7 @@ function contentBounds(withGraphs = false) {
   const gr = withGraphs ? Object.values(globalDoc().graphs || {}) : [];
   const doc = visibleDoc(globalDoc());
   const xs = [], ys = [];
-  for (const g of gr) { xs.push(g.x, g.x + g.w); ys.push(g.y, g.y + g.h); }
+  for (const g of [...gr, ...Object.values(globalDoc().images || {})]) { xs.push(g.x, g.x + g.w); ys.push(g.y, g.y + g.h); }
   for (const p of Object.values(doc.pts)) { xs.push(p.x); ys.push(p.y); }
   for (const c of Object.values(doc.circles)) { const p = doc.pts[c.c]; xs.push(p.x - c.r, p.x + c.r); ys.push(p.y - c.r, p.y + c.r); }
   for (const a of Object.values(doc.arcs)) { const p = doc.pts[a.c]; xs.push(p.x - a.r, p.x + a.r); ys.push(p.y - a.r, p.y + a.r); }
@@ -3433,6 +3437,7 @@ function loadDoc(d) {
   fillDimUnits(doc); // cotas guardadas como «2'cm»: la etiqueta dice «2 cm»
 }
 async function exportPNG() {
+  await imagesReady();
   const b = contentBounds();
   if (!b) { toast('No hay nada que exportar'); return; }
   const pad = 20, k = 6;
@@ -3493,7 +3498,7 @@ document.querySelectorAll('[data-tool]').forEach((b) => { b.onclick = () => setT
 // ---- botones desplegables: cada grupo muestra la ultima herramienta usada; toca de nuevo (con el grupo activo),
 // toca la esquina marcada o mantén presionado para ver las demás.
 const GROUPS = {
-  file: [['fNew', 'file-plus', 'Nuevo dibujo'], ['fSave', 'save', 'Guardar (.json)'], ['fLoad', 'folder-open', 'Abrir…'], ['ghSave', 'save', 'Guardar en GitHub…'], ['ghOpen', 'folder-open', 'Abrir de GitHub…'], ['ghCfg', 'props', 'Configurar GitHub…'], ['fPng', 'image', 'Exportar PNG'], ['fSvg', 'svg', 'Exportar SVG'], ['fLaser', 'svg', 'SVG para corte láser…'], ['fDxf', 'dxf', 'Exportar DXF']],
+  file: [['fNew', 'file-plus', 'Nuevo dibujo'], ['fSave', 'save', 'Guardar (.json)'], ['fLoad', 'folder-open', 'Abrir…'], ['ghSave', 'save', 'Guardar en GitHub…'], ['ghOpen', 'folder-open', 'Abrir de GitHub…'], ['ghCfg', 'props', 'Configurar GitHub…'], ['fImg', 'image', 'Insertar imagen…'], ['fPng', 'image', 'Exportar PNG'], ['fSvg', 'svg', 'Exportar SVG'], ['fLaser', 'svg', 'SVG para corte láser…'], ['fDxf', 'dxf', 'Exportar DXF']],
   spl: [['spline', 'spline', 'Spline por puntos (S)'], ['trTrace', 'trace', 'Trazar punto (activar o quitar)'], ['trClear', 'trash', 'Borrar trayectoria'], ['mkReset', 'mark-reset', 'Reiniciar marcas'], ['trSpline', 'spline', 'Trazado a spline…'], ['spClose', 'spline-closed', 'Cerrar o abrir el spline'], ['spOffset', 'spline', 'Equidistante…']],
   sel: [['select', 'select', 'Seleccionar y arrastrar (V)'], ['filter', 'filter', 'Filtrar la selección…']],
   line: [['line', 'line', 'Línea (L)'], ['vector', 'vector', 'Vector: línea con flecha y magnitud (W). Con una línea seleccionada, la convierte en vector'], ['mline', 'mline', 'Línea de punto medio (M)'], ['cline', 'cline', 'Línea constructiva (K)']],
@@ -3507,7 +3512,7 @@ const GROUPS = {
 };
 // Cada elemento de un grupo es una herramienta, salvo Filtrar y Copiar, que son acciones.
 // Archivo y Spline: sus acciones viven en botones ocultos (#acts) que conservan su logica y su estado habilitado.
-const ACT_IDS = new Set(['ghSave', 'ghOpen', 'ghCfg', 'fNew', 'fSave', 'fLoad', 'fPng', 'fSvg', 'fLaser', 'fDxf', 'trTrace', 'trClear', 'mkReset', 'trSpline', 'spClose', 'spOffset']);
+const ACT_IDS = new Set(['ghSave', 'ghOpen', 'ghCfg', 'fNew', 'fSave', 'fLoad', 'fImg', 'fPng', 'fSvg', 'fLaser', 'fDxf', 'trTrace', 'trClear', 'mkReset', 'trSpline', 'spClose', 'spOffset']);
 const MENU_ONLY = new Set(['file']); // el boton solo abre el desplegable (nunca ejecuta algo, p. ej. "Nuevo")
 const isAct = (id) => id === 'filter' || id === 'sim' || ACT_IDS.has(id);
 // Vector <-> linea con lo seleccionado: con una linea (y uno de sus extremos, la cola) seleccionada, «Vector» la convierte;
@@ -3588,7 +3593,66 @@ function graphAt(sx, sy) {
     }
     return { id: h.id, mode: { move: true } };
   }
+  for (let i = imgHits.length - 1; i >= 0; i--) { // las imagenes, debajo de las graficas
+    const h = imgHits[i], m = selGraph === h.id ? 12 : 0;
+    if (sx < h.x - m || sx > h.x + h.w + m || sy < h.y - m || sy > h.y + h.h + m) continue;
+    if (selGraph === h.id) {
+      const T = Math.min(14, Math.min(h.w, h.h) / 4), l = sx - h.x < T, r = h.x + h.w - sx < T, t = sy - h.y < T, b = h.y + h.h - sy < T;
+      if (l || r || t || b) return { id: h.id, mode: { l, r, t, b } };
+    }
+    return { id: h.id, mode: { move: true } };
+  }
   return null;
+}
+// ---- imagenes: se cargan una vez por dato (imgCache) y se dibujan cuando estan listas
+const imgCache = new Map();
+let imgHits = [];
+function imgEl(src) {
+  let el = imgCache.get(src);
+  if (!el) { el = new Image(); el.onload = () => draw(); el.src = src; imgCache.set(src, el); }
+  return el.complete && el.naturalWidth ? el : null;
+}
+// Espera a que esten cargadas todas las imagenes del dibujo (para exportar)
+function imagesReady() {
+  return Promise.all(Object.values(doc.images || {}).map((im) => { const src = imageSrc(doc, im); if (!src) return null; imgEl(src); const el = imgCache.get(src); return el.complete ? null : new Promise((r) => { el.addEventListener('load', r, { once: true }); el.addEventListener('error', r, { once: true }); }); }));
+}
+function drawImages(c, o) {
+  imgHits = [];
+  const gsel = multiGraphs();
+  for (const [id, im] of Object.entries(doc.images || {})) {
+    const A = toScreen({ x: im.x, y: im.y + im.h }), B = toScreen({ x: im.x + im.w, y: im.y });
+    const x0 = A.x * dpr, y0 = A.y * dpr, W = (B.x - A.x) * dpr, H = (B.y - A.y) * dpr;
+    const src = imageSrc(doc, im), el = src && imgEl(src);
+    c.save(); c.setLineDash([]);
+    if (el) c.drawImage(el, x0, y0, W, H);
+    else { c.strokeStyle = o.fg + '55'; c.lineWidth = dpr; c.strokeRect(x0, y0, W, H); c.fillStyle = o.fg + '88'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = 11 * dpr + 'px system-ui, sans-serif'; c.fillText(src ? 'Cargando imagen…' : '⚠ Imagen sin datos', x0 + W / 2, y0 + H / 2); }
+    if (o.ui && gsel.has(id) && tool === 'select') {
+      c.strokeStyle = theme.sel; c.lineWidth = 2.5 * dpr; c.strokeRect(x0, y0, W, H);
+      c.fillStyle = o.bg; c.lineWidth = 1.5 * dpr;
+      if (selGraph === id) for (const [hx, hy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) { const r = 5 * dpr; c.beginPath(); c.rect(x0 + hx * W - r, y0 + hy * H - r, 2 * r, 2 * r); c.fill(); c.stroke(); }
+    }
+    c.restore();
+    imgHits.push({ id, x: A.x, y: A.y, w: B.x - A.x, h: B.y - A.y });
+  }
+}
+// Insertar una imagen: se reduce a IMG_MAX px de lado mayor y queda en el centro de la vista, con 40 % de su ancho
+async function insertImage(f) {
+  if (!f || !/^image\//.test(f.type)) { toast('Elige una imagen (PNG, JPG, WebP…)'); return; }
+  let bmp;
+  try { bmp = await createImageBitmap(f); } catch { toast('No se pudo leer la imagen'); return; }
+  const { w, h } = fitPixels(bmp.width, bmp.height), cnv = document.createElement('canvas');
+  cnv.width = w; cnv.height = h;
+  const cx = cnv.getContext('2d');
+  const png = f.type === 'image/png' || f.type === 'image/gif' || f.type === 'image/svg+xml'; // pueden tener transparencia
+  if (!png) { cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); }
+  cx.drawImage(bmp, 0, 0, w, h);
+  const src = cnv.toDataURL(png ? 'image/png' : 'image/jpeg', 0.85);
+  const r = cv.getBoundingClientRect(), c0 = toModel(r.width / 2, r.height / 2), c1 = toModel(r.width, 0);
+  const mw = Math.abs(c1.x - c0.x) * 0.8, mh = mw * h / w;
+  pushUndo();
+  const id = addImage(doc, src, c0.x - mw / 2, c0.y - mh / 2, mw, mh);
+  setTool('select'); sel = []; selGraph = id; afterChange();
+  toast(`Imagen de ${w} × ${h} px (${Math.round(src.length * 0.75 / 1024)} KB)` + (Math.max(bmp.width, bmp.height) > IMG_MAX ? `, reducida desde ${bmp.width} × ${bmp.height}` : ''));
 }
 // Zoom y paneo de una grafica: botones y deslizadores fuera de su rectangulo (graphCtl: zonas tocables de este dibujo; gview: ventana actual y de partida de cada eje).
 const graphCtl = [], gview = {}, gspring = {}; // gspring: desplazamiento (-1..1) de cada deslizador de zoom respecto del centro
@@ -3706,7 +3770,7 @@ function ctlUp(d) {
 function drawGraphs(c, o) {
   let need = false;
   graphCtl.length = 0;
-  if (selGraph && !doc.graphs?.[selGraph]) selGraph = null;
+  if (selGraph && !boxOf(selGraph)) selGraph = null;
   const gsel = multiGraphs();
   const F = (px, st = '') => st + px * dpr + 'px -apple-system, system-ui, sans-serif';
   for (const [id, g] of Object.entries(doc.graphs || {})) {
@@ -4807,7 +4871,7 @@ $('del').onclick = () => {
   const gs = [...multiGraphs()];
   if (!sel.length && !gs.length) return;
   pushUndo();
-  for (const id of gs) { delete doc.graphs[id]; delete graphData[id]; }
+  for (const id of gs) { if (doc.graphs?.[id]) { delete doc.graphs[id]; delete graphData[id]; } else delete doc.images?.[id]; }
   selGraph = null; selMulti = null;
   if (sel.length) {
     deleteItems(doc, sel); sel = [];
@@ -5069,7 +5133,7 @@ $('ltDel').onclick = () => {
 };
 
 $('fNew').onclick = () => { if (confirm('¿Empezar un dibujo nuevo? Se pierde lo no guardado.')) { loadDoc(freshDoc()); opts.fileBase = ''; fitView(); afterChange(); } };
-$('fSave').onclick = () => saveFile('json', '', () => new Blob([JSON.stringify({ app: 'ipad-cad', version: VERSION, doc }, null, 1)], { type: 'application/json' }));
+$('fSave').onclick = () => saveFile('json', '', () => new Blob([JSON.stringify({ app: 'ipad-cad', version: VERSION, doc: docForSave(doc) }, null, 1)], { type: 'application/json' }));
 $('fLoad').onclick = () => $('fileIn').click();
 $('fileIn').onchange = async (e) => {
   const f = e.target.files[0]; e.target.value = '';
@@ -5078,6 +5142,8 @@ $('fileIn').onchange = async (e) => {
   catch (err) { toast('No se pudo abrir: ' + err.message); }
 };
 $('fPng').onclick = exportPNG;
+$('fImg').onclick = () => $('imgIn').click();
+$('imgIn').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; insertImage(f); };
 
 // ---- GitHub: guardar y abrir los .json en un repositorio privado (ver github.js)
 function openGhCfg() {
@@ -5116,7 +5182,7 @@ async function ghSaveCmd() {
     if (cur && cur !== known && !confirm(known
       ? `«${name}» cambió en GitHub desde la última vez que lo abriste o guardaste en este dispositivo (quizá lo editaste en otro). ¿Sobrescribirlo con este dibujo?`
       : `Ya existe «${name}» en GitHub. ¿Sobrescribirlo con este dibujo?`)) { toast('No se guardó'); return; }
-    const text = JSON.stringify({ app: 'ipad-cad', version: VERSION, doc }, null, 1);
+    const text = JSON.stringify({ app: 'ipad-cad', version: VERSION, doc: docForSave(doc) }, null, 1);
     const sha = await gh.write(c, path, text, `A-CAD: ${name}`, cur);
     if (sha) gh.rememberSha(c, path, sha);
     toast(`Guardado en GitHub: ${path}`);

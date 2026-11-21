@@ -47,7 +47,7 @@ export function boxSelect(doc, rect, { cross = false, shown = null } = {}) {
   for (const [id, e] of Object.entries(doc.ellipses || {})) if (polyIn(ellipsePolyline(doc, e, 48), r, cross)) out.push({ k: 'el', id });
   for (const [id, t] of Object.entries(doc.texts || {})) if (doc.pts[t.pt] && inside(doc.pts[t.pt], r)) out.push({ k: 'tx', id });
   // graficas: un rectangulo (x, y, w, h en el modelo); ventana = entera dentro, cruce = dentro o tocando
-  for (const [id, g] of Object.entries(doc.graphs || {})) {
+  for (const [id, g] of [...Object.entries(doc.graphs || {}), ...Object.entries(doc.images || {})]) { // y las imagenes, que se manejan como ellas
     const x1 = g.x + g.w, y1 = g.y + g.h;
     if (cross ? g.x <= r.x1 && x1 >= r.x0 && g.y <= r.y1 && y1 >= r.y0 : g.x >= r.x0 && x1 <= r.x1 && g.y >= r.y0 && y1 <= r.y1) out.push({ k: 'gr', id });
   }
