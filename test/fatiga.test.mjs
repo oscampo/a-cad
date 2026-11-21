@@ -99,4 +99,12 @@ t('diagrama S-N con vectores: una unidad por eje (S_s en MPa y σ en ksi se dibu
   assert.deepEqual(s1.pts.map((q) => q[0]), [1, 1e3, 1e6, 1e9]);
 });
 
+t('números grandes: sin «.0» en los miles; notación científica desde el umbral del dibujo (doc.sciAt, 1e6 por defecto, 0 nunca)', () => {
+  const show = (sciAt, q) => { const d = newDoc(); d.decimal = '.'; if (sciAt !== undefined) d.sciAt = sciAt; const t = d.texts[addText(d, addPoint(d, 0, 0), '$$' + q + '$$', {})]; return shownText(d, t).text.replace(/[\uE000-\uF8FF]/g, '').replace(/^\$\$|\$\$$/g, '').split('=').pop(); };
+  assert.equal(show(undefined, '1000='), '1000'); assert.equal(show(undefined, '256913.8='), '256913.8'); assert.equal(show(undefined, '1e9='), '1e9');
+  assert.equal(show(5, '256913.8='), '2.569e5'); assert.equal(show(5, '999999.7='), '1e6'); assert.equal(show(3, '1500='), '1.5e3');
+  assert.equal(show(0, '1e9='), '1000000000'); assert.equal(show(undefined, '-3.2e7='), '-3.2e7');
+  assert.equal(show(undefined, '[1, 1e3, 1e6, 1e9]='), '[1, 1000, 1e6, 1e9]');
+});
+
 console.log(`\n${passed} pruebas de fatiga pasaron`);

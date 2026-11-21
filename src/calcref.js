@@ -36,7 +36,7 @@ export const CALC_GROUPS = [
     rows: [
       [c('x:valor'), 'Asigna a <b>x</b> el valor de una expresión. Se dibuja ' + c('x:=valor') + ', tal como lo escribiste.', 'x:2*3', 'x:=2*3', 't'],
       [c('x:=valor'), 'Lo mismo, tecleando ' + c(':=') + '.', 'k:=4', 'k:=4', 't'],
-      [c('expr='), 'Un <b>=</b> al final de la línea muestra el valor, con hasta 3 decimales.', '2/3=', '2/3=0.667', 't'],
+      [c('expr='), 'Un <b>=</b> al final de la línea muestra el valor, con hasta 3 decimales. Desde 1e6 se muestra en notación científica (<code>2.569e6</code>, 4 cifras significativas); el umbral se cambia en <b>Configuración → Notación científica desde</b>.', '2/3=', '2/3=0.667', 't'],
       [c('x:expr='), 'Asigna y muestra el valor en la misma línea.', 'x:2*3=\ny:x+1=', 'x:=2*3=6\ny:=x+1=7', 't'],
       ['Notación científica', c('2.5e6') + ' es 2.5·10⁶ y ' + c('3e-4') + ' es 0.0003 (también con ' + c('E') + '). Un número muy pequeño se muestra con 4 cifras significativas en vez de 0.', 'p:2.5e6\nq:3e-4=', 'p:=2.5e6\nq:=3e-4=0.0003', 't'],
       [c("x:valor'unidad"), '<b>Unidad</b>: el valor va en esa unidad. Las unidades se convierten y se propagan: ' + c('F*2') + ' sigue en N. Hay unidades del SI con prefijo (m, g, s, A, K, mol, N, Pa, J, W, V, Ω, Hz, L, bar; k, M, G, c, m, µ, n...) y otras usuales (min, h, rpm, atm, psi con prefijo como kpsi, ksi, kgf, lbf, kip, in, ft, lb, hp, gal, deg, rad, %). Si el valor ya trae unidades, solo dice en qué unidad mostrarlo.', "F:250'N\nF=\nF*2=", 'F:=250 N\nF=250 N\nF*2=500 N', 't'],

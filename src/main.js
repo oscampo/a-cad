@@ -42,7 +42,7 @@ import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepA
 import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
 import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL } from './expr.js';
-import { localNum } from './locale.js';
+import { localNum, SCI_DEFAULT, sciFrom } from './locale.js';
 import { getLang, setLang, initLang } from './i18n.js';
 import { HELP_HTML } from './help.js';
 import { colorPicker } from './colorpicker.js';
@@ -3204,6 +3204,7 @@ function syncPanel() {
   $('cfgLang').value = getLang(); $('cfgDec').value = doc.decimal === ',' || doc.decimal === '.' ? doc.decimal : ''; // sin elegir: dibujos anteriores
   $('docAngles').value = doc.angles === 'rad' ? 'rad' : 'deg';
   $('docUnits').value = doc.units === 'US' ? 'US' : 'SI';
+  $('docSci').value = String(doc.sciAt ?? SCI_DEFAULT);
   $('docTol').value = String(Number(doc.approxTol) > 0 ? Number(doc.approxTol) : APPROX_TOL);
   const pg = doc.page;
   $('docPage').value = !pg ? 'none' : pageKind(pg) || 'custom';
@@ -3578,7 +3579,8 @@ function actAt(sx, sy) {
 }
 // ---- graficas
 const fmtG = (v) => String(Math.round(v * 1000) / 1000);
-const fmtT = (v) => { const a = Math.abs(v); return a >= 1e6 || (a > 0 && a < 1e-3) ? v.toExponential(1).replace('.0e', 'e').replace('e+', 'e') : fmtG(v); };
+// marcas de los ejes: notacion cientifica desde el umbral de Configuracion; en un eje logaritmico desde 1e4 (10000 y 100000 se pegaban)
+const fmtT = (v, lg) => { const a = Math.abs(v); return a >= (lg ? Math.min(1e4, sciFrom()) : sciFrom()) || (a > 0 && a < 1e-3) ? v.toExponential(1).replace('.0e', 'e').replace('e+', 'e') : fmtG(v); };
 // Grafica bajo un toque (la de encima si hay varias): { id, mode }. Con la grafica seleccionada, sus bordes y esquinas redimensionan; el resto la mueve.
 function graphAt(sx, sy) {
   for (const h of actHits) if (!h.g && Math.hypot(h.x - sx, h.y - sy) <= h.r) return null; // un boton de actuador encima de la grafica
@@ -3827,8 +3829,8 @@ function drawGraphs(c, o) {
         }
         for (const v of a.ticks) {
           const u = pos(v); if (!Number.isFinite(u)) continue;
-          if (hor) { c.textAlign = 'center'; c.fillText(fmtT(v), u, first ? py + ph + 9 * dpr : py - 8 * dpr); }
-          else { c.textAlign = first ? 'right' : 'left'; c.fillText(fmtT(v), first ? px - 5 * dpr : px + pw + 5 * dpr, u); }
+          if (hor) { c.textAlign = 'center'; c.fillText(fmtT(v, a.log), u, first ? py + ph + 9 * dpr : py - 8 * dpr); }
+          else { c.textAlign = first ? 'right' : 'left'; c.fillText(fmtT(v, a.log), first ? px - 5 * dpr : px + pw + 5 * dpr, u); }
         }
       };
       for (const k of Object.keys(lay)) tick(k);
@@ -5094,6 +5096,11 @@ $('cfgDec').onchange = (e) => {
   try { if (to) localStorage.setItem('a-cad-decimal', to); else localStorage.removeItem('a-cad-decimal'); } catch (err) { /* sin almacenamiento */ }
   afterChange(); syncPanel(); draw();
   toast(`Indicador decimal: ${to === ',' ? 'coma (1,5), argumentos con «;»' : to === '.' ? 'punto (1.5), argumentos con «,»' : 'sin elegir (se aceptan las dos formas)'}` + (n ? ` · ${n} fórmula${n > 1 ? 's' : ''} reescrita${n > 1 ? 's' : ''}` : ''));
+};
+$('docSci').onchange = (e) => { // umbral de la notacion cientifica
+  pushUndo(); const m = Number(e.target.value);
+  if (m === SCI_DEFAULT) delete doc.sciAt; else doc.sciAt = m;
+  setAngleMode(doc); afterChange(); toast(m ? `Notación científica desde 1e${m}` : 'Sin notación científica');
 };
 $('docTol').onchange = (e) => { // tolerancia de «≈»
   const v = Number(String(e.target.value).replace(',', '.'));

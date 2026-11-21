@@ -9,6 +9,16 @@ export const decimalMode = () => DEC;
 export const commaMode = () => DEC === ',';
 // Un numero ya escrito con punto, como se muestra (con coma en el modo «,»).
 export const localNum = (s) => (DEC === ',' ? String(s).replace('.', ',') : String(s));
+// Notacion cientifica (doc.sciAt, en Configuracion): desde 10^M un numero se muestra como «2.569e5» (4 cifras significativas). 0: nunca.
+export const SCI_DEFAULT = 6;
+let SCI = 10 ** SCI_DEFAULT;
+export const setSci = (m) => { const k = m === undefined || m === null || m === '' ? SCI_DEFAULT : Number(m); SCI = k > 0 ? 10 ** k : Infinity; };
+export const sciFrom = () => SCI;
+export function sciText(v) {
+  let M = Math.floor(Math.log10(Math.abs(v))), a = Number((v / 10 ** M).toPrecision(4));
+  if (Math.abs(a) >= 10) { a = Number((a / 10).toPrecision(4)); M++; } // 9.9996e5 -> 1e6
+  return localNum(a + 'e' + M);
+}
 // Separadores de un modo (por defecto el activo): de los elementos de una fila de una matriz, de sus filas y de los argumentos de una funcion.
 export const elemChar = (m = DEC) => (m === ',' ? ';' : ',');
 export const rowChar = (m = DEC) => (m === ',' ? '|' : ';');

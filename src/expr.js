@@ -7,7 +7,7 @@
 import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem, docUnitsHook, autoUnit } from './units.js';
 import { solveEqs } from './nsolve.js';
 import { GREEK, GREEK_UP, addCalcFns } from './asciimath.js';
-import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText, localNum } from './locale.js';
+import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText, localNum, setSci } from './locale.js';
 
 const TAU_DEG = 180 / Math.PI;
 const FUNCS = {
@@ -955,7 +955,7 @@ let DEF_RAD = false;
 export const APPROX_TOL = 1e-12;
 let TOL = APPROX_TOL;
 export const approxTol = () => TOL;
-export const setAngleMode = (doc) => { DEF_RAD = doc?.angles === 'rad'; TOL = Number(doc?.approxTol) > 0 ? Number(doc.approxTol) : APPROX_TOL; setDecimal(doc?.decimal); setUnitSystem(doc?.units); docUnitsHook(doc); }; // el indicador decimal del dibujo va con la opcion de angulos: se activan juntos
+export const setAngleMode = (doc) => { DEF_RAD = doc?.angles === 'rad'; TOL = Number(doc?.approxTol) > 0 ? Number(doc.approxTol) : APPROX_TOL; setSci(doc?.sciAt); setDecimal(doc?.decimal); setUnitSystem(doc?.units); docUnitsHook(doc); }; // el indicador decimal del dibujo va con la opcion de angulos: se activan juntos
 export const angleRad = () => DEF_RAD;
 
 // Dibujos anteriores (sin indicador decimal) leen «0,0» como un decimal: «f(0.7,0,0)» daba error. Si la lectura de siempre falla y la expresion

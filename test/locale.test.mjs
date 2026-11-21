@@ -65,7 +65,7 @@ t('sin indicador (dibujos anteriores): se leen las dos formas como siempre', () 
 
 t('se muestra con el indicador del dibujo', () => {
   assert.equal(fmtNum(0.3333), '0.333');
-  setDecimal(','); assert.equal(fmtNum(0.3333), '0,333'); assert.equal(fmtNum(2000), '2000,0'); assert.equal(fmtNum(-1.5), '-1,5');
+  setDecimal(','); assert.equal(fmtNum(0.3333), '0,333'); assert.equal(fmtNum(2000), '2000'); assert.equal(fmtNum(2000.25), '2000,3'); assert.equal(fmtNum(2.5e7), '2,5e7'); assert.equal(fmtNum(-1.5), '-1,5');
   const d = newDoc(); d.decimal = ',';
   const tx = addText(d, addPoint(d, 0, 0), '$$v:[1/3; 1/2 | 3; 4]=\nx:2/3=\nM:1.5*2=$$', {});
   const s = plainText(textValue(d, d.texts[tx]));

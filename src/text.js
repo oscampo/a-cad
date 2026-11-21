@@ -10,7 +10,7 @@ export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
 import { hasMath, layoutText, splitMath } from './mathlayout.js';
 import { hasMd } from './markdown.js';
-import { localNum, elemChar, rowChar, argText } from './locale.js';
+import { localNum, elemChar, rowChar, argText, sciFrom, sciText } from './locale.js';
 export { hasMath } from './mathlayout.js';
 
 // Calculo en los textos (dentro de una formula, ver tvars.js): una salida «expr=» se dibuja «expr=valor»; la expresion puede usar los nombres
@@ -36,7 +36,7 @@ const showU = (seg) => (seg.includes("'") ? seg.replace(/'\s*(\([^()]*\)|[A-Za-z
   return unitMath(v);
 }) : seg);
 // Un numero en una unidad: los muy pequeños con 4 cifras significativas (fmtNum los dejaria en 0); sin el «.0» de fmtNum en los miles.
-const fmtQ = (x) => localNum(x !== 0 && Math.abs(x) < 1e-3 ? String(Number(x.toPrecision(4))) : String(Number(x.toFixed(Math.abs(x) >= 1000 ? 1 : 3))));
+const fmtQ = (x) => (Math.abs(x) >= sciFrom() && Number.isFinite(x) ? sciText(x) : localNum(x !== 0 && Math.abs(x) < 1e-3 ? String(Number(x.toPrecision(4))) : String(Number(x.toFixed(Math.abs(x) >= 1000 ? 1 : 3)))));
 // Una cantidad con unidades: en la unidad pedida («F='kN»), si no en la de la variable («F:250'N»), en la de una variable de la expresion
 // de texto con la misma magnitud (no la de una cota), o en la habitual del sistema de unidades del documento (autoUnit). ⚠ si la unidad pedida no es de la misma magnitud.
 // La unidad en que se muestra (con su factor al SI); null si la pedida no es de la misma magnitud. v: el valor que decide el prefijo automatico.

@@ -125,7 +125,7 @@ t('funciones de usuario: vectores y matrices como argumentos y resultados', () =
 });
 
 t('funciones de usuario: recursion con si() y limite de profundidad', () => {
-  assert.match(show('$fact(n):si(n<=1; 1; n*fact(n-1))$\n$fact(5)=$ $fact(10)=$'), /=120\$ \$fact\(10\)=3628800\.0\$$/);
+  assert.match(show('$fact(n):si(n<=1; 1; n*fact(n-1))$\n$fact(5)=$ $fact(10)=$'), /=120\$ \$fact\(10\)=3.629e6\$$/);
   assert.match(show('$fib(n):si(n<3; 1; fib(n-1)+fib(n-2))$\n$fib(12)=$'), /=144\$$/);
   assert.match(show('$loop(n):loop(n+1)$\n$loop(1)=$'), /=⚠\$$/); // sin fin: 200 niveles
   assert.throws(() => evalExpr('loop(1)', { vars: { loop: { fn: { params: ['n'], body: 'loop(n+1)' } } } }), /200 niveles/);

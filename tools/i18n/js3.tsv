@@ -373,3 +373,8 @@ Elige una imagen (PNG, JPG, WebP…)	Choose an image (PNG, JPG, WebP…)
 No se pudo leer la imagen	The image could not be read
 Imagen de {0} × {1} px ({2} KB)	Image of {0} × {1} px ({2} KB)
 , reducida desde {0} × {1}	, reduced from {0} × {1}
+Notación científica desde	Scientific notation from
+1e6 (por defecto)	1e6 (default)
+Desde qué tamaño un resultado se muestra como 2.569e5 (4 cifras significativas). Por debajo, con sus cifras: 256913.8.	From what size a result is shown as 2.569e5 (4 significant digits). Below that, with its digits: 256913.8.
+Notación científica desde 1e{0}	Scientific notation from 1e{0}
+Sin notación científica	No scientific notation

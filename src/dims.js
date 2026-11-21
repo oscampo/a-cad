@@ -3,12 +3,12 @@
 // posicion de la cota (k.off, k.lt, k.ang, k.lp) sin tocar la geometria ni el solver.
 import { lineLine, signedAngle, norm, TAU, inSweep } from './geom.js';
 import { arcOf } from './model.js';
-import { localNum } from './locale.js';
+import { localNum, sciFrom, sciText } from './locale.js';
 import { parseUnit, unitsVersion } from './units.js';
 
 export const ARROW = 9;
 export const DIAM = '\u2300'; // simbolo de diametro (U+2300)
-export const fmtNum = (v) => localNum(Math.abs(v) >= 1000 ? v.toFixed(1) : String(Math.round(v * 1000) / 1000)); // con coma decimal (doc.decimal), «0,333»
+export const fmtNum = (v) => (Math.abs(v) >= sciFrom() && Number.isFinite(v) ? sciText(v) : localNum(Math.abs(v) >= 1000 ? String(Number(v.toFixed(1))) : String(Math.round(v * 1000) / 1000))); // con coma decimal (doc.decimal), «0,333»; sin «.0» en los miles (1000, no 1000.0); desde el umbral de Configuracion, «2.569e5»
 
 const V = (view) => (p) => ({ x: p.x * view.s + view.ox, y: view.oy - p.y * view.s });
 
