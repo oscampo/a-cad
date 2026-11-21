@@ -14,7 +14,7 @@ const show = (r) => (r.mat ? '[' + r.mat.map((row) => row.map(fmt).join(', ')).j
 const page = (text) => {
   const d = { pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} };
   d.texts.t1 = { pt: 'p', h: 1, font: '', text: '$$' + text + '$$' }; // lo que se teclea se guarda como bloque matematico
-  return plainText(textValue(d, d.texts.t1)).split('\n').at(-1).replace(/\$+$/, '').replace(/^.*=/, ''); // «expr=valor$$» -> valor
+  return plainText(textValue(d, d.texts.t1)).split('\n').at(-1).replace(/\$+$/, '').replace(/^.*=/, '').replace(/^"(.*)"$/, '$1'); // «expr=valor$$» -> valor (una cadena, sin las comillas de texto de AsciiMath)
 };
 
 t('cada ejemplo de la referencia da el resultado anotado', () => {

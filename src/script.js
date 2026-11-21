@@ -37,8 +37,10 @@ export function parseScript(src) {
   if (params && params.some((q) => !q || !TEXT_NAME_RE.test(q))) return { ...out, err: 'línea 1: los parámetros son nombres separados por «,»' };
   // las lineas del cuerpo: { n (numero de linea), ind (sangria), s (sin comentario ni espacios) }
   const lines = [];
-  if (head[3].trim()) lines.push({ n: 1, ind: 1, s: head[3].replace(/#.*$/, '').trim() }); // «%f(x): x^2» en una linea
-  raw.slice(1).forEach((l, k) => { const s = l.replace(/#.*$/, ''); if (s.trim()) lines.push({ n: k + 2, ind: /^ */.exec(s)[0].length, s: s.trim() }); });
+  // «#» comenta hasta el final de la linea, salvo dentro de una cadena («"#1"»)
+  const noCom = (l) => { let q = null; for (let i = 0; i < l.length; i++) { const c = l[i]; if (q) { if (c === q || (q === '“' && c === '”')) q = null; } else if (c === '"' || c === '“') q = c; else if (c === '#') return l.slice(0, i); } return l; };
+  if (head[3].trim()) lines.push({ n: 1, ind: 1, s: noCom(head[3]).trim() }); // «%f(x): x^2» en una linea
+  raw.slice(1).forEach((l, k) => { const s = noCom(l); if (s.trim()) lines.push({ n: k + 2, ind: /^ */.exec(s)[0].length, s: s.trim() }); });
   if (!lines.length) return { ...out, err: 'línea 2: falta el programa (con sangría, debajo de la firma)' };
   if (head[3].trim() && lines.length > 1) return { ...out, err: `línea ${lines[1].n}: con el programa en la misma línea de la firma no puede haber más líneas` };
   const fail = (ln, msg) => { const e = new Error(`línea ${ln.n}: ${msg}`); e.script = true; throw e; };

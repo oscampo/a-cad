@@ -178,6 +178,24 @@ export const FUNC_GROUPS = [
     ],
   },
   {
+    title: 'Cadenas',
+    note: 'Una cadena va entre comillas: <code>"Cumple"</code> (sirven las “ ” del iPad; <code>""</code> dentro es una comilla). Se unen con <code>+</code> y se comparan con <code>==</code> y <code>!=</code>; un número se convierte con <code>num2str</code> (con su unidad). <code>["a", "b"]</code> es un vector de cadenas (<code>v_2</code> es la segunda). En el resultado se muestran entre comillas tipográficas. Para un mensaje de verificación: <code>if(σ&lt;Sy, "Cumple", "No cumple")</code>.',
+    rows: [
+      ['<code>num2str(x; n)</code>, <code>string(x)</code>', 'Un número como texto, con su unidad y como lo muestra la app (n decimales fijos si se da).', '"Tensión: " + num2str(210.254\'MPa)=', '“Tensión: 210.254 MPa”', 't'],
+      ['<code>sprintf(formato; …)</code>', 'Formato de MATLAB: %d, %f, %.2f, %e, %g, %s, %%. Sin unidades: divide por la unidad que quieres (F/1\'kN).', 'sprintf("%.1f kN"; 12.345)=', '“12.3 kN”', 't'],
+      ['<code>str2double(s)</code>, <code>str2num(s)</code>', 'El número escrito en una cadena.', 'str2double("3.25")*2', '6.5', 'n'],
+      ['<code>strcat(a; b; …)</code>', 'Une cadenas (como +).', 'strcat("A"; "-"; "CAD")=', '“A-CAD”', 't'],
+      ['<code>upper</code>, <code>lower</code>, <code>strtrim</code>, <code>reverse</code>', 'Mayúsculas, minúsculas, sin espacios en los extremos, al revés.', 'upper("abc")=', '“ABC”', 't'],
+      ['<code>strrep(s; viejo; nuevo)</code>', 'Reemplaza todas las apariciones.', 'strrep("a-b-c"; "-"; "+")=', '“a+b+c”', 't'],
+      ['<code>strsplit(s; sep)</code>, <code>strjoin(v; sep)</code>', 'Parte una cadena en un vector de cadenas (por espacios si no se da sep) y las vuelve a unir.', 'strjoin(strsplit("a,b,c"; ","); " | ")=', '“a | b | c”', 't'],
+      ['<code>strlength(s)</code>', 'Número de caracteres.', 'strlength("hola")', '4', 'n'],
+      ['<code>contains</code>, <code>startsWith</code>, <code>endsWith</code>', '1 si la cadena contiene, empieza o termina con el patrón.', 'contains("hola mundo"; "mun")', '1', 'n'],
+      ['<code>strfind(s; patrón)</code>', 'Posiciones (desde 1) donde aparece el patrón; 0 si no aparece.', 'strfind("abcabc"; "bc")', '[2, 5]', 'm'],
+      ['<code>strcmp(a; b)</code>, <code>strcmpi(a; b)</code>', '1 si son iguales (strcmpi, sin distinguir mayúsculas).', 'strcmpi("Abc"; "aBC")', '1', 'n'],
+      ['<code>extractBefore</code>, <code>extractAfter</code>, <code>extractBetween</code>', 'Lo que hay antes o después de un patrón (o de una posición), o entre dos.', 'extractAfter("x=10"; "=")=', '“10”', 't'],
+    ],
+  },
+  {
     title: 'Programas',
     note: 'Pasos en orden y ciclos dentro de una fórmula, como en SMath. Dentro, <code>s:valor</code> asigna una variable <b>local</b>: vale solo en esa fórmula (no crea variables del documento ni cambia las de afuera). Se pueden escribir en varias líneas, con sangría, y se dibujan como se escribieron. Un ciclo tiene un tope de 100 000 vueltas y 1,5 s: si lo pasa, avisa en vez de congelar la app.',
     rows: [

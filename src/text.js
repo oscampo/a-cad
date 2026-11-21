@@ -56,6 +56,12 @@ function cfmt(re, im, f) {
   if (isZeroTxt(R)) return (im < 0 ? '-' : '') + I + 'j';
   return R + (im < 0 ? '-' : '+') + I + 'j';
 }
+// Cadenas: se muestran entre comillas tipograficas, como texto recto («msg = “Cumple”»); un vector de cadenas, «[“a”, “b”]».
+const STR_RE = /"(?:[^"]|"")*"|“[^”"]*[”"]|”[^“”"]*[“”"]/g;
+const asText = (s) => '"' + String(s).replace(/"/g, '″') + '"'; // texto de AsciiMath (no puede llevar «"» dentro)
+const showStr = (r, math) => { const q = (x) => '“' + x + '”', t = r.strs ? '[' + r.strs.map(q).join(elemChar() + ' ') + ']' : q(r.str); return math ? asText(t) : t; };
+// Una formula con cadenas literales: lo de afuera pasa por f (unidades, subindices); cada cadena se dibuja como texto, sin tocar su interior («"it's"» no tiene segundos)
+const outStr = (seg, f) => { let out = '', at = 0; for (const m of seg.matchAll(STR_RE)) { out += f(seg.slice(at, m.index)) + asText('“' + m[0].slice(1, -1).replace(/""/g, '"') + '”'); at = m.index + m[0].length; } return out + f(seg.slice(at)); };
 const parC = (s) => (/[+-]/.test(s.slice(1)) ? '(' + s + ')' : s); // «(3+4j) Ω»
 function qty(r, env, src, want, math) {
   if (r.im) { // complejo: las dos partes en la misma unidad (el prefijo, segun el modulo)
@@ -141,6 +147,7 @@ function textValue1(doc, t) {
     try {
       const env = st?.outEnv.get(tid + ':' + oidx++) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
       const r = evalExpr(p.expr, { vars: env, allowMat: true, allowCplx: true });
+      if (r.str !== undefined || r.strs) return showStr(r, math);
       return r.mat ? matQ(r.mat, r.dim, env, p.expr, p.unit, math, r.mi) : qty(r, env, p.expr, p.unit, math);
     } catch (e) { return '⚠'; }
   };
@@ -151,22 +158,23 @@ function textValue1(doc, t) {
     if (!env || params.split(/[;,]/).some((q) => !(normName(q.trim()) in env))) return '';
     try {
       const r = evalExpr(callSrc, { vars: env, allowMat: true, allowCplx: true });
+      if (r.str !== undefined || r.strs) return '=' + showStr(r, true);
       return '=' + (r.mat ? matQ(r.mat, r.dim, env, '', null, true, r.mi) : qty(r, env, '', null, true));
     } catch (e) { return '=⚠'; }
   };
   const piece = (p) => {
     if (p.k === 'lit') return p.closed ? p.s : '`' + p.s + ' ⚠'; // literal: se dibuja, no se calcula
     if (p.k === 'code') return badU(p) ? wrapNames(p.s) + ' ⚠' : wrapNames(p.s);
-    if (p.k === 'out') return p.pre + showU(wrapNames(p.expr)) + '=' + outVal(p, true) + p.post; // expr= -> expr=valor
+    if (p.k === 'out') return p.pre + outStr(p.expr, (q) => showU(wrapNames(q))) + '=' + outVal(p, true) + p.post; // expr= -> expr=valor
     const name = normName(p.name), shown = name.includes('_(') ? NM0 + name + NM1 : name; // x:valor -> x:=valor (en cursiva)
     const dk = tid + ':' + idx++, bad = st.bad.has(dk);
     const val = !bad ? st.defVal.get(dk) : null, mx = val?.vec ? [val.vec] : val?.mat;
     const call = p.params !== undefined ? '(' + p.params.trim() + ')' : ''; // funcion: f(x; y):=...
     // «x:expr=»: ademas del valor asignado, «=valor» (un vector o una matriz ya muestran su valor)
-    const shownVal = p.eq === undefined || mx ? '' : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? qty({ value: val.v, im: val.im, dim: val.d }, { [name]: val }, name, null, true) : '⚠');
+    const shownVal = p.eq === undefined || mx ? '' : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? (val.str !== undefined || val.strs ? showStr(val, true) : qty({ value: val.v, im: val.im, dim: val.d }, { [name]: val }, name, null, true)) : '⚠');
     // «x:valor'unidad»: la unidad va detras del valor; con «=valor», el valor ya sale en esa unidad
     const un = p.unit && !(shownVal && !shownVal.endsWith('⚠')) ? unitMath(p.unit.replace(/^\((.*)\)$/, '$1')) : '';
-    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + matQ(mx, val.d, { [name]: val }, name, null, true, val.mi) + (val.d ? '' : un) : IT0 + shown + call + ':=' + showU(wrapNames(p.expr.trim())) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;
+    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + matQ(mx, val.d, { [name]: val }, name, null, true, val.mi) + (val.d ? '' : un) : IT0 + shown + call + ':=' + outStr(p.expr.trim(), (q) => showU(wrapNames(q))) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;
   };
   return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + contBack(tk, tk.lines.map((l) => l.map(piece).join('')).join('\n'), true) + (tk.disp ? '$$' : '$'))).join('');
 }

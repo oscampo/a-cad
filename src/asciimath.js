@@ -68,7 +68,7 @@ const PLAIN = new Set([...Object.keys(GREEK), ...Object.keys(GREEK_UP), ...FUNCS
 // Funciones del calculo (expr.js las registra al cargar): «mean(v)», «cumsum(v)», «dot(a, b)» se dibujan como funcion (rectas), no como letras
 // ni como un acento (dot) o un operador grande (sum).
 export function addCalcFns(names) {
-  for (const k of names) if (/^[A-Za-z]{2,}\d*$/.test(k) && !PLAIN.has(k)) { PLAIN.add(k); CALC_FN.add(k); } // tambien con digitos al final: interp1
+  for (const k of names) if (/^[A-Za-z]{2,}[A-Za-z0-9]*$/.test(k) && !PLAIN.has(k)) { PLAIN.add(k); CALC_FN.add(k); } // tambien con digitos: interp1, num2str
 }
 const CALC_FN = new Set();
 const plainTok = (k) => (CALC_FN.has(k) ? { t: 'fn', v: k } : { ...WORDS.get(k) });
@@ -149,8 +149,8 @@ export function tokenize(s) {
       let j = i;
       while (j < n) { const c2 = String.fromCodePoint(s.codePointAt(j)); if (!LETTER.test(c2)) break; j += c2.length; }
       const run = s.slice(i, j);
-      let q = j; while (q < n && /\d/.test(s[q])) q++;
-      if (q > j && !PLAIN.has(run) && CALC_FN.has(s.slice(i, q)) && word(plainTok(s.slice(i, q)), q)) continue; // «interp1(»: una funcion con digitos al final
+      const ad = /^[A-Za-z][A-Za-z0-9]*/.exec(s.slice(i))?.[0] || ''; // letras y digitos: «interp1», «num2str», «str2double»
+      if (ad.length > run.length && !PLAIN.has(run) && CALC_FN.has(ad) && word(plainTok(ad), i + ad.length)) continue;
       if (PLAIN.has(run) && word(plainTok(run), j)) continue;
       for (const c2 of run) out.push({ t: 'var', v: c2 });
       i = j;

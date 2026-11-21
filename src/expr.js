@@ -4,10 +4,10 @@
 // Variables: las cotas con nombre (D1, A1, R2, O3 o el que les des) se pueden usar en las formulas: vars = { nombre: { v, r } }.
 // Un angulo vale su medida en radianes (r = true), igual que π: sin(A1) funciona y R*A1 es la longitud de arco.
 
-import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem, docUnitsHook } from './units.js';
+import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem, docUnitsHook, autoUnit } from './units.js';
 import { solveEqs } from './nsolve.js';
 import { GREEK, GREEK_UP, addCalcFns } from './asciimath.js';
-import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText } from './locale.js';
+import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText, localNum } from './locale.js';
 
 const TAU_DEG = 180 / Math.PI;
 const FUNCS = {
@@ -69,7 +69,7 @@ const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
 // quedan guardadas para los motores, las animaciones y los calculos dinamicos. Todavia no valen nada.
 export const TIME_VAR = 't';
 export const FUTURE_VARS = new Set([TIME_VAR, 'j', 'ω', 'θ', 'α']);
-export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l in NF || l === 'log10' || l === 'clear' || l === 'all' || l === 'solve'; };
+export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l in NF || l in SFL || l === 'log10' || l === 'clear' || l === 'all' || l === 'solve'; };
 export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : n === 'j' ? '«j» es la unidad imaginaria (3+4j)' : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : String(n).toLowerCase() === 'all' ? `«${n}» está reservada para clear(all)` : `«${n}» es una función o constante`);
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*$/;
 const ID_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*/;
@@ -88,7 +88,7 @@ export function indexParts(raw) {
 }
 function indexOfVar(raw, vars) {
   const ip = indexParts(raw), x = ip && Object.prototype.hasOwnProperty.call(vars, ip.base) ? vars[ip.base] : null;
-  return x && (x.vec || x.mat || x.loc) ? ip : null;
+  return x && (x.vec || x.mat || x.loc || x.strs) ? ip : null;
 }
 const splitIdx = (s, mode = decimalMode()) => { // «i, j+1» -> ['i', 'j+1'] (las comas de dentro de parentesis no separan)
   const out = []; let d = 0, cur = '';
@@ -130,7 +130,18 @@ function tokenize(src, vars = null, loose = false) {
   while (i < src.length) {
     const c = src[i];
     if (/\s/.test(c)) { i++; continue; }
-    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || last.t === 'ufn' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'idx') || last.t === 'unit' || (last.t === 'op' && (last.v === ')' || last.v === ']')));
+    if (c === '"' || c === '“' || c === '”') { // cadena: «"texto"» (tambien con las comillas “ ” del teclado del iPad); «""» dentro es una comilla
+      let j = i + 1, out = '';
+      for (; j < src.length; j++) {
+        const q = src[j];
+        if (q === '"' && src[j + 1] === '"') { out += '"'; j++; continue; }
+        if (q === '"' || q === '”' || q === '“') break;
+        out += q;
+      }
+      if (j >= src.length) { if (loose) { i = src.length; continue; } throw new Error('Falta cerrar una cadena (")'); }
+      toks.push({ t: 'str', v: out, i, j: j + 1 }); i = j + 1; continue;
+    }
+    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || last.t === 'ufn' || last.t === 'str' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'idx') || last.t === 'unit' || (last.t === 'op' && (last.v === ')' || last.v === ']')));
     // separador de argumentos: «;», o una coma tras un valor («max(a, 5)»); «2,5» ya lo tomo el numero como decimal
     if (c === ';' || (c === ',' && afterValue && decimalMode() !== ',')) { // con coma decimal la coma no separa: los argumentos van con «;»
       toks.push({ t: 'sep', c, d: depth, i, j: i + 1 }); i++; continue; }
@@ -172,6 +183,7 @@ function tokenize(src, vars = null, loose = false) {
       else if (raw === 'T' && last?.t === 'op' && last.v === '^') toks.push({ t: 'tr', i, j: i + 1 }); // x^T: la transpuesta
       else if (raw === 'j') toks.push({ t: 'num', v: 0, im: 1, i, j: i + L }); // la unidad imaginaria (solo «j» minuscula)
       else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name) || MATFN.has(name) || name in NF) toks.push({ t: 'id', v: name, i, j: i + L });
+      else if (name in SFL) toks.push({ t: 'id', v: SFL[name], i, j: i + L }); // funciones de cadenas (startsWith o startswith)
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + L });
       else if (FUTURE_VARS.has(raw)) throw new Error(`${reservedWhy(raw)} (todavía no tiene valor)`);
       else throw new Error(`No reconozco «${raw}»` + (/\d/.test(raw) || raw.length === 1 ? ' (no hay una cota con ese nombre)' : ''));
@@ -321,6 +333,19 @@ function elementwise(a, b, f, what) {
 }
 const divEl = (x, y) => { if (y === 0) throw rt('División entre cero'); return x / y; };
 
+// ---- Cadenas ----
+// Una cadena es { str: 'texto' }; un vector de cadenas, { strs: ['a', 'b'] }. Se unen con «+» (o strcat) y se comparan con == y !=;
+// en cualquier otra operacion numerica avisan (un numero se convierte con num2str).
+const isS = (a) => typeof a?.str === 'string' || !!a?.strs;
+const strErr = (what) => new Error(`${what}: para un número dentro de una cadena usa num2str(…)`);
+function strAdd(a, b, s) {
+  if (s < 0) throw new Error('Las cadenas no se restan');
+  if (!isS(a) || !isS(b)) throw strErr('No se puede sumar una cadena con un número');
+  if (a.strs && b.strs) { if (a.strs.length !== b.strs.length) throw new Error(`No se pueden unir vectores de cadenas de distinto tamaño (${a.strs.length} y ${b.strs.length})`); return { strs: a.strs.map((x, i) => x + b.strs[i]) }; }
+  if (a.strs) return { strs: a.strs.map((x) => x + b.str) };
+  if (b.strs) return { strs: b.strs.map((x) => a.str + x) };
+  return { str: a.str + b.str };
+}
 // ---- Numeros complejos ----
 // Un escalar complejo es { v (parte real), im (parte imaginaria), r, d }; una matriz compleja, { m (partes reales), mi (imaginarias) }.
 // Sin im (o mi) el valor es real y todo va por el camino de siempre. Aqui se opera con pares [re, im].
@@ -808,9 +833,105 @@ const NF = {
     return withD({ v: Math.hypot(...p.arr.map((x, i) => x - q.arr[i])), r: false }, p.d);
   } },
 };
+
+// ---- Funciones de cadenas (con los nombres de MATLAB) ----
+// Un numero como texto, como lo muestra la app: hasta 3 decimales (los muy pequeños con 4 cifras), con la coma decimal del dibujo y su unidad
+// (la habitual del sistema de unidades: 210254000 Pa es «210.254 MPa»). n: decimales fijos.
+const fmtPlain = (x, n) => localNum(n !== undefined ? x.toFixed(n) : x !== 0 && Math.abs(x) < 1e-3 ? String(Number(x.toPrecision(4))) : Math.abs(x) >= 1000 ? String(Number(x.toFixed(1))) : String(Math.round(x * 1000) / 1000));
+function numText(a, n) {
+  if (isS(a)) return a.str ?? a.strs.join(' ');
+  const one = (re, im, d) => {
+    let f = 1, name = '';
+    if (d) { const u = autoUnit(Math.hypot(re, im), d); if (u) { f = u.f; name = ' ' + u.name; } }
+    const R = fmtPlain(re / f, n), I = fmtPlain(Math.abs(im) / f, n), z = (t) => /^-?0(?:[.,]0*)?$/.test(t);
+    const core = !im || z(I) ? R : z(R) ? (im < 0 ? '-' : '') + I + 'j' : R + (im < 0 ? '-' : '+') + I + 'j';
+    return (name && /[+-]/.test(core.slice(1)) ? '(' + core + ')' : core) + name;
+  };
+  if (!isM(a)) return one(a.v, a.im || 0, a.d);
+  return '[' + a.m.map((r, i) => r.map((x, k) => one(x, a.mi ? a.mi[i][k] : 0, a.d)).join(elemChar() + ' ')).join(rowChar() === ';' ? '; ' : ' | ') + ']';
+}
+const strArg = (a, fn, what = 'el texto') => { if (typeof a?.str !== 'string') throw new Error(`${fn}: ${what} debe ser una cadena`); return a.str; };
+const strOrVec = (a, fn, f) => { if (a?.strs) return { strs: a.strs.map(f) }; return { str: f(strArg(a, fn)) }; };
+const bool = (x) => ({ v: x ? 1 : 0, r: false });
+// sprintf(formato, valores…): %d %i %f %e %g %s y %% (con ancho y decimales: %8.3f); los valores se recorren en orden (un vector, elemento por elemento) y el formato se repite si sobran
+function sprintfA(A) {
+  const fmt = strArg(A[0], 'sprintf(formato, …)', 'el formato');
+  const vals = [];
+  for (const a of A.slice(1)) {
+    if (isS(a)) { vals.push(...(a.strs || [a.str])); continue; }
+    if (isC(a)) throw new Error('sprintf: no admite números complejos (usa num2str)');
+    if (a.d) throw new Error(`sprintf: un valor tiene unidades (${unitMsg(a.d)}); divide por la unidad que quieres, p. ej. F/1'kN, o usa num2str`);
+    vals.push(...(isM(a) ? a.m.flat() : [a.v]));
+  }
+  const RE = /%([-+0 ]*)(\d+)?(?:\.(\d+))?([difeEgGs%])/g;
+  let out = '', k = 0, guard = 0;
+  do {
+    out += fmt.replace(RE, (m, fl, w, pr, c) => {
+      if (c === '%') return '%';
+      const v = vals[k++];
+      if (v === undefined) return '';
+      let t;
+      if (c === 's') t = typeof v === 'string' ? v : fmtPlain(v);
+      else {
+        if (typeof v === 'string') throw new Error(`sprintf: «%${c}» espera un número y recibió la cadena «${v}»`);
+        const p = pr !== undefined ? Number(pr) : undefined;
+        t = c === 'd' || c === 'i' ? (Number.isInteger(v) ? String(v) : v.toExponential(p ?? 4)) : c === 'f' ? v.toFixed(p ?? 6) : c === 'e' || c === 'E' ? v.toExponential(p ?? 6) : String(Number(v.toPrecision(p || 6)));
+        if (c === 'E') t = t.toUpperCase();
+        if (fl.includes('+') && v >= 0) t = '+' + t; else if (fl.includes(' ') && v >= 0) t = ' ' + t;
+        t = localNum(t);
+      }
+      const W = Number(w || 0);
+      if (t.length < W) t = fl.includes('-') ? t.padEnd(W) : fl.includes('0') && c !== 's' ? t.padStart(W, '0') : t.padStart(W);
+      return t;
+    });
+  } while (k > 0 && k < vals.length && ++guard < 1000);
+  return { str: out };
+}
+const SF = {
+  num2str: { n: [1, 2], f: (A) => ({ str: numText(A[0], A[1] !== undefined ? intArg(A[1], 'num2str(x, n)', 'n', 0, 12) : undefined) }) },
+  string: { n: [1, 1], f: (A) => (A[0].strs ? A[0] : { str: numText(A[0]) }) },
+  str2double: { n: [1, 1], f: (A) => { const t = strArg(A[0], 'str2double(s)').trim().replace(',', '.'), v = Number(t); if (!t || !Number.isFinite(v)) throw rt(`str2double: «${A[0].str}» no es un número`); return { v, r: false }; } },
+  str2num: { n: [1, 1], f: (A) => SF.str2double.f(A) },
+  sprintf: { n: [1, 50], f: sprintfA },
+  strcat: { n: [1, 50], f: (A) => A.reduce((acc, a) => (acc ? strAdd(acc, a, 1) : (isS(a) ? a : (() => { throw strErr('strcat une cadenas'); })())), null) },
+  upper: { n: [1, 1], f: (A) => strOrVec(A[0], 'upper(s)', (x) => x.toUpperCase()) },
+  lower: { n: [1, 1], f: (A) => strOrVec(A[0], 'lower(s)', (x) => x.toLowerCase()) },
+  strtrim: { n: [1, 1], f: (A) => strOrVec(A[0], 'strtrim(s)', (x) => x.trim()) },
+  reverse: { n: [1, 1], f: (A) => strOrVec(A[0], 'reverse(s)', (x) => [...x].reverse().join('')) },
+  strrep: { n: [3, 3], f: (A) => { const o = strArg(A[1], 'strrep(s, viejo, nuevo)', 'viejo'), nw = strArg(A[2], 'strrep(s, viejo, nuevo)', 'nuevo'); if (!o) throw new Error('strrep: el texto a reemplazar no puede estar vacío'); return strOrVec(A[0], 'strrep(s, viejo, nuevo)', (x) => x.split(o).join(nw)); } },
+  strsplit: { n: [1, 2], f: (A) => { const t = strArg(A[0], 'strsplit(s, separador)'), d = A[1] ? strArg(A[1], 'strsplit(s, separador)', 'el separador') : null; return { strs: d ? t.split(d) : t.trim().split(/\s+/) }; } },
+  strjoin: { n: [1, 2], f: (A) => { if (!A[0].strs && typeof A[0].str !== 'string') throw new Error('strjoin(v, separador): v es un vector de cadenas'); const d = A[1] ? strArg(A[1], 'strjoin(v, separador)', 'el separador') : ' '; return { str: (A[0].strs || [A[0].str]).join(d) }; } },
+  strlength: { n: [1, 1], f: (A) => (A[0].strs ? { m: [A[0].strs.map((x) => [...x].length)] } : { v: [...strArg(A[0], 'strlength(s)')].length, r: false }) },
+  contains: { n: [2, 2], f: (A) => bool(strArg(A[0], 'contains(s, patrón)').includes(strArg(A[1], 'contains(s, patrón)', 'el patrón'))) },
+  startsWith: { n: [2, 2], f: (A) => bool(strArg(A[0], 'startsWith(s, patrón)').startsWith(strArg(A[1], 'startsWith(s, patrón)', 'el patrón'))) },
+  endsWith: { n: [2, 2], f: (A) => bool(strArg(A[0], 'endsWith(s, patrón)').endsWith(strArg(A[1], 'endsWith(s, patrón)', 'el patrón'))) },
+  strfind: { n: [2, 2], f: (A) => { // posiciones (desde 1) donde aparece el patron; 0 si no aparece
+    const t = strArg(A[0], 'strfind(s, patrón)'), q = strArg(A[1], 'strfind(s, patrón)', 'el patrón'), out = [];
+    if (q) for (let i = t.indexOf(q); i >= 0; i = t.indexOf(q, i + 1)) out.push(i + 1);
+    return !out.length ? { v: 0, r: false } : out.length === 1 ? { v: out[0], r: false } : { m: [out] };
+  } },
+  strcmp: { n: [2, 2], f: (A) => cmpStr(A, (x) => x) },
+  strcmpi: { n: [2, 2], f: (A) => cmpStr(A, (x) => x.toLowerCase()) },
+  extractBefore: { n: [2, 2], f: (A) => ({ str: cut(A, 'extractBefore(s, patrón)', true) }) },
+  extractAfter: { n: [2, 2], f: (A) => ({ str: cut(A, 'extractAfter(s, patrón)', false) }) },
+  extractBetween: { n: [3, 3], f: (A) => { const t = strArg(A[0], 'extractBetween(s, inicio, fin)'), a = strArg(A[1], 'extractBetween(s, inicio, fin)', 'inicio'), b = strArg(A[2], 'extractBetween(s, inicio, fin)', 'fin'), i = t.indexOf(a); if (i < 0) throw rt(`extractBetween: «${a}» no aparece`); const j = t.indexOf(b, i + a.length); if (j < 0) throw rt(`extractBetween: «${b}» no aparece después de «${a}»`); return { str: t.slice(i + a.length, j) }; } },
+};
+function cmpStr(A, norm) { // strcmp(a, b): 1 si son iguales (0 si alguna no es cadena); con un vector, elemento por elemento
+  const [a, b] = A, eq = (x, y) => (typeof x === 'string' && typeof y === 'string' && norm(x) === norm(y) ? 1 : 0);
+  if (a.strs || b.strs) { const L = a.strs || b.strs.map(() => a.str), R = b.strs || a.strs.map(() => b.str); if (L.length !== R.length) throw new Error('strcmp: los vectores de cadenas deben tener el mismo tamaño'); return { m: [L.map((x, i) => eq(x, R[i]))] }; }
+  return bool(eq(a.str, b.str));
+}
+function cut(A, fn, before) { // extractBefore / extractAfter con un patron (cadena) o una posicion (numero)
+  const t = strArg(A[0], fn), q = A[1];
+  if (isS(q)) { const i = t.indexOf(q.str); if (i < 0) throw rt(`${fn.split('(')[0]}: «${q.str}» no aparece`); return before ? t.slice(0, i) : t.slice(i + q.str.length); }
+  const k = intArg(q, fn, 'la posición', 1, [...t].length);
+  return before ? [...t].slice(0, k - 1).join('') : [...t].slice(k).join('');
+}
+const SFL = Object.fromEntries(Object.keys(SF).map((k) => [k.toLowerCase(), k])); // los nombres se escriben sin importar mayusculas (startsWith, startswith)
+
 // Todos los nombres de funciones y constantes del evaluador (la referencia de la ayuda debe nombrarlos todos: test/funcref.test.mjs).
-export const FUNC_NAMES = [...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(NF), ...Object.keys(CONSTS)];
-addCalcFns([...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(NF), 'solve']); // se dibujan como funcion (ver asciimath.js)
+export const FUNC_NAMES = [...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(NF), ...Object.keys(SF), ...Object.keys(CONSTS)];
+addCalcFns([...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(NF), ...Object.keys(SF), 'solve']); // se dibujan como funcion (ver asciimath.js)
 // horzcat(A, B, …) y vertcat(A, B, …): como [A, B] y [A; B]
 function catM(A, horiz) {
   const Ms = A.map(asMat), d0 = Ms.find((a) => !zero0(a) && a.d)?.d;
@@ -950,7 +1071,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (vars[k.v]?.fn && !vars[k.v].loc) throw new Error(`«${k.v}» es una función: dentro de un programa no se le puede asignar un valor`);
       p += 2;
       const a = cmp();
-      vars[k.v] = isM(a) ? wd({ mat: a.m, ...(a.mi ? { mi: a.mi } : {}), loc: true }, a.d) : { v: a.v, ...(a.im ? { im: a.im } : {}), r: !!a.r, d: a.d, loc: true };
+      vars[k.v] = isS(a) ? { ...a, loc: true } : isM(a) ? wd({ mat: a.m, ...(a.mi ? { mi: a.mi } : {}), loc: true }, a.d) : { v: a.v, ...(a.im ? { im: a.im } : {}), r: !!a.r, d: a.d, loc: true };
       return a;
     }
     return cmp();
@@ -973,7 +1094,8 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     p += 2;
     const a = cmp();
     let seq;
-    if (isOp('..')) {
+    if (isS(a)) { if (isOp('..')) throw new Error('El rango de for va entre números, no entre cadenas'); seq = a.strs ? a.strs.map((x) => ({ str: x })) : [a]; } // recorre las cadenas de un vector
+    else if (isOp('..')) {
       p++;
       const b = cmp();
       if (isM(a) || isM(b) || isC(a) || isC(b)) throw new Error(`El rango de for va entre dos números reales: for(i${argText()} 1..n${argText()} …)`);
@@ -999,6 +1121,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       const c = cmp();
       if (isM(c)) throw new Error('La condición de while es un número, no un vector ni una matriz');
       if (isC(c)) throw new Error('La condición de while no puede ser un número complejo: usa abs(…), real(…) o imag(…)');
+      if (isS(c)) throw new Error('La condición de while no puede ser una cadena');
       progSep(WHILE_MSG);
       if (c.v === 0) { skipArg(); break; }
       loopTick();
@@ -1013,6 +1136,12 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     if (!k || k.t !== 'cmp') return a;
     p++;
     const b = expr();
+    if (isS(a) || isS(b)) { // cadenas: solo == y != entre dos cadenas
+      if (!isS(a) || !isS(b)) throw new Error('Una cadena solo se compara con otra cadena (para un número, num2str(…))');
+      if (k.v !== '==' && k.v !== '!=') throw new Error(`Las cadenas se comparan con == y !=, no con «${k.v}»`);
+      if (a.strs || b.strs) throw new Error('Para comparar vectores de cadenas usa strcmp(…)');
+      return { v: (a.str === b.str) === (k.v === '==') ? 1 : 0, r: false };
+    }
     if (isM(a) || isM(b)) throw new Error('No se pueden comparar vectores o matrices');
     if (isC(a) || isC(b)) { // con complejos solo == y != (no hay orden): para comparar tamaños, abs() o real()
       if (k.v !== '==' && k.v !== '!=') throw new Error(`No se pueden comparar números complejos con «${k.v}»: usa abs(…) o real(…)`);
@@ -1040,6 +1169,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     const c = cmp();
     if (isM(c)) throw new Error('La condición de if() es un número, no un vector ni una matriz');
     if (isC(c)) throw new Error('La condición de if() no puede ser un número complejo: usa abs(…), real(…) o imag(…)');
+    if (isS(c)) throw new Error('La condición de if() no puede ser una cadena: compárala, p. ej. s == "sí"');
     const sep = () => { if (peek()?.t !== 'sep') throw new Error(SI_MSG()); p++; };
     const yes = c.v !== 0;
     let pick;
@@ -1066,7 +1196,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     const name = xt.v, here = vars?.[name];
     if (!g) g = here && !here.unk && !here.fn && Number.isFinite(here.v) ? { v: here.v, r: !!here.r, d: here.d } : { v: 1, r: false };
     if (isM(g)) throw new Error('fzero busca un número: el valor inicial no puede ser un vector');
-    const calc = (s, vv) => { const r = evalExpr(s, { radians, vars: vv, depth: depth + 1, globals: globals || vars }); if (r.mat) throw new Error('la ecuación da un vector: fzero resuelve una ecuación de una incógnita'); if (r.im) throw new Error('la ecuación da un número complejo: fzero resuelve ecuaciones reales'); return r; };
+    const calc = (s, vv) => { const r = evalExpr(s, { radians, vars: vv, depth: depth + 1, globals: globals || vars }); if (r.mat) throw new Error('la ecuación da un vector: fzero resuelve una ecuación de una incógnita'); if (r.im) throw new Error('la ecuación da un número complejo: fzero resuelve ecuaciones reales'); if (r.str !== undefined || r.strs) throw new Error('la ecuación da una cadena'); return r; };
     try {
       const [x] = solveEqs([{ name, v: g.v, r: g.r, d: g.d }], [S.slice(toks[a0].i, toks[a1 - 1].j)], calc, vars || {});
       return wd({ v: x, r: g.r }, g.d);
@@ -1124,6 +1254,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       const r = evalExpr(src, { radians, vars: { ...(vars || {}), [name]: { v: x, r: false, d: xd } }, depth: depth + 1, globals: globals || vars });
       if (r.mat) throw new Error('integral: la expresión da un vector; integra un número');
       if (r.im) throw new Error('integral: la expresión da un número complejo; integra real(…) e imag(…) por separado');
+      if (r.str !== undefined || r.strs) throw new Error('integral: la expresión da una cadena');
       if (fd === undefined) fd = r.dim || null;
       return r.value;
     };
@@ -1133,6 +1264,12 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   }
   function call(name, A) {
     const sep = decimalMode() === '.' ? ' (sepáralos con «,»)' : decimalMode() === ',' ? ' (sepáralos con «;»)' : ' (sepáralos con «;»: «2,5» es un solo número)';
+    if (name in SF) { // funciones de cadenas
+      const [lo, hi] = SF[name].n;
+      if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === lo ? `${lo} ${lo === 1 ? 'valor' : 'valores'}` : `de ${lo} a ${hi} valores`}${sep}`);
+      return SF[name].f(A, { radians });
+    }
+    if (A.some(isS)) throw new Error(`«${name}» no recibe cadenas`);
     if (name in NF) { // funciones de MATLAB (tanda 1)
       const [lo, hi] = NF[name].n;
       if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === lo ? `${lo} ${lo === 1 ? 'valor' : 'valores'}` : `de ${lo} a ${hi} valores`}${sep}`);
@@ -1175,9 +1312,11 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     if (A.length !== f.params.length) throw new Error(`«${name}» recibe ${f.params.length === 1 ? 'un valor' : dotArgs() ? `${f.params.length} valores separados por «,»` : `${f.params.length} valores separados por «;»`}: ${name}(${f.params.join(argText() + ' ')})`);
     if (depth >= 200) throw new Error(`«${name}» se llama a sí misma demasiadas veces (200 niveles)`);
     const g = globals || vars, local = { ...g, ...(f.lib || {}) }; // f.lib: las funciones locales de un script (ver script.js)
-    f.params.forEach((q, i) => { local[q] = isM(A[i]) ? wd({ mat: A[i].m, ...(A[i].mi ? { mi: A[i].mi } : {}) }, A[i].d) : { v: A[i].v, ...(A[i].im ? { im: A[i].im } : {}), r: !!A[i].r, d: A[i].d }; });
+    f.params.forEach((q, i) => { local[q] = isS(A[i]) ? { ...A[i] } : isM(A[i]) ? wd({ mat: A[i].m, ...(A[i].mi ? { mi: A[i].mi } : {}) }, A[i].d) : { v: A[i].v, ...(A[i].im ? { im: A[i].im } : {}), r: !!A[i].r, d: A[i].d }; });
     try {
       const r = evalExpr(f.body, { radians, vars: local, allowMat: true, allowCplx: true, depth: depth + 1, globals: g });
+      if (typeof r.str === 'string') return { str: r.str };
+      if (r.strs) return { strs: r.strs };
       return r.mat ? wd({ m: r.mat, ...(r.mi ? { mi: r.mi } : {}) }, r.dim) : { v: r.value, ...(r.im ? { im: r.im } : {}), r: r.rad, d: r.dim };
     } catch (e) {
       if (/^En «/.test(e.message)) throw e;
@@ -1189,6 +1328,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     let a = term();
     while (isOp('+') || isOp('-')) {
       const o = toks[p++].v, s = o === '+' ? 1 : -1; const b = term();
+      if (isS(a) || isS(b)) { a = strAdd(a, b, s); continue; } // cadenas: «+» las une
       if (isC(a) || isC(b)) { const d = addU(a, b, s); a = isM(a) || isM(b) ? wd(caddM(a, b, s), d) : cval(cadd(cpair(a), cscale(cpair(b), s)), a.r || b.r, d); continue; }
       a = isM(a) || isM(b) ? wd(addM(a, b, s), addU(a, b, s)) : { v: a.v + s * b.v, r: a.r || b.r, d: addU(a, b, s) };
     }
@@ -1208,10 +1348,12 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     for (;;) {
       if (isOp('.*') || isOp('./')) { // elemento a elemento
         const o = toks[p++].v, b = unary();
+        if (isS(a) || isS(b)) throw new Error('Una cadena no se multiplica ni se divide');
         if (isC(a) || isC(b)) { a = cMulDiv(a, b, o); continue; }
         if (!isM(a) && !isM(b)) { if (o === './' && b.v === 0) throw rt('División entre cero'); a = mulU(a, b, o === '.*' ? 1 : -1, o === '.*' ? a.v * b.v : a.v / b.v); } else a = wd(o === '.*' ? elementwise(a, b, (x, y) => x * y, 'multiplicar elemento a elemento') : elementwise(a, b, divEl, 'dividir elemento a elemento'), mulDim(a.d, b.d, o === '.*' ? 1 : -1));
       } else if (isOp('*') || isOp('/')) {
         const o = toks[p++].v, asUnit = peek()?.t === 'unit'; const b = unary();
+        if (isS(a) || isS(b)) throw new Error('Una cadena no se multiplica ni se divide');
         if (isC(a) || isC(b)) { a = cMulDiv(a, b, o); continue; }
         if (o === '/') {
           if (isM(b)) throw new Error('No se puede dividir entre un vector o una matriz');
@@ -1220,22 +1362,25 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
         } else a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit);
       } else if (startsFactor()) { // multiplicacion implicita: 2π, 3(4+1)
         const asUnit = peek()?.t === 'unit', b = unary();
+        if (isS(a) || isS(b)) throw new Error('Una cadena no se multiplica ni se divide');
         if (isC(a) || isC(b)) { a = cMulDiv(a, b, '*'); continue; }
         a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit);
       } else return a;
     }
   }
   function unary() {
-    if (isOp('-')) { p++; const a = unary(); if (isC(a)) return isM(a) ? wd(cmapM(a, (z) => [-z[0], -z[1]]), a.d) : cval([-a.v, -a.im], a.r, a.d); return isM(a) ? wd(mapM(a, (x) => -x), a.d) : { v: -a.v, r: a.r, d: a.d }; }
+    if (isOp('-')) { p++; const a = unary(); if (isS(a)) throw new Error('Una cadena no lleva signo'); if (isC(a)) return isM(a) ? wd(cmapM(a, (z) => [-z[0], -z[1]]), a.d) : cval([-a.v, -a.im], a.r, a.d); return isM(a) ? wd(mapM(a, (x) => -x), a.d) : { v: -a.v, r: a.r, d: a.d }; }
     if (isOp('+')) { p++; return unary(); }
     return power();
   }
   function power() {
     const a = primary();
+    if (isS(a) && (isOp('^') || isOp('.^')) && toks[p + 1]?.t !== 'tr') throw new Error('Una cadena no se eleva a una potencia');
     if (isOp('^')) {
       p++;
-      if (peek()?.t === 'tr') { p++; return isM(a) ? wd(isC(a) ? ctransposeM(a) : transposeM(a), a.d) : a; } // x^T
+      if (peek()?.t === 'tr') { p++; return isM(a) ? wd(isC(a) ? ctransposeM(a) : transposeM(a), a.d) : a; } // x^T (un vector de cadenas queda igual)
       const b = unary();
+      if (isS(b)) throw new Error('El exponente no puede ser una cadena');
       if (b.d) throw new Error(`El exponente no puede llevar unidades (lleva ${unitMsg(b.d)})`);
       if (isC(b) && (isM(a) || a.d)) throw new Error('Un exponente complejo solo vale con un número sin unidades');
       if (isM(a) && !isM(b) && isC(a)) return wd(cpowM(a, b.v), powDim(a.d, b.v));
@@ -1262,8 +1407,16 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   function primary() {
     const k = toks[p++];
     if (!k) throw new Error('Expresión incompleta');
+    if (k.t === 'str') return { str: k.v };
     if (k.t === 'num') return k.im ? { v: 0, im: k.im, r: false } : { v: k.v, r: false };
     if (k.t === 'unit') return { v: k.u.f, r: !!k.u.r, d: k.u.d }; // 'N, 'mm: vale su factor al SI, con su dimension
+    if (k.t === 'idx' && vars[k.base]?.strs) { // un elemento de un vector de cadenas: s_2
+      const L = vars[k.base].strs, ix = splitIdx(k.src);
+      if (ix.length !== 1) throw new Error(`«${k.base}» es un vector de cadenas: lleva un índice`);
+      const q = Math.round(evalExpr(ix[0], { vars, depth: depth + 1, globals }).value);
+      if (!(q >= 1 && q <= L.length)) throw new Error(`Índice fuera de rango: «${k.base}» tiene ${L.length} cadenas y pides la ${q}`);
+      return { str: L[q - 1] };
+    }
     if (k.t === 'idx') { // v_2, A_(i,j), A_(i,:), A_(:,j): un elemento, una fila o una columna (los indices empiezan en 1)
       if (!vars[k.base].vec && !vars[k.base].mat) throw new Error(vars[k.base].unset ? `«${k.base}» se usa antes de darle un valor` : `«${k.base}» no es un vector ni una matriz: no lleva índice`);
       const x = vars[k.base], xd = x.d, m = x.mat || [x.vec], R = m.length, C = m[0].length, name = `${k.base}_(${k.src})`;
@@ -1298,6 +1451,8 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     if (k.t === 'var') {
       const x = vars[k.v];
       if (x.unset) throw new Error(`«${k.v}» se usa antes de darle un valor (dentro del programa: ${k.v}:valor)`);
+      if (typeof x.str === 'string') return { str: x.str };
+      if (x.strs) return { strs: x.strs };
       if (x.fn) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
       if (x.mat) return wd({ m: x.mat, ...(x.mi ? { mi: x.mi } : {}) }, x.d);
       if (x.vec) return wd({ m: [x.vec] }, x.d);
@@ -1311,8 +1466,11 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (isOp(']')) throw new Error('Una matriz no puede estar vacía');
       const brow = [[]]; // filas de bloques; cada bloque, una matriz (un numero es de 1×1)
       let d0 = null, z0 = true; // todos los elementos con la misma dimension (la de la matriz); z0: hasta aqui solo ceros sin unidades
+      const strEls = []; let numEls = 0, rowsN = 1;
       for (;;) {
         const a = cmp();
+        if (isS(a)) { if (a.strs) throw new Error('Un vector de cadenas no va dentro de otro: usa horzcat o strjoin'); strEls.push(a.str); const s2 = peek(); if (s2?.t === 'sep') { p++; if (s2.c === rowChar()) rowsN++; continue; } break; }
+        numEls++;
         if (d0 === null || (z0 && !zero0(a))) { if (!zero0(a) || d0 === null) d0 = a.d; } else if (!sameDim(a.d, d0) && !zero0(a)) throw new Error(`Los elementos de una matriz deben tener las mismas unidades (hay ${unitMsg(d0)} y ${unitMsg(a.d)})`);
         if (!zero0(a)) z0 = false;
         brow.at(-1).push(isM(a) ? a : { m: [[a.v]], ...(a.im ? { mi: [[a.im]] } : {}) });
@@ -1322,6 +1480,11 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       }
       if (!isOp(']')) throw new Error('Falta cerrar un corchete');
       p++;
+      if (strEls.length) { // ["a", "b"]: un vector de cadenas (fila; sin numeros mezclados)
+        if (numEls) throw new Error('Un vector no mezcla cadenas y números (para un número, num2str(…))');
+        if (rowsN > 1) throw new Error('Un vector de cadenas es una sola fila: ["a", "b"]');
+        return { strs: strEls };
+      }
       const blocky = brow.some((r) => r.some((b) => b.m.length !== 1 || b.m[0].length !== 1));
       const rows = [], rowsI = [], cplx = brow.some((r) => r.some((b) => b.mi));
       brow.forEach((bs, i) => {
@@ -1371,6 +1534,10 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   const res = cmp();
   if (p < toks.length) throw new Error('Sobra algo al final de la expresión');
   // un complejo solo sale donde se acepta (los textos de calculo y las funciones); una cota, un actuador o una grafica necesitan un real
+  if (isS(res)) { // una cadena solo sale en los textos de calculo (y las funciones); una cota o una grafica necesitan un numero
+    if (!allowCplx) throw new Error('El resultado es una cadena: aquí hace falta un número');
+    return res.strs ? { strs: res.strs, value: NaN } : { str: res.str, value: NaN };
+  }
   if (isC(res) && !allowCplx) throw new Error('El resultado es un número complejo: aquí hace falta un número real (usa abs(…), angle(…), real(…) o imag(…))');
   if (isM(res)) {
     if (!allowMat) throw new Error(`El resultado es ${nameM(res)}, no un número`);

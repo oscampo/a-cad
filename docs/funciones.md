@@ -186,6 +186,25 @@ Se definen en un texto y se usan en las salidas, en las variables y en las cotas
 |  |  | `imag((1+2j)*(3-1j))` | `5` |
 | `conj(z)` | Conjugado: z·conj(z) = |z|². | `real((3+4j)*conj(3+4j))` | `25` |
 
+## Cadenas
+
+Una cadena va entre comillas: `"Cumple"` (sirven las “ ” del iPad; `""` dentro es una comilla). Se unen con `+` y se comparan con `==` y `!=`; un número se convierte con `num2str` (con su unidad). `["a", "b"]` es un vector de cadenas (`v_2` es la segunda). En el resultado se muestran entre comillas tipográficas. Para un mensaje de verificación: `if(σ<Sy, "Cumple", "No cumple")`.
+
+| Función | Qué hace | Ejemplo | Da |
+|---|---|---|---|
+| `num2str(x; n)`, `string(x)` | Un número como texto, con su unidad y como lo muestra la app (n decimales fijos si se da). | `"Tensión: " + num2str(210.254'MPa)=` | `“Tensión: 210.254 MPa”` |
+| `sprintf(formato; …)` | Formato de MATLAB: %d, %f, %.2f, %e, %g, %s, %%. Sin unidades: divide por la unidad que quieres (F/1'kN). | `sprintf("%.1f kN"; 12.345)=` | `“12.3 kN”` |
+| `str2double(s)`, `str2num(s)` | El número escrito en una cadena. | `str2double("3.25")*2` | `6.5` |
+| `strcat(a; b; …)` | Une cadenas (como +). | `strcat("A"; "-"; "CAD")=` | `“A-CAD”` |
+| `upper`, `lower`, `strtrim`, `reverse` | Mayúsculas, minúsculas, sin espacios en los extremos, al revés. | `upper("abc")=` | `“ABC”` |
+| `strrep(s; viejo; nuevo)` | Reemplaza todas las apariciones. | `strrep("a-b-c"; "-"; "+")=` | `“a+b+c”` |
+| `strsplit(s; sep)`, `strjoin(v; sep)` | Parte una cadena en un vector de cadenas (por espacios si no se da sep) y las vuelve a unir. | `strjoin(strsplit("a,b,c"; ","); " | ")=` | `“a | b | c”` |
+| `strlength(s)` | Número de caracteres. | `strlength("hola")` | `4` |
+| `contains`, `startsWith`, `endsWith` | 1 si la cadena contiene, empieza o termina con el patrón. | `contains("hola mundo"; "mun")` | `1` |
+| `strfind(s; patrón)` | Posiciones (desde 1) donde aparece el patrón; 0 si no aparece. | `strfind("abcabc"; "bc")` | `[2, 5]` |
+| `strcmp(a; b)`, `strcmpi(a; b)` | 1 si son iguales (strcmpi, sin distinguir mayúsculas). | `strcmpi("Abc"; "aBC")` | `1` |
+| `extractBefore`, `extractAfter`, `extractBetween` | Lo que hay antes o después de un patrón (o de una posición), o entre dos. | `extractAfter("x=10"; "=")=` | `“10”` |
+
 ## Programas
 
 Pasos en orden y ciclos dentro de una fórmula, como en SMath. Dentro, `s:valor` asigna una variable **local**: vale solo en esa fórmula (no crea variables del documento ni cambia las de afuera). Se pueden escribir en varias líneas, con sangría, y se dibujan como se escribieron. Un ciclo tiene un tope de 100 000 vueltas y 1,5 s: si lo pasa, avisa en vez de congelar la app.
