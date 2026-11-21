@@ -15,6 +15,10 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 - Cálculo: `line`, `for` y `while` quedan reservados: ya no pueden ser nombres de variables ni de funciones (en los dibujos revisados no se usaban).
 
+### Corregido
+
+- Cálculo: **0 por cualquier cosa sigue siendo el 0 que vale con cualquier unidad**. Una función con `if(x>a, (x-a)^n, 0)` (por ejemplo, las funciones de singularidad de una viga) devolvía en la rama 0 un número sin unidades, y `P*0` quedaba como «0 N»: al restarlo de un momento daba «No se puede restar J y N». Ahora `P*0` y `0/x` valen con cualquier unidad. Una unidad escrita se conserva: `0'mm` sigue siendo 0 mm.
+
 ## v2.9.3 (2026-11-20)
 
 ### Nuevo

@@ -68,4 +68,14 @@ t('en los textos: se define y se usa; el programa en varias lineas se dibuja com
   assert.equal(clean(shownText(r, c).text), '$$r:=line(a:2, b:a^2, a+b)=6$$');
 });
 
+t('el 0 sin unidades por cualquier cosa sigue valiendo con cualquier unidad (la rama «0» de un if); una unidad escrita se conserva', () => {
+  const vars = { P: { v: 25000, r: false, d: [1, 1, -2, 0, 0, 0, 0] }, f: fn(['x', 'a'], "if(x>a, x-a, 0)") };
+  const r = ev("P*f(0.1'm, 0.36'm) + 3'kN*'m", vars); // la rama 0: P*0 no es «0 N» y se suma a un momento
+  assert.equal(r.value, 3000); assert.deepEqual(r.dim, [2, 1, -2, 0, 0, 0, 0]);
+  assert.deepEqual(ev("0'mm").dim, [1, 0, 0, 0, 0, 0, 0]); // 0 mm sigue siendo una longitud
+  assert.deepEqual(ev("0*'m").dim, [1, 0, 0, 0, 0, 0, 0]);
+  assert.throws(() => ev("0'mm+2'kg"), /No se puede sumar/);
+  assert.deepEqual(ev("2'm*3").dim, [1, 0, 0, 0, 0, 0, 0]);
+});
+
 console.log(`\n${passed} pruebas de programas pasaron`);

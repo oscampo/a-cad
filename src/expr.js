@@ -484,7 +484,9 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     }
   };
   const addU = (a, b, s) => { if (!sameDim(a.d, b.d)) { if (zero0(b)) return a.d; if (zero0(a)) return b.d; throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} ${unitMsg(a.d)} y ${unitMsg(b.d)}`); } return a.d || b.d; };
-  const mulU = (a, b, s, v) => ({ v, r: a.r || b.r, d: mulDim(a.d, b.d, s) });
+  // 0 (sin unidades) por cualquier cosa es el 0 que vale con cualquier unidad: «P*0» o el 0 de una rama de if() no se vuelve «0 N» y se
+  // puede sumar a un momento. Salvo con una unidad escrita (asUnit): «0'mm» y «0*'m» siguen siendo 0 mm y 0 m.
+  const mulU = (a, b, s, v, asUnit = false) => (!asUnit && (zero0(a) || (s > 0 && zero0(b))) ? { v: 0, r: false } : { v, r: a.r || b.r, d: mulDim(a.d, b.d, s) });
 
   // comparacion (la de menor precedencia): da 1 si se cumple y 0 si no. «==» y «!=» toleran el error de redondeo.
   const ASG_MSG = () => `«:» asigna un valor solo dentro de line(), for() o while(), p. ej. line(s:0${argText()} s:s+1${argText()} s)`;
@@ -670,13 +672,13 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
         const o = toks[p++].v, b = unary();
         if (!isM(a) && !isM(b)) { if (o === './' && b.v === 0) throw rt('División entre cero'); a = mulU(a, b, o === '.*' ? 1 : -1, o === '.*' ? a.v * b.v : a.v / b.v); } else a = wd(o === '.*' ? elementwise(a, b, (x, y) => x * y, 'multiplicar elemento a elemento') : elementwise(a, b, divEl, 'dividir elemento a elemento'), mulDim(a.d, b.d, o === '.*' ? 1 : -1));
       } else if (isOp('*') || isOp('/')) {
-        const o = toks[p++].v; const b = unary();
+        const o = toks[p++].v, asUnit = peek()?.t === 'unit'; const b = unary();
         if (o === '/') {
           if (isM(b)) throw new Error('No se puede dividir entre un vector o una matriz');
           if (b.v === 0) throw rt('División entre cero');
-          a = isM(a) ? wd(mapM(a, (x) => x / b.v), mulDim(a.d, b.d, -1)) : mulU(a, b, -1, a.v / b.v);
-        } else a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v);
-      } else if (startsFactor()) { const b = unary(); a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v); } // multiplicacion implicita: 2π, 3(4+1)
+          a = isM(a) ? wd(mapM(a, (x) => x / b.v), mulDim(a.d, b.d, -1)) : mulU(a, b, -1, a.v / b.v, asUnit);
+        } else a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit);
+      } else if (startsFactor()) { const asUnit = peek()?.t === 'unit', b = unary(); a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit); } // multiplicacion implicita: 2π, 3(4+1)
       else return a;
     }
   }
