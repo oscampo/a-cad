@@ -40,7 +40,8 @@ t('«x:expr=» asigna y muestra el valor en la misma linea', () => {
   assert.equal(page('$$k:=4=$$'), '$$k:=4=4$$');
   assert.equal(page('$$v:1..3;3=$$'), '$$v:=[1, 2, 3]$$'); // un vector ya muestra su valor
   assert.equal(page('$$b:3==3$$'), '$$b:=3==3$$'); // «==» al final es una comparacion, no «=»
-  assert.equal(page('$$q:sqrt(-1)=$$').includes('⚠'), true);
+  assert.equal(page('$$q:sqrt(-1)=$$').replace(/[\uE000-\uF8FF]/g, ''), '$$q:=sqrt(-1)=1j$$'); // como en MATLAB: un complejo
+  assert.equal(page('$$q:1/0=$$').includes('⚠'), true);
   assert.deepEqual(stmts('$f(x):x^2=$'), ['f(x):x^2']); // en una funcion el «=» tampoco es parte del cuerpo
   for (const s of ['$$x:2*3=$$', '$$y:x+1 = $$']) assert.equal(calcSrc(calcParse(s)), s);
 });
@@ -49,7 +50,8 @@ t('«f(x):expr=» define la funcion y muestra f(x) con las variables de ese punt
   assert.equal(page('$$x:0..1;3\nf(x):x.^2=\nf(x)=\nf(3)=$$'), '$$x:=[0, 0.5, 1]\nf(x):=x.^2=[0, 0.25, 1]\nf(x)=[0, 0.25, 1]\nf(3)=9$$');
   assert.equal(page('$$a:2\nb:5\ng(a; b):a*b+1=$$'), '$$a:=2\nb:=5\ng(a; b):=a*b+1=11$$');
   assert.equal(page('$$f(x):x^2=\nf(3)=$$'), '$$f(x):=x^2\nf(3)=9$$'); // sin x no muestra nada, pero la funcion queda definida
-  assert.equal(page('$$x:-1\nf(x):sqrt(x)=$$'), '$$x:=-1\nf(x):=sqrt(x)=⚠$$'); // con x, un calculo que falla si da ⚠
+  assert.equal(page('$$x:-1\nf(x):sqrt(x)=$$'), '$$x:=-1\nf(x):=sqrt(x)=1j$$'); // con x = -1, sqrt da un complejo (como en MATLAB)
+  assert.equal(page('$$x:0\nf(x):1/x=$$'), '$$x:=0\nf(x):=1/x=⚠$$'); // con x, un calculo que falla si da ⚠
   for (const s of ['$$f(x):x^2=$$', '$$g(a; b):a+b = $$']) assert.equal(calcSrc(calcParse(s)), s);
 });
 
@@ -58,7 +60,8 @@ t("«x:valor'unidad»: unidades reales, se convierten y se propagan", () => {
   assert.deepEqual(stmts("$$F:250'N$$"), ['F:250']);
   assert.equal(u("$$F:250'N\nF=\nF*2=$$"), '$$F:=250 N\nF=250 N\nF*2=500 N$$'); // F*2 sigue en la unidad de F
   assert.equal(u("$$a:2*3 ' m/s^2=$$"), '$$a:=2*3=6 m/s²$$'); // con «=», detras del valor; «^2» como superindice
-  assert.equal(u("$$q:sqrt(-1)'N=$$"), '$$q:=sqrt(-1) N=⚠$$');
+  assert.equal(u("$$q:sqrt(-1)'N=$$"), '$$q:=sqrt(-1)=1j N$$'); // un complejo con unidad
+  assert.equal(u("$$q:(1/0)'N=$$"), '$$q:=(1/0) N=⚠$$');
   assert.equal(u("$$F:2'kN+300'N\nF=\nF='N\nF='m$$"), '$$F:=2 kN+300 N\nF=2.3 kN\nF=2300 N\nF=⚠$$'); // en la unidad pedida; ⚠ si no es de la misma magnitud
   assert.equal(u("$$m:2'kg\nF:250'N\na:F/m\na=\nb:(250'N)/m\nb=$$"), '$$m:=2 kg\nF:=250 N\na:=F/m\na=125 m/s²\nb:=(250 N)/m\nb=125 m/s²$$'); // sin unidad propia: la del SI
   assert.equal(u("$$k:250'N/m\nk=$$"), '$$k:=250 N/m\nk=250 N/m$$'); // «'N/m» al final es la unidad entera

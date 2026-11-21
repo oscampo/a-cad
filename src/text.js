@@ -47,7 +47,24 @@ function pickUnit(dim, env, src, want, v) {
   return autoUnit(v, dim);
 }
 const tailOf = (n, math) => (math ? unitMath(n) : ' ' + n);
+// Un numero complejo: «3+4j», «3-4j», «4j»; una parte que redondea a 0 no se muestra (exp(jπ) = -1). f: el formato de cada parte.
+const numFmt = (x) => (Math.abs(x) > 1e-12 ? (Math.abs(x) < 1e-3 ? fmtQ(x) : fmtNum(x)) : fmtNum(x));
+const isZeroTxt = (s) => /^-?0(?:[.,]0*)?$/.test(s);
+function cfmt(re, im, f) {
+  const R = f(re), I = f(Math.abs(im));
+  if (isZeroTxt(I)) return R;
+  if (isZeroTxt(R)) return (im < 0 ? '-' : '') + I + 'j';
+  return R + (im < 0 ? '-' : '+') + I + 'j';
+}
+const parC = (s) => (/[+-]/.test(s.slice(1)) ? '(' + s + ')' : s); // «(3+4j) Ω»
 function qty(r, env, src, want, math) {
+  if (r.im) { // complejo: las dos partes en la misma unidad (el prefijo, segun el modulo)
+    const mag = Math.hypot(r.value, r.im);
+    if (want) { const u = pickUnit(r.dim, env, src, want, mag); return u ? parC(cfmt(r.value / u.f, r.im / u.f, fmtQ)) + tailOf(want, math) : '⚠'; }
+    if (!r.dim) return cfmt(r.value, r.im, numFmt);
+    const u = pickUnit(r.dim, env, src, null, mag);
+    return parC(cfmt(r.value / u.f, r.im / u.f, fmtQ)) + tailOf(u.name, math);
+  }
   if (want) { const u = pickUnit(r.dim, env, src, want, r.value); return u ? fmtQ(r.value / u.f) + tailOf(want, math) : '⚠'; }
   if (!r.dim) return Math.abs(r.value) > 1e-12 ? (Math.abs(r.value) < 1e-3 ? fmtQ(r.value) : fmtNum(r.value)) : fmtNum(r.value); // 3e-4 no sale como 0; el ruido de redondeo (sin(180)) si
   const u = pickUnit(r.dim, env, src, null, r.value);
@@ -55,8 +72,14 @@ function qty(r, env, src, want, math) {
 }
 // Un vector o una matriz: dentro de una formula entre marcas VB0/VB1 (se dibuja como vector fila, sin comas). Con unidades, todos los
 // elementos en la misma unidad, elegida como en qty (el prefijo automatico, segun el elemento mas grande).
-function matQ(m, dim, env, src, want, math) {
+function matQ(m, dim, env, src, want, math, mi = null) {
   const box = (s) => (math ? VB0 + s + VB1 : s);
+  if (mi) { // matriz compleja: cada elemento como «3+4j»
+    const cell = (k, f) => m.map((r, i) => r.map((x, q) => cfmt(x / k, mi[i][q] / k, f)));
+    if (!dim) return want ? '⚠' : box(matText(cell(1, numFmt), (x) => x));
+    const u = pickUnit(dim, env, src, want, Math.max(...m.flat().map((x, q) => Math.hypot(x, mi.flat()[q]))));
+    return u ? box(matText(cell(u.f, fmtQ), (x) => x)) + tailOf(want || u.name, math) : '⚠';
+  }
   if (!dim) return want ? '⚠' : box(matText(m));
   const u = pickUnit(dim, env, src, want, Math.max(...m.flat().map(Math.abs)));
   return u ? box(matText(m.map((r) => r.map((x) => x / u.f)), fmtQ)) + tailOf(want || u.name, math) : '⚠';
@@ -117,8 +140,8 @@ function textValue1(doc, t) {
     }
     try {
       const env = st?.outEnv.get(tid + ':' + oidx++) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
-      const r = evalExpr(p.expr, { vars: env, allowMat: true });
-      return r.mat ? matQ(r.mat, r.dim, env, p.expr, p.unit, math) : qty(r, env, p.expr, p.unit, math);
+      const r = evalExpr(p.expr, { vars: env, allowMat: true, allowCplx: true });
+      return r.mat ? matQ(r.mat, r.dim, env, p.expr, p.unit, math, r.mi) : qty(r, env, p.expr, p.unit, math);
     } catch (e) { return '⚠'; }
   };
   // La magnitud de un vector («$D3=$», ver vectors.js) muestra solo el valor, como texto.
@@ -127,8 +150,8 @@ function textValue1(doc, t) {
   const fnVal = (callSrc, params, env) => {
     if (!env || params.split(/[;,]/).some((q) => !(normName(q.trim()) in env))) return '';
     try {
-      const r = evalExpr(callSrc, { vars: env, allowMat: true });
-      return '=' + (r.mat ? matQ(r.mat, r.dim, env, '', null, true) : qty(r, env, '', null, true));
+      const r = evalExpr(callSrc, { vars: env, allowMat: true, allowCplx: true });
+      return '=' + (r.mat ? matQ(r.mat, r.dim, env, '', null, true, r.mi) : qty(r, env, '', null, true));
     } catch (e) { return '=⚠'; }
   };
   const piece = (p) => {
@@ -140,10 +163,10 @@ function textValue1(doc, t) {
     const val = !bad ? st.defVal.get(dk) : null, mx = val?.vec ? [val.vec] : val?.mat;
     const call = p.params !== undefined ? '(' + p.params.trim() + ')' : ''; // funcion: f(x; y):=...
     // «x:expr=»: ademas del valor asignado, «=valor» (un vector o una matriz ya muestran su valor)
-    const shownVal = p.eq === undefined || mx ? '' : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? qty({ value: val.v, dim: val.d }, { [name]: val }, name, null, true) : '⚠');
+    const shownVal = p.eq === undefined || mx ? '' : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? qty({ value: val.v, im: val.im, dim: val.d }, { [name]: val }, name, null, true) : '⚠');
     // «x:valor'unidad»: la unidad va detras del valor; con «=valor», el valor ya sale en esa unidad
     const un = p.unit && !(shownVal && !shownVal.endsWith('⚠')) ? unitMath(p.unit.replace(/^\((.*)\)$/, '$1')) : '';
-    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + matQ(mx, val.d, { [name]: val }, name, null, true) + (val.d ? '' : un) : IT0 + shown + call + ':=' + showU(wrapNames(p.expr.trim())) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;
+    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + matQ(mx, val.d, { [name]: val }, name, null, true, val.mi) + (val.d ? '' : un) : IT0 + shown + call + ':=' + showU(wrapNames(p.expr.trim())) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;
   };
   return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + contBack(tk, tk.lines.map((l) => l.map(piece).join('')).join('\n'), true) + (tk.disp ? '$$' : '$'))).join('');
 }

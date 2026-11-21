@@ -1014,6 +1014,8 @@ export const EN = {
   "«{0}» no admite números complejos": "«{0}» does not accept complex numbers",
   "Un exponente complejo solo vale con un número sin unidades": "A complex exponent only works with a number without units",
   "El resultado es un número complejo: aquí hace falta un número real (usa abs(…), angle(…), real(…) o imag(…))": "The result is a complex number: a real number is needed here (use abs(…), angle(…), real(…) or imag(…))",
+  "«{0}» es un número complejo: grafica abs({1}), angle({2}), real({3}) o imag({4})": "«{0}» is a complex number: plot abs({1}), angle({2}), real({3}) or imag({4})",
+  "«{0}» es un número complejo: solve resuelve ecuaciones reales": "«{0}» is a complex number: solve solves real equations",
   "Detener": "Stop",
   "Elementos": "Elements",
   "Restricciones": "Constraints",

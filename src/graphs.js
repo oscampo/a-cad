@@ -136,7 +136,7 @@ function* graphGen(doc, g, solveFn) {
   // valor de una variable o expresion con el entorno env: un angulo suelto se muestra en grados
   const value = (src, env) => {
     let v, d;
-    if (bareRe.test(src) && src in env) { const x = env[src]; if (x.r) return x.v * deg; v = x.v; d = x.d; }
+    if (bareRe.test(src) && src in env) { const x = env[src]; if (x.im) throw new Error(`«${src}» es un número complejo: grafica abs(${src}), angle(${src}), real(${src}) o imag(${src})`); if (x.r) return x.v * deg; v = x.v; d = x.d; }
     else { const r = evalExpr(src, { vars: env, radians: rad }); if (r.rad) return r.value * deg; v = r.value; d = r.dim; }
     return d && Number.isFinite(v) ? v / unitOf(src, d, v).f : v;
   };

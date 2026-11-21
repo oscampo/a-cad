@@ -60,4 +60,29 @@ t('lo real no cambia', () => {
   assert.equal(evalExpr('0*5').value, 0);
 });
 
+// en los textos: se muestran como 3+4j (con unidades, (100+62.832j) Ω), en variables, matrices, funciones y scripts; una cota pide un real
+{
+  const { newDoc, addPoint, addText, addLine, addCon } = await import('../src/model.js');
+  const { shownText } = await import('../src/text.js');
+  const { textVarErrors, settle } = await import('../src/params.js');
+  const { initSolver, solve } = await import('../src/solver.js');
+  await initSolver();
+  const d = newDoc(); d.angles = 'deg';
+  const L = ['Z:3+4j', 'Z=', 'angle(Z)=', "ZT:100'Ω+2j*pi*50*0.2*1'Ω", 'ZT=', 'abs(ZT)=', 'exp(j*pi)=', 'Y:[1+j, 2; 3, 4-2j]', 'inv(Y)=', 'f(s):1/(s^2+2s+5)', 'f(1j)=', 'Z>2='];
+  const T = L.map((s, i) => d.texts[addText(d, addPoint(d, 0, 300 - i * 10), '$$' + s + '$$', {})]);
+  addText(d, addPoint(d, 0, 0), '%imp(R, L, f):\n  w:2*pi*f\n  R+j*w*L', {});
+  const out = d.texts[addText(d, addPoint(d, 0, -20), '$$imp(10, 0.1, 50)=$$', {})];
+  const show = (t) => shownText(d, t).text.replace(/[-]/g, '').replace(/"/g, '').replace(/ +/g, ' ');
+  assert.deepEqual([1, 2, 4, 5, 6, 8, 10, 11].map((i) => show(T[i])), ['$$Z=3+4j$$', '$$angle(Z)=53.13$$', '$$ZT=(100+62.832j) Ω$$', '$$abs(ZT)=118.101 Ω$$', '$$exp(j*pi)=-1$$', '$$inv(Y)=[-1-2j, 1j; 1.5j, 0.5-0.5j]$$', '$$f(1j)=0.2-0.1j$$', '$$Z>2=⚠$$']);
+  assert.equal(show(out), '$$imp(10, 0.1, 50)=10+31.416j$$');
+  assert.deepEqual(textVarErrors(d), []);
+  const a = addPoint(d, 0, -100), b = addPoint(d, 10, -100); addLine(d, a, b, {});
+  const k = addCon(d, { t: 'DIST', refs: [a, b], v: 10, expr: 'abs(Z)*2' });
+  assert.ok(settle(d, solve, []).ok); // una cota con abs(Z): un real
+  d.cons[k].expr = 'Z*2';
+  const r = settle(d, solve, []);
+  assert.equal(r.ok, false); assert.match(r.error, /número complejo/);
+  passed++; console.log('ok  en los textos: 3+4j, (100+62.832j) Ω, matrices, funciones y scripts; una cota pide un real');
+}
+
 console.log(`\n${passed} pruebas de números complejos pasaron`);

@@ -337,7 +337,7 @@ export const textDefs = (doc) => readingEvents(doc).filter((e) => e.kind === 'de
 // Si no cuadran, se prueba la unidad como parte de la expresion («L1+3'mm» es L1 + 3 mm). Un vector o una matriz lleva una sola unidad
 // para todos sus elementos («v:[1, 2, 3]'mm»).
 export function evalDef(expr, unit, vars) {
-  const all = (s) => evalExpr(s, { vars, allowMat: true });
+  const all = (s) => evalExpr(s, { vars, allowMat: true, allowCplx: true }); // los textos de calculo aceptan complejos
   if (!unit) return all(expr);
   const u = parseUnit(unit);
   let r;
@@ -355,7 +355,7 @@ export function evalDef(expr, unit, vars) {
 // La cola «'unidad» sobre un valor ya calculado: sin unidades, vale el valor en esa unidad; con la misma magnitud, solo dice en que unidad
 // mostrarlo; si no cuadra, null.
 function withUnit(r, unit, u) {
-  if (!r.dim) return r.mat ? { ...r, mat: r.mat.map((row) => row.map((x) => x * u.f)), dim: u.d, pu: unit, pf: u.f } : { value: r.value * u.f, rad: r.rad || !!u.r, dim: u.d, pu: unit, pf: u.f };
+  if (!r.dim) return r.mat ? { ...r, mat: r.mat.map((row) => row.map((x) => x * u.f)), ...(r.mi ? { mi: r.mi.map((row) => row.map((x) => x * u.f)) } : {}), dim: u.d, pu: unit, pf: u.f } : { value: r.value * u.f, ...(r.im ? { im: r.im * u.f } : {}), rad: r.rad || !!u.r, dim: u.d, pu: unit, pf: u.f };
   return sameDim(r.dim, u.d) ? { ...r, pu: unit, pf: u.f } : null;
 }
 // Un rango, con unidades si las llevan sus extremos («0'mm..10'mm;5») o la cola («0..10;5'mm»).
@@ -583,6 +583,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
             const x = env[n];
             if (!x) throw new Error(`define «${n}» antes del solve, con su valor inicial (p. ej. ${n}:1)`);
             if (x.fn || x.vec || x.mat) throw new Error(`«${n}» debe ser un número (el valor inicial), no una función, un vector ni una matriz`);
+            if (x.im) throw new Error(`«${n}» es un número complejo: solve resuelve ecuaciones reales`);
             return { name: n, v: x.v, r: !!x.r, d: x.d };
           });
           const calc = (s, vv) => { const r = evalExpr(s, { vars: vv, allowMat: true }); if (r.mat) throw new Error(`«${s.trim()}» da un vector o una matriz: cada ecuación es entre números`); return r; };
@@ -604,7 +605,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
         const rg = e.script ? null : parseRange(e.expr); // un script puede llevar «1..n» de un for: no es un rango
         const r = rg ? evalRangeDef(rg, e.unit, cur) : evalDef(e.expr, e.unit, e.lib ? { ...cur, ...e.lib } : cur); // las funciones locales de un script
         const u = { ...(r.dim ? { d: r.dim } : {}), ...(r.pu ? { pu: r.pu, pf: r.pf } : {}) };
-        val = r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false, ...u } : { mat: r.mat, r: false, ...u }) : { v: r.value, r: r.rad, ...u }; // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
+        val = r.mi ? { mat: r.mat, mi: r.mi, r: false, ...u } : r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false, ...u } : { mat: r.mat, r: false, ...u }) : { v: r.value, r: r.rad, ...u, ...(r.im ? { im: r.im } : {}) }; // un complejo guarda su parte imaginaria (una matriz compleja, siempre como mat + mi) // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
       } catch (err) { st.bad.add(k); st.errs.set(e.name, `«${e.name}»: ${hint(err.message)}`); }
     }
     if (val) { cur[e.name] = val; env[e.name] = val; st.defVal.set(k, val); if (e.eq) st.fnEnv.set(k, { ...cur }); } else back(e.name); // una definicion que falla deja la variable sin definir (o vuelve a la cota del mismo nombre)
