@@ -28,6 +28,9 @@ t('traduccion: for, while, if/elif/else, varios pasos por vuelta, funciones loca
   assert.equal(call('%h(n):\n  g(k): k^2+1\n  t:0\n  for i in 1..n:\n    t:t+g(i)\n  t', 3), 17); // funcion local
   assert.equal(call('%f(x): x^2+1', 3), 10);
   assert.equal(call('%f(x):\n\tx*2', 4), 8); // un tabulador cuenta como sangria
+  assert.equal(call('%g(x):\n  v:x-1\n  if(v == 0, 7, v)', 1), 7);
+  assert.equal(call('%C_(surf)(x):\n  k:2\n  k*x', 4), 8); // nombre con subindice de varias letras
+  assert.equal(parseScript('%k_(a):\n  5').params, null); // la funcion if(…) con el parentesis pegado es una expresion, no un bloque
 });
 
 t('errores de sintaxis con su numero de linea', () => {

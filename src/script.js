@@ -14,13 +14,13 @@
 import { TEXT_NAME_RE, normName, isReservedName, reservedWhy } from './expr.js';
 
 export const isScript = (s) => typeof s === 'string' && s[0] === '%';
-const NAME = "[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*'*";
-const HEAD_RE = new RegExp('^%\\s*(' + NAME + ')\\s*(?:\\(([^()]*)\\))?\\s*:=?\\s*(.*)$');
+const NAME = "[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*(?:_\\([^()]*\\))?'*"; // con subindice de varias letras: «C_(surf)»
+const HEAD_RE = new RegExp('^%\\s*(' + NAME + ')(?<!_)\\s*(?:\\(([^()]*)\\))?\\s*:=?\\s*(.*)$');
 const FOR_RE = new RegExp('^for\\s+(' + NAME + ')\\s+in\\s+(.+?)\\s*:$');
 const WHILE_RE = /^while\s+(.+?)\s*:$/;
 const IF_RE = /^if\s+(.+?)\s*:$/;
 const ELIF_RE = /^elif\s+(.+?)\s*:$/;
-const FN_RE = new RegExp('^(' + NAME + ')\\s*\\(([^()]*)\\)\\s*:=?\\s*(.*)$');
+const FN_RE = new RegExp('^(' + NAME + ')(?<!_)\\s*\\(([^()]*)\\)\\s*:=?\\s*(.*)$'); // «k_(x):…» es la variable k_(x), no la funcion k_
 const ASG_RE = new RegExp('^(' + NAME + ')\\s*:=?\\s*(.*)$');
 const S = '; '; // separador de los argumentos que arma la traduccion: «;» separa en cualquier indicador decimal
 
@@ -69,7 +69,7 @@ export function parseScript(src) {
         }
         stmts.push(arms.reduceRight((acc, [c, b]) => `if(${c}${S}${b}${S}${acc})`, other));
       } else if (/^(elif\b|else\s*:)/.test(ln.s)) fail(ln, '«elif» y «else» van después de un «if», con la misma sangría');
-      else if (/^(for|while|if)\b/.test(ln.s)) fail(ln, `«${ln.s.split(/\s/)[0]}» lleva la forma ${ln.s.startsWith('for') ? '«for i in 1..n:»' : ln.s.startsWith('while') ? '«while condición:»' : '«if condición:»'}`);
+      else if (/^(for|while|if)(\s|$)/.test(ln.s)) fail(ln, `«${ln.s.split(/\s/)[0]}» lleva la forma ${ln.s.startsWith('for') ? '«for i in 1..n:»' : ln.s.startsWith('while') ? '«while condición:»' : '«if condición:»'}`);
       else if ((m = FN_RE.exec(ln.s)) && !/^\s*=/.test(m[3])) { // funcion local: g(x): expr (o con el cuerpo debajo)
         if (!top) fail(ln, 'las funciones locales van en el nivel principal del script, no dentro de un for, while o if');
         const gn = normName(m[1]), ps = splitParams(m[2]);

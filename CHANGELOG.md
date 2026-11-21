@@ -33,6 +33,8 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Corregido
 
+- Scripts: una línea que llama a la función `if(…)`, `for(…)` o `while(…)` con el paréntesis pegado (`if(v ≈ 0, 0, v)` como última línea) daba «lleva la forma if condición:»; ahora es una expresión, y `if c:` sigue abriendo un bloque.
+- Scripts: el nombre puede llevar un subíndice de varias letras, como en los textos: `%C_(surf)(Sut, finish):`. Dentro de un script, `k_(a):…` es la variable `k_(a)`, no una función local `k_`.
 - Cálculo: **un número con su unidad es una sola cantidad**: `10'kN/2'm` da 5 kN/m (antes se leía como (10 kN / 2)·m y daba 5 kN·m), y `500'°C/1'°C` da 500 sin unidades. El exponente sigue siendo de la unidad: `2'm^2` son 2 m². Se revisaron los dibujos de ejemplo y ninguno cambia; si una fórmula tuya dependía de la lectura anterior, su resultado cambia.
 - Scripts: una función local no puede llamarse como una función de la app (`max(k): …` dentro de un script avisa con su línea); antes la tapaba en silencio.
 - Cálculo: **0 por cualquier cosa sigue siendo el 0 que vale con cualquier unidad**. Una función con `if(x>a, (x-a)^n, 0)` (por ejemplo, las funciones de singularidad de una viga) devolvía en la rama 0 un número sin unidades, y `P*0` quedaba como «0 N»: al restarlo de un momento daba «No se puede restar J y N». Ahora `P*0` y `0/x` valen con cualquier unidad. Una unidad escrita se conserva: `0'mm` sigue siendo 0 mm.
