@@ -194,6 +194,7 @@ Se escriben entre corchetes: la coma separa los elementos de una fila, el punto 
 | `g(a; b):…` | Varios parámetros, separados por `;` o `,`. | `g(a; b):a*b+1`<br>`g(2; 5)=` | `g(a; b):=a*b+1`<br>`g(2; 5)=11` |
 | `if(c; a; b)` | Recursión: solo se calcula la rama elegida (hasta 200 niveles). | `fact(n):if(n<=1; 1; n*fact(n-1))`<br>`fact(5)=` | `fact(n):=if(n<=1; 1; n*fact(n-1))`<br>`fact(5)=120` |
 | `f(x):…=` | Define la función y muestra ahí mismo `f(x)`, con las variables que valen en ese punto (si un parámetro no es una variable en ese punto, no muestra nada). | `x:3`<br>`f(x):x^2+1=` | `x:=3`<br>`f(x):=x^2+1=10` |
+| `f(a; varargin):…` | Valores opcionales, como en MATLAB: `varargin` (el último parámetro) recibe los que sobran, de cualquier tipo, y se leen con `varargin_1` o `varargin_(k)`; `nargin` es cuántos valores recibió la función (en cualquier función). Con `if(nargin==1; …; …)` se da un valor por defecto. | `d(b; varargin):if(nargin==1; 2*b; b+varargin_1)`<br>`d(5)=`<br>`d(5; 1)=` | `d(b; varargin):=if(nargin==1; 2*b; b+varargin_1)`<br>`d(5)=10`<br>`d(5; 1)=6` |
 | Variables de fuera | Lee las variables que valen donde se la llama, no donde se definió. | `k:2`<br>`f(x):x*k`<br>`f(3)=`<br>`k:5`<br>`f(3)=` | `k:=2`<br>`f(x):=x*k`<br>`f(3)=6`<br>`k:=5`<br>`f(3)=15` |
 
 - Los parámetros valen lo que se les pasa (números, vectores o matrices) y ocultan a las variables del mismo nombre.

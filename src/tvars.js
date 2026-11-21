@@ -503,6 +503,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
       if (!ps.length || ps.some((q) => !q)) return `«${d.name}(…)»: necesita al menos un parámetro, separados por «;»`;
       if (badName !== undefined) return `«${d.name}(…)»: el parámetro «${badName}» no es un nombre válido`;
       if (new Set(ps).size !== ps.length) return `«${d.name}(…)»: tiene parámetros repetidos`;
+      if (ps.indexOf('varargin') >= 0 && ps.indexOf('varargin') !== ps.length - 1) return `«${d.name}(…)»: «varargin» va al final de los parámetros (recibe los valores que sobran)`;
       if (reserved !== undefined) return `«${d.name}(…)»: ${reservedWhy(reserved)}`;
     }
     return null;

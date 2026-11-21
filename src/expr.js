@@ -186,6 +186,7 @@ function tokenize(src, vars = null, loose = false) {
       else if (name in SFL) toks.push({ t: 'id', v: SFL[name], i, j: i + L }); // funciones de cadenas (startsWith o startswith)
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + L });
       else if (FUTURE_VARS.has(raw)) throw new Error(`${reservedWhy(raw)} (todavía no tiene valor)`);
+      else if (/^(nargin|varargin)(_|$)/.test(raw)) throw new Error(raw.startsWith('nargin') ? '«nargin» solo vale dentro de una función: es cuántos valores recibió' : '«varargin» solo vale dentro de una función que lo tenga como último parámetro: f(a, varargin):…');
       else throw new Error(`No reconozco «${raw}»` + (/\d/.test(raw) || raw.length === 1 ? ' (no hay una cota con ese nombre)' : ''));
       i += L; continue;
     }
@@ -1314,11 +1315,17 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
 
   // Funcion definida en un texto: sus parametros valen lo que se le pasa; lo demas (cotas y variables) es lo de todo el dibujo, no lo del que la llama.
   function callUser(name, A) {
-    const f = vars[name].fn;
-    if (A.length !== f.params.length) throw new Error(`«${name}» recibe ${f.params.length === 1 ? 'un valor' : dotArgs() ? `${f.params.length} valores separados por «,»` : `${f.params.length} valores separados por «;»`}: ${name}(${f.params.join(argText() + ' ')})`);
+    const f = vars[name].fn, va = f.params[f.params.length - 1] === 'varargin', nFix = va ? f.params.length - 1 : f.params.length;
+    // varargin (el ultimo parametro, como en MATLAB): recibe los valores que sobran, de cualquier tipo (varargin_1, varargin_(k));
+    // nargin: cuantos valores recibio la funcion
+    if (va && A.length < nFix) throw new Error(`«${name}» recibe al menos ${nFix}: ${name}(${f.params.join(argText() + ' ')})`);
+    if (!va && A.length !== f.params.length) throw new Error(`«${name}» recibe ${f.params.length === 1 ? 'un valor' : dotArgs() ? `${f.params.length} valores separados por «,»` : `${f.params.length} valores separados por «;»`}: ${name}(${f.params.join(argText() + ' ')})`);
     if (depth >= 200) throw new Error(`«${name}» se llama a sí misma demasiadas veces (200 niveles)`);
     const g = globals || vars, local = { ...g, ...(f.lib || {}) }; // f.lib: las funciones locales de un script (ver script.js)
-    f.params.forEach((q, i) => { local[q] = isS(A[i]) ? { ...A[i] } : isM(A[i]) ? wd({ mat: A[i].m, ...(A[i].mi ? { mi: A[i].mi } : {}) }, A[i].d) : { v: A[i].v, ...(A[i].im ? { im: A[i].im } : {}), r: !!A[i].r, d: A[i].d }; });
+    const keep = (a) => isS(a) ? { ...a } : isM(a) ? wd({ mat: a.m, ...(a.mi ? { mi: a.mi } : {}) }, a.d) : { v: a.v, ...(a.im ? { im: a.im } : {}), r: !!a.r, d: a.d };
+    if (va) local.varargin = { args: A.slice(nFix).map(keep), loc: true };
+    local.nargin = { v: A.length, r: false, loc: true };
+    f.params.slice(0, nFix).forEach((q, i) => { local[q] = isS(A[i]) ? { ...A[i] } : isM(A[i]) ? wd({ mat: A[i].m, ...(A[i].mi ? { mi: A[i].mi } : {}) }, A[i].d) : { v: A[i].v, ...(A[i].im ? { im: A[i].im } : {}), r: !!A[i].r, d: A[i].d }; });
     try {
       const r = evalExpr(f.body, { radians, vars: local, allowMat: true, allowCplx: true, depth: depth + 1, globals: g });
       if (typeof r.str === 'string') return { str: r.str };
@@ -1425,6 +1432,16 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       return a.im ? cval([0, a.im * u.v], false, u.d) : wd({ v: a.v * u.v, r: u.r }, u.d);
     }
     if (k.t === 'unit') return { v: k.u.f, r: !!k.u.r, d: k.u.d }; // 'N, 'mm: vale su factor al SI, con su dimension
+    if (k.t === 'idx' && vars[k.base]?.args) { // varargin_k: el k-esimo valor de sobra, del tipo que sea
+      const L = vars[k.base].args, ix = splitIdx(k.src);
+      if (ix.length !== 1) throw new Error(`«${k.base}» lleva un índice: ${k.base}_k`);
+      const q = evalExpr(ix[0], { vars, depth: depth + 1, globals }).value;
+      if (!(Number.isInteger(q) && q >= 1 && q <= L.length)) throw new Error(L.length ? `Pides «${k.base}_${q}», pero «${k.base}» trae ${L.length} (revisa nargin)` : `«${k.base}» está vacío: la función no recibió valores de más (revisa nargin)`);
+      const x = L[q - 1];
+      if (typeof x.str === 'string') return { str: x.str };
+      if (x.mat) return wd({ m: x.mat, ...(x.mi ? { mi: x.mi } : {}) }, x.d);
+      return { v: x.v, ...(x.im ? { im: x.im } : {}), r: !!x.r, d: x.d };
+    }
     if (k.t === 'idx' && vars[k.base]?.strs) { // un elemento de un vector de cadenas: s_2
       const L = vars[k.base].strs, ix = splitIdx(k.src);
       if (ix.length !== 1) throw new Error(`«${k.base}» es un vector de cadenas: lleva un índice`);
@@ -1457,8 +1474,9 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (!isOp('(')) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
       p++;
       const A = [];
-      if (isOp(')')) throw new Error(`«${k.v}» necesita al menos un valor`);
-      for (;;) { A.push(cmp()); if (peek()?.t === 'sep') { p++; continue; } break; }
+      const fp = vars[k.v].fn.params;
+      if (isOp(')') && !(fp.length === 1 && fp[0] === 'varargin')) throw new Error(`«${k.v}» necesita al menos un valor`);
+      if (!isOp(')')) for (;;) { A.push(cmp()); if (peek()?.t === 'sep') { p++; continue; } break; } // f() solo con f(varargin)
       if (!isOp(')')) throw new Error('Falta cerrar un paréntesis');
       p++;
       return callUser(k.v, A);
@@ -1469,6 +1487,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (typeof x.str === 'string') return { str: x.str };
       if (x.strs) return { strs: x.strs };
       if (x.fn) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
+      if (x.args) throw new Error(`«${k.v}» es la lista de los valores de más: usa ${k.v}_1, ${k.v}_(k) y nargin`);
       if (x.mat) return wd({ m: x.mat, ...(x.mi ? { mi: x.mi } : {}) }, x.d);
       if (x.vec) return wd({ m: [x.vec] }, x.d);
       return { v: x.v, ...(x.im ? { im: x.im } : {}), r: !!x.r, d: x.d };

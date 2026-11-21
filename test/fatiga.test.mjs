@@ -3,6 +3,9 @@
 import assert from 'node:assert/strict';
 import { evalExpr, setAngleMode, approxTol, APPROX_TOL } from '../src/expr.js';
 import { setDecimal } from '../src/locale.js';
+import { newDoc, addPoint, addText } from '../src/model.js';
+import { shownText } from '../src/text.js';
+import { textVarErrors } from '../src/params.js';
 
 setDecimal('.');
 let passed = 0;
@@ -40,6 +43,31 @@ t('interp1 con "extrap" (y "linear"); sin ella fuera de la tabla avisa', () => {
   const q = E("interp1([0,1]*1'm, [0,10]*1'kN, 2'm, \"extrap\")"); near(q.value, 20000); assert.deepEqual(q.dim, [1, 1, -2, 0, 0, 0, 0]);
   assert.throws(() => E('interp1([0,1],[0,10],0.5,"spline")'), /solo interpolación lineal/);
   assert.throws(() => E('interp1("a",[0,10],2)'), /no recibe cadenas/);
+});
+
+t('varargin y nargin: valores opcionales de cualquier tipo', () => {
+  const V = {
+    s: { fn: { params: ['varargin'], body: 'line(t:0, for(k, 1..nargin, t:t+varargin_k), t)' } },
+    deq: { fn: { params: ['b', 'varargin'], body: 'if(nargin==1, 0.808*b, 0.808*sqrt(b*varargin_1))' } },
+    g: { fn: { params: ['a', 'varargin'], body: 'nargin' } }, h: { fn: { params: ['varargin'], body: 'varargin_2' } },
+    uno: { fn: { params: ['x'], body: 'nargin' } }, w: { fn: { params: ['varargin'], body: 'varargin' } },
+  };
+  const F = (src) => evalExpr(src, { vars: V, allowMat: true, allowCplx: true });
+  assert.equal(F('s(1, 2, 3)').value, 6); assert.equal(F('s()').value, 0);
+  near(F("deq(10'mm)").value, 0.00808); near(F("deq(10'mm, 40'mm)").value, 0.01616);
+  assert.equal(F('g(1, "x", [1,2])').value, 3); assert.equal(F('h(1, "dos")').str, 'dos'); assert.equal(F('uno(5)').value, 1);
+  assert.deepEqual(F('h(0, [1,2])').mat, [[1, 2]]);
+  assert.throws(() => F('g()'), /al menos un valor/); assert.throws(() => F('h(1)'), /pero «varargin» trae 1/);
+  assert.throws(() => F('w(1)'), /varargin_1/); assert.throws(() => E('nargin'), /dentro de una función/);
+  // en los textos y en un script; varargin va al final
+  const d = newDoc(); d.decimal = '.';
+  const L = ['f(a, varargin):a + if(nargin>1, varargin_1, 0)', 'f(2)=', 'f(2, 3)=', 'm(varargin, b):b'];
+  const T = L.map((q, i) => d.texts[addText(d, addPoint(d, 0, 300 - i * 10), '$$' + q + '$$', {})]);
+  addText(d, addPoint(d, 0, 0), '%suma(varargin):\n  t:0\n  for e in 1..nargin:\n    t:t+varargin_e\n  t', {});
+  const out = d.texts[addText(d, addPoint(d, 0, -10), '$$suma(4, 5)=$$', {})];
+  const show = (q) => shownText(d, q).text.replace(/[\uE000-\uF8FF]/g, '');
+  assert.equal(show(T[1]), '$$f(2)=2$$'); assert.equal(show(T[2]), '$$f(2, 3)=5$$'); assert.equal(show(out), '$$suma(4, 5)=9$$');
+  assert.deepEqual(textVarErrors(d).map((e) => e.msg), ['«m(…)»: «varargin» va al final de los parámetros (recibe los valores que sobran)']);
 });
 
 console.log(`\n${passed} pruebas de fatiga pasaron`);
