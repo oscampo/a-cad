@@ -3612,8 +3612,8 @@ function drawGraphCtl(c, id, A, B, o) {
     const tx = horiz ? z.x + ((s + 1) / 2) * (z.w - S) : z.x, ty = horiz ? z.y : z.y + ((1 - s) / 2) * (z.h - S);
     box(tx, ty, S, S, theme.sel); c.fillStyle = '#fff'; c.fillText(glyph, (tx + S / 2) * dpr, (ty + S / 2 + 0.5) * dpr);
   }
-  // boton Ajustar (esquina de arriba, entre los deslizadores de paneo y zoom vertical): todos los ejes a limites automaticos
-  const fx = x - S - G, fy = y - S - G;
+  // boton Ajustar (esquina superior derecha, entre los deslizadores de paneo horizontal y vertical): todos los ejes a limites automaticos
+  const fx = x + w + G, fy = y - S - G;
   graphCtl.push({ id, kind: 'fit', x: fx, y: fy, w: S, h: S });
   box(fx, fy, S, S, o.fg + '14'); c.fillStyle = o.fg; c.fillText('⤢', (fx + S / 2) * dpr, (fy + S / 2 + 0.5) * dpr);
   // boton de la esquina (entre los dos deslizadores): guarda la vista actual; relleno si la grafica ya tiene una
