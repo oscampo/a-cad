@@ -23,8 +23,13 @@ const FUNCS = {
   floor: Math.floor, piso: Math.floor, ceil: Math.ceil, techo: Math.ceil, trunc: Math.trunc, sign: Math.sign, signo: Math.sign,
   // numeros complejos (con un numero real: real(x) = x, imag(x) = 0, conj(x) = x, angle(x) = 0 o 180°)
   real: (x) => x, imag: () => 0, conj: (x) => x, angle: (x, r, rm) => (x < 0 ? (rm ? Math.PI : 180) : 0),
+  // como en MATLAB: fix (hacia el cero), log2, factorial; las trigonometricas en grados valen igual en cualquier modo de angulos
+  fix: Math.trunc, log2: Math.log2,
+  factorial: (x) => { if (!Number.isInteger(x) || x < 0 || x > 170) throw new Error('factorial(n): n debe ser un entero de 0 a 170'); let f = 1; for (let k = 2; k <= x; k++) f *= k; return f; },
+  sind: (x) => Math.sin(x / TAU_DEG), cosd: (x) => Math.cos(x / TAU_DEG), tand: (x) => Math.tan(x / TAU_DEG),
+  asind: (x) => Math.asin(x) * TAU_DEG, acosd: (x) => Math.acos(x) * TAU_DEG, atand: (x) => Math.atan(x) * TAU_DEG,
 };
-const KEEP_U = new Set(['abs', 'floor', 'piso', 'ceil', 'techo', 'trunc', 'real', 'imag', 'conj']); // con unidades, conservan las del argumento
+const KEEP_U = new Set(['abs', 'floor', 'piso', 'ceil', 'techo', 'trunc', 'real', 'imag', 'conj', 'fix']); // con unidades, conservan las del argumento
 const KEEP_RAD = new Set(['sqrt', 'raiz', 'abs', 'floor', 'piso', 'ceil', 'techo', 'trunc']); // conservan la marca de radianes del argumento
 const MAKE_RAD = new Set(['rad']); // su resultado es un angulo en radianes
 const CONSTS = { pi: Math.PI, π: Math.PI, e: Math.E };
@@ -43,7 +48,16 @@ const MULTI = {
   round: { n: [1, 2], f: (A) => { const d = A.length > 1 ? A[1].v : 0; if (!Number.isInteger(d) || d < 0 || d > 12) throw new Error('round(x; n): n debe ser un entero de 0 a 12'); return { v: rnd(A[0].v, d), r: A[0].r }; } },
 };
 MULTI.redondear = MULTI.round;
-const LAZY = new Set(['if', 'si', 'fzero', 'line', 'for', 'while']); // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
+const intOf = (a, fn, what) => { if (!Number.isInteger(a.v)) throw new Error(`${fn}: ${what} debe ser un entero`); return a.v; };
+const gcd2 = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a; };
+Object.assign(MULTI, {
+  rem: { n: [2, 2], f: (A) => { if (A[1].v === 0) throw rt('División entre cero'); return { v: A[0].v - A[1].v * Math.trunc(A[0].v / A[1].v), r: anyR(A) }; } }, // el resto lleva el signo del dividendo (mod, el del divisor)
+  gcd: { n: [2, 2], f: (A) => ({ v: gcd2(intOf(A[0], 'gcd(a, b)', 'a'), intOf(A[1], 'gcd(a, b)', 'b')), r: false }) },
+  lcm: { n: [2, 2], f: (A) => { const a = intOf(A[0], 'lcm(a, b)', 'a'), b = intOf(A[1], 'lcm(a, b)', 'b'); return { v: a && b ? Math.abs(a * b) / gcd2(a, b) : 0, r: false }; } },
+  nchoosek: { n: [2, 2], f: (A) => { const n = intOf(A[0], 'nchoosek(n, k)', 'n'), k = intOf(A[1], 'nchoosek(n, k)', 'k'); if (k < 0 || n < 0 || k > n) throw new Error('nchoosek(n, k): hace falta 0 ≤ k ≤ n'); let c = 1; for (let i = 1; i <= Math.min(k, n - k); i++) c = (c * (n - Math.min(k, n - k) + i)) / i; return { v: Math.round(c), r: false }; } },
+  nthroot: { n: [2, 2], f: (A) => { const x = A[0].v, n = A[1].v; if (!Number.isInteger(n) || n === 0) throw new Error('nthroot(x, n): n debe ser un entero distinto de 0'); if (x < 0 && n % 2 === 0) throw rt('nthroot(x, n): con x negativo, n debe ser impar (para un complejo usa x^(1/n))'); return { v: Math.sign(x) * Math.abs(x) ** (1 / n), r: false }; } },
+});
+const LAZY = new Set(['if', 'si', 'fzero', 'line', 'for', 'while', 'integral']); // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
 // Funciones de vectores y matrices (reciben un vector o una matriz): inv, det; resumenes (sobre todos los elementos): sum, prod, mean, median, std, variance, norm, len;
 // forma: rows, cols, trace, diag, eye(n); acumuladas: cumsum, cumprod; entre dos vectores: dot, cross. min(x) y max(x) con un solo vector tambien resumen.
 const MATFN = new Set(['inv', 'det', 'sum', 'prod', 'mean', 'median', 'std', 'variance', 'norm', 'len', 'rows', 'cols', 'trace', 'diag', 'eye', 'cumsum', 'cumprod', 'dot', 'cross']);
@@ -55,11 +69,8 @@ const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
 // quedan guardadas para los motores, las animaciones y los calculos dinamicos. Todavia no valen nada.
 export const TIME_VAR = 't';
 export const FUTURE_VARS = new Set([TIME_VAR, 'j', 'ω', 'θ', 'α']);
-export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l === 'log10' || l === 'clear' || l === 'all' || l === 'solve'; };
+export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l in NF || l === 'log10' || l === 'clear' || l === 'all' || l === 'solve'; };
 export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : n === 'j' ? '«j» es la unidad imaginaria (3+4j)' : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : String(n).toLowerCase() === 'all' ? `«${n}» está reservada para clear(all)` : `«${n}» es una función o constante`);
-// Todos los nombres de funciones y constantes del evaluador (la referencia de la ayuda debe nombrarlos todos: test/funcref.test.mjs).
-export const FUNC_NAMES = [...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(CONSTS)];
-addCalcFns([...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, 'solve']); // se dibujan como funcion (ver asciimath.js)
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*$/;
 const ID_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*/;
 // Variables de texto con subindice: «var_(texto-del-subindice)». El subindice es texto libre (sin parentesis ni llaves); espacios sobrantes no cuentan.
@@ -160,7 +171,7 @@ function tokenize(src, vars = null, loose = false) {
       else if (vars && (ix = indexOfVar(raw, vars))) toks.push({ t: 'idx', base: ix.base, src: ix.src, i, j: i + L }); // v_2, v_i, A_(1,2): un elemento de un vector o matriz
       else if (raw === 'T' && last?.t === 'op' && last.v === '^') toks.push({ t: 'tr', i, j: i + 1 }); // x^T: la transpuesta
       else if (raw === 'j') toks.push({ t: 'num', v: 0, im: 1, i, j: i + L }); // la unidad imaginaria (solo «j» minuscula)
-      else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name) || MATFN.has(name)) toks.push({ t: 'id', v: name, i, j: i + L });
+      else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name) || MATFN.has(name) || name in NF) toks.push({ t: 'id', v: name, i, j: i + L });
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + L });
       else if (FUTURE_VARS.has(raw)) throw new Error(`${reservedWhy(raw)} (todavía no tiene valor)`);
       else throw new Error(`No reconozco «${raw}»` + (/\d/.test(raw) || raw.length === 1 ? ' (no hay una cota con ese nombre)' : ''));
@@ -527,6 +538,292 @@ function matFn(name, A) {
   }
 }
 
+
+// ---- Funciones de MATLAB (tanda 1): vectores, matrices, algebra lineal, polinomios, interpolacion e integracion numerica ----
+// Cada una recibe los valores ya calculados (A) y devuelve un valor; maneja las unidades y los complejos donde tienen sentido.
+const withD = (x, d) => { if (d) x.d = d; else delete x.d; return x; };
+const vecErr = (name, a) => new Error(`«${name}» es para vectores (fila o columna), no para ${nameM(a)}`);
+function intArg(a, name, what, lo, hi) {
+  if (isM(a) || isC(a) || a.d || !Number.isInteger(a.v) || a.v < lo || a.v > hi) throw new Error(`${name}: ${what} debe ser un entero de ${lo} a ${hi}`);
+  return a.v;
+}
+function realVec(a, name) { // { arr, col, d } de un vector real (o un numero)
+  if (isC(a)) throw new Error(`«${name}» no admite números complejos`);
+  if (!isM(a)) return { arr: [a.v], col: false, d: a.d };
+  if (a.m.length !== 1 && a.m[0].length !== 1) throw vecErr(name, a);
+  return { arr: a.m.flat(), col: a.m.length > 1 && a.m[0].length === 1, d: a.d };
+}
+function anyVec(a, name) { // { arr: [[re, im]], col, d } de un vector (real o complejo)
+  if (!isM(a)) return { arr: [cpair(a)], col: false, d: a.d };
+  if (a.m.length !== 1 && a.m[0].length !== 1) throw vecErr(name, a);
+  return { arr: cm(a).flat(), col: a.m.length > 1 && a.m[0].length === 1, d: a.d };
+}
+const vecOut = (arr, col, d) => withD(col ? { m: arr.map((x) => [x]) } : { m: [arr] }, d);
+const cvecOut = (arr, col, d) => withD(fromCm(col ? arr.map((z) => [z]) : [arr]), d);
+const asMat = (a) => (isM(a) ? a : { m: [[a.v]], ...(a.im ? { mi: [[a.im]] } : {}), d: a.d });
+const noU = (a, name) => { if (a?.d) throw new Error(`«${name}» necesita valores sin unidades (recibió ${unitMsg(a.d)})`); };
+const sizeLim = (n, m, name) => { if (n * m > 10000) throw new Error(`${name}: una matriz admite hasta 10000 elementos`); };
+// Matriz real (sin complejos) como arreglo
+function realMat(a, name) { if (isC(a)) throw new Error(`«${name}» todavía no admite números complejos`); return isM(a) ? a.m : [[a.v]]; }
+
+// SVD por rotaciones de Jacobi (de un lado): A = U·diag(S)·Vᵀ. Para rank, cond y pinv.
+function svdJ(A0) {
+  let A = A0, tr = false;
+  if (A.length < A[0].length) { A = A[0].map((_, k) => A.map((r) => r[k])); tr = true; }
+  const m = A.length, n = A[0].length, U = A.map((r) => [...r]), V = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, k) => (i === k ? 1 : 0)));
+  for (let sweep = 0; sweep < 80; sweep++) {
+    let off = 0;
+    for (let p = 0; p < n - 1; p++) for (let q = p + 1; q < n; q++) {
+      let al = 0, be = 0, ga = 0;
+      for (let i = 0; i < m; i++) { al += U[i][p] * U[i][p]; be += U[i][q] * U[i][q]; ga += U[i][p] * U[i][q]; }
+      if (Math.abs(ga) <= 1e-15 * Math.sqrt(al * be) || ga === 0) continue;
+      off++;
+      const ze = (be - al) / (2 * ga), t = Math.sign(ze || 1) / (Math.abs(ze) + Math.sqrt(1 + ze * ze)), c = 1 / Math.sqrt(1 + t * t), sn = c * t;
+      for (let i = 0; i < m; i++) { const x = U[i][p], y = U[i][q]; U[i][p] = c * x - sn * y; U[i][q] = sn * x + c * y; }
+      for (let i = 0; i < n; i++) { const x = V[i][p], y = V[i][q]; V[i][p] = c * x - sn * y; V[i][q] = sn * x + c * y; }
+    }
+    if (!off) break;
+  }
+  const S = Array.from({ length: n }, (_, k) => Math.hypot(...U.map((r) => r[k])));
+  for (let k = 0; k < n; k++) if (S[k] > 0) for (let i = 0; i < m; i++) U[i][k] /= S[k];
+  return tr ? { U: V, S, V: U } : { U, S, V };
+}
+const svdTol = (A, S) => Math.max(A.length, A[0].length) * Number.EPSILON * Math.max(0, ...S);
+// Raices de un polinomio (coeficientes [re, im], del mayor grado al menor) por Durand-Kerner, pulidas con Newton.
+function polyRoots(c0) {
+  let c = c0.map((z) => [...z]);
+  while (c.length && !c[0][0] && !c[0][1]) c.shift();
+  const out = [];
+  while (c.length > 1 && !c[c.length - 1][0] && !c[c.length - 1][1]) { c.pop(); out.push([0, 0]); } // raices en 0
+  const n = c.length - 1;
+  if (n < 1) return out;
+  const a = c.map((z) => cdiv(z, c[0])); // monico
+  const ev = (z) => a.reduce((acc, q) => cadd(cmul(acc, z), q), [0, 0]);
+  const R = 1 + Math.max(...a.slice(1).map(cabs));
+  let z = Array.from({ length: n }, (_, k) => cmul([R, 0], cpow([0.4, 0.9], [k, 0])));
+  for (let it = 0; it < 1000; it++) {
+    let worst = 0;
+    z = z.map((zk, k) => {
+      let den = [1, 0];
+      for (let j = 0; j < n; j++) if (j !== k) den = cmul(den, csub(zk, z[j]));
+      const step = cabs(den) ? cdiv(ev(zk), den) : [1e-8, 1e-8];
+      worst = Math.max(worst, cabs(step) / Math.max(1, cabs(zk)));
+      return csub(zk, step);
+    });
+    if (worst < 1e-15) break;
+  }
+  const d = a.slice(0, -1).map((q, i) => cscale(q, n - i)); // derivada, para pulir
+  const evd = (x) => d.reduce((acc, q) => cadd(cmul(acc, x), q), [0, 0]);
+  z = z.map((x) => { for (let k = 0; k < 3; k++) { const dd = evd(x); if (!cabs(dd)) break; x = csub(x, cdiv(ev(x), dd)); } return x; });
+  const all = [...z, ...out].map((x) => { const sc = Math.max(1, cabs(x)); return [Math.abs(x[0]) < 1e-12 * sc ? 0 : x[0], Math.abs(x[1]) < 1e-9 * sc ? 0 : x[1]]; });
+  return all.sort((p, q) => q[0] - p[0] || q[1] - p[1]);
+}
+// Polinomio caracteristico det(λI - A) por Faddeev-LeVerrier (con complejos): coeficientes del mayor grado al menor.
+function charPoly(P) {
+  const n = P.length, I = (k) => Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, q) => [i === q ? k[0] : 0, i === q ? k[1] : 0]));
+  const coef = [[1, 0]];
+  let M = I([0, 0]);
+  for (let k = 1; k <= n; k++) {
+    M = cmulRaw(P, M).map((r, i) => r.map((z, q) => (i === q ? cadd(z, coef[k - 1]) : z)));
+    const AM = cmulRaw(P, M);
+    coef.push(cscale(AM.reduce((s, r, i) => cadd(s, r[i]), [0, 0]), -1 / k));
+  }
+  return coef;
+}
+// Valores propios de una matriz simetrica real por Jacobi (mas precisos que con el polinomio)
+function eigSym(A0) {
+  const n = A0.length, A = A0.map((r) => [...r]);
+  for (let sweep = 0; sweep < 100; sweep++) {
+    let off = 0;
+    for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) off += A[p][q] * A[p][q];
+    if (off < 1e-30) break;
+    for (let p = 0; p < n - 1; p++) for (let q = p + 1; q < n; q++) {
+      if (Math.abs(A[p][q]) < 1e-300) continue;
+      const th = (A[q][q] - A[p][p]) / (2 * A[p][q]), t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1)), c = 1 / Math.sqrt(t * t + 1), sn = t * c;
+      for (let k = 0; k < n; k++) { const x = A[k][p], y = A[k][q]; A[k][p] = c * x - sn * y; A[k][q] = sn * x + c * y; }
+      for (let k = 0; k < n; k++) { const x = A[p][k], y = A[q][k]; A[p][k] = c * x - sn * y; A[q][k] = sn * x + c * y; }
+    }
+  }
+  return A.map((r, i) => r[i]).sort((x, y) => x - y);
+}
+// Integral numerica adaptativa (Gauss-Kronrod 7-15) de f en [a, b]
+const GK_X = [0.991455371120813, 0.949107912342759, 0.864864423359769, 0.741531185599394, 0.586087235467691, 0.405845151377397, 0.207784955007898, 0];
+const GK_WK = [0.022935322010529, 0.063092092629979, 0.104790010322250, 0.140653259715525, 0.169004726639267, 0.190350578064785, 0.204432940075298, 0.209482141084728];
+const GK_WG = [0, 0.129484966168870, 0, 0.279705391489277, 0, 0.381830050505119, 0, 0.417959183673469];
+function gk(f, a, b) {
+  const c = (a + b) / 2, h = (b - a) / 2;
+  let k = 0, g = 0;
+  for (let i = 0; i < 8; i++) {
+    if (i === 7) { const y = f(c); k += GK_WK[7] * y; g += GK_WG[7] * y; continue; }
+    const y1 = f(c - h * GK_X[i]), y2 = f(c + h * GK_X[i]);
+    k += GK_WK[i] * (y1 + y2); g += GK_WG[i] * (y1 + y2);
+  }
+  return { v: k * h, e: Math.abs((k - g) * h) };
+}
+function integrate(f, a, b) {
+  let segs = [{ a, b, ...gk(f, a, b) }];
+  for (let it = 0; it < 200; it++) {
+    const tot = segs.reduce((s, q) => s + q.v, 0), err = segs.reduce((s, q) => s + q.e, 0);
+    if (err <= Math.max(1e-10 * Math.abs(tot), 1e-14)) return tot;
+    segs.sort((p, q) => q.e - p.e);
+    const w = segs.shift(), m = (w.a + w.b) / 2;
+    segs.push({ a: w.a, b: m, ...gk(f, w.a, m) }, { a: m, b: w.b, ...gk(f, m, w.b) });
+  }
+  return segs.reduce((s, q) => s + q.v, 0);
+}
+
+const NF = {
+  zeros: { n: [1, 2], f: (A) => { const n = intArg(A[0], 'zeros(n, m)', 'n', 1, 10000), m = A[1] ? intArg(A[1], 'zeros(n, m)', 'm', 1, 10000) : n; sizeLim(n, m, 'zeros'); return { m: Array.from({ length: n }, () => Array(m).fill(0)) }; } },
+  ones: { n: [1, 2], f: (A) => { const n = intArg(A[0], 'ones(n, m)', 'n', 1, 10000), m = A[1] ? intArg(A[1], 'ones(n, m)', 'm', 1, 10000) : n; sizeLim(n, m, 'ones'); return { m: Array.from({ length: n }, () => Array(m).fill(1)) }; } },
+  linspace: { n: [2, 3], f: (A) => {
+    const [a, b] = A;
+    if (isM(a) || isM(b) || isC(a) || isC(b)) throw new Error('linspace(a, b, n): a y b son números reales');
+    if (!sameDim(a.d, b.d) && !zero0(a) && !zero0(b)) throw new Error(`linspace(a, b, n): a y b deben tener las mismas unidades (${unitMsg(a.d)} y ${unitMsg(b.d)})`);
+    const n = A[2] ? intArg(A[2], 'linspace(a, b, n)', 'n', 1, 10000) : 100;
+    return withD({ m: [Array.from({ length: n }, (_, i) => (n === 1 ? b.v : a.v + ((b.v - a.v) * i) / (n - 1)))] }, a.d || b.d);
+  } },
+  logspace: { n: [2, 3], f: (A) => {
+    const [a, b] = A; noU(a, 'logspace'); noU(b, 'logspace');
+    if (isM(a) || isM(b) || isC(a) || isC(b)) throw new Error('logspace(a, b, n): a y b son números reales (los exponentes)');
+    const n = A[2] ? intArg(A[2], 'logspace(a, b, n)', 'n', 1, 10000) : 50;
+    return { m: [Array.from({ length: n }, (_, i) => 10 ** (n === 1 ? b.v : a.v + ((b.v - a.v) * i) / (n - 1)))] };
+  } },
+  numel: { n: [1, 1], f: (A) => ({ v: isM(A[0]) ? A[0].m.length * A[0].m[0].length : 1, r: false }) },
+  size: { n: [1, 1], f: (A) => ({ m: [isM(A[0]) ? [A[0].m.length, A[0].m[0].length] : [1, 1]] }) },
+  transpose: { n: [1, 1], f: (A) => { const a = A[0]; return isM(a) ? withD(isC(a) ? ctransposeM(a) : transposeM(a), a.d) : a; } },
+  sort: { n: [1, 1], f: (A) => { const v = realVec(A[0], 'sort'); return isM(A[0]) ? vecOut([...v.arr].sort((x, y) => x - y), v.col, v.d) : A[0]; } },
+  flip: { n: [1, 1], f: (A) => { const a = A[0]; if (!isM(a)) return a; const P = cm(a); return withD(fromCm(a.m.length === 1 ? [P[0].slice().reverse()] : P.slice().reverse()), a.d); } },
+  fliplr: { n: [1, 1], f: (A) => { const a = A[0]; if (!isM(a)) return a; return withD(fromCm(cm(a).map((r) => r.slice().reverse())), a.d); } },
+  flipud: { n: [1, 1], f: (A) => { const a = A[0]; if (!isM(a)) return a; return withD(fromCm(cm(a).slice().reverse()), a.d); } },
+  repmat: { n: [2, 3], f: (A) => {
+    const a = asMat(A[0]), n = intArg(A[1], 'repmat(A, n, m)', 'n', 1, 10000), m = A[2] ? intArg(A[2], 'repmat(A, n, m)', 'm', 1, 10000) : n, P = cm(a);
+    sizeLim(P.length * n, P[0].length * m, 'repmat');
+    return withD(fromCm(Array.from({ length: P.length * n }, (_, i) => Array.from({ length: P[0].length * m }, (_, k) => P[i % P.length][k % P[0].length]))), a.d);
+  } },
+  reshape: { n: [3, 3], f: (A) => { // como en MATLAB: por columnas
+    const a = asMat(A[0]), n = intArg(A[1], 'reshape(A, n, m)', 'n', 1, 10000), m = intArg(A[2], 'reshape(A, n, m)', 'm', 1, 10000), P = cm(a), R = P.length, C = P[0].length;
+    if (n * m !== R * C) throw new Error(`reshape(A, n, m): A tiene ${R * C} elementos y ${n}×${m} son ${n * m}`);
+    const col = []; for (let k = 0; k < C; k++) for (let i = 0; i < R; i++) col.push(P[i][k]);
+    return withD(fromCm(Array.from({ length: n }, (_, i) => Array.from({ length: m }, (_, k) => col[k * n + i]))), a.d);
+  } },
+  horzcat: { n: [1, 100], f: (A) => catM(A, true) },
+  vertcat: { n: [1, 100], f: (A) => catM(A, false) },
+  kron: { n: [2, 2], f: (A) => {
+    const a = asMat(A[0]), b = asMat(A[1]), P = cm(a), Q = cm(b), R = Q.length, C = Q[0].length;
+    sizeLim(P.length * R, P[0].length * C, 'kron');
+    return withD(fromCm(Array.from({ length: P.length * R }, (_, i) => Array.from({ length: P[0].length * C }, (_, k) => cmul(P[Math.floor(i / R)][Math.floor(k / C)], Q[i % R][k % C])))), mulDim(a.d, b.d));
+  } },
+  any: { n: [1, 1], f: (A) => { const a = A[0], P = isM(a) ? cm(a).flat() : [cpair(a)]; return { v: P.some((z) => z[0] !== 0 || z[1] !== 0) ? 1 : 0, r: false }; } },
+  rank: { n: [1, 1], f: (A) => { const M = realMat(A[0], 'rank'), { S } = svdJ(M), tol = svdTol(M, S); return { v: S.filter((x) => x > tol).length, r: false }; } },
+  cond: { n: [1, 1], f: (A) => {
+    const M = realMat(A[0], 'cond'), { S } = svdJ(M), mx = Math.max(...S), mn = Math.min(...S);
+    if (!(mn > svdTol(M, S))) throw new Error('cond(A): la matriz es singular (su número de condición es infinito)');
+    return { v: mx / mn, r: false };
+  } },
+  pinv: { n: [1, 1], f: (A) => {
+    const a = A[0], M = realMat(a, 'pinv'), { U, S, V } = svdJ(M), tol = svdTol(M, S);
+    const out = V.map((vr) => U.map((ur) => vr.reduce((s, x, k) => s + (S[k] > tol ? (x * ur[k]) / S[k] : 0), 0)));
+    return withD(out.length === 1 && out[0].length === 1 ? { v: out[0][0], r: false } : { m: out }, powDim(a.d, -1));
+  } },
+  linsolve: { n: [2, 2], f: (A) => { // x tal que A·x = b (como A\b): cuadrada, por eliminacion; si no, minimos cuadrados (pinv)
+    const a = asMat(A[0]), b = asMat(A[1]);
+    if (a.m.length !== b.m.length) throw new Error(`linsolve(A, b): A tiene ${a.m.length} filas y b ${b.m.length}: deben ser las mismas`);
+    const d = mulDim(b.d, a.d, -1);
+    let X;
+    if (a.m.length === a.m[0].length) X = isC(a) || isC(b) ? fromCm(cmulRaw(cinvRaw(cm(a)), cm(b))) : { m: mulRaw(invM(a.m), b.m) };
+    else { const p = NF.pinv.f([a]); X = { m: mulRaw(p.m || [[p.v]], realMat(b, 'linsolve')) }; }
+    return withD(X.m.length === 1 && X.m[0].length === 1 ? cval([X.m[0][0], X.mi ? X.mi[0][0] : 0]) : X, d);
+  } },
+  eig: { n: [1, 1], f: (A) => { // valores propios (columna); complejos si los hay
+    const a = asMat(A[0]), n = a.m.length;
+    if (a.m[0].length !== n) throw new Error(`Solo las matrices cuadradas tienen valores propios (esta es de ${dimsOf(a)})`);
+    if (n > 12) throw new Error('eig(A): admite matrices de hasta 12×12');
+    const sym = !isC(a) && a.m.every((r, i) => r.every((x, k) => Math.abs(x - a.m[k][i]) <= 1e-12 * Math.max(1, Math.abs(x))));
+    const vals = sym ? eigSym(a.m).map((x) => [x, 0]) : polyRoots(charPoly(cm(a))).reverse();
+    return withD(fromCm(vals.map((z) => [z])), a.d);
+  } },
+  diff: { n: [1, 1], f: (A) => { const v = anyVec(A[0], 'diff'); if (v.arr.length < 2) throw new Error('diff(v): el vector necesita al menos 2 elementos'); return cvecOut(v.arr.slice(1).map((z, i) => csub(z, v.arr[i])), v.col, v.d); } },
+  cummax: { n: [1, 1], f: (A) => { const v = realVec(A[0], 'cummax'); let m = -Infinity; return vecOut(v.arr.map((x) => (m = Math.max(m, x))), v.col, v.d); } },
+  cummin: { n: [1, 1], f: (A) => { const v = realVec(A[0], 'cummin'); let m = Infinity; return vecOut(v.arr.map((x) => (m = Math.min(m, x))), v.col, v.d); } },
+  mode: { n: [1, 1], f: (A) => { // el mas repetido; con empate, el menor
+    const a = A[0]; if (isC(a)) throw new Error('«mode» no admite números complejos');
+    const xs = isM(a) ? a.m.flat() : [a.v], cnt = new Map();
+    for (const x of xs) cnt.set(x, (cnt.get(x) || 0) + 1);
+    let best = null; for (const [x, c] of cnt) if (best === null || c > cnt.get(best) || (c === cnt.get(best) && x < best)) best = x;
+    return withD({ v: best, r: false }, a.d);
+  } },
+  trapz: { n: [1, 2], f: (A) => { // trapz(y) (paso 1) o trapz(x, y)
+    const y = anyVec(A.length === 1 ? A[0] : A[1], 'trapz'), x = A.length === 1 ? null : realVec(A[0], 'trapz');
+    if (x && x.arr.length !== y.arr.length) throw new Error(`trapz(x, y): x tiene ${x.arr.length} elementos e y ${y.arr.length}`);
+    let s = [0, 0]; for (let i = 1; i < y.arr.length; i++) s = cadd(s, cscale(cadd(y.arr[i], y.arr[i - 1]), (x ? x.arr[i] - x.arr[i - 1] : 1) / 2));
+    return cval(s, false, x ? mulDim(x.d, y.d) : y.d);
+  } },
+  cumtrapz: { n: [1, 2], f: (A) => {
+    const y = anyVec(A.length === 1 ? A[0] : A[1], 'cumtrapz'), x = A.length === 1 ? null : realVec(A[0], 'cumtrapz');
+    if (x && x.arr.length !== y.arr.length) throw new Error(`cumtrapz(x, y): x tiene ${x.arr.length} elementos e y ${y.arr.length}`);
+    let s = [0, 0]; const out = y.arr.map((z, i) => (i ? (s = cadd(s, cscale(cadd(z, y.arr[i - 1]), (x ? x.arr[i] - x.arr[i - 1] : 1) / 2))) : [0, 0]));
+    return cvecOut(out, y.col, x ? mulDim(x.d, y.d) : y.d);
+  } },
+  interp1: { n: [3, 3], f: (A) => { // interpolacion lineal: interp1(xs, ys, x), x un numero o un vector
+    const xs = realVec(A[0], 'interp1'), ys = realVec(A[1], 'interp1'), q = A[2];
+    if (xs.arr.length !== ys.arr.length || xs.arr.length < 2) throw new Error('interp1(xs, ys, x): xs e ys deben tener el mismo número de elementos (al menos 2)');
+    if (!sameDim(xs.d, q.d) && !zero0(q)) throw new Error(`interp1(xs, ys, x): x debe tener las unidades de xs (${unitMsg(xs.d)})`);
+    const idx = xs.arr.map((_, i) => i).sort((i, k) => xs.arr[i] - xs.arr[k]), X = idx.map((i) => xs.arr[i]), Y = idx.map((i) => ys.arr[i]);
+    const one = (x) => {
+      if (x < X[0] - 1e-12 * Math.abs(X[0]) || x > X[X.length - 1] + 1e-12 * Math.abs(X[X.length - 1])) throw rt(`interp1: ${x} está fuera de la tabla (de ${X[0]} a ${X[X.length - 1]})`);
+      let k = 1; while (k < X.length - 1 && X[k] < x) k++;
+      const t = X[k] === X[k - 1] ? 0 : (x - X[k - 1]) / (X[k] - X[k - 1]);
+      return Y[k - 1] + t * (Y[k] - Y[k - 1]);
+    };
+    if (isC(q)) throw new Error('«interp1» no admite números complejos');
+    return withD(isM(q) ? { m: q.m.map((r) => r.map(one)) } : { v: one(q.v), r: false }, ys.d);
+  } },
+  polyval: { n: [2, 2], f: (A) => {
+    const p = anyVec(A[0], 'polyval'), x = A[1]; noU(A[0], 'polyval'); noU(x, 'polyval');
+    const ev = (z) => p.arr.reduce((acc, q) => cadd(cmul(acc, z), q), [0, 0]);
+    return isM(x) ? cmapM(x, ev) : cval(ev(cpair(x)));
+  } },
+  roots: { n: [1, 1], f: (A) => { const p = anyVec(A[0], 'roots'); noU(A[0], 'roots'); const r = polyRoots(p.arr); if (!r.length) throw new Error('roots(p): el polinomio es constante, no tiene raíces'); return r.length === 1 ? cval(r[0]) : fromCm(r.map((z) => [z])); } },
+  polyfit: { n: [3, 3], f: (A) => { // minimos cuadrados: coeficientes del mayor grado al menor
+    const x = realVec(A[0], 'polyfit'), y = realVec(A[1], 'polyfit'), n = intArg(A[2], 'polyfit(x, y, n)', 'n', 0, 20);
+    noU(A[0], 'polyfit'); noU(A[1], 'polyfit');
+    if (x.arr.length !== y.arr.length) throw new Error(`polyfit(x, y, n): x tiene ${x.arr.length} elementos e y ${y.arr.length}`);
+    if (x.arr.length < n + 1) throw new Error(`polyfit(x, y, n): para un grado ${n} hacen falta al menos ${n + 1} puntos`);
+    const V = x.arr.map((xi) => Array.from({ length: n + 1 }, (_, k) => xi ** (n - k)));
+    const p = NF.pinv.f([{ m: V }]), P = p.m || [[p.v]];
+    return { m: [P.map((r) => r.reduce((s, q, i) => s + q * y.arr[i], 0))] };
+  } },
+  conv: { n: [2, 2], f: (A) => { // producto de polinomios (convolucion)
+    const p = anyVec(A[0], 'conv'), q = anyVec(A[1], 'conv');
+    const out = Array.from({ length: p.arr.length + q.arr.length - 1 }, () => [0, 0]);
+    p.arr.forEach((a, i) => q.arr.forEach((b, k) => { out[i + k] = cadd(out[i + k], cmul(a, b)); }));
+    return cvecOut(out, p.col && q.col, mulDim(p.d, q.d));
+  } },
+  polyder: { n: [1, 1], f: (A) => { const p = anyVec(A[0], 'polyder'), n = p.arr.length - 1; if (n < 1) return { m: [[0]] }; return cvecOut(p.arr.slice(0, -1).map((z, i) => cscale(z, n - i)), p.col, p.d); } },
+  polyint: { n: [1, 1], f: (A) => { const p = anyVec(A[0], 'polyint'), n = p.arr.length; return cvecOut([...p.arr.map((z, i) => cscale(z, 1 / (n - i))), [0, 0]], p.col, p.d); } },
+  dist: { n: [2, 2], f: (A) => { // distancia entre dos puntos (vectores del mismo tamaño)
+    const p = realVec(A[0], 'dist'), q = realVec(A[1], 'dist');
+    if (p.arr.length !== q.arr.length) throw new Error(`dist(p, q): p tiene ${p.arr.length} coordenadas y q ${q.arr.length}`);
+    if (!sameDim(p.d, q.d)) throw new Error(`dist(p, q): p y q deben tener las mismas unidades (${unitMsg(p.d)} y ${unitMsg(q.d)})`);
+    return withD({ v: Math.hypot(...p.arr.map((x, i) => x - q.arr[i])), r: false }, p.d);
+  } },
+};
+// Todos los nombres de funciones y constantes del evaluador (la referencia de la ayuda debe nombrarlos todos: test/funcref.test.mjs).
+export const FUNC_NAMES = [...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(NF), ...Object.keys(CONSTS)];
+addCalcFns([...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(NF), 'solve']); // se dibujan como funcion (ver asciimath.js)
+// horzcat(A, B, …) y vertcat(A, B, …): como [A, B] y [A; B]
+function catM(A, horiz) {
+  const Ms = A.map(asMat), d0 = Ms.find((a) => !zero0(a) && a.d)?.d;
+  for (const a of Ms) if (!sameDim(a.d, d0) && !(a.m.every((r) => r.every((x) => x === 0)) && !a.d)) throw new Error(`${horiz ? 'horzcat' : 'vertcat'}: los bloques deben tener las mismas unidades`);
+  const Ps = Ms.map(cm);
+  if (horiz) {
+    const h = Ps[0].length; if (Ps.some((P) => P.length !== h)) throw new Error('horzcat: los bloques deben tener el mismo número de filas');
+    return withD(fromCm(Array.from({ length: h }, (_, i) => Ps.flatMap((P) => P[i]))), d0);
+  }
+  const w = Ps[0][0].length; if (Ps.some((P) => P[0].length !== w)) throw new Error('vertcat: los bloques deben tener el mismo número de columnas');
+  return withD(fromCm(Ps.flat()), d0);
+}
+
 // Ángulos del dibujo (opción «Ángulos en: grados / radianes» del documento, doc.angles): los textos de cálculo y las gráficas
 // evalúan con este valor por defecto; las cotas y los actuadores lo fijan explícito (siempre en grados).
 let DEF_RAD = false;
@@ -577,11 +874,11 @@ function loopTick() {
 }
 // La incognita de fzero(…; x; …) puede no existir todavia: se le da un lugar para poder leer la formula (no tiene valor; lo pone fzero).
 function withUnknowns(s, vars) {
-  if (!/fzero/i.test(s)) return vars;
+  if (!/fzero|integral/i.test(s)) return vars;
   let out = vars;
   const lt = tokenize(s, vars, true);
   for (let i = 0; i < lt.length; i++) {
-    if (!(lt[i].t === 'id' && lt[i].v === 'fzero' && lt[i + 1]?.t === 'op' && lt[i + 1].v === '(')) continue;
+    if (!(lt[i].t === 'id' && (lt[i].v === 'fzero' || lt[i].v === 'integral') && lt[i + 1]?.t === 'op' && lt[i + 1].v === '(')) continue; // la incognita de fzero o la variable de integral
     let d = 0, j = i + 2;
     for (; j < lt.length; j++) { const t = lt[j]; if (t.t === 'op' && (t.v === '(' || t.v === '[')) d++; else if (t.t === 'op' && (t.v === ')' || t.v === ']')) { if (d === 0) break; d--; } else if (t.t === 'sep' && d === 0) break; }
     const x = lt[j]?.t === 'sep' ? lt[j + 1] : null;
@@ -616,6 +913,8 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   const multiDim = (name, A) => {
     if (!A.some((x) => x.d)) return undefined;
     if (name === 'round' || name === 'redondear') { if (A[1]?.d) throw new Error('round(x; n): n es un número sin unidades'); return A[0].d; }
+    if (name === 'nthroot') { if (A[1].d) throw new Error('nthroot(x, n): n es un número sin unidades'); return powDim(A[0].d, 1 / A[1].v); } // nthroot(27'm^3, 3) = 3 m
+    if (name === 'gcd' || name === 'lcm' || name === 'nchoosek') throw new Error(`«${name}» necesita números enteros sin unidades`);
     if (A.some((x) => !sameDim(x.d, A[0].d))) throw new Error(`«${name}» necesita valores con las mismas unidades (recibió ${A.map((x) => unitMsg(x.d)).join(', ')})`);
     return name === 'atan2' ? undefined : A[0].d;
   };
@@ -798,8 +1097,47 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     if (isM(a)) return wd(cmapM(a, one), d);
     return cval(one(cpair(a)), name === 'angle' ? false : a.r, d);
   }
+  // integral(expr; x; a; b): la integral de expr (con la variable x) entre a y b, numerica (Gauss-Kronrod adaptativa). Como fzero, la x de la
+  // expresion es la variable de integracion, no la de afuera. Con unidades: las de expr por las de x.
+  const INT_MSG = () => `integral(expresión${argText()} x${argText()} a${argText()} b): la expresión, el nombre de la variable y los límites`;
+  function lazyIntegral() { // ya se leyo «integral(»
+    const a0 = p; skipArg(); const a1 = p;
+    if (a1 === a0 || peek()?.t !== 'sep') throw new Error(INT_MSG());
+    p++;
+    const xt = peek();
+    if (xt?.t !== 'var' && xt?.t !== 'ufn') throw new Error(INT_MSG());
+    p++;
+    if (peek()?.t !== 'sep') throw new Error(INT_MSG());
+    p++;
+    const lo = cmp();
+    if (peek()?.t !== 'sep') throw new Error(INT_MSG());
+    p++;
+    const hi = cmp();
+    if (!isOp(')')) throw new Error(INT_MSG());
+    p++;
+    if (isM(lo) || isM(hi) || isC(lo) || isC(hi)) throw new Error('integral: los límites son números reales');
+    if (!sameDim(lo.d, hi.d) && !zero0(lo) && !zero0(hi)) throw new Error(`integral: los límites deben tener las mismas unidades (${unitMsg(lo.d)} y ${unitMsg(hi.d)})`);
+    const xd = lo.d || hi.d, src = S.slice(toks[a0].i, toks[a1 - 1].j), name = xt.v;
+    let fd, nev = 0;
+    const f = (x) => {
+      if (++nev > 20000) throw new Error('integral: la función necesita demasiadas evaluaciones (¿tiene una singularidad en el intervalo?)');
+      const r = evalExpr(src, { radians, vars: { ...(vars || {}), [name]: { v: x, r: false, d: xd } }, depth: depth + 1, globals: globals || vars });
+      if (r.mat) throw new Error('integral: la expresión da un vector; integra un número');
+      if (r.im) throw new Error('integral: la expresión da un número complejo; integra real(…) e imag(…) por separado');
+      if (fd === undefined) fd = r.dim || null;
+      return r.value;
+    };
+    const v = integrate(f, lo.v, hi.v);
+    if (!Number.isFinite(v)) throw rt('integral: no converge (¿una singularidad en el intervalo?)');
+    return wd({ v, r: false }, mulDim(fd || undefined, xd));
+  }
   function call(name, A) {
     const sep = decimalMode() === '.' ? ' (sepáralos con «,»)' : decimalMode() === ',' ? ' (sepáralos con «;»)' : ' (sepáralos con «;»: «2,5» es un solo número)';
+    if (name in NF) { // funciones de MATLAB (tanda 1)
+      const [lo, hi] = NF[name].n;
+      if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === lo ? `${lo} ${lo === 1 ? 'valor' : 'valores'}` : `de ${lo} a ${hi} valores`}${sep}`);
+      return NF[name].f(A, { radians });
+    }
     const cr = cplxCall(name, A);
     if (cr) return cr;
     if (MATFN.has(name)) { const d = matDim(name, A); return wd({ ...matFn(name, A) }, d); }
@@ -1012,6 +1350,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (!isOp('(')) throw new Error(`«${k.v}» necesita paréntesis, p. ej. ${k.v}(30)`);
       p++;
       if (k.v === 'fzero') return lazyFzero();
+      if (k.v === 'integral') return lazyIntegral();
       if (k.v === 'line') return lazyLine();
       if (k.v === 'for') return lazyFor();
       if (k.v === 'while') return lazyWhile();

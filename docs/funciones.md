@@ -41,6 +41,8 @@ Los ángulos de los **textos de cálculo y las gráficas** van según la opción
 | `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh` | Hiperbólicas (no usan ángulos). | `cosh(0)` | `1` |
 | `deg(x)` | De radianes a grados. | `deg(π)` | `180` |
 | `rad(x)` | De grados a radianes. | `rad(180)` | `3.1416` |
+| `sind`, `cosd`, `tand` | Como sin, cos y tan, pero el ángulo siempre en grados (sin importar el modo del dibujo). | `sind(30)` | `0.5` |
+| `asind`, `acosd`, `atand` | Inversas, con el resultado siempre en grados. | `atand(1)` | `45` |
 
 ## Raíces, potencias y logaritmos
 
@@ -53,6 +55,8 @@ Los ángulos de los **textos de cálculo y las gráficas** van según la opción
 | `abs` | Valor absoluto. | `abs(-7)` | `7` |
 | `sign` (`signo`) | Signo: −1, 0 o 1. | `sign(-3)` | `-1` |
 | `hypot(a; b; …)` | Raíz de la suma de los cuadrados. | `hypot(3; 4)` | `5` |
+| `nthroot(x; n)` | Raíz n-ésima real: con x negativo y n impar da un negativo (x^(1/n) daría un complejo). Con unidades: nthroot(27'm^3; 3) = 3 m. | `nthroot(-27; 3)` | `-3` |
+| `log2` | Logaritmo en base 2. | `log2(8)` | `3` |
 
 ## Redondeo, mínimos y máximos
 
@@ -65,6 +69,11 @@ Los ángulos de los **textos de cálculo y las gráficas** van según la opción
 | `mod(a; b)` | Resto de a entre b, con el signo de b. | `mod(-7; 3)` | `2` |
 | `min(a; b; …)`, `max(a; b; …)` | El menor y el mayor de varios valores. | `min(4; 1; 9)` | `1` |
 | `clamp(x; mín; máx)` | Recorta x al intervalo. | `clamp(15; 0; 10)` | `10` |
+| `fix` | Hacia el cero (como trunc). | `fix(-2.7)` | `-2` |
+| `rem(a; b)` | Resto de a entre b, con el signo de a (mod lleva el de b). | `rem(-7; 3)` | `-1` |
+| `gcd(a; b)`, `lcm(a; b)` | Máximo común divisor y mínimo común múltiplo (enteros). | `gcd(12; 18)+lcm(4; 6)` | `18` |
+| `factorial(n)` | n! (n entero de 0 a 170). | `factorial(5)` | `120` |
+| `nchoosek(n; k)` | Combinaciones de n en k. | `nchoosek(5; 2)` | `10` |
 
 ## Vectores y matrices
 
@@ -98,6 +107,63 @@ Se escriben entre corchetes: la coma separa los elementos de una fila, el punto 
 | `cumsum`, `cumprod` | Suma y producto acumulados. | `cumsum([1,2,3])` | `[1, 3, 6]` |
 | `dot(a; b)` | Producto punto. | `dot([1,2,3]; [4,5,6])` | `32` |
 | `cross(a; b)` | Producto cruz de vectores de 3 elementos. | `cross([1,0,0]; [0,1,0])` | `[0, 0, 1]` |
+| `dist(p; q)` | Distancia entre dos puntos (vectores del mismo tamaño, con sus unidades). | `dist([0,0]; [3,4])` | `5` |
+
+## Construir y reordenar matrices
+
+Con los nombres de MATLAB. Las que reordenan conservan las unidades y los complejos.
+
+| Función | Qué hace | Ejemplo | Da |
+|---|---|---|---|
+| `zeros(n; m)`, `ones(n; m)` | Matriz de ceros o de unos (de n×n con un solo valor). | `zeros(2; 3)` | `[0, 0, 0; 0, 0, 0]` |
+| `linspace(a; b; n)` | n valores igualmente espaciados de a a b (100 si se omite n). | `linspace(0; 1; 5)` | `[0, 0.25, 0.5, 0.75, 1]` |
+| `logspace(a; b; n)` | n valores de 10^a a 10^b en escala logarítmica (50 si se omite n). | `logspace(0; 2; 3)` | `[1, 10, 100]` |
+| `numel(A)`, `size(A)` | Número de elementos; [filas, columnas]. | `size([1,2,3;4,5,6])` | `[2, 3]` |
+| `transpose(A)` | Transpuesta (como A^T). | `transpose([1,2;3,4])` | `[1, 3; 2, 4]` |
+| `sort(v)` | Ordena un vector de menor a mayor. | `sort([3,1,2])` | `[1, 2, 3]` |
+| `flip(v)`, `fliplr(A)`, `flipud(A)` | Invierte el orden: un vector; las columnas (izquierda-derecha); las filas (arriba-abajo). | `fliplr([1,2;3,4])` | `[2, 1; 4, 3]` |
+| `repmat(A; n; m)` | Repite A n veces hacia abajo y m hacia la derecha. | `repmat([1,2]; 2; 2)` | `[1, 2, 1, 2; 1, 2, 1, 2]` |
+| `reshape(A; n; m)` | Los mismos elementos en n×m, tomados por columnas (como MATLAB). | `reshape([1,2,3,4,5,6]; 3; 2)` | `[1, 4; 2, 5; 3, 6]` |
+| `horzcat(A; B; …)`, `vertcat(A; B; …)` | Lado a lado y uno debajo del otro (como [A, B] y [A; B]). | `vertcat([1,2]; [3,4])` | `[1, 2; 3, 4]` |
+| `kron(A; B)` | Producto de Kronecker. | `kron([1,2]; [1;1])` | `[1, 2; 1, 2]` |
+| `any(v)` | 1 si algún elemento no es 0. | `any([0,0,3])` | `1` |
+
+## Álgebra lineal
+
+Con números reales (inv, det, linsolve y eig también con complejos). eig admite hasta 12×12.
+
+| Función | Qué hace | Ejemplo | Da |
+|---|---|---|---|
+| `linsolve(A; b)` | x tal que A·x = b (como A\b en MATLAB). Si A no es cuadrada, por mínimos cuadrados. | `linsolve([2,1;1,3]; [3;5])` | `[0.8; 1.4]` |
+| `rank(A)` | Rango. | `rank([1,2;2,4])` | `1` |
+| `cond(A)` | Número de condición (con valores singulares). | `cond([1,0;0,2])` | `2` |
+| `pinv(A)` | Pseudoinversa (vale con matrices singulares o no cuadradas). | `pinv([1,2;2,4])` | `[0.04, 0.08; 0.08, 0.16]` |
+| `eig(A)` | Valores propios, en una columna; complejos si los hay. | `eig([2,1;1,2])` | `[1; 3]` |
+|  |  | `eig([0,1;-1,0])=` | `[-1j; 1j]` |
+
+## Diferencias, acumulados e integrales
+
+| Función | Qué hace | Ejemplo | Da |
+|---|---|---|---|
+| `diff(v)` | Diferencias entre elementos seguidos. | `diff([1,4,9,16])` | `[3, 5, 7]` |
+| `cummax(v)`, `cummin(v)` | Máximo y mínimo acumulados. | `cummax([1,3,2,5,4])` | `[1, 3, 3, 5, 5]` |
+| `mode(v)` | El valor más repetido (con empate, el menor). | `mode([1,2,2,3,3])` | `2` |
+| `trapz(x; y)`, `cumtrapz(x; y)` | Integral por trapecios de datos (y acumulada). Con un solo vector, paso 1. | `trapz([0,1,2]; [0,1,4])` | `3` |
+| `integral(expr; x; a; b)` | Integral de una expresión con la variable x, entre a y b (numérica, adaptativa). Como en fzero, la variable se nombra. Con unidades: las de expr por las de x. | `integral(x^2; x; 0; 3)` | `9` |
+
+## Interpolación y polinomios
+
+Un polinomio es el vector de sus coeficientes, del mayor grado al menor: [1, 0, -2] es x² − 2.
+
+| Función | Qué hace | Ejemplo | Da |
+|---|---|---|---|
+| `interp1(xs; ys; x)` | Interpolación lineal en una tabla (x un número o un vector; conserva las unidades de ys). | `interp1([0,1,2]; [0,10,40]; 1.5)` | `25` |
+| `polyval(p; x)` | Valor del polinomio en x. | `polyval([1,0,-2]; 3)` | `7` |
+| `roots(p)` | Raíces (columna); complejas si las hay. | `roots([1,-6,11,-6])` | `[3; 2; 1]` |
+|  |  | `roots([1,0,1])=` | `[1j; -1j]` |
+| `polyfit(x; y; n)` | Polinomio de grado n por mínimos cuadrados. | `polyfit([0,1,2]; [1,3,5]; 1)` | `[2, 1]` |
+| `conv(p; q)` | Producto de polinomios. | `conv([1,1]; [1,-1])` | `[1, 0, -1]` |
+| `polyder(p)`, `polyint(p)` | Derivada e integral (con constante 0). | `polyder([1,2,3])` | `[2, 2]` |
 
 ## Funciones propias
 
