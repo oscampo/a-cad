@@ -1002,6 +1002,7 @@ export const EN = {
   "una línea que termina en «:» abre un bloque: for i in …:, while …:, if …: o una función g(x):": "a line ending in «:» opens a block: for i in …:, while …:, if …: or a function g(x):",
   "el script no tiene ningún paso que dé un valor (la última línea es el valor)": "the script has no step that gives a value (the last line is the value)",
   "esta línea queda fuera del programa: revisa la sangría (el programa va con sangría, debajo de la firma)": "this line is outside the program: check the indentation (the program goes indented, below the signature)",
+  "Gráfica ajustada: límites automáticos en todos los ejes": "Graph fitted: automatic limits on all axes",
   "Detener": "Stop",
   "Elementos": "Elements",
   "Restricciones": "Constraints",

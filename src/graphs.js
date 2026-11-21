@@ -165,11 +165,51 @@ function* graphGen(doc, g, solveFn) {
     }
     out.tEnd = lastT;
   }
+  // Valores de la x generica de una serie. Se muestrea lo que se ve: si la x que se dibuja es una funcion lineal de x («x'cm», «2x»), los
+  // valores se eligen para que la x DIBUJADA recorra la ventana del eje (con «x'cm» y la ventana de 0 a 900 mm, x va de 0 a 90, no de
+  // 0 a 900). Sin limites en el eje y con una x con unidades, la ventana sale de las medidas del problema con esa misma magnitud (las
+  // que lee la relacion, tambien dentro de sus funciones): con una viga de L = 900 mm y una carga en d, de 0 a 900 mm. Una x sin unidades
+  // y sin limites sigue en GEN_X. out.genWin: la ventana elegida (la de partida de los controles de zoom).
+  const limSet = (k) => { const c = g.axes?.[k] || {}, ok = (q) => q !== null && q !== '' && q !== undefined && Number.isFinite(Number(q)); return ok(c.min) || ok(c.max); };
+  function autoWin(sp, env0) {
+    let dimX;
+    try { dimX = evalExpr(sp.x, { vars: { ...env0, x: { v: 1, r: false } }, radians: rad }).dim; } catch (e) { return null; }
+    if (!dimX) return null;
+    const vals = [], seen = new Set();
+    const walk = (src) => {
+      for (const nm of exprRefs(src)) {
+        if (seen.has(nm)) continue;
+        seen.add(nm);
+        const v = base[nm];
+        if (!v) continue;
+        if (v.fn) { walk(v.fn.body); for (const lf of Object.values(v.fn.lib || {})) walk(lf.fn.body); } else if (!v.vec && !v.mat && Number.isFinite(v.v) && sameDim(v.d, dimX)) vals.push(v.v);
+      }
+    };
+    walk(sp.y);
+    if (!vals.length) return null;
+    const lo = Math.min(0, ...vals), hi = Math.max(0, ...vals), f = units.get(sp.x)?.f || 1;
+    return hi > lo ? [lo / f, hi / f] : null;
+  }
+  function genSamples(sp, env0) {
+    const raw = () => genericX(g, sp.ax, n);
+    let X0, X1, X2;
+    try { const at = (xv) => value(sp.x, { ...env0, x: { v: xv, r: false } }); X1 = at(1); X0 = at(0); X2 = at(2); } catch (e) { return raw(); }
+    const k = X1 - X0;
+    if (!(Number.isFinite(k) && Math.abs(k) > 1e-300 && Math.abs(X2 - X0 - 2 * k) <= 1e-9 * Math.max(1, Math.abs(X2)))) return raw(); // x dibujada no lineal: como antes
+    const win = limSet(sp.ax) ? genericRange(g, sp.ax) : autoWin(sp, env0);
+    if (!win) return raw();
+    out.genWin ||= win;
+    const [lo, hi] = win, log = g.axes?.[sp.ax]?.scale === 'log' && lo > 0;
+    return Array.from({ length: n }, (_, i) => { const f = n > 1 ? i / (n - 1) : 0, Xd = log ? lo * (hi / lo) ** f : lo + (hi - lo) * f; return (Xd - X0) / k; });
+  }
   specs.forEach((sp, i) => {
     let pts = bufs[i];
     if (usesGen(sp) || elem.has(sp)) { // «y vs x» con x generica o con un vector del dibujo: se evalua para cada valor de x
-      const gen = usesGen(sp), list = gen ? genericX(g, sp.ax, n) : base[sp.x].vec, env0 = {};
+      const gen = usesGen(sp), env0 = {};
       for (const [nm, v] of Object.entries(base)) if (!v.vec && !v.mat) env0[nm] = v;
+      const list = gen ? genSamples(sp, env0) : base[sp.x].vec;
+      // la unidad de y se elige con un valor del medio (el primero suele ser 0, y con 0 quedaria la del SI sin prefijo: 5368 N·m en vez de 5,37 kN·m)
+      if (list.length > 2) { const xm = list[list.length >> 1]; try { value(sp.y, { ...env0, [gen ? 'x' : sp.x]: gen ? { v: xm, r: false } : { v: xm, r: false, d: base[sp.x].d } }); } catch (e) { /* lo dira el calculo */ } }
       pts = [];
       for (const xi of list) {
         const env = { ...env0, [gen ? 'x' : sp.x]: gen ? { v: xi, r: false } : { v: xi, r: false, d: base[sp.x].d } };
@@ -217,12 +257,14 @@ export function computeGraphAsync(doc, g, solveFn, { stale = () => false, busy =
 // Configuracion de un eje (x1, x2, y1, y2): nombre libre, escala lineal o logaritmica, limites (vacios = automaticos) y divisiones.
 export const axisCfg = (g, k) => ({ name: '', scale: 'lin', min: null, max: null, major: null, minor: 0, ...(g.axes?.[k] || {}) });
 // Rango de los datos de las series que usan el eje k (en escala log solo cuentan los valores positivos).
-export function axisRange(series, k, log) {
+// xwin ({ x1: { lo, hi }, x2: … }): para un eje y, solo cuentan los puntos que caen dentro de la ventana de su eje x (lo que se ve).
+export function axisRange(series, k, log, xwin = null) {
   const isX = k[0] === 'x';
   let lo = Infinity, hi = -Infinity;
   for (const s of series) {
     if ((isX ? s.ax : s.ay) !== k) continue;
-    for (const p of s.pts) { const v = isX ? p[0] : p[1]; if (!Number.isFinite(v) || (log && !(v > 0))) continue; lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    const w = !isX && xwin?.[s.ax], e = w ? (w.hi - w.lo) * 1e-9 : 0;
+    for (const p of s.pts) { const v = isX ? p[0] : p[1]; if (!Number.isFinite(v) || (log && !(v > 0)) || (w && !(p[0] >= w.lo - e && p[0] <= w.hi + e))) continue; lo = Math.min(lo, v); hi = Math.max(hi, v); }
   }
   return Number.isFinite(lo) ? { lo, hi } : null;
 }

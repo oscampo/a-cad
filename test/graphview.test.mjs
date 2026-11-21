@@ -1,7 +1,7 @@
 // Graficas: x generica propia, x como vector del dibujo, tiempo solo del reproductor, zoom y paneo de los ejes.
 import assert from 'node:assert/strict';
 import { newDoc, addPoint, addText } from '../src/model.js';
-import { addGraph, computeGraph, genericRange, genericX, GEN_X } from '../src/graphs.js';
+import { addGraph, computeGraph, genericRange, genericX, GEN_X, axisRange } from '../src/graphs.js';
 import { panWin, panStep, PAN_RATE, zoomWin, zoomStep, zoomPos, zoomFromPos, winCenter, setWindow, clearWindow, saveHome, homeWin, forgetHome, resetAxis, ZOOM_R, ZOOM_RATE } from '../src/graphview.js';
 
 let passed = 0;
@@ -141,6 +141,29 @@ t('vista guardada: el boton la fija y el doble toque en un deslizador vuelve a e
   saveHome(g, { x1: [0, 1] }); assert.equal(homeWin(g, 'y1'), null); assert.deepEqual(homeWin(g, 'x1'), [0, 1]);
   forgetHome(g); assert.equal('home' in g, false);
   setWindow(g, 'x1', 3, 4); assert.equal(resetAxis(g, 'x1'), null); assert.equal(g.axes.x1.max, null);
+});
+
+t('enfoque automatico: se muestrea lo que se ve, la ventana sale de las medidas del problema, y = lo visible', () => {
+  const d = newDoc();
+  addText(d, addPoint(d, 0, 100), "$$L:900'mm$$", {});
+  addText(d, addPoint(d, 0, 90), "$$a:300'mm$$", {});
+  addText(d, addPoint(d, 0, 80), "$$f(x):if(x>a, L-x, 0)$$", {}); // lee a y L
+  const xs = (r) => r.series[0].pts.map((p) => p[0]);
+  // con limites en el eje (en lo que se ve, mm): «x'cm» recorre la ventana, no 10 veces mas
+  let r = run(d, ["f(x'cm) vs x'cm"], { axes: { x1: { min: 0, max: 900 } } });
+  assert.deepEqual([Math.min(...xs(r)), Math.max(...xs(r))].map(Math.round), [0, 900]);
+  // sin limites y con unidades: la ventana sale de L y a (las longitudes que lee la relacion, tambien dentro de f); solo las que lee
+  r = run(d, ["f(x'mm) vs x'mm"]);
+  assert.deepEqual(r.genWin.map(Math.round), [0, 900]);
+  assert.deepEqual([Math.min(...xs(r)), Math.max(...xs(r))].map(Math.round), [0, 900]);
+  // sin unidades: como siempre, GEN_X
+  r = run(d, ['sin(x) vs x']);
+  assert.deepEqual([Math.min(...xs(r)), Math.max(...xs(r))], GEN_X);
+  assert.equal(r.genWin, undefined);
+  // y automatico: solo los puntos dentro de la ventana de x
+  const series = [{ ax: 'x1', ay: 'y1', pts: [[0, 1], [5, 2], [50, 900]] }];
+  assert.deepEqual(axisRange(series, 'y1', false), { lo: 1, hi: 900 });
+  assert.deepEqual(axisRange(series, 'y1', false, { x1: { lo: 0, hi: 10 } }), { lo: 1, hi: 2 });
 });
 
 console.log(`\n${passed} pruebas de ventana de graficas pasaron`);

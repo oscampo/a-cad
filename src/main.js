@@ -3612,6 +3612,10 @@ function drawGraphCtl(c, id, A, B, o) {
     const tx = horiz ? z.x + ((s + 1) / 2) * (z.w - S) : z.x, ty = horiz ? z.y : z.y + ((1 - s) / 2) * (z.h - S);
     box(tx, ty, S, S, theme.sel); c.fillStyle = '#fff'; c.fillText(glyph, (tx + S / 2) * dpr, (ty + S / 2 + 0.5) * dpr);
   }
+  // boton Ajustar (esquina de arriba, entre los deslizadores de paneo y zoom vertical): todos los ejes a limites automaticos
+  const fx = x - S - G, fy = y - S - G;
+  graphCtl.push({ id, kind: 'fit', x: fx, y: fy, w: S, h: S });
+  box(fx, fy, S, S, o.fg + '14'); c.fillStyle = o.fg; c.fillText('⤢', (fx + S / 2) * dpr, (fy + S / 2 + 0.5) * dpr);
   // boton de la esquina (entre los dos deslizadores): guarda la vista actual; relleno si la grafica ya tiene una
   const hx = x - S - G, hy = y + h + G, saved = !!doc.graphs[id]?.home;
   graphCtl.push({ id, kind: 'home', x: hx, y: hy, w: S, h: S });
@@ -3643,6 +3647,11 @@ function ctlDown(z, p) {
   if (!g) return;
   pushUndo();
   if (z.kind === 'home') { drag = { p0: p, ctl: z, home: true, started: true }; graphHomeTap(z.id); return; } // al soltar no hace nada mas (ni seleccionar)
+  if (z.kind === 'fit') { // Ajustar: la grafica vuelve a enfocarse sola (x de las medidas del problema, y de lo que se ve); la vista guardada no se toca
+    drag = { p0: p, ctl: z, home: true, started: true };
+    for (const ax of AXES) clearWindow(g, ax);
+    toast('Gráfica ajustada: límites automáticos en todos los ejes'); afterChange(); return;
+  }
   const d = drag = { p0: p, ctl: z, k, started: true, moved: false };
   const pan = z.kind[0] === 'p';
   d.zoom = true; d.s = 0; d.t0 = performance.now(); d.tdown = d.t0;
@@ -3725,13 +3734,13 @@ function drawGraphs(c, o) {
       const lay = {};
       for (const k of AXES) {
         if ((k === 'x2' && !hasX2) || (k === 'y2' && !hasY2)) continue;
-        const cf = axisCfg(g, k), r = axisRange(D.series, k, cf.scale === 'log') || { lo: 0, hi: 1 };
+        const cf = axisCfg(g, k), r = axisRange(D.series, k, cf.scale === 'log', { x1: lay.x1, x2: lay.x2 }) || { lo: 0, hi: 1 }; // y: solo lo que cae en la ventana de x
         lay[k] = axisLayout(cf, r.lo, r.hi);
       }
       for (const k of ['x1', 'y1']) { // ventana y ventana de partida (la de los datos, o GEN_X en una x generica) para los controles de zoom y paneo
-        const cf = axisCfg(g, k), r = axisRange(D.series, k, cf.scale === 'log');
+        const cf = axisCfg(g, k), r = axisRange(D.series, k, cf.scale === 'log', { x1: lay.x1, x2: lay.x2 });
         const hl = r ? axisLayout({ ...cf, min: null, max: null }, r.lo, r.hi) : lay[k];
-        (gview[id] ||= {})[k] = { lo: lay[k].lo, hi: lay[k].hi, home: k === 'x1' && D.generic ? GEN_X.slice() : [hl.lo, hl.hi], log: lay[k].log };
+        (gview[id] ||= {})[k] = { lo: lay[k].lo, hi: lay[k].hi, home: k === 'x1' && D.generic ? (D.genWin || GEN_X).slice() : [hl.lo, hl.hi], log: lay[k].log }; // x generica: la ventana que eligio el graficador
       }
       const posX = (k) => (v) => px + lay[k].f(v) * pw, posY = (k) => (v) => py + ph - lay[k].f(v) * ph;
       const gx = posX('x1'), gy = posY('y1');
