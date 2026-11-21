@@ -431,6 +431,7 @@ const GEO_NAME_RE = /^[A-Za-z]+\d+\.[A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*$/;
 export function clearCall(expr) {
   const m = /^\s*clear\s*\(([\s\S]*)\)\s*$/i.exec(String(expr ?? ''));
   if (!m) return null;
+  if (!m[1].trim()) return { all: true }; // «clear()=», como en MATLAB: lo mismo que clear(all)
   const parts = m[1].split(decimalMode() === ',' ? /;/ : /[;,]/).map((s) => s.trim());
   if (parts.length === 1 && parts[0].toLowerCase() === 'all') return { all: true };
   if (parts.some((q) => !q)) return { err: `clear(…) lleva all o nombres de variables separados por «${argChar() === ',' ? ',' : ';'}»` };

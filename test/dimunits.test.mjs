@@ -263,6 +263,14 @@ t('clear(): una cota con formula que lee una cota borrada antes de su lugar da e
   assert.ok(settle(mk(200), solve, []).ok); // por encima de la etiqueta de D2: D2 vuelve a valer desde su etiqueta (cronologia)
 });
 
+t('clear()=: sin argumentos, lo mismo que clear(all)', () => {
+  const r = mkLine(30, { ref: true, name: 'D1' });
+  const tx = (y, s) => addText(r.d, addPoint(r.d, 0, y), s, {});
+  tx(200, '$k:2$'); tx(180, '$clear()=$'); tx(160, '$k=$');
+  assert.ok(settle(r.d, solve, []).ok);
+  assert.deepEqual(Object.values(r.d.texts).map((q) => clean(shownText(r.d, q).text)), ['$k:=2$', '$clear()=1$', '$k=⚠$']);
+});
+
 t('clear(all): solo borra lo que existe hasta ahi; una cota con la etiqueta mas abajo vale desde su etiqueta', () => {
   const r = mkLine(30, { ref: true, name: 'D1' });
   const tx = (y, s) => addText(r.d, addPoint(r.d, 0, y), s, {});
