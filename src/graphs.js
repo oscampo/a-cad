@@ -190,13 +190,67 @@ function* graphGen(doc, g, solveFn) {
     const lo = Math.min(0, ...vals), hi = Math.max(0, ...vals), f = units.get(sp.x)?.f || 1;
     return hi > lo ? [lo / f, hi / f] : null;
   }
+  // Sin medidas que den la ventana (una x sin unidades, o cortes escritos como numeros: «fsn(x, 0.5, 0)»): la ventana es el tramo donde la
+  // curva HACE ALGO. Se evalua en una rejilla amplia (0 y ±0,001 … ±10 000, logaritmica) y se marcan los puntos donde se aparta de una recta
+  // (saltos, quiebres, curvatura); fuera de ese tramo es constante o recta. Si hace algo en todo el rango (sin(x)/x, x^2) no hay tramo: null.
+  // Devuelve la ventana en valores de x (la generica), o null.
+  const PROBE = (() => { const xs = [0]; for (let k = -60; k <= 80; k++) { const v = 10 ** (k / 20); xs.push(v, -v); } return xs.sort((a, b) => a - b); })();
+  function activeWin(sp, env0) {
+    const samp = (xs) => { const P = []; for (const xv of xs) { try { const y = value(sp.y, { ...env0, x: { v: xv, r: false } }); if (Number.isFinite(y)) P.push([xv, y]); } catch (e) { /* fuera del dominio */ } } return P; };
+    const active = (P, sc) => { // tramo donde la curva se aparta de una recta entre sus vecinos
+      let lo = Infinity, hi = -Infinity;
+      for (let i = 1; i + 1 < P.length; i++) {
+        const [x0, y0] = P[i - 1], [x1, y1] = P[i], [x2, y2] = P[i + 1];
+        if (Math.abs(y1 - (y0 + ((y2 - y0) * (x1 - x0)) / (x2 - x0))) > 1e-7 * sc) { lo = Math.min(lo, x0); hi = Math.max(hi, x2); }
+      }
+      return hi > lo ? [lo, hi] : null;
+    };
+    const P = samp(PROBE);
+    if (P.length < 5) return null;
+    const sc = Math.max(...P.map((q) => Math.abs(q[1])));
+    if (!(sc > 0)) return null;
+    const w = active(P, sc);
+    if (!w || w[0] <= P[1][0] || w[1] >= P[P.length - 2][0]) return null; // recta en todo el rango, o hace algo hasta el borde
+    // segunda pasada, con una rejilla lineal fina dentro del tramo: la logaritmica es gruesa cerca de los bordes (1 -> 1,26)
+    const N = 400, Q = samp(Array.from({ length: N + 1 }, (_, i) => w[0] + ((w[1] - w[0]) * i) / N));
+    const sc2 = Math.max(...Q.map((q) => Math.abs(q[1]))); // la escala del tramo (lejos la curva puede valer mucho mas)
+    let [lo, hi] = (sc2 > 0 && active(Q, sc2)) || w;
+    // un tramo muy angosto (un escalon en x = 3): se abre alrededor de su centro, con el 0 (de 0 a 6); uno angosto en el 0 no es ventana
+    const c = (lo + hi) / 2;
+    if (hi - lo < 0.25 * Math.max(Math.abs(lo), Math.abs(hi))) { lo = Math.min(0, c - Math.abs(c)); hi = Math.max(0, c + Math.abs(c)); }
+    const e = (hi - lo) * 0.01;
+    if (lo < 0 && -lo <= e) lo = 0; // un borde que casi toca el 0 empieza en 0
+    if (hi > 0 && hi <= e) hi = 0;
+    return hi - lo > 1e-9 ? [lo, hi] : null;
+  }
+  // la x dibujada como funcion lineal de x: { X0, k } (X = X0 + k·x), o null si no lo es
+  function affineX(sp, env0) {
+    let X0, X1, X2;
+    try { const at = (xv) => value(sp.x, { ...env0, x: { v: xv, r: false } }); X1 = at(1); X0 = at(0); X2 = at(2); } catch (e) { return null; }
+    const k = X1 - X0;
+    return Number.isFinite(k) && Math.abs(k) > 1e-300 && Math.abs(X2 - X0 - 2 * k) <= 1e-9 * Math.max(1, Math.abs(X2)) ? { X0, k } : null;
+  }
+  // ventana automatica de un eje x: la union de las de sus series con x generica (en lo que se dibuja), para que todas usen la misma
+  const axWin = {};
+  function autoAxisWin(ax, env0) {
+    if (ax in axWin) return axWin[ax];
+    let lo = Infinity, hi = -Infinity;
+    for (const q of specs) {
+      if (q.ax !== ax || !usesGen(q)) continue;
+      const m = affineX(q, env0);
+      if (!m) continue;
+      let w = autoWin(q, env0);
+      if (!w) { const a = activeWin(q, env0); if (a) w = [m.X0 + m.k * a[0], m.X0 + m.k * a[1]].sort((p, r) => p - r); }
+      if (w) { lo = Math.min(lo, w[0]); hi = Math.max(hi, w[1]); }
+    }
+    return (axWin[ax] = hi > lo ? [lo, hi] : null);
+  }
   function genSamples(sp, env0) {
     const raw = () => genericX(g, sp.ax, n);
-    let X0, X1, X2;
-    try { const at = (xv) => value(sp.x, { ...env0, x: { v: xv, r: false } }); X1 = at(1); X0 = at(0); X2 = at(2); } catch (e) { return raw(); }
-    const k = X1 - X0;
-    if (!(Number.isFinite(k) && Math.abs(k) > 1e-300 && Math.abs(X2 - X0 - 2 * k) <= 1e-9 * Math.max(1, Math.abs(X2)))) return raw(); // x dibujada no lineal: como antes
-    const win = limSet(sp.ax) ? genericRange(g, sp.ax) : autoWin(sp, env0);
+    const m = affineX(sp, env0);
+    if (!m) return raw(); // x dibujada no lineal: como antes
+    const { X0, k } = m;
+    const win = limSet(sp.ax) ? genericRange(g, sp.ax) : autoAxisWin(sp.ax, env0);
     if (!win) return raw();
     out.genWin ||= win;
     const [lo, hi] = win, log = g.axes?.[sp.ax]?.scale === 'log' && lo > 0;

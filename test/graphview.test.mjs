@@ -166,4 +166,17 @@ t('enfoque automatico: se muestrea lo que se ve, la ventana sale de las medidas 
   assert.deepEqual(axisRange(series, 'y1', false, { x1: { lo: 0, hi: 10 } }), { lo: 1, hi: 2 });
 });
 
+t('enfoque automatico sin unidades: el tramo donde la curva hace algo (una viga con los cortes escritos como numeros)', () => {
+  const d = newDoc(); d.angles = 'rad';
+  addText(d, addPoint(d, 0, 100), '$$fsn(x,a,n):if((x>a)*(n>=0)!=0, (x-a)^n, 0)$$', {});
+  addText(d, addPoint(d, 0, 90), '$$V(x):0.5*fsn(x,0,0)-1*fsn(x,0.5,0)+0.5*fsn(x,1,0)$$', {});
+  addText(d, addPoint(d, 0, 80), '$$M(x):0.5*fsn(x,0,1)-1*fsn(x,0.5,1)+0.5*fsn(x,1,1)$$', {});
+  const win = (series) => { const r = run(d, series, { n: 50 }); const xs = r.series.flatMap((s) => s.pts.map((p) => p[0])); return [Math.min(...xs), Math.max(...xs)]; };
+  const [a, b] = win(['V(x) vs x', 'M(x) vs x @y2']); // las dos series con la misma ventana: la viga, de 0 a 1
+  assert.equal(a, 0); assert.ok(b > 1 && b < 1.02, String(b));
+  const [s0, s1] = win(['if(x>3, 1, 0) vs x']); assert.equal(s0, 0); near(s1, 6, 0.01); // un escalon: abierto alrededor, con el 0
+  const [q0, q1] = win(['fsn(x,2,2)/2-fsn(x,5,2)/2 vs x']); assert.ok(q0 > 1.9 && q0 < 2 && q1 > 5 && q1 < 5.1, `${q0} ${q1}`);
+  for (const f of ['sin(x)/x', 'x^2', 'abs(x)', '2x+1']) assert.deepEqual(win([f + ' vs x']), GEN_X, f); // hace algo en todo el rango (o nada): como siempre
+});
+
 console.log(`\n${passed} pruebas de ventana de graficas pasaron`);
