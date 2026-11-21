@@ -196,6 +196,10 @@ dialog.help a { color: var(--accent); }
 .gm-bar button, .gm-auto button, .gm-tabs button { min-height: 36px; }
 .gm-row { display: flex; align-items: center; gap: 8px; margin: 2px 0; }
 .gm-row input[type=checkbox] { width: 22px; height: 22px; flex: none; }
+#dlgCfg input[type=checkbox] { width: 22px; height: 22px; min-height: 0; flex: none; margin: 0; }
+#libEx label { display: flex; gap: 8px; align-items: center; margin: 3px 0; font-size: 14px; }
+#libEx label small { color: var(--muted); }
+#libBox input:not([type=checkbox]), #libBox textarea { min-height: 36px; font-size: 15px; }
 .gm-row .gm-name { flex: 1 1 auto; display: flex; justify-content: space-between; gap: 8px; text-align: left; min-height: 40px; }
 .gm-row .gm-name small { color: var(--muted); }
 .gm-find { display: flex; gap: 6px; margin: 6px 0 2px; align-items: center; }
@@ -446,7 +450,7 @@ body.nopanel #panel { display: none; }
 </div>
 <dialog id="dlgGo"><form method="dialog" style="width:min(560px,calc(100vw - 48px))">
   <p style="margin:0 0 6px"><b>Archivos de GitHub</b> <span id="goWhere" style="color:var(--muted);font-size:13px"></span></p>
-  <div class="gm-tabs"><button type="button" id="goTabD" class="on">Dibujos</button><button type="button" id="goTabT">Papelera</button></div>
+  <div class="gm-tabs"><button type="button" id="goTabD" class="on">Dibujos</button><button type="button" id="goTabT">Papelera</button><button type="button" id="goTabL" title="Los documentos guardados como biblioteca (carpeta MyLibrary/ del repositorio)">Bibliotecas</button></div>
   <div id="goAuto" class="gm-auto"></div>
   <div id="goFind" class="gm-find"></div>
   <div id="goBar" class="gm-bar"></div>
@@ -475,6 +479,18 @@ body.nopanel #panel { display: none; }
   <div class="row"><label for="docPageW">Ancho (mm)</label><input type="number" id="docPageW" min="20" step="0.1"></div>
   <div class="row"><label for="docPageH">Alto (mm)</label><input type="number" id="docPageH" min="20" step="0.1"></div>
   <div class="row"><label for="docMargin">Márgenes (mm)</label><input type="number" id="docMargin" min="0" step="1"></div>
+  <p style="margin:10px 0 2px;font-size:13px"><b>Biblioteca</b></p>
+  <div class="row"><label for="libOn">Es una biblioteca</label><input type="checkbox" id="libOn" title="Una biblioteca es un documento normal cuyas funciones, scripts y variables se pueden insertar en otros documentos. Al guardarla en GitHub queda en la carpeta MyLibrary/ del repositorio, con una versión que sube sola."></div>
+  <div id="libBox" hidden>
+    <div class="row"><label for="libName">Nombre</label><input id="libName" autocomplete="off" placeholder="UtilidadesFatiga"></div>
+    <div class="row"><label for="libAlias">Alias</label><input id="libAlias" autocomplete="off" placeholder="UF" title="Prefijo corto con que se usarán sus nombres en otros documentos: UF.C_(surf)(…). Letras y números, hasta 12."></div>
+    <div class="row"><label for="libAuthor">Autor</label><input id="libAuthor" autocomplete="off"></div>
+    <div class="row" style="align-items:flex-start"><label for="libDesc">Descripción</label><textarea id="libDesc" rows="2" style="flex:1"></textarea></div>
+    <div id="libVer" style="font-size:12px;color:var(--muted);margin:4px 0"></div>
+    <div style="font-size:12px;margin-top:6px"><b>Público</b>: lo que se podrá usar desde otros documentos. Lo que eso necesita viaja también, como privado.</div>
+    <div id="libEx" style="max-height:34vh;overflow:auto;font-size:13px;margin-top:4px"></div>
+    <div id="libChk" style="font-size:12px;margin-top:6px"></div>
+  </div>
   <div class="actions"><button id="cfgOk" class="on">Cerrar</button></div>
 </form></dialog>
 <dialog id="dlgR"><form method="dialog">

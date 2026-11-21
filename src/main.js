@@ -38,6 +38,7 @@ import { setIconSource } from './iconpaths.js';
 setIconSource(ICONS); // los iconos de la app que un texto puede mostrar: ![Linea](icon:line)
 import { buildTree, kindOf, conLabel } from './tree.js';
 import { cleanFileBase } from './files.js';
+import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProblem, libFileName } from './library.js';
 import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX } from './images.js';
 import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
@@ -3205,6 +3206,7 @@ function syncPanel() {
   $('docAngles').value = doc.angles === 'rad' ? 'rad' : 'deg';
   $('docUnits').value = doc.units === 'US' ? 'US' : 'SI';
   $('docSci').value = String(doc.sciAt ?? SCI_DEFAULT);
+  renderLibCfg();
   $('docTol').value = String(Number(doc.approxTol) > 0 ? Number(doc.approxTol) : APPROX_TOL);
   const pg = doc.page;
   $('docPage').value = !pg ? 'none' : pageKind(pg) || 'custom';
@@ -5151,6 +5153,43 @@ $('cfgDec').onchange = (e) => {
   afterChange(); syncPanel(); draw();
   toast(`Indicador decimal: ${to === ',' ? 'coma (1,5), argumentos con «;»' : to === '.' ? 'punto (1.5), argumentos con «,»' : 'sin elegir (se aceptan las dos formas)'}` + (n ? ` · ${n} fórmula${n > 1 ? 's' : ''} reescrita${n > 1 ? 's' : ''}` : ''));
 };
+// ---- biblioteca (library.js): la ficha del documento, lo publico y la revision antes de guardar en MyLibrary/
+const libInitials = (name) => (String(name).match(/[A-Z]/g) || []).join('').slice(0, 4) || String(name).replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase() || 'LIB';
+function renderLibCfg() {
+  const L = doc.lib, on = !!L?.on;
+  $('libOn').checked = on; $('libBox').hidden = !on;
+  if (!on) return;
+  $('libName').value = L.name || ''; $('libAlias').value = L.alias || ''; $('libAuthor').value = L.author || ''; $('libDesc').value = L.desc || '';
+  $('libVer').textContent = (L.version ? `Versión guardada: v${L.version}.` : 'Todavía no se ha guardado como biblioteca.') + ' ' + `Al guardarla en GitHub queda en ${LIB_DIR}/${libFileName(L)} como v${(L.version || 0) + 1}.`;
+  const box = $('libEx'), ex = new Set(L.exports || []), c = libClosure(doc, [...ex]);
+  box.textContent = '';
+  const KIND = { fn: 'función', script: 'script', var: 'variable' };
+  for (const d of c.defs.values()) {
+    const row = document.createElement('label'); row.style.display = 'flex'; row.style.gap = '6px'; row.style.alignItems = 'baseline'; row.style.margin = '2px 0';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = ex.has(d.name);
+    cb.onchange = () => { pushUndo(); const s = new Set(doc.lib.exports || []); if (cb.checked) s.add(d.name); else s.delete(d.name); doc.lib.exports = [...c.defs.keys()].filter((n) => s.has(n)); afterChange(); renderLibCfg(); };
+    const nm = document.createElement('span'); nm.textContent = d.name + (d.params ? '(' + d.params.join(', ') + ')' : '');
+    const tag = document.createElement('small'); tag.style.color = 'var(--muted)';
+    tag.textContent = [KIND[d.kind], ...(ex.has(d.name) ? [] : [c.names.has(d.name) ? 'viaja como privada (la usa algo público)' : 'no viaja'])].join(' · ');
+    row.append(cb, nm, tag); box.append(row);
+  }
+  if (!c.defs.size) box.textContent = 'El documento no tiene definiciones todavía.';
+  const pr = checkLibrary(doc), chk = $('libChk');
+  chk.style.color = pr.length ? 'var(--warn)' : 'var(--muted)';
+  chk.textContent = pr.length ? '⚠ ' + pr.join(' · ') : `✓ Lista: ${ex.size} públicos y ${c.names.size - ex.size} privados.`;
+}
+$('libOn').onchange = (e) => {
+  pushUndo();
+  if (e.target.checked) {
+    const name = doc.lib?.name || opts.fileBase || 'Biblioteca';
+    doc.lib = { name, alias: libInitials(name), author: '', desc: '', version: 0, ...(doc.lib || {}), on: true };
+    if (!Array.isArray(doc.lib.exports)) doc.lib.exports = defaultExports(libDefs(doc).defs);
+  } else if (doc.lib) doc.lib.on = false; // la ficha se conserva por si se vuelve a marcar
+  afterChange(); renderLibCfg();
+};
+for (const [id, k] of [['libName', 'name'], ['libAlias', 'alias'], ['libAuthor', 'author'], ['libDesc', 'desc']]) {
+  $(id).onchange = (e) => { if (!doc.lib) return; pushUndo(); doc.lib[k] = String(e.target.value).trim(); afterChange(); renderLibCfg(); };
+}
 $('docSci').onchange = (e) => { // umbral de la notacion cientifica
   pushUndo(); const m = Number(e.target.value);
   if (m === SCI_DEFAULT) delete doc.sciAt; else doc.sciAt = m;
@@ -5240,19 +5279,23 @@ function openGhCfg() {
 async function ghSaveCmd() {
   const c = gh.loadCfg();
   if (!gh.isReady(c)) { toast('Primero configura GitHub'); openGhCfg(); return; }
-  const name = await askFileName('json');
+  const isLib = !!doc.lib?.on; // una biblioteca va a MyLibrary/ con el nombre de su ficha y su version sube sola
+  if (isLib) { const pr = checkLibrary(doc); if (pr.length && !confirm(['La biblioteca tiene problemas:', ...pr.map((q) => '• ' + q), '', '¿Guardarla igual?'].join('\n'))) return; }
+  const name = isLib ? libFileName(doc.lib) : await askFileName('json');
   if (!name) return;
-  const path = gh.filePath(c, name);
+  const path = isLib ? LIB_DIR + '/' + name : gh.filePath(c, name);
+  const libNext = isLib ? { ...doc.lib, version: (doc.lib.version || 0) + 1, decimal: doc.decimal === ',' || doc.decimal === '.' ? doc.decimal : null, angles: doc.angles === 'rad' ? 'rad' : 'deg' } : null;
   try {
     toast('Guardando en GitHub…');
     const cur = await gh.currentSha(c, path), known = gh.knownSha(c, path);
     if (cur && cur !== known && !confirm(known
       ? `«${name}» cambió en GitHub desde la última vez que lo abriste o guardaste en este dispositivo (quizá lo editaste en otro). ¿Sobrescribirlo con este dibujo?`
       : `Ya existe «${name}» en GitHub. ¿Sobrescribirlo con este dibujo?`)) { toast('No se guardó'); return; }
-    const text = JSON.stringify({ app: 'ipad-cad', version: VERSION, doc: docForSave(doc) }, null, 1);
-    const sha = await gh.write(c, path, text, `A-CAD: ${name}`, cur);
+    const text = JSON.stringify({ app: 'ipad-cad', version: VERSION, doc: docForSave(libNext ? { ...doc, lib: libNext } : doc) }, null, 1);
+    const sha = await gh.write(c, path, text, `A-CAD: ${name}` + (libNext ? ` (biblioteca v${libNext.version})` : ''), cur);
     if (sha) gh.rememberSha(c, path, sha);
-    toast(`Guardado en GitHub: ${path}`);
+    if (libNext) { doc.lib = libNext; afterChange(); toast(`Biblioteca guardada en GitHub: ${path} (v${libNext.version})`); }
+    else toast(`Guardado en GitHub: ${path}`);
   } catch (e) { toast('No se pudo guardar en GitHub: ' + e.message + (e.status === 409 || e.status === 422 ? '. Ábrelo de nuevo y reintenta.' : '')); }
 }
 // Gestor de archivos de GitHub: abrir, seleccion multiple, papelera (restaurar / eliminar definitivamente), renombrar, duplicar y proteger.
@@ -5263,10 +5306,10 @@ async function ghOpenCmd() {
   const dlg = $('dlgGo'), box = $('goList'), bar = $('goBar'), auto = $('goAuto'), msgEl = $('goMsg');
   $('goWhere').textContent = `${c.repo}/${c.dir || ''}`;
   $('goCfg').onclick = () => { dlg.close(); openGhCfg(); };
-  let tab = 'files', lists = { files: [], trash: [] }, meta = { protected: [] }, sel = new Set(), busy = false, query = '', order = 'name', dates = {}, dateRun = 0;
+  let tab = 'files', lists = { files: [], trash: [], lib: [] }, meta = { protected: [] }, sel = new Set(), busy = false, query = '', order = 'name', dates = {}, dateRun = 0;
   const key = (name, t = tab) => (t === 'trash' ? gh.TRASH + '/' + name : name);
   const isProt = (name, t = tab) => meta.protected.includes(key(name, t));
-  const path = (name, t = tab) => gh.filePath(c, key(name, t));
+  const path = (name, t = tab) => (t === 'lib' ? LIB_DIR + '/' + name : gh.filePath(c, key(name, t))); // las bibliotecas, en MyLibrary/ desde la raiz
   const say = (t, bad) => { msgEl.style.color = bad ? 'var(--warn)' : 'var(--muted)'; msgEl.textContent = t; };
   const btn = (label, onclick, { on, disabled, title } = {}) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (on) b.classList.add('on'); b.disabled = !!disabled || busy; if (title) b.title = title; b.onclick = onclick; return b; };
   const list = (names) => names.slice(0, 6).map((n) => '• ' + n).join('\n') + (names.length > 6 ? `\n… y ${names.length - 6} más` : '');
@@ -5373,9 +5416,9 @@ async function ghOpenCmd() {
 
   function render() {
     const files = visible();
-    $('goTabD').classList.toggle('on', tab === 'files'); $('goTabT').classList.toggle('on', tab === 'trash');
-    $('goTabD').textContent = `Dibujos (${lists.files.length})`; $('goTabT').textContent = `Papelera (${lists.trash.length})`;
-    $('goTabD').disabled = $('goTabT').disabled = busy;
+    $('goTabD').classList.toggle('on', tab === 'files'); $('goTabT').classList.toggle('on', tab === 'trash'); $('goTabL').classList.toggle('on', tab === 'lib');
+    $('goTabD').textContent = `Dibujos (${lists.files.length})`; $('goTabT').textContent = `Papelera (${lists.trash.length})`; $('goTabL').textContent = `Bibliotecas (${lists.lib.length})`;
+    $('goTabD').disabled = $('goTabT').disabled = $('goTabL').disabled = busy;
     // guardado automatico: el dibujo actual, que esta app guarda sola en este dispositivo y reabre al iniciar
     auto.textContent = ''; auto.hidden = tab !== 'files';
     const n = (d) => Object.keys(d || {}).length, elems = n(doc.lines) + n(doc.circles) + n(doc.arcs) + n(doc.ellipses) + n(doc.splines);
@@ -5393,12 +5436,12 @@ async function ghOpenCmd() {
     if (tab === 'files') {
       const allProt = cnt && [...sel].every((x) => isProt(x));
       bar.append(btn('Papelera', toTrash, { disabled: none }), btn('Renombrar', rename, { disabled: cnt !== 1 }), btn('Duplicar', duplicate, { disabled: none }), btn(allProt ? 'Quitar protección' : 'Proteger', () => protect(!allProt), { disabled: none }));
-    } else bar.append(btn('Restaurar', restore, { disabled: none }), btn('Eliminar definitivamente', purge, { disabled: none }));
+    } else if (tab === 'trash') bar.append(btn('Restaurar', restore, { disabled: none }), btn('Eliminar definitivamente', purge, { disabled: none }));
     if (cnt) { const s = document.createElement('small'); s.style.color = 'var(--muted)'; s.textContent = cnt + (cnt === 1 ? ' seleccionado' : ' seleccionados'); bar.appendChild(s); }
     // lista
     const st = box.scrollTop;
     box.textContent = '';
-    if (!files.length) { box.textContent = query.trim() && lists[tab].length ? 'Ningún nombre coincide con «' + query.trim() + '».' : tab === 'files' ? 'No hay dibujos .json en esa carpeta todavía. Guarda uno con «Guardar en GitHub».' : 'La papelera está vacía.'; return; }
+    if (!files.length) { box.textContent = query.trim() && lists[tab].length ? 'Ningún nombre coincide con «' + query.trim() + '».' : tab === 'files' ? 'No hay dibujos .json en esa carpeta todavía. Guarda uno con «Guardar en GitHub».' : tab === 'lib' ? 'Todavía no hay bibliotecas. Declara un documento como biblioteca en Configuración y guárdalo en GitHub: queda en MyLibrary/.' : 'La papelera está vacía.'; return; }
     for (const f of files) {
       const row = document.createElement('div'); row.className = 'gm-row';
       const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = sel.has(f.name); cb.disabled = busy; cb.setAttribute('aria-label', 'Seleccionar ' + f.name);
@@ -5406,7 +5449,7 @@ async function ghOpenCmd() {
       const nm = document.createElement('button'); nm.type = 'button'; nm.className = 'gm-name'; nm.disabled = busy;
       nm.innerHTML = '<span></span><small></small>';
       nm.firstChild.textContent = (isProt(f.name) ? '🔒 ' : '') + f.name; nm.lastChild.textContent = (dateOf(f) ? fmtDate(dateOf(f)) + ' · ' : '') + (f.size >= 1024 ? Math.round(f.size / 1024) + ' KB' : f.size + ' B');
-      if (tab === 'files') nm.onclick = () => openFile(f); else nm.onclick = () => { cb.checked = !cb.checked; cb.onchange(); };
+      if (tab === 'files' || tab === 'lib') nm.onclick = () => openFile(f); else nm.onclick = () => { cb.checked = !cb.checked; cb.onchange(); };
       row.append(cb, nm); box.appendChild(row);
     }
     box.scrollTop = st;
@@ -5414,14 +5457,15 @@ async function ghOpenCmd() {
   async function reload() {
     say('Cargando…');
     try {
-      const [fl, tr, m] = await Promise.all([gh.list(c), gh.list(c, gh.TRASH), gh.loadMeta(c)]);
-      lists = { files: fl, trash: tr }; meta = m.meta;
+      const [fl, tr, m, lb] = await Promise.all([gh.list(c), gh.list(c, gh.TRASH), gh.loadMeta(c), gh.list(c, '', fetch, LIB_DIR)]);
+      lists = { files: fl, trash: tr, lib: lb }; meta = m.meta;
     } catch (e) { box.textContent = 'No se pudo leer GitHub: ' + e.message; say(''); return; }
     sel = new Set([...sel].filter((x) => lists[tab].some((f) => f.name === x)));
     say(''); render(); loadDates();
   }
   $('goTabD').onclick = () => { tab = 'files'; sel = new Set(); render(); loadDates(); };
   $('goTabT').onclick = () => { tab = 'trash'; sel = new Set(); render(); loadDates(); };
+  $('goTabL').onclick = () => { tab = 'lib'; sel = new Set(); render(); loadDates(); };
   box.textContent = 'Cargando…'; render();
   dlg.showModal();
   await reload();

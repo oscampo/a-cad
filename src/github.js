@@ -58,9 +58,10 @@ export const TRASH = '_papelera', META = '_ipad-cad.json';
 const join = (...p) => p.filter(Boolean).join('/');
 export const dirPath = (c, sub = '') => join(cleanDir(c.dir), sub);
 
-// Lista los .json de la carpeta configurada, o de su subcarpeta sub ('' o TRASH) ([] si la carpeta aun no existe).
-export async function list(c, sub = '', f = fetch) {
-  const dir = dirPath(c, sub);
+// Lista los .json de la carpeta configurada, o de su subcarpeta sub ('' o TRASH) ([] si la carpeta aun no existe). abs: una carpeta desde la raiz
+// del repositorio (las bibliotecas, en MyLibrary/), no dentro de la configurada.
+export async function list(c, sub = '', f = fetch, abs = null) {
+  const dir = abs ?? dirPath(c, sub);
   const url = `${API}/repos/${c.repo}/contents${dir ? '/' + enc(dir) : ''}?ref=${encodeURIComponent(c.branch)}`;
   let r;
   try { r = await call(c, 'GET', url, null, undefined, f); } catch (e) { if (e.status === 404) { await call(c, 'GET', `${API}/repos/${c.repo}`, null, undefined, f); return []; } throw e; }
