@@ -3803,7 +3803,7 @@ function drawGraphs(c, o) {
       c.fillStyle = o.bg; c.lineWidth = 1.5 * dpr;
       if (selGraph === id) for (const [hx, hy] of [[0, 0], [.5, 0], [1, 0], [0, .5], [1, .5], [0, 1], [.5, 1], [1, 1]]) { const r = 5 * dpr; c.beginPath(); c.rect(x0 + hx * W - r, y0 + hy * H - r, 2 * r, 2 * r); c.fill(); c.stroke(); }
     }
-    if (o.ui && !sim && tool === 'select') drawGraphCtl(c, id, A, B, o);
+    if (o.ui && !sim && tool === 'select' && selGraph === id) drawGraphCtl(c, id, A, B, o); // los controles (deslizadores, Ajustar, vista guardada) solo con la grafica seleccionada: sin seleccionar se ve limpia
     c.restore();
     actHits.push({ id, g: true, x: A.x, y: A.y, w: B.x - A.x, h: B.y - A.y });
   }
