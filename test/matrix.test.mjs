@@ -173,7 +173,7 @@ t('elemento a elemento: .* ./ .^', () => {
   fails('[1,2].*[1,2,3]', /mismo tamaño/);
   fails('[1,2]./[0,1]', /División entre cero/);
   fails('[1,2]./0', /División entre cero/);
-  fails('[-1,2].^0.5', /no es un número/);
+  fails('[-1,2].^0.5', /número complejo/); // como en MATLAB da complejos ([1j, 1.414]); aqui (sin allowCplx) no se aceptan
   fails('[1,2]*[3,4]', /v\*w\^T/); // * sigue siendo el producto matricial
 });
 
@@ -193,8 +193,8 @@ t('funciones elemento a elemento', () => {
   close(mat('atan2([1,1]; [1,-1])'), [[45, 135]]);
   assert.deepEqual(mat('clamp([0,5,10]; 2; 8)'), [[2, 5, 8]]);
   assert.deepEqual(mat('hypot([3,5]; [4,12])'), [[5, 13]]);
-  fails('sqrt([-1,4])', /no es un número/); // igual que sqrt(-1)
-  fails('√[-1,4]', /negativo/);
+  fails('sqrt([-1,4])', /número complejo/); // como sqrt(-1) = 1j: un complejo, que aqui no se acepta
+  fails('√[-1,4]', /número complejo/);
   fails('ln([0,1])', /no es un número/); // ln(0) = -inf
   fails('max([1,2]; [1,2,3])', /mismo tamaño/);
   fails('sin([1,2],[3,4])', /un solo valor/);

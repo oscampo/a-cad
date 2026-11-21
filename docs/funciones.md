@@ -108,6 +108,18 @@ Se definen en un texto y se usan en las salidas, en las variables y en las cotas
 | `f(x):…` | Función de un parámetro. | `f(x):x^2+1`<br>`f(3)=` | `10` |
 | `g(a; b):…` | Varios parámetros, separados por `;` o `,`. | `g(a; b):a*b+1`<br>`g(2; 5)=` | `11` |
 
+## Números complejos
+
+`j` es la unidad imaginaria (`3+4j`); un número también lleva el sufijo: `2.5j` o `2.5i` (la letra `i` sola sigue siendo una variable). Como en MATLAB, `sqrt(-4)` es `2j`, `ln(-1)` es `πj` y una base negativa con exponente no entero da un complejo. Valen las operaciones, las potencias, las funciones (sin, exp, ln, sqrt…), las matrices (inv, det, producto) y las unidades (una impedancia en Ω). Con complejos solo se compara con `==` y `!=`. Una cota, una gráfica o la condición de un if necesitan un real: abs, angle, real o imag lo dan.
+
+| Función | Qué hace | Ejemplo | Da |
+|---|---|---|---|
+| `abs(z)` | Módulo. | `abs(3+4j)` | `5` |
+| `angle(z)` | Argumento (en grados o radianes, según el dibujo). | `angle(1+1j)` | `45` |
+| `real(z)`, `imag(z)` | Parte real e imaginaria. | `real((1+2j)*(3-1j))` | `5` |
+|  |  | `imag((1+2j)*(3-1j))` | `5` |
+| `conj(z)` | Conjugado: z·conj(z) = |z|². | `real((3+4j)*conj(3+4j))` | `25` |
+
 ## Programas
 
 Pasos en orden y ciclos dentro de una fórmula, como en SMath. Dentro, `s:valor` asigna una variable **local**: vale solo en esa fórmula (no crea variables del documento ni cambia las de afuera). Se pueden escribir en varias líneas, con sangría, y se dibujan como se escribieron. Un ciclo tiene un tope de 100 000 vueltas y 1,5 s: si lo pasa, avisa en vez de congelar la app.

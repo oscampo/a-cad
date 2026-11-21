@@ -104,6 +104,17 @@ export const FUNC_GROUPS = [
     ],
   },
   {
+    title: 'Números complejos',
+    note: '<code>j</code> es la unidad imaginaria (<code>3+4j</code>); un número también lleva el sufijo: <code>2.5j</code> o <code>2.5i</code> (la letra <code>i</code> sola sigue siendo una variable). Como en MATLAB, <code>sqrt(-4)</code> es <code>2j</code>, <code>ln(-1)</code> es <code>πj</code> y una base negativa con exponente no entero da un complejo. Valen las operaciones, las potencias, las funciones (sin, exp, ln, sqrt…), las matrices (inv, det, producto) y las unidades (una impedancia en Ω). Con complejos solo se compara con <code>==</code> y <code>!=</code>. Una cota, una gráfica o la condición de un if necesitan un real: abs, angle, real o imag lo dan.',
+    rows: [
+      ['<code>abs(z)</code>', 'Módulo.', 'abs(3+4j)', '5', 'n'],
+      ['<code>angle(z)</code>', 'Argumento (en grados o radianes, según el dibujo).', 'angle(1+1j)', '45', 'n'],
+      ['<code>real(z)</code>, <code>imag(z)</code>', 'Parte real e imaginaria.', 'real((1+2j)*(3-1j))', '5', 'n'],
+      ['', '', 'imag((1+2j)*(3-1j))', '5', 'n'],
+      ['<code>conj(z)</code>', 'Conjugado: z·conj(z) = |z|².', 'real((3+4j)*conj(3+4j))', '25', 'n'],
+    ],
+  },
+  {
     title: 'Programas',
     note: 'Pasos en orden y ciclos dentro de una fórmula, como en SMath. Dentro, <code>s:valor</code> asigna una variable <b>local</b>: vale solo en esa fórmula (no crea variables del documento ni cambia las de afuera). Se pueden escribir en varias líneas, con sangría, y se dibujan como se escribieron. Un ciclo tiene un tope de 100 000 vueltas y 1,5 s: si lo pasa, avisa en vez de congelar la app.',
     rows: [

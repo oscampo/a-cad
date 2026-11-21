@@ -3098,7 +3098,8 @@ t('formulas: redondeo, comparacion y trigonometria extra', () => {
   // «t» esta reservada para el tiempo (solo en minuscula): no es nombre de cota ni de variable y todavia no vale nada
   assert.match(checkName(newDoc(), 't', null), /tiempo/); assert.equal(checkName(newDoc(), 'T', null), null);
   assert.throws(() => evalExpr('2*t'), /reservada para el tiempo/);
-  for (const n of ['j', 'ω', 'θ', 'α']) { assert.match(checkName(newDoc(), n, null), /uso futuro/); assert.throws(() => evalExpr('2*' + n), /uso futuro/); }
+  for (const n of ['ω', 'θ', 'α']) { assert.match(checkName(newDoc(), n, null), /uso futuro/); assert.throws(() => evalExpr('2*' + n), /uso futuro/); }
+  assert.match(checkName(newDoc(), 'j', null), /unidad imaginaria/); assert.throws(() => evalExpr('2*j'), /número complejo/); // j es la unidad imaginaria (un real hace falta en una cota)
   for (const n of ['J', 'Ω', 'Θ', 'Α', 'β', 'i']) assert.equal(checkName(newDoc(), n, null), null, n); // solo esas minusculas exactas
   for (const n of ['π', 'pi', 'e']) assert.match(checkName(newDoc(), n, null), /constante/);
   const dt = newDoc(); addText(dt, addPoint(dt, 0, 0), '$t:5$  $T:2$', {});

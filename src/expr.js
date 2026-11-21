@@ -21,8 +21,10 @@ const FUNCS = {
   deg: (x) => x * TAU_DEG, rad: (x) => x / TAU_DEG, // de radianes a grados y de grados a radianes
   // redondeo
   floor: Math.floor, piso: Math.floor, ceil: Math.ceil, techo: Math.ceil, trunc: Math.trunc, sign: Math.sign, signo: Math.sign,
+  // numeros complejos (con un numero real: real(x) = x, imag(x) = 0, conj(x) = x, angle(x) = 0 o 180°)
+  real: (x) => x, imag: () => 0, conj: (x) => x, angle: (x, r, rm) => (x < 0 ? (rm ? Math.PI : 180) : 0),
 };
-const KEEP_U = new Set(['abs', 'floor', 'piso', 'ceil', 'techo', 'trunc']); // con unidades, conservan las del argumento
+const KEEP_U = new Set(['abs', 'floor', 'piso', 'ceil', 'techo', 'trunc', 'real', 'imag', 'conj']); // con unidades, conservan las del argumento
 const KEEP_RAD = new Set(['sqrt', 'raiz', 'abs', 'floor', 'piso', 'ceil', 'techo', 'trunc']); // conservan la marca de radianes del argumento
 const MAKE_RAD = new Set(['rad']); // su resultado es un angulo en radianes
 const CONSTS = { pi: Math.PI, π: Math.PI, e: Math.E };
@@ -54,7 +56,7 @@ const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
 export const TIME_VAR = 't';
 export const FUTURE_VARS = new Set([TIME_VAR, 'j', 'ω', 'θ', 'α']);
 export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l === 'log10' || l === 'clear' || l === 'all' || l === 'solve'; };
-export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : String(n).toLowerCase() === 'all' ? `«${n}» está reservada para clear(all)` : `«${n}» es una función o constante`);
+export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : n === 'j' ? '«j» es la unidad imaginaria (3+4j)' : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : String(n).toLowerCase() === 'all' ? `«${n}» está reservada para clear(all)` : `«${n}» es una función o constante`);
 // Todos los nombres de funciones y constantes del evaluador (la referencia de la ayuda debe nombrarlos todos: test/funcref.test.mjs).
 export const FUNC_NAMES = [...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(CONSTS)];
 addCalcFns([...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, 'solve']); // se dibujan como funcion (ver asciimath.js)
@@ -134,7 +136,11 @@ function tokenize(src, vars = null, loose = false) {
     // Notacion cientifica: 2.5e6, 3e-4, 1E3 («e» y «E» no pueden ser nombres de variable: son la constante e). «2E3» es 2000 aunque
     // exista una variable E3: para multiplicar, «2*E3».
     let m = numRe(depth).exec(src.slice(i));
-    if (m) { toks.push({ t: 'num', v: Number(m[0].replace(',', '.')), i, j: i + m[0].length }); i += m[0].length; continue; }
+    if (m) {
+      const L = m[0].length, sx = src[i + L];
+      if ((sx === 'i' || sx === 'j') && !/[A-Za-z0-9_α-ωΑ-Ωϑϕϖɛ']/.test(src[i + L + 1] || '')) { toks.push({ t: 'num', v: 0, im: Number(m[0].replace(',', '.')), i, j: i + L + 1 }); i += L + 1; continue; } // «3j», «2.5i»: un imaginario
+      toks.push({ t: 'num', v: Number(m[0].replace(',', '.')), i, j: i + L }); i += L; continue;
+    }
     if (c === '√') { toks.push({ t: 'sqrt', i, j: i + 1 }); i++; continue; }
     if (c === 'π') { toks.push({ t: 'id', v: 'π', i, j: i + 1 }); i++; continue; }
     m = SUB_RE.exec(src.slice(i)) || ID_RE.exec(src.slice(i));
@@ -153,6 +159,7 @@ function tokenize(src, vars = null, loose = false) {
       if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: vars[raw]?.fn ? 'ufn' : 'var', v: raw, i, j: i + L }); // ufn: funcion definida en un texto
       else if (vars && (ix = indexOfVar(raw, vars))) toks.push({ t: 'idx', base: ix.base, src: ix.src, i, j: i + L }); // v_2, v_i, A_(1,2): un elemento de un vector o matriz
       else if (raw === 'T' && last?.t === 'op' && last.v === '^') toks.push({ t: 'tr', i, j: i + 1 }); // x^T: la transpuesta
+      else if (raw === 'j') toks.push({ t: 'num', v: 0, im: 1, i, j: i + L }); // la unidad imaginaria (solo «j» minuscula)
       else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name) || MATFN.has(name)) toks.push({ t: 'id', v: name, i, j: i + L });
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + L });
       else if (FUTURE_VARS.has(raw)) throw new Error(`${reservedWhy(raw)} (todavía no tiene valor)`);
@@ -226,7 +233,7 @@ export function renameInExpr(src, from, to) {
 const isM = (a) => !!a?.m;
 // Un 0 sin unidades vale con cualquier unidad (0 m = 0 kN = 0): se puede sumar, restar y comparar con una cantidad, y estar en una matriz
 // con elementos que la tienen («x>0» con x en in, «if(x>a; x-a; 0)»). Solo el cero exacto: 1 + 2 m sigue siendo ⚠.
-const zero0 = (a) => !isM(a) && !a?.d && a?.v === 0;
+const zero0 = (a) => !isM(a) && !a?.d && a?.v === 0 && !a?.im;
 const dimsOf = (a) => `${a.m.length}×${a.m[0].length}`;
 const nameM = (a) => (a.m.length === 1 ? `un vector fila de ${a.m[0].length}` : a.m[0].length === 1 ? `un vector columna de ${a.m.length}` : `una matriz de ${dimsOf(a)}`);
 const mapM = (a, f) => ({ m: a.m.map((r) => r.map(f)) });
@@ -302,6 +309,151 @@ function elementwise(a, b, f, what) {
   return isM(a) ? mapM(a, (x) => f(x, b.v)) : mapM(b, (y) => f(a.v, y));
 }
 const divEl = (x, y) => { if (y === 0) throw rt('División entre cero'); return x / y; };
+
+// ---- Numeros complejos ----
+// Un escalar complejo es { v (parte real), im (parte imaginaria), r, d }; una matriz compleja, { m (partes reales), mi (imaginarias) }.
+// Sin im (o mi) el valor es real y todo va por el camino de siempre. Aqui se opera con pares [re, im].
+const isC = (a) => (isM(a) ? !!a.mi : !!a?.im);
+const cpair = (a) => [a.v, a.im || 0];
+const cval = (z, r = false, d) => { const o = { v: z[0], r }; if (z[1]) o.im = z[1]; if (d) o.d = d; return o; };
+const cadd = (a, b) => [a[0] + b[0], a[1] + b[1]];
+const csub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+const cdiv = (a, b) => { const q = b[0] * b[0] + b[1] * b[1]; if (q === 0) throw rt('División entre cero'); return [(a[0] * b[0] + a[1] * b[1]) / q, (a[1] * b[0] - a[0] * b[1]) / q]; };
+const cabs = (a) => Math.hypot(a[0], a[1]);
+const carg = (a) => Math.atan2(a[1], a[0]);
+const cexp = (a) => { const e = Math.exp(a[0]); return a[1] ? [e * Math.cos(a[1]), e * Math.sin(a[1])] : [e, 0]; };
+const clog = (a) => { if (a[0] === 0 && a[1] === 0) throw rt('Logaritmo de cero'); return [Math.log(cabs(a)), carg(a)]; };
+const csqrt = (a) => { const r = cabs(a); if (r === 0) return [0, 0]; const re = Math.sqrt(Math.max(0, (r + a[0]) / 2)), im = Math.sqrt(Math.max(0, (r - a[0]) / 2)); return [re, a[1] < 0 ? -im : im]; };
+function cpow(a, b) {
+  if (a[0] === 0 && a[1] === 0) { if (b[0] === 0 && b[1] === 0) return [1, 0]; if (b[0] > 0) return [0, 0]; throw rt('División entre cero'); }
+  if (!b[1] && Number.isInteger(b[0]) && Math.abs(b[0]) <= 64) { // potencia entera: por multiplicaciones (exacta: (3+4j)^2 = -7+24j)
+    let out = [1, 0], base = b[0] < 0 ? cdiv([1, 0], a) : a, e = Math.abs(b[0]);
+    while (e > 0) { if (e & 1) out = cmul(out, base); base = cmul(base, base); e >>= 1; }
+    return out;
+  }
+  return cexp(cmul(b, clog(a)));
+}
+const csin = (a) => [Math.sin(a[0]) * Math.cosh(a[1]), Math.cos(a[0]) * Math.sinh(a[1])];
+const ccos = (a) => [Math.cos(a[0]) * Math.cosh(a[1]), -Math.sin(a[0]) * Math.sinh(a[1])];
+const csinh = (a) => [Math.sinh(a[0]) * Math.cos(a[1]), Math.cosh(a[0]) * Math.sin(a[1])];
+const ccosh = (a) => [Math.cosh(a[0]) * Math.cos(a[1]), Math.sinh(a[0]) * Math.sin(a[1])];
+const casin = (z) => { const l = clog(cadd([-z[1], z[0]], csqrt(csub([1, 0], cmul(z, z))))); return [l[1], -l[0]]; }; // -j·ln(jz + √(1-z²))
+const cacos = (z) => csub([Math.PI / 2, 0], casin(z));
+const catan = (z) => { const jz = [-z[1], z[0]], l = csub(clog(csub([1, 0], jz)), clog(cadd([1, 0], jz))); return [-l[1] / 2, l[0] / 2]; };
+const casinh = (z) => clog(cadd(z, csqrt(cadd(cmul(z, z), [1, 0]))));
+const cacosh = (z) => clog(cadd(z, cmul(csqrt(cadd(z, [1, 0])), csqrt(csub(z, [1, 0])))));
+const catanh = (z) => { const l = csub(clog(cadd([1, 0], z)), clog(csub([1, 0], z))); return [l[0] / 2, l[1] / 2]; };
+const cscale = (a, k) => [a[0] * k, a[1] * k];
+// Funciones con un argumento complejo: f(z, radianes) -> z. Las trigonometricas siguen la regla de los angulos (en grados si no son radianes).
+const DEG_IN = (f) => (z, rm) => f(rm ? z : cscale(z, 1 / TAU_DEG)), DEG_OUT = (f) => (z, rm) => (rm ? f(z) : cscale(f(z), TAU_DEG));
+const CF = {
+  sqrt: csqrt, raiz: csqrt, exp: cexp, ln: clog, log: (z) => cscale(clog(z), 1 / Math.LN10), log10: (z) => cscale(clog(z), 1 / Math.LN10),
+  sin: DEG_IN(csin), sen: DEG_IN(csin), cos: DEG_IN(ccos), tan: DEG_IN((z) => cdiv(csin(z), ccos(z))),
+  sec: DEG_IN((z) => cdiv([1, 0], ccos(z))), csc: DEG_IN((z) => cdiv([1, 0], csin(z))), cot: DEG_IN((z) => cdiv(ccos(z), csin(z))),
+  sinh: csinh, cosh: ccosh, tanh: (z) => cdiv(csinh(z), ccosh(z)), asinh: casinh, acosh: cacosh, atanh: catanh,
+  asin: DEG_OUT(casin), acos: DEG_OUT(cacos), atan: DEG_OUT(catan),
+  sign: (z) => { const r = cabs(z); return r ? cscale(z, 1 / r) : [0, 0]; }, signo: (z) => { const r = cabs(z); return r ? cscale(z, 1 / r) : [0, 0]; },
+};
+// Funciones que con un numero real fuera de su dominio real dan un complejo (como en MATLAB): √(-4) = 2j, ln(-1) = πj, acos(2).
+const DOM_C = new Set(['sqrt', 'raiz', 'ln', 'log', 'log10', 'asin', 'acos', 'acosh', 'atanh']);
+// Matrices complejas: como matrices de pares
+const cm = (a) => a.m.map((r, i) => r.map((x, k) => [x, a.mi ? a.mi[i][k] : 0]));
+const fromCm = (P) => { const m = P.map((r) => r.map((z) => z[0])), mi = P.map((r) => r.map((z) => z[1])); return mi.some((r) => r.some((x) => x !== 0)) ? { m, mi } : { m }; };
+const cmapM = (a, f) => fromCm(cm(a).map((r) => r.map(f)));
+const ctransposeM = (a) => ({ m: a.m[0].map((_, k) => a.m.map((r) => r[k])), ...(a.mi ? { mi: a.mi[0].map((_, k) => a.mi.map((r) => r[k])) } : {}) });
+function celementwise(a, b, f, what) {
+  if (isM(a) && isM(b)) { sameShape(a, b, what); const B = cm(b); return fromCm(cm(a).map((r, i) => r.map((z, k) => f(z, B[i][k])))); }
+  return isM(a) ? cmapM(a, (z) => f(z, cpair(b))) : cmapM(b, (z) => f(cpair(a), z));
+}
+function caddM(a, b, s) { // suma (s = 1) o resta (s = -1) con matrices complejas; un numero se suma a cada elemento
+  if (isM(a) && isM(b)) { if (a.m.length !== b.m.length || a.m[0].length !== b.m[0].length) throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} ${nameM(a)} y ${nameM(b)}: deben tener el mismo tamaño`); const B = cm(b); return fromCm(cm(a).map((r, i) => r.map((z, k) => cadd(z, cscale(B[i][k], s))))); }
+  return isM(a) ? cmapM(a, (z) => cadd(z, cscale(cpair(b), s))) : cmapM(b, (z) => cadd(cpair(a), cscale(z, s)));
+}
+const cmulRaw = (A, B) => A.map((r) => B[0].map((_, k) => r.reduce((s, z, j) => cadd(s, cmul(z, B[j][k])), [0, 0])));
+function cmulM(a, b) {
+  if (!isM(a)) return cmapM(b, (z) => cmul(cpair(a), z));
+  if (!isM(b)) return cmapM(a, (z) => cmul(z, cpair(b)));
+  const n = a.m[0].length;
+  if (n !== b.m.length) throw new Error(`No se puede multiplicar ${nameM(a)} por ${nameM(b)}: las columnas de la primera (${n}) deben ser las filas de la segunda (${b.m.length})`);
+  const out = cmulRaw(cm(a), cm(b));
+  return out.length === 1 && out[0].length === 1 ? cval(out[0][0]) : fromCm(out);
+}
+function cinvRaw(P) { // Gauss-Jordan con pivote parcial (por el modulo)
+  const n = P.length;
+  if (P[0].length !== n) throw new Error(`Solo las matrices cuadradas tienen inversa (esta es de ${n}×${P[0].length})`);
+  const big = Math.max(1e-300, ...P.flat().map(cabs));
+  const a = P.map((r, i) => [...r, ...Array.from({ length: n }, (_, k) => [k === i ? 1 : 0, 0])]);
+  for (let c = 0; c < n; c++) {
+    let q = c;
+    for (let r = c + 1; r < n; r++) if (cabs(a[r][c]) > cabs(a[q][c])) q = r;
+    if (cabs(a[q][c]) <= 1e-12 * big) throw new Error('La matriz es singular: no tiene inversa');
+    [a[c], a[q]] = [a[q], a[c]];
+    const d = a[c][c];
+    for (let k = 0; k < 2 * n; k++) a[c][k] = cdiv(a[c][k], d);
+    for (let r = 0; r < n; r++) if (r !== c) { const f = a[r][c]; if (f[0] || f[1]) for (let k = 0; k < 2 * n; k++) a[r][k] = csub(a[r][k], cmul(f, a[c][k])); }
+  }
+  return a.map((r) => r.slice(n));
+}
+function cdetRaw(P) {
+  const n = P.length;
+  if (P[0].length !== n) throw new Error(`Solo las matrices cuadradas tienen determinante (esta es de ${n}×${P[0].length})`);
+  const a = P.map((r) => r.map((z) => [...z]));
+  let det = [1, 0];
+  for (let c = 0; c < n; c++) {
+    let q = c;
+    for (let r = c + 1; r < n; r++) if (cabs(a[r][c]) > cabs(a[q][c])) q = r;
+    if (!a[q][c][0] && !a[q][c][1]) return [0, 0];
+    if (q !== c) { [a[c], a[q]] = [a[q], a[c]]; det = [-det[0], -det[1]]; }
+    det = cmul(det, a[c][c]);
+    for (let r = c + 1; r < n; r++) { const f = cdiv(a[r][c], a[c][c]); for (let k = c; k < n; k++) a[r][k] = csub(a[r][k], cmul(f, a[c][k])); }
+  }
+  return det;
+}
+function cpowM(a, n) {
+  const sq = a.m.length;
+  if (a.m[0].length !== sq) throw new Error(`Solo las matrices cuadradas se elevan a una potencia (esta es de ${dimsOf(a)}); la potencia elemento a elemento es .^`);
+  if (!Number.isInteger(n)) throw new Error('La potencia de una matriz debe ser un número entero (A^2, A^(-1)); la potencia elemento a elemento es .^');
+  if (Math.abs(n) > 1000) throw new Error('La potencia de una matriz admite hasta ±1000');
+  let base = n < 0 ? cinvRaw(cm(a)) : cm(a), e = Math.abs(n), out = Array.from({ length: sq }, (_, i) => Array.from({ length: sq }, (_, k) => [i === k ? 1 : 0, 0]));
+  while (e > 0) { if (e & 1) out = cmulRaw(out, base); base = cmulRaw(base, base); e >>= 1; }
+  return fromCm(out);
+}
+// Funciones de vectores y matrices con complejos (las que tienen sentido; las demas avisan)
+function cmatFn(name, A) {
+  const [a, b] = A, P = isM(a) ? cm(a).flat() : [cpair(a)];
+  const csum = (L) => L.reduce(cadd, [0, 0]);
+  switch (name) {
+    case 'inv': return isM(a) ? fromCm(cinvRaw(cm(a))) : cval(cdiv([1, 0], cpair(a)));
+    case 'det': return cval(isM(a) ? cdetRaw(cm(a)) : cpair(a));
+    case 'sum': return cval(csum(P));
+    case 'prod': return cval(P.reduce(cmul, [1, 0]));
+    case 'mean': return cval(cscale(csum(P), 1 / P.length));
+    case 'norm': return { v: Math.sqrt(P.reduce((s, z) => s + z[0] * z[0] + z[1] * z[1], 0)), r: false };
+    case 'len': return { v: P.length, r: false };
+    case 'rows': return { v: isM(a) ? a.m.length : 1, r: false };
+    case 'cols': return { v: isM(a) ? a.m[0].length : 1, r: false };
+    case 'trace': { if (!isM(a)) return a; if (a.m.length !== a.m[0].length) throw new Error(`Solo las matrices cuadradas tienen traza (esta es de ${dimsOf(a)})`); const Q = cm(a); return cval(csum(Q.map((r, i) => r[i]))); }
+    case 'diag': {
+      if (!isM(a)) return fromCm([[cpair(a)]]);
+      const Q = cm(a);
+      if (a.m.length === 1 || a.m[0].length === 1) { const v = Q.flat(); return fromCm(v.map((z, i) => v.map((_, k) => (i === k ? z : [0, 0])))); }
+      return fromCm(Array.from({ length: Math.min(a.m.length, a.m[0].length) }, (_, i) => [Q[i][i]]));
+    }
+    case 'cumsum': case 'cumprod': {
+      if (isM(a) && a.m.length !== 1 && a.m[0].length !== 1) throw new Error(`«${name}» es para vectores (fila o columna), no para ${nameM(a)}`);
+      let acc = name === 'cumsum' ? [0, 0] : [1, 0];
+      const out = P.map((z) => (acc = name === 'cumsum' ? cadd(acc, z) : cmul(acc, z)));
+      return !isM(a) ? cval(out[0]) : fromCm(a.m.length > 1 ? out.map((z) => [z]) : [out]);
+    }
+    case 'dot': { // como en MATLAB: conjuga el primero
+      const Q = isM(b) ? cm(b).flat() : [cpair(b)];
+      if (P.length !== Q.length) throw new Error(`«dot» pide dos vectores del mismo tamaño (${P.length} y ${Q.length})`);
+      return cval(csum(P.map((z, i) => cmul([z[0], -z[1]], Q[i]))));
+    }
+    default: throw new Error(`«${name}» todavía no admite números complejos`);
+  }
+}
 
 const flatOf = (a) => (isM(a) ? a.m.flat() : [a.v]);
 // Un vector (fila o columna) o un numero, como lista.
@@ -438,7 +590,7 @@ function withUnknowns(s, vars) {
   }
   return out;
 }
-function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, depth = 0, globals = null } = {}) {
+function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allowCplx = false, depth = 0, globals = null } = {}) {
   const S = String(src ?? '');
   vars = withLocals(S, withUnknowns(S, vars));
   const toks = tokenize(S, vars);
@@ -499,7 +651,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
       if (vars[k.v]?.fn && !vars[k.v].loc) throw new Error(`«${k.v}» es una función: dentro de un programa no se le puede asignar un valor`);
       p += 2;
       const a = cmp();
-      vars[k.v] = isM(a) ? wd({ mat: a.m, loc: true }, a.d) : { v: a.v, r: !!a.r, d: a.d, loc: true };
+      vars[k.v] = isM(a) ? wd({ mat: a.m, ...(a.mi ? { mi: a.mi } : {}), loc: true }, a.d) : { v: a.v, ...(a.im ? { im: a.im } : {}), r: !!a.r, d: a.d, loc: true };
       return a;
     }
     return cmp();
@@ -525,12 +677,12 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     if (isOp('..')) {
       p++;
       const b = cmp();
-      if (isM(a) || isM(b)) throw new Error(`El rango de for va entre dos números: for(i${argText()} 1..n${argText()} …)`);
+      if (isM(a) || isM(b) || isC(a) || isC(b)) throw new Error(`El rango de for va entre dos números reales: for(i${argText()} 1..n${argText()} …)`);
       if (!sameDim(a.d, b.d) && !zero0(a) && !zero0(b)) throw new Error(`El rango de for va de ${unitMsg(a.d)} a ${unitMsg(b.d)}: deben tener las mismas unidades`);
       const d = a.d || b.d, n = Math.floor(b.v - a.v + 1e-9) + 1;
       if (n > LOOP_MAX) throw new Error(`El rango de for tiene ${n} valores: el tope es ${LOOP_MAX.toLocaleString('es')}`);
       seq = Array.from({ length: Math.max(0, n) }, (_, q) => ({ v: a.v + q, r: !!a.r, d }));
-    } else if (isM(a)) seq = a.m.flat().map((v) => ({ v, r: false, d: a.d })); // recorre los elementos de un vector (o de una matriz, fila por fila)
+    } else if (isM(a)) seq = a.m.flat().map((v, q) => ({ v, r: false, d: a.d, ...(a.mi && a.mi.flat()[q] ? { im: a.mi.flat()[q] } : {}) })); // recorre los elementos de un vector (o de una matriz, fila por fila)
     else seq = [a];
     progSep(FOR_MSG);
     const p0 = p;
@@ -547,6 +699,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
       p = p0;
       const c = cmp();
       if (isM(c)) throw new Error('La condición de while es un número, no un vector ni una matriz');
+      if (isC(c)) throw new Error('La condición de while no puede ser un número complejo: usa abs(…), real(…) o imag(…)');
       progSep(WHILE_MSG);
       if (c.v === 0) { skipArg(); break; }
       loopTick();
@@ -562,6 +715,12 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     p++;
     const b = expr();
     if (isM(a) || isM(b)) throw new Error('No se pueden comparar vectores o matrices');
+    if (isC(a) || isC(b)) { // con complejos solo == y != (no hay orden): para comparar tamaños, abs() o real()
+      if (k.v !== '==' && k.v !== '!=') throw new Error(`No se pueden comparar números complejos con «${k.v}»: usa abs(…) o real(…)`);
+      if (!sameDim(a.d, b.d) && !zero0(a) && !zero0(b)) throw new Error(`No se puede comparar ${unitMsg(a.d)} con ${unitMsg(b.d)}`);
+      const x = cpair(a), y = cpair(b), eq = cabs(csub(x, y)) <= 1e-9 * Math.max(a.d ? 0 : 1, cabs(x), cabs(y));
+      return { v: (k.v === '==') === eq ? 1 : 0, r: false };
+    }
     if (!sameDim(a.d, b.d) && !zero0(a) && !zero0(b)) throw new Error(`No se puede comparar ${unitMsg(a.d)} con ${unitMsg(b.d)}`);
     const x = a.v, y = b.v, eq = Math.abs(x - y) <= 1e-9 * Math.max(a.d ? 0 : 1, Math.abs(x), Math.abs(y)); // con unidades, la tolerancia es relativa (3'pF no es 0)
     const ok = { '<': x < y && !eq, '>': x > y && !eq, '<=': x < y || eq, '>=': x > y || eq, '==': eq, '!=': !eq }[k.v];
@@ -581,6 +740,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     if (isOp(')')) throw new Error(`«${name}» necesita al menos un valor`);
     const c = cmp();
     if (isM(c)) throw new Error('La condición de if() es un número, no un vector ni una matriz');
+    if (isC(c)) throw new Error('La condición de if() no puede ser un número complejo: usa abs(…), real(…) o imag(…)');
     const sep = () => { if (peek()?.t !== 'sep') throw new Error(SI_MSG()); p++; };
     const yes = c.v !== 0;
     let pick;
@@ -607,14 +767,41 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     const name = xt.v, here = vars?.[name];
     if (!g) g = here && !here.unk && !here.fn && Number.isFinite(here.v) ? { v: here.v, r: !!here.r, d: here.d } : { v: 1, r: false };
     if (isM(g)) throw new Error('fzero busca un número: el valor inicial no puede ser un vector');
-    const calc = (s, vv) => { const r = evalExpr(s, { radians, vars: vv, depth: depth + 1, globals: globals || vars }); if (r.mat) throw new Error('la ecuación da un vector: fzero resuelve una ecuación de una incógnita'); return r; };
+    const calc = (s, vv) => { const r = evalExpr(s, { radians, vars: vv, depth: depth + 1, globals: globals || vars }); if (r.mat) throw new Error('la ecuación da un vector: fzero resuelve una ecuación de una incógnita'); if (r.im) throw new Error('la ecuación da un número complejo: fzero resuelve ecuaciones reales'); return r; };
     try {
       const [x] = solveEqs([{ name, v: g.v, r: g.r, d: g.d }], [S.slice(toks[a0].i, toks[a1 - 1].j)], calc, vars || {});
       return wd({ v: x, r: g.r }, g.d);
     } catch (e) { throw new Error(`fzero: ${e.message}`); }
   }
+  // Funciones con numeros complejos: con un argumento complejo, o con uno real fuera del dominio real (√(-4) = 2j). null: va por el camino real.
+  function cplxCall(name, A) {
+    const anyC = A.some(isC);
+    if (!anyC) { // ¿un real fuera de su dominio? (solo las de DOM_C, con un argumento)
+      if (!DOM_C.has(name) || A.length !== 1) return null;
+      const a = A[0], xs = isM(a) ? a.m.flat() : [a.v];
+      if (!xs.some((x) => Number.isFinite(x) && Number.isNaN(FUNCS[name](x, a.r || radians, radians)))) return null;
+    }
+    if (MATFN.has(name)) { const d = matDim(name, A); return wd(cmatFn(name, A), d); }
+    if (name in MULTI) throw new Error(`«${name}» no admite números complejos (usa abs(…), real(…) o imag(…))`);
+    if (A.length !== 1) throw new Error(`«${name}» recibe un solo valor`);
+    const a = A[0], d = name === 'angle' ? undefined : fnDim(name, a);
+    const one = (z) => {
+      switch (name) {
+        case 'abs': return [cabs(z), 0];
+        case 'real': return [z[0], 0];
+        case 'imag': return [z[1], 0];
+        case 'conj': return [z[0], -z[1]];
+        case 'angle': return [radians ? carg(z) : carg(z) * TAU_DEG, 0];
+        default: if (!CF[name]) throw new Error(`«${name}» no admite números complejos`); return CF[name](z, radians);
+      }
+    };
+    if (isM(a)) return wd(cmapM(a, one), d);
+    return cval(one(cpair(a)), name === 'angle' ? false : a.r, d);
+  }
   function call(name, A) {
     const sep = decimalMode() === '.' ? ' (sepáralos con «,»)' : decimalMode() === ',' ? ' (sepáralos con «;»)' : ' (sepáralos con «;»: «2,5» es un solo número)';
+    const cr = cplxCall(name, A);
+    if (cr) return cr;
     if (MATFN.has(name)) { const d = matDim(name, A); return wd({ ...matFn(name, A) }, d); }
     if ((name === 'min' || name === 'max') && A.length === 1) { // min(x), max(x): el menor o el mayor de todos los elementos
       if (!isM(A[0])) throw new Error(dotArgs() ? `«${name}» recibe dos valores (${name}(a, b)) o un vector` : `«${name}» recibe dos valores (${name}(a; b)) o un vector`);
@@ -650,10 +837,10 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     if (A.length !== f.params.length) throw new Error(`«${name}» recibe ${f.params.length === 1 ? 'un valor' : dotArgs() ? `${f.params.length} valores separados por «,»` : `${f.params.length} valores separados por «;»`}: ${name}(${f.params.join(argText() + ' ')})`);
     if (depth >= 200) throw new Error(`«${name}» se llama a sí misma demasiadas veces (200 niveles)`);
     const g = globals || vars, local = { ...g, ...(f.lib || {}) }; // f.lib: las funciones locales de un script (ver script.js)
-    f.params.forEach((q, i) => { local[q] = isM(A[i]) ? wd({ mat: A[i].m }, A[i].d) : { v: A[i].v, r: !!A[i].r, d: A[i].d }; });
+    f.params.forEach((q, i) => { local[q] = isM(A[i]) ? wd({ mat: A[i].m, ...(A[i].mi ? { mi: A[i].mi } : {}) }, A[i].d) : { v: A[i].v, ...(A[i].im ? { im: A[i].im } : {}), r: !!A[i].r, d: A[i].d }; });
     try {
-      const r = evalExpr(f.body, { radians, vars: local, allowMat: true, depth: depth + 1, globals: g });
-      return r.mat ? wd({ m: r.mat }, r.dim) : { v: r.value, r: r.rad, d: r.dim };
+      const r = evalExpr(f.body, { radians, vars: local, allowMat: true, allowCplx: true, depth: depth + 1, globals: g });
+      return r.mat ? wd({ m: r.mat, ...(r.mi ? { mi: r.mi } : {}) }, r.dim) : { v: r.value, ...(r.im ? { im: r.im } : {}), r: r.rad, d: r.dim };
     } catch (e) {
       if (/^En «/.test(e.message)) throw e;
       const ne = new Error(`En «${name}»: ${e.message}`); ne.rt = e.rt; throw ne;
@@ -662,28 +849,46 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
 
   function expr() {
     let a = term();
-    while (isOp('+') || isOp('-')) { const o = toks[p++].v, s = o === '+' ? 1 : -1; const b = term(); a = isM(a) || isM(b) ? wd(addM(a, b, s), addU(a, b, s)) : { v: a.v + s * b.v, r: a.r || b.r, d: addU(a, b, s) }; }
+    while (isOp('+') || isOp('-')) {
+      const o = toks[p++].v, s = o === '+' ? 1 : -1; const b = term();
+      if (isC(a) || isC(b)) { const d = addU(a, b, s); a = isM(a) || isM(b) ? wd(caddM(a, b, s), d) : cval(cadd(cpair(a), cscale(cpair(b), s)), a.r || b.r, d); continue; }
+      a = isM(a) || isM(b) ? wd(addM(a, b, s), addU(a, b, s)) : { v: a.v + s * b.v, r: a.r || b.r, d: addU(a, b, s) };
+    }
     return a;
+  }
+  // producto (o='*'), cociente ('/') o elemento a elemento ('.*', './') con algun complejo
+  function cMulDiv(a, b, o) {
+    const s = o === '*' || o === '.*' ? 1 : -1, d = mulDim(a.d, b.d, s);
+    if (o === '/' && isM(b)) throw new Error('No se puede dividir entre un vector o una matriz');
+    if (!isM(a) && !isM(b)) return cval((s > 0 ? cmul : cdiv)(cpair(a), cpair(b)), a.r || b.r, d);
+    if (o === '*') return wd(cmulM(a, b), d);
+    if (o === '/') return wd(cmapM(a, (z) => cdiv(z, cpair(b))), d);
+    return wd(celementwise(a, b, s > 0 ? cmul : cdiv, s > 0 ? 'multiplicar elemento a elemento' : 'dividir elemento a elemento'), d);
   }
   function term() {
     let a = unary();
     for (;;) {
       if (isOp('.*') || isOp('./')) { // elemento a elemento
         const o = toks[p++].v, b = unary();
+        if (isC(a) || isC(b)) { a = cMulDiv(a, b, o); continue; }
         if (!isM(a) && !isM(b)) { if (o === './' && b.v === 0) throw rt('División entre cero'); a = mulU(a, b, o === '.*' ? 1 : -1, o === '.*' ? a.v * b.v : a.v / b.v); } else a = wd(o === '.*' ? elementwise(a, b, (x, y) => x * y, 'multiplicar elemento a elemento') : elementwise(a, b, divEl, 'dividir elemento a elemento'), mulDim(a.d, b.d, o === '.*' ? 1 : -1));
       } else if (isOp('*') || isOp('/')) {
         const o = toks[p++].v, asUnit = peek()?.t === 'unit'; const b = unary();
+        if (isC(a) || isC(b)) { a = cMulDiv(a, b, o); continue; }
         if (o === '/') {
           if (isM(b)) throw new Error('No se puede dividir entre un vector o una matriz');
           if (b.v === 0) throw rt('División entre cero');
           a = isM(a) ? wd(mapM(a, (x) => x / b.v), mulDim(a.d, b.d, -1)) : mulU(a, b, -1, a.v / b.v, asUnit);
         } else a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit);
-      } else if (startsFactor()) { const asUnit = peek()?.t === 'unit', b = unary(); a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit); } // multiplicacion implicita: 2π, 3(4+1)
-      else return a;
+      } else if (startsFactor()) { // multiplicacion implicita: 2π, 3(4+1)
+        const asUnit = peek()?.t === 'unit', b = unary();
+        if (isC(a) || isC(b)) { a = cMulDiv(a, b, '*'); continue; }
+        a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit);
+      } else return a;
     }
   }
   function unary() {
-    if (isOp('-')) { p++; const a = unary(); return isM(a) ? wd(mapM(a, (x) => -x), a.d) : { v: -a.v, r: a.r, d: a.d }; }
+    if (isOp('-')) { p++; const a = unary(); if (isC(a)) return isM(a) ? wd(cmapM(a, (z) => [-z[0], -z[1]]), a.d) : cval([-a.v, -a.im], a.r, a.d); return isM(a) ? wd(mapM(a, (x) => -x), a.d) : { v: -a.v, r: a.r, d: a.d }; }
     if (isOp('+')) { p++; return unary(); }
     return power();
   }
@@ -691,9 +896,12 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
     const a = primary();
     if (isOp('^')) {
       p++;
-      if (peek()?.t === 'tr') { p++; return isM(a) ? wd(transposeM(a), a.d) : a; } // x^T
+      if (peek()?.t === 'tr') { p++; return isM(a) ? wd(isC(a) ? ctransposeM(a) : transposeM(a), a.d) : a; } // x^T
       const b = unary();
       if (b.d) throw new Error(`El exponente no puede llevar unidades (lleva ${unitMsg(b.d)})`);
+      if (isC(b) && (isM(a) || a.d)) throw new Error('Un exponente complejo solo vale con un número sin unidades');
+      if (isM(a) && !isM(b) && isC(a)) return wd(cpowM(a, b.v), powDim(a.d, b.v));
+      if (!isM(a) && !isM(b) && (isC(a) || isC(b) || (a.v < 0 && !Number.isInteger(b.v)))) return cval(cpow(cpair(a), cpair(b)), a.r, isC(b) ? undefined : powDim(a.d, b.v)); // (-8)^(1/3), (3+4j)^2, 2^j
       if (isM(a) && !isM(b)) return wd(powM(a, b.v), powDim(a.d, b.v)); // A^2, A^(-1)
       if (isM(b)) throw new Error('El exponente no puede ser un vector ni una matriz (para elevar elemento a elemento usa .^)');
       return { v: Math.pow(a.v, b.v), r: a.r, d: powDim(a.d, b.v) };
@@ -702,6 +910,13 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
       p++;
       const b = unary();
       if (b.d) throw new Error(`El exponente no puede llevar unidades (lleva ${unitMsg(b.d)})`);
+      const neg = (q) => (isM(q) ? q.m.some((r) => r.some((x) => x < 0)) : q.v < 0), frac = (q) => (isM(q) ? q.m.some((r) => r.some((x) => !Number.isInteger(x))) : !Number.isInteger(q.v));
+      if (isC(a) || isC(b) || (neg(a) && frac(b))) { // complejos (o una base negativa con exponente no entero): como en MATLAB
+        if (isC(b) && a.d) throw new Error('Un exponente complejo solo vale con un número sin unidades');
+        if (isM(b) && a.d) throw new Error('Con unidades, el exponente de .^ es un número, no un vector');
+        const d = isM(b) || isC(b) ? undefined : powDim(a.d, b.v);
+        return !isM(a) && !isM(b) ? cval(cpow(cpair(a), cpair(b)), a.r, d) : wd(celementwise(a, b, cpow, 'elevar elemento a elemento'), d);
+      }
       return !isM(a) && !isM(b) ? { v: Math.pow(a.v, b.v), r: a.r, d: powDim(a.d, b.v) } : wd(elementwise(a, b, Math.pow, 'elevar elemento a elemento'), isM(b) ? (a.d ? (() => { throw new Error('Con unidades, el exponente de .^ es un número, no un vector'); })() : undefined) : powDim(a.d, b.v));
     }
     return a;
@@ -709,7 +924,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
   function primary() {
     const k = toks[p++];
     if (!k) throw new Error('Expresión incompleta');
-    if (k.t === 'num') return { v: k.v, r: false };
+    if (k.t === 'num') return k.im ? { v: 0, im: k.im, r: false } : { v: k.v, r: false };
     if (k.t === 'unit') return { v: k.u.f, r: !!k.u.r, d: k.u.d }; // 'N, 'mm: vale su factor al SI, con su dimension
     if (k.t === 'idx') { // v_2, A_(i,j), A_(i,:), A_(:,j): un elemento, una fila o una columna (los indices empiezan en 1)
       if (!vars[k.base].vec && !vars[k.base].mat) throw new Error(vars[k.base].unset ? `«${k.base}» se usa antes de darle un valor` : `«${k.base}» no es un vector ni una matriz: no lleva índice`);
@@ -726,10 +941,11 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
       const [i, j] = ix.length === 2 ? ix : R === 1 ? [1, ix[0]] : [ix[0], 1];
       const out = (q, lim) => q !== ':' && (q < 1 || q > lim);
       if (out(i, R) || out(j, C)) throw new Error(`Índice fuera de rango: «${k.base}» es ${R === 1 ? `un vector de ${C}` : C === 1 ? `un vector de ${R}` : `una matriz de ${R}×${C}`}` + (ix.length === 2 ? ` y pides la fila ${i}, columna ${j}` : ` y pides el elemento ${ix[0]}`));
-      if (i === ':' && j === ':') return wd({ m }, xd);
-      if (i === ':') return wd({ m: m.map((r) => [r[j - 1]]) }, xd); // la columna j
-      if (j === ':') return wd({ m: [m[i - 1]] }, xd); // la fila i
-      return wd({ v: m[i - 1][j - 1], r: false }, xd);
+      const mi = x.mi; // parte imaginaria (una matriz compleja)
+      if (i === ':' && j === ':') return wd({ m, ...(mi ? { mi } : {}) }, xd);
+      if (i === ':') return wd(mi ? fromCm(m.map((r, q) => [[r[j - 1], mi[q][j - 1]]])) : { m: m.map((r) => [r[j - 1]]) }, xd); // la columna j
+      if (j === ':') return wd(mi ? fromCm([m[i - 1].map((v, q) => [v, mi[i - 1][q]])]) : { m: [m[i - 1]] }, xd); // la fila i
+      return wd(mi && mi[i - 1][j - 1] ? { v: m[i - 1][j - 1], im: mi[i - 1][j - 1], r: false } : { v: m[i - 1][j - 1], r: false }, xd);
     }
     if (k.t === 'ufn') { // funcion definida en un texto: foo(x; y):...
       if (!isOp('(')) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
@@ -745,11 +961,11 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
       const x = vars[k.v];
       if (x.unset) throw new Error(`«${k.v}» se usa antes de darle un valor (dentro del programa: ${k.v}:valor)`);
       if (x.fn) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
-      if (x.mat) return wd({ m: x.mat }, x.d);
+      if (x.mat) return wd({ m: x.mat, ...(x.mi ? { mi: x.mi } : {}) }, x.d);
       if (x.vec) return wd({ m: [x.vec] }, x.d);
-      return { v: x.v, r: !!x.r, d: x.d };
+      return { v: x.v, ...(x.im ? { im: x.im } : {}), r: !!x.r, d: x.d };
     }
-    if (k.t === 'sqrt') { const a = primary(); if (isM(a)) { if (a.m.some((r) => r.some((x) => x < 0))) throw rt('Raíz de un número negativo'); return wd(mapM(a, Math.sqrt), powDim(a.d, 0.5)); } if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r, d: powDim(a.d, 0.5) }; }
+    if (k.t === 'sqrt') { const a = primary(); if (isC(a) || (isM(a) ? a.m.some((r) => r.some((x) => x < 0)) : a.v < 0)) return isM(a) ? wd(cmapM(a, csqrt), powDim(a.d, 0.5)) : cval(csqrt(cpair(a)), a.r, powDim(a.d, 0.5)); if (isM(a)) { if (a.m.some((r) => r.some((x) => x < 0))) throw rt('Raíz de un número negativo'); return wd(mapM(a, Math.sqrt), powDim(a.d, 0.5)); } if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r, d: powDim(a.d, 0.5) }; }
     if (k.t === 'op' && k.v === '[') {
       // matriz: [1, 2, 3] (fila) o [1, 2; 3, 4] (filas separadas por «;»). Como en MATLAB, un elemento puede ser un vector o una
       // matriz (por bloques): «,» pone los bloques lado a lado (mismo numero de filas) y «;» uno debajo del otro (mismo numero de
@@ -761,7 +977,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
         const a = cmp();
         if (d0 === null || (z0 && !zero0(a))) { if (!zero0(a) || d0 === null) d0 = a.d; } else if (!sameDim(a.d, d0) && !zero0(a)) throw new Error(`Los elementos de una matriz deben tener las mismas unidades (hay ${unitMsg(d0)} y ${unitMsg(a.d)})`);
         if (!zero0(a)) z0 = false;
-        brow.at(-1).push(isM(a) ? a : { m: [[a.v]] });
+        brow.at(-1).push(isM(a) ? a : { m: [[a.v]], ...(a.im ? { mi: [[a.im]] } : {}) });
         const s = peek();
         if (s?.t === 'sep') { p++; if (s.c === rowChar()) brow.push([]); continue; } // filas: «;» (o «|» con coma decimal); elementos: «,» (o «;»)
         break;
@@ -769,12 +985,12 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
       if (!isOp(']')) throw new Error('Falta cerrar un corchete');
       p++;
       const blocky = brow.some((r) => r.some((b) => b.m.length !== 1 || b.m[0].length !== 1));
-      const rows = [];
+      const rows = [], rowsI = [], cplx = brow.some((r) => r.some((b) => b.mi));
       brow.forEach((bs, i) => {
         const h = bs[0].m.length;
         const odd = bs.find((b) => b.m.length !== h);
         if (odd) throw new Error(`Para poner lado a lado (con «${elemChar()}») los bloques deben tener el mismo número de filas: en la fila ${i + 1} hay ${nameM(bs[0])} y ${nameM(odd)}`);
-        for (let r = 0; r < h; r++) rows.push(bs.flatMap((b) => b.m[r]));
+        for (let r = 0; r < h; r++) { rows.push(bs.flatMap((b) => b.m[r])); if (cplx) rowsI.push(bs.flatMap((b) => (b.mi ? b.mi[r] : b.m[r].map(() => 0)))); }
       });
       const w = rows[0].length, bad = rows.find((r) => r.length !== w);
       if (bad) {
@@ -783,7 +999,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
         throw new Error(`Para apilar (con «${rowChar()}») las filas deben tener el mismo número de columnas: la 1.ª tiene ${wOf(brow[0])} y la ${j + 1}.ª ${wOf(brow[j])}`);
       }
       if (rows.length * w > 10000) throw new Error('Una matriz admite hasta 10000 elementos');
-      return wd({ m: rows }, d0);
+      return wd(cplx ? { m: rows, mi: rowsI } : { m: rows }, d0);
     }
     if (k.t === 'op' && k.v === '(') {
       const a = cmp();
@@ -815,13 +1031,15 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, dept
   }
   const res = cmp();
   if (p < toks.length) throw new Error('Sobra algo al final de la expresión');
+  // un complejo solo sale donde se acepta (los textos de calculo y las funciones); una cota, un actuador o una grafica necesitan un real
+  if (isC(res) && !allowCplx) throw new Error('El resultado es un número complejo: aquí hace falta un número real (usa abs(…), angle(…), real(…) o imag(…))');
   if (isM(res)) {
     if (!allowMat) throw new Error(`El resultado es ${nameM(res)}, no un número`);
-    if (!res.m.every((r) => r.every(Number.isFinite))) throw new Error('El resultado no es un número');
-    return { mat: res.m, value: NaN, rad: false, dim: res.d };
+    if (!res.m.every((r) => r.every(Number.isFinite)) || (res.mi && !res.mi.every((r) => r.every(Number.isFinite)))) throw new Error('El resultado no es un número');
+    return { mat: res.m, ...(res.mi ? { mi: res.mi } : {}), value: NaN, rad: false, dim: res.d };
   }
-  if (!Number.isFinite(res.v)) throw new Error('El resultado no es un número');
-  return { value: res.v, rad: res.r, dim: res.d };
+  if (!Number.isFinite(res.v) || (res.im !== undefined && !Number.isFinite(res.im))) throw new Error('El resultado no es un número');
+  return { value: res.v, ...(res.im ? { im: res.im } : {}), rad: res.r, dim: res.d };
 }
 
 // ¿El texto es un numero sin mas? (entonces no se guarda como formula)

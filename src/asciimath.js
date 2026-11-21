@@ -73,7 +73,7 @@ export function addCalcFns(names) {
 const CALC_FN = new Set();
 const plainTok = (k) => (CALC_FN.has(k) ? { t: 'fn', v: k } : { ...WORDS.get(k) });
 // Palabras que piden «\» para ser simbolo (el editor las usa para no convertir «\i» en ι al teclear «\in»).
-export const symbolWords = () => [...WORDS.keys()].filter((k) => !PLAIN.has(k) && /^[A-Za-z]/.test(k)).concat(SYMS.map(([w]) => w).filter((w) => /^[A-Za-z]/.test(w)));
+export const symbolWords = () => [...WORDS.keys()].filter((k) => (!PLAIN.has(k) || (CALC_FN.has(k) && WORDS.get(k)?.t !== 'fn')) && /^[A-Za-z]/.test(k)) // una funcion del calculo que tambien es simbolo con «\» (angle: ∠) sigue contando.concat(SYMS.map(([w]) => w).filter((w) => /^[A-Za-z]/.test(w)));
 
 const op = (v, k) => ({ t: 'op', v, k });
 const SYMS = [
