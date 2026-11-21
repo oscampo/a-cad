@@ -19,6 +19,7 @@ Sirven en cotas, textos (`x:…` y `expr=`), actuadores y gráficas.
 | `;` y `, ` | Separan los valores de una función de varios. `2,5` sin espacio es el número 2,5. | `max(3; 8)` | `8` |
 | `< > <= >= == !=` | Comparan: dan 1 si se cumple y 0 si no. También `≤ ≥ ≠`. `==` y `!=` toleran el redondeo. | `0.1+0.2==0.3` | `1` |
 | `if(c; a; b)` (`si`) | Si la condición `c` no es 0 vale `a`, si no `b`. Solo calcula la rama elegida. | `if(0==0; 0; 1/0)` | `0` |
+| `a ≈ b` (`a ~~ b`) | Casi igual: 1 si |a − b| ≤ tolerancia × máx(1, |a|, |b|), si no 0. La tolerancia (1e-12 por defecto) se cambia en **Configuración**. Sirve para comparar resultados con redondeo; `==` sigue siendo la igualdad de la app. | `0.1+0.2 ~~ 0.3` | `1` |
 
 ## Constantes
 
@@ -157,7 +158,7 @@ Un polinomio es el vector de sus coeficientes, del mayor grado al menor: [1, 0, 
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
-| `interp1(xs; ys; x)` | Interpolación lineal en una tabla (x un número o un vector; conserva las unidades de ys). | `interp1([0,1,2]; [0,10,40]; 1.5)` | `25` |
+| `interp1(xs; ys; x)` | Interpolación lineal en una tabla (x un número o un vector; conserva las unidades de ys). Fuera de la tabla da ⚠; con `interp1(xs; ys; x; "extrap")` extrapola con el primer o el último tramo, como en MATLAB. | `interp1([0,1,2]; [0,10,40]; 1.5)` | `25` |
 | `polyval(p; x)` | Valor del polinomio en x. | `polyval([1,0,-2]; 3)` | `7` |
 | `roots(p)` | Raíces (columna); complejas si las hay. | `roots([1,-6,11,-6])` | `[3; 2; 1]` |
 |  |  | `roots([1,0,1])=` | `[1j; -1j]` |

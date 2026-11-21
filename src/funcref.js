@@ -16,6 +16,7 @@ export const FUNC_GROUPS = [
       ['<code>;</code> y <code>, </code>', 'Separan los valores de una función de varios. <code>2,5</code> sin espacio es el número 2,5.', 'max(3; 8)', '8', 'n'],
       ['<code>&lt; &gt; &lt;= &gt;= == !=</code>', 'Comparan: dan 1 si se cumple y 0 si no. También <code>≤ ≥ ≠</code>. <code>==</code> y <code>!=</code> toleran el redondeo.', '0.1+0.2==0.3', '1', 'n'],
       ['<code>if(c; a; b)</code> (<code>si</code>)', 'Si la condición <code>c</code> no es 0 vale <code>a</code>, si no <code>b</code>. Solo calcula la rama elegida.', 'if(0==0; 0; 1/0)', '0', 'n'],
+      ['<code>a ≈ b</code> (<code>a ~~ b</code>)', 'Casi igual: 1 si |a − b| ≤ tolerancia × máx(1, |a|, |b|), si no 0. La tolerancia (1e-12 por defecto) se cambia en <b>Configuración</b>. Sirve para comparar resultados con redondeo; <code>==</code> sigue siendo la igualdad de la app.', '0.1+0.2 ~~ 0.3', '1', 'n'],
     ],
   },
   {
@@ -149,7 +150,7 @@ export const FUNC_GROUPS = [
     title: 'Interpolación y polinomios',
     note: 'Un polinomio es el vector de sus coeficientes, del mayor grado al menor: [1, 0, -2] es x² − 2.',
     rows: [
-      ['<code>interp1(xs; ys; x)</code>', 'Interpolación lineal en una tabla (x un número o un vector; conserva las unidades de ys).', 'interp1([0,1,2]; [0,10,40]; 1.5)', '25', 'n'],
+      ['<code>interp1(xs; ys; x)</code>', 'Interpolación lineal en una tabla (x un número o un vector; conserva las unidades de ys). Fuera de la tabla da ⚠; con <code>interp1(xs; ys; x; "extrap")</code> extrapola con el primer o el último tramo, como en MATLAB.', 'interp1([0,1,2]; [0,10,40]; 1.5)', '25', 'n'],
       ['<code>polyval(p; x)</code>', 'Valor del polinomio en x.', 'polyval([1,0,-2]; 3)', '7', 'n'],
       ['<code>roots(p)</code>', 'Raíces (columna); complejas si las hay.', 'roots([1,-6,11,-6])', '[3; 2; 1]', 'm'],
       ['', '', 'roots([1,0,1])=', '[1j; -1j]', 't'],

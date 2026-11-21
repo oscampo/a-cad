@@ -40,7 +40,7 @@ import { buildTree, kindOf, conLabel } from './tree.js';
 import { cleanFileBase } from './files.js';
 import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
-import { parseValue, isPlainNumber, setAngleMode } from './expr.js';
+import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL } from './expr.js';
 import { localNum } from './locale.js';
 import { getLang, setLang, initLang } from './i18n.js';
 import { HELP_HTML } from './help.js';
@@ -3200,6 +3200,7 @@ function syncPanel() {
   $('cfgLang').value = getLang(); $('cfgDec').value = doc.decimal === ',' || doc.decimal === '.' ? doc.decimal : ''; // sin elegir: dibujos anteriores
   $('docAngles').value = doc.angles === 'rad' ? 'rad' : 'deg';
   $('docUnits').value = doc.units === 'US' ? 'US' : 'SI';
+  $('docTol').value = String(Number(doc.approxTol) > 0 ? Number(doc.approxTol) : APPROX_TOL);
   const pg = doc.page;
   $('docPage').value = !pg ? 'none' : pageKind(pg) || 'custom';
   $('docPageW').value = pg ? +pg.w.toFixed(1) : ''; $('docPageH').value = pg ? +pageH(pg).toFixed(1) : ''; $('docMargin').value = pg ? pg.m : '';
@@ -5023,6 +5024,12 @@ $('cfgDec').onchange = (e) => {
   try { if (to) localStorage.setItem('a-cad-decimal', to); else localStorage.removeItem('a-cad-decimal'); } catch (err) { /* sin almacenamiento */ }
   afterChange(); syncPanel(); draw();
   toast(`Indicador decimal: ${to === ',' ? 'coma (1,5), argumentos con «;»' : to === '.' ? 'punto (1.5), argumentos con «,»' : 'sin elegir (se aceptan las dos formas)'}` + (n ? ` · ${n} fórmula${n > 1 ? 's' : ''} reescrita${n > 1 ? 's' : ''}` : ''));
+};
+$('docTol').onchange = (e) => { // tolerancia de «≈»
+  const v = Number(String(e.target.value).replace(',', '.'));
+  if (!(v > 0) || v >= 1) { toast('La tolerancia es un número entre 0 y 1, p. ej. 1e-12'); e.target.value = String(Number(doc.approxTol) > 0 ? Number(doc.approxTol) : APPROX_TOL); return; }
+  pushUndo(); if (v === APPROX_TOL) delete doc.approxTol; else doc.approxTol = v;
+  setAngleMode(doc); afterChange(); toast(`Tolerancia de ≈: ${v}`);
 };
 $('docUnits').onchange = (e) => { // sistema de unidades del documento: en que unidades se muestran los resultados sin unidad pedida
   pushUndo(); if (e.target.value === 'US') doc.units = 'US'; else delete doc.units;

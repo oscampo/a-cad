@@ -153,8 +153,8 @@ function tokenize(src, vars = null, loose = false) {
       try { u = parseUnit(um[1].replace(/^\((.*)\)$/, '$1')); } catch (e) { if (!loose) throw e; u = { f: 1 }; }
       toks.push({ t: 'unit', u, i, j: i + um[0].length }); i += um[0].length; continue;
     }
-    const cm = /^(<=|>=|==|!=|<|>|≤|≥|≠)/.exec(src.slice(i));
-    if (cm) { toks.push({ t: 'cmp', v: { '≤': '<=', '≥': '>=', '≠': '!=' }[cm[0]] || cm[0], i, j: i + cm[0].length }); i += cm[0].length; continue; }
+    const cm = /^(<=|>=|==|!=|~~|<|>|≤|≥|≠|≈)/.exec(src.slice(i));
+    if (cm) { toks.push({ t: 'cmp', v: { '≤': '<=', '≥': '>=', '≠': '!=', '~~': '≈' }[cm[0]] || cm[0], i, j: i + cm[0].length }); i += cm[0].length; continue; } // ≈ (o ~~): casi igual
     // Notacion cientifica: 2.5e6, 3e-4, 1E3 («e» y «E» no pueden ser nombres de variable: son la constante e). «2E3» es 2000 aunque
     // exista una variable E3: para multiplicar, «2*E3».
     let m = numRe(depth).exec(src.slice(i));
@@ -789,14 +789,16 @@ const NF = {
     let s = [0, 0]; const out = y.arr.map((z, i) => (i ? (s = cadd(s, cscale(cadd(z, y.arr[i - 1]), (x ? x.arr[i] - x.arr[i - 1] : 1) / 2))) : [0, 0]));
     return cvecOut(out, y.col, x ? mulDim(x.d, y.d) : y.d);
   } },
-  interp1: { n: [3, 3], f: (A) => { // interpolacion lineal: interp1(xs, ys, x), x un numero o un vector
+  interp1: { n: [3, 5], opts: 3, f: (A) => { // interpolacion lineal: interp1(xs, ys, x), x un numero o un vector; con "extrap" (como en MATLAB) extrapola fuera de la tabla
     const xs = realVec(A[0], 'interp1'), ys = realVec(A[1], 'interp1'), q = A[2];
+    let extrap = false;
+    for (const o of A.slice(3)) { const w = typeof o.str === 'string' ? o.str.toLowerCase() : null; if (w === 'extrap') extrap = true; else if (w !== 'linear') throw new Error('interp1(xs, ys, x, "linear", "extrap"): por ahora solo interpolación lineal; "extrap" extrapola fuera de la tabla'); }
     if (xs.arr.length !== ys.arr.length || xs.arr.length < 2) throw new Error('interp1(xs, ys, x): xs e ys deben tener el mismo número de elementos (al menos 2)');
     if (!sameDim(xs.d, q.d) && !zero0(q)) throw new Error(`interp1(xs, ys, x): x debe tener las unidades de xs (${unitMsg(xs.d)})`);
     const idx = xs.arr.map((_, i) => i).sort((i, k) => xs.arr[i] - xs.arr[k]), X = idx.map((i) => xs.arr[i]), Y = idx.map((i) => ys.arr[i]);
     const one = (x) => {
-      if (x < X[0] - 1e-12 * Math.abs(X[0]) || x > X[X.length - 1] + 1e-12 * Math.abs(X[X.length - 1])) throw rt(`interp1: ${x} está fuera de la tabla (de ${X[0]} a ${X[X.length - 1]})`);
-      let k = 1; while (k < X.length - 1 && X[k] < x) k++;
+      if (!extrap && (x < X[0] - 1e-12 * Math.abs(X[0]) || x > X[X.length - 1] + 1e-12 * Math.abs(X[X.length - 1]))) throw rt(`interp1: ${x} está fuera de la tabla (de ${X[0]} a ${X[X.length - 1]}); para extrapolar: interp1(xs, ys, x, "extrap")`);
+      let k = 1; while (k < X.length - 1 && X[k] < x) k++; // fuera de la tabla, con el primer o el ultimo tramo
       const t = X[k] === X[k - 1] ? 0 : (x - X[k - 1]) / (X[k] - X[k - 1]);
       return Y[k - 1] + t * (Y[k] - Y[k - 1]);
     };
@@ -948,7 +950,11 @@ function catM(A, horiz) {
 // Ángulos del dibujo (opción «Ángulos en: grados / radianes» del documento, doc.angles): los textos de cálculo y las gráficas
 // evalúan con este valor por defecto; las cotas y los actuadores lo fijan explícito (siempre en grados).
 let DEF_RAD = false;
-export const setAngleMode = (doc) => { DEF_RAD = doc?.angles === 'rad'; setDecimal(doc?.decimal); setUnitSystem(doc?.units); docUnitsHook(doc); }; // el indicador decimal del dibujo va con la opcion de angulos: se activan juntos
+// Tolerancia de «≈» (opción del dibujo doc.approxTol, en Configuración): a ≈ b si |a − b| ≤ tol·máx(1, |a|, |b|)
+export const APPROX_TOL = 1e-12;
+let TOL = APPROX_TOL;
+export const approxTol = () => TOL;
+export const setAngleMode = (doc) => { DEF_RAD = doc?.angles === 'rad'; TOL = Number(doc?.approxTol) > 0 ? Number(doc.approxTol) : APPROX_TOL; setDecimal(doc?.decimal); setUnitSystem(doc?.units); docUnitsHook(doc); }; // el indicador decimal del dibujo va con la opcion de angulos: se activan juntos
 export const angleRad = () => DEF_RAD;
 
 // Dibujos anteriores (sin indicador decimal) leen «0,0» como un decimal: «f(0.7,0,0)» daba error. Si la lectura de siempre falla y la expresion
@@ -1144,14 +1150,14 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     }
     if (isM(a) || isM(b)) throw new Error('No se pueden comparar vectores o matrices');
     if (isC(a) || isC(b)) { // con complejos solo == y != (no hay orden): para comparar tamaños, abs() o real()
-      if (k.v !== '==' && k.v !== '!=') throw new Error(`No se pueden comparar números complejos con «${k.v}»: usa abs(…) o real(…)`);
+      if (k.v !== '==' && k.v !== '!=' && k.v !== '≈') throw new Error(`No se pueden comparar números complejos con «${k.v}»: usa abs(…) o real(…)`);
       if (!sameDim(a.d, b.d) && !zero0(a) && !zero0(b)) throw new Error(`No se puede comparar ${unitMsg(a.d)} con ${unitMsg(b.d)}`);
-      const x = cpair(a), y = cpair(b), eq = cabs(csub(x, y)) <= 1e-9 * Math.max(a.d ? 0 : 1, cabs(x), cabs(y));
-      return { v: (k.v === '==') === eq ? 1 : 0, r: false };
+      const x = cpair(a), y = cpair(b), eq = k.v === '≈' ? cabs(csub(x, y)) <= TOL * Math.max(1, cabs(x), cabs(y)) : cabs(csub(x, y)) <= 1e-9 * Math.max(a.d ? 0 : 1, cabs(x), cabs(y));
+      return { v: (k.v !== '!=') === eq ? 1 : 0, r: false };
     }
     if (!sameDim(a.d, b.d) && !zero0(a) && !zero0(b)) throw new Error(`No se puede comparar ${unitMsg(a.d)} con ${unitMsg(b.d)}`);
     const x = a.v, y = b.v, eq = Math.abs(x - y) <= 1e-9 * Math.max(a.d ? 0 : 1, Math.abs(x), Math.abs(y)); // con unidades, la tolerancia es relativa (3'pF no es 0)
-    const ok = { '<': x < y && !eq, '>': x > y && !eq, '<=': x < y || eq, '>=': x > y || eq, '==': eq, '!=': !eq }[k.v];
+    const ok = { '<': x < y && !eq, '>': x > y && !eq, '<=': x < y || eq, '>=': x > y || eq, '==': eq, '!=': !eq, '≈': Math.abs(x - y) <= TOL * Math.max(1, Math.abs(x), Math.abs(y)) }[k.v];
     return { v: ok ? 1 : 0, r: false };
   }
   // if(condicion; si_verdadero; si_falso) (o si): solo se evalua la rama elegida (la otra se salta sin evaluarla; asi una funcion de usuario puede llamarse a si misma)
@@ -1269,7 +1275,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === lo ? `${lo} ${lo === 1 ? 'valor' : 'valores'}` : `de ${lo} a ${hi} valores`}${sep}`);
       return SF[name].f(A, { radians });
     }
-    if (A.some(isS)) throw new Error(`«${name}» no recibe cadenas`);
+    if (A.some((a, k) => isS(a) && !(NF[name]?.opts && k >= NF[name].opts))) throw new Error(`«${name}» no recibe cadenas`); // opts: desde que argumento acepta opciones de texto («"extrap"»)
     if (name in NF) { // funciones de MATLAB (tanda 1)
       const [lo, hi] = NF[name].n;
       if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === lo ? `${lo} ${lo === 1 ? 'valor' : 'valores'}` : `de ${lo} a ${hi} valores`}${sep}`);
@@ -1408,7 +1414,16 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     const k = toks[p++];
     if (!k) throw new Error('Expresión incompleta');
     if (k.t === 'str') return { str: k.v };
-    if (k.t === 'num') return k.im ? { v: 0, im: k.im, r: false } : { v: k.v, r: false };
+    if (k.t === 'num') {
+      const a = k.im ? { v: 0, im: k.im, r: false } : { v: k.v, r: false };
+      if (peek()?.t !== 'unit') return a;
+      // un numero con su unidad es UNA cantidad: se une antes que / y * («10'kN/2'm» es 10 kN entre 2 m; antes daba 10 kN/2·m). El
+      // exponente que sigue es de la unidad («2'm^2» son 2 m², no (2 m)²).
+      const uk = toks[p++];
+      let u = { v: uk.u.f, r: !!uk.u.r, d: uk.u.d };
+      if (isOp('^') && toks[p + 1]?.t !== 'tr') { p++; const e = unary(); if (isM(e) || isC(e) || isS(e) || e.d) throw new Error('El exponente de una unidad es un número'); u = { v: u.v ** e.v, r: u.r, d: powDim(u.d, e.v) }; }
+      return a.im ? cval([0, a.im * u.v], false, u.d) : wd({ v: a.v * u.v, r: u.r }, u.d);
+    }
     if (k.t === 'unit') return { v: k.u.f, r: !!k.u.r, d: k.u.d }; // 'N, 'mm: vale su factor al SI, con su dimension
     if (k.t === 'idx' && vars[k.base]?.strs) { // un elemento de un vector de cadenas: s_2
       const L = vars[k.base].strs, ix = splitIdx(k.src);
