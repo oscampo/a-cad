@@ -11,7 +11,7 @@
 // define una funcion local (solo en el nivel principal), «#» comenta hasta el final de la linea, y la ultima linea es el valor.
 // Se traduce a las funciones del motor (line, for, while, if) y se evalua con ellas: el script no es JavaScript ni se ejecuta como tal.
 // Sin DOM.
-import { TEXT_NAME_RE, normName } from './expr.js';
+import { TEXT_NAME_RE, normName, isReservedName, reservedWhy } from './expr.js';
 
 export const isScript = (s) => typeof s === 'string' && s[0] === '%';
 const NAME = "[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*'*";
@@ -71,6 +71,7 @@ export function parseScript(src) {
       else if ((m = FN_RE.exec(ln.s)) && !/^\s*=/.test(m[3])) { // funcion local: g(x): expr (o con el cuerpo debajo)
         if (!top) fail(ln, 'las funciones locales van en el nivel principal del script, no dentro de un for, while o if');
         const gn = normName(m[1]), ps = splitParams(m[2]);
+        if (isReservedName(gn)) fail(ln, reservedWhy(gn)); // una funcion local tampoco puede llamarse como una funcion de la app
         if (ps.some((q) => !q || !TEXT_NAME_RE.test(q))) fail(ln, `los parámetros de «${gn}» son nombres separados por «,»`);
         const body = m[3].trim() ? m[3].trim() : sub(`«${gn}»`);
         out.lib[gn] = { fn: { params: ps, body } };

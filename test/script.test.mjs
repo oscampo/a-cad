@@ -41,6 +41,7 @@ t('errores de sintaxis con su numero de linea', () => {
   assert.match(e('%f(x):\n  for i in 1..3:\n    g(k): k\n  1'), /^línea 3: las funciones locales van en el nivel principal/);
   assert.match(e('%f(x):'), /^línea 2: falta el programa/);
   assert.match(e('%f(x)'), /^línea 1: un script empieza con su firma/);
+  assert.match(e('%f(x):\n  max(k): k\n  max(x)'), /^línea 2: «max» es una función o constante/); // los nombres de la app estan reservados
 });
 
 t('en el dibujo: es una definicion en el orden de lectura; colapsado muestra la firma, expandido el codigo; el error se ve', () => {
