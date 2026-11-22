@@ -98,7 +98,7 @@ export function textVars(doc, exceptId = null) {
   for (const [id, k] of named(doc)) if (id !== exceptId) dimVars[k.name] = varValue(doc, k);
   return textVarState(doc, dimVars, new Set(named(doc).map(([, k]) => k.name)), probesOf(doc));
 }
-const hasDefs = (doc) => Object.values(doc.texts || {}).some((t) => !!t.lib || calcStmts(t.text).some((p) => p.k === 'def' || (p.k === 'out' && !!clearCall(p.expr)))); // un clear() tambien pone en juego el orden de lectura (borra cotas)
+const hasDefs = (doc) => Object.values(doc.texts || {}).some((t) => !!t.lib || calcStmts(t.text).some((p) => p.k === 'def' || (p.k === 'out' && (!!clearCall(p.expr) || /(?:^|[^A-Za-z0-9_.])rng\s*\(/.test(p.expr))))); // rng() tambien: su resultado se fija en el orden de lectura // un clear() tambien pone en juego el orden de lectura (borra cotas)
 const NO_TV = { win: new Map(), byName: new Map(), names: new Set(), vals: {}, errs: new Map(), dimEnv: new Map() };
 const tvOf = (doc) => (hasDefs(doc) ? textVars(doc) : NO_TV);
 // Variables disponibles (sin la cota exceptId, que no puede usarse a si misma): las de las cotas y las de los textos.
