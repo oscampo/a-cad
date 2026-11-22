@@ -2,7 +2,7 @@
 // layoutDim devuelve instrucciones de dibujo en pixeles de pantalla; dragDim cambia la
 // posicion de la cota (k.off, k.lt, k.ang, k.lp) sin tocar la geometria ni el solver.
 import { lineLine, signedAngle, norm, TAU, inSweep, closestOnPolyline } from './geom.js';
-import { arcOf, splinePolyline, ellipsePolyline } from './model.js';
+import { arcOf, arcSamples, splinePolyline, ellipsePolyline } from './model.js';
 import { localNum, sciFrom, sciText } from './locale.js';
 import { parseUnit, unitsVersion } from './units.js';
 
@@ -194,6 +194,39 @@ export function pointOnElement(doc, pid, el) {
   const poly = doc.splines?.[el] ? splinePolyline(doc, o, 64) : ellipsePolyline(doc, o, 720);
   return (closestOnPolyline(poly, P)?.d ?? Infinity) <= 1e-3 * (1 + Math.abs(P.x) + Math.abs(P.y));
 }
+// ¿El punto es un extremo del elemento? Entonces el elemento mismo es el cuerpo de la linea indicativa (k.on): la flecha va en ese
+// extremo, en la direccion de la curva, y la etiqueta junto al otro extremo. Un circulo, una elipse entera o un spline cerrado no tienen.
+export function endOfElement(doc, pid, el) {
+  const l = doc.lines[el] || doc.arcs[el]; if (l) return l.a === pid || l.b === pid;
+  const sp = doc.splines?.[el]; if (sp) return !sp.closed && (sp.pts[0] === pid || sp.pts[sp.pts.length - 1] === pid);
+  const e = doc.ellipses?.[el]; if (e) return !!(e.p1 && e.p2) && (e.p1 === pid || e.p2 === pid);
+  return false;
+}
+export const leadBody = (doc, k) => (k.on ? doc.lines[k.refs[1]] || doc.arcs[k.refs[1]] || doc.splines?.[k.refs[1]] || doc.ellipses?.[k.refs[1]] || null : null);
+// Los elementos que son cuerpo de una linea indicativa (no se cortan con laser)
+export const leadBodies = (doc) => new Set(Object.values(doc.cons || {}).filter((k) => k.t === 'LEAD' && k.on).map((k) => k.refs[1]));
+// Poligonal del cuerpo (unidades del dibujo) desde el otro extremo hasta la punta
+function bodyPath(doc, k) {
+  const [pid, el] = k.refs, P = doc.pts[pid];
+  const l = doc.lines[el];
+  let poly = l ? [doc.pts[l.a], doc.pts[l.b]] : doc.arcs[el] ? arcSamples(doc, doc.arcs[el]) : doc.splines?.[el] ? splinePolyline(doc, doc.splines[el], 16) : doc.ellipses?.[el] ? ellipsePolyline(doc, doc.ellipses[el], 180) : null;
+  if (!P || !poly || poly.length < 2 || poly.some((q) => !q)) return null;
+  const d = (q) => Math.hypot(q.x - P.x, q.y - P.y);
+  return d(poly[0]) < d(poly[poly.length - 1]) ? [...poly].reverse() : poly;
+}
+// Direccion hacia afuera en el extremo final de una poligonal de pantalla (su ultimo tramo de al menos 1 px)
+function outDir(S) {
+  const E = S[S.length - 1];
+  for (let i = S.length - 2; i >= 0; i--) { const dx = E.x - S[i].x, dy = E.y - S[i].y, d = Math.hypot(dx, dy); if (d >= 1 || i === 0) return d > 1e-9 ? { x: dx / d, y: dy / d } : { x: 1, y: 0 }; }
+  return { x: 1, y: 0 };
+}
+// Extremos del cuerpo en pantalla: la punta T (con su direccion u) y el otro extremo F (con la suya, uf)
+function bodyEnds(doc, k, v) {
+  const poly = bodyPath(doc, k); if (!poly) return null;
+  const S = poly.map(v);
+  return { T: S[S.length - 1], u: outDir(S), F: S[0], uf: outDir([...S].reverse()) };
+}
+
 // Lo que se teclea como etiqueta de una linea indicativa: «"texto"», «$formula$», «$$formula$$» (tambien entre corchetes, como en una
 // cota) o texto suelto, que se toma como «"texto"». null si queda vacia.
 export function leadLabel(src) {
@@ -213,6 +246,15 @@ function layoutDimBase(doc, k, view) {
   const out = { lines: [], arcs: [], arrows: [], label: null };
   const text = dimText(doc, k);
 
+  if (k.t === 'LEAD' && k.on) { // el elemento es el cuerpo: flecha en la punta, en la direccion de la curva; etiqueta junto al otro extremo
+    const B = bodyEnds(doc, k, v), body = leadBody(doc, k); if (!B) return out;
+    const hw = (0.6 * 12 * G * lblLen(text) + 8 * G) / 2, hh = 9 * G;
+    const Lc = k.ox !== undefined ? { x: B.F.x + k.ox * s, y: B.F.y - k.oy * s } : { x: B.F.x + B.uf.x * (hw + 4 * G), y: B.F.y + B.uf.y * (hh + 4 * G) }; // por defecto, a continuacion del otro extremo
+    out.label = { x: Lc.x, y: Lc.y, text };
+    const w = body?.w ?? 2, g = Math.max(G, w * 0.75), sh = (w / 2) * (ARROW0 / 3.2); // flecha con el grosor de la linea; adelantada para que la punta tape el final del trazo
+    out.arrows.push({ x: B.T.x + B.u.x * sh, y: B.T.y + B.u.y * sh, dx: B.u.x, dy: B.u.y, g });
+    return out;
+  }
   if (k.t === 'LEAD') { // la etiqueta en su lugar, la linea desde el borde de su caja hasta la punta, y la flecha en la punta
     const P = doc.pts[k.refs[0]]; if (!P) return out;
     const T = v(P), o0 = leadOffset0(view), Lc = { x: T.x + (k.ox ?? o0.ox) * s, y: T.y - (k.oy ?? o0.oy) * s };
@@ -359,6 +401,7 @@ export function dragDim(doc, k, view, p) {
     return ok;
   }
   const s = view.s, v = V(view);
+  if (k.t === 'LEAD' && k.on) { const B = bodyEnds(doc, k, v); if (!B) return false; k.ox = (p.x - B.F.x) / s; k.oy = (B.F.y - p.y) / s; return true; } // relativa al otro extremo
   if (k.t === 'LEAD') { const P = doc.pts[k.refs[0]]; if (!P) return false; const T = v(P); k.ox = (p.x - T.x) / s; k.oy = (T.y - p.y) / s; return true; }
   if (k.t === 'DIST' || k.t === 'DISTPL') {
     const [p1, p2] = distEnds(doc, k);

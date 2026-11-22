@@ -1,8 +1,8 @@
 // Cotas con etiqueta libre y tamaño de letra; lineas indicativas (anotaciones LEAD): geometria, arrastre, exportacion.
 import assert from 'node:assert/strict';
-import { newDoc, addPoint, addLine, addCircle, addSpline, addCon, deleteItems } from '../src/model.js';
-import { splitLabel, splitScale, dimText, layoutDim, dragDim, pointOnElement, leadLabel, dimGain } from '../src/dims.js';
-import { exportSVG } from '../src/export.js';
+import { newDoc, addPoint, addLine, addCircle, addArc, addSpline, addCon, deleteItems } from '../src/model.js';
+import { splitLabel, splitScale, dimText, layoutDim, dragDim, pointOnElement, leadLabel, dimGain, endOfElement } from '../src/dims.js';
+import { exportSVG, exportSVGLaser, laserClasses } from '../src/export.js';
 import { solve, initSolver } from '../src/solver.js';
 
 let passed = 0;
@@ -79,6 +79,22 @@ await t('SVG: con su color, grosor y tipo de línea; la letra de cada cota; la f
   assert.match(svg, /<polygon [^>]*fill="#ff0000"/);
   assert.match(svg, /fill="#ff0000">K_t<\/text>/);
   assert.match(svg, /font-size="20"[^>]*>L<\/text>/);
+});
+
+await t('con cuerpo: en un extremo, el elemento es la línea indicativa (flecha tangente, etiqueta en el otro extremo); no se corta con láser', () => {
+  const d = newDoc(), c = addPoint(d, 0, 0), a = addPoint(d, 10, 0), b = addPoint(d, 0, 10), ar = addArc(d, c, a, b, 10, { w: 2 });
+  const s1 = addPoint(d, 30, 0), s2 = addPoint(d, 40, 8), s3 = addPoint(d, 50, 0), sp = addSpline(d, [s1, s2, s3], {}), spc = addSpline(d, [s1, s2, s3], {}, true);
+  assert.ok(endOfElement(d, b, ar)); assert.ok(!endOfElement(d, c, ar)); assert.ok(endOfElement(d, s3, sp)); assert.ok(!endOfElement(d, s2, sp)); assert.ok(!endOfElement(d, s1, spc));
+  const k = { t: 'LEAD', refs: [b, ar], on: 1, lbl: '"q"' };
+  const L = layoutDim(d, k, view), A = L.arrows[0];
+  assert.equal(L.lines.length, 0); // el trazo es el del arco
+  assert.ok(Math.abs(A.dx + 1) < 0.01 && Math.abs(A.dy) < 0.05); // en b (arriba) el arco antihorario llega yendo hacia la izquierda
+  assert.ok(Math.abs(A.x - (100 - 0.5)) < 4 && Math.abs(A.y - 360) < 1); // en la punta (adelantada lo justo para tapar el final del trazo)
+  assert.ok(L.label.x > 140 && Math.abs(L.label.y - 400) < 15); // junto al otro extremo (a, a la derecha abajo)
+  d.pts[a].y = -0; assert.ok(dragDim(d, k, view, { x: 160, y: 420 })); assert.deepEqual([k.ox, k.oy], [5, -5]); // relativa al otro extremo
+  d.cons.k1 = k; d.cons.k2 = { t: 'LEAD', refs: [s3, sp], on: 1, lbl: '"r"' };
+  assert.equal(laserClasses(d).reduce((n, x) => n + x.count, 0), 1); // solo el spline cerrado
+  assert.ok(!/<path d="M[^"]*A/.test(exportSVGLaser(d) || '')); // el arco no sale en el corte
 });
 
 console.log(`\n${passed} pruebas de etiquetas y anotaciones pasaron`);

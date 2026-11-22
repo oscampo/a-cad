@@ -2,7 +2,7 @@ import { visibleDoc, hatchLoops, allLtypes, arcOf, arcSamples, splinePolyline, e
 import { dashFromPattern, norm, splineBezier } from './geom.js';
 import { textFrame, textCorners, textPose, shownText, runsOf, plainText, framePrims, LINE_SPACING, fontCss, TEXT_BG_PAD } from './text.js';
 import { vecArrow } from './vectors.js';
-import { layoutDim, lblIsMath, lblPlain } from './dims.js';
+import { layoutDim, lblIsMath, lblPlain, leadBody, leadBodies } from './dims.js';
 
 const DIM_KINDS = new Set(['DIST', 'DISTPL', 'ANG', 'ANG4', 'RAD', 'LEAD']); // LEAD: lineas indicativas (anotaciones)
 const approx = (ln) => 0.6 * ln.length; // ancho aproximado de texto (por altura 1)
@@ -28,7 +28,7 @@ export function dimLayouts(doc, view) {
   const out = [];
   for (const k of Object.values(doc.cons)) {
     if (!DIM_KINDS.has(k.t) || k.hidden) continue;
-    try { const L = layoutDim(doc, k, view); if (k.t === 'LEAD') L.lead = { color: k.color, w: k.w ?? 2, ltype: k.ltype, ls: k.ls }; out.push(L); } catch { /* referencia perdida: se omite */ }
+    try { const L = layoutDim(doc, k, view); if (k.t === 'LEAD') { const b = leadBody(doc, k); L.lead = b ? { color: b.color, w: b.w ?? 2, ltype: b.ltype, ls: b.ls } : { color: k.color, w: k.w ?? 2, ltype: k.ltype, ls: k.ls }; } out.push(L); } catch { /* referencia perdida: se omite */ } // LEAD con cuerpo: la flecha del color del elemento
   }
   return out;
 }
@@ -47,7 +47,7 @@ export function extraExtents(doc, view, vis = {}) {
   for (const L of vis.dims === false ? [] : dimLayouts(doc, view)) {
     for (const l of L.lines) { add(l[0], l[1]); add(l[2], l[3]); }
     for (const a of L.arcs) { add(a.cx - a.r, a.cy - a.r); add(a.cx + a.r, a.cy + a.r); }
-    const g = L.size || 1; for (const ar of L.arrows) { add(ar.x - ar.dx * 9 * g - 4 * g, ar.y - ar.dy * 9 * g - 4 * g); add(ar.x - ar.dx * 9 * g + 4 * g, ar.y - ar.dy * 9 * g + 4 * g); }
+    const g = L.size || 1; for (const ar of L.arrows) { const ga = ar.g || g; add(ar.x - ar.dx * 9 * ga - 4 * ga, ar.y - ar.dy * 9 * ga - 4 * ga); add(ar.x - ar.dx * 9 * ga + 4 * ga, ar.y - ar.dy * 9 * ga + 4 * ga); }
     if (L.label) { const b = labelBox(L.label); add(b.x, b.y); add(b.x + b.w, b.y + b.h); }
   }
   for (const t of vis.texts === false ? [] : Object.values(doc.texts || {})) {
@@ -66,9 +66,8 @@ function dimSvg(L, color, leadAttrs = null) {
     const delta = a.ccw ? norm(a.a0 - a.a1) : norm(a.a1 - a.a0);
     out.push(`<path d="M${p(a.a0)} A${n(a.r)} ${n(a.r)} 0 ${delta > Math.PI ? 1 : 0} ${a.ccw ? 0 : 1} ${p(a.a1)}" fill="none" stroke="${color}" stroke-width="1"${a.dashed ? ' stroke-dasharray="4 3"' : ''}/>`);
   }
-  const g = L.size || 1, aw = 3.2 * g;
-  for (const { x, y, dx, dy } of L.arrows) {
-    const bx = x - dx * 9 * g, by = y - dy * 9 * g, nx = -dy, ny = dx;
+  for (const { x, y, dx, dy, g: ga } of L.arrows) {
+    const g = ga || L.size || 1, aw = 3.2 * g, bx = x - dx * 9 * g, by = y - dy * 9 * g, nx = -dy, ny = dx;
     out.push(`<polygon points="${n(x)},${n(y)} ${n(bx + nx * aw)},${n(by + ny * aw)} ${n(bx - nx * aw)},${n(by - ny * aw)}" fill="${color}"/>`);
   }
   if (L.label) {
@@ -263,8 +262,8 @@ export function exportDXF(doc, viewScale = 5, vis = {}) {
       g(50, deg(a.ccw ? m0 : m1)); g(51, deg(a.ccw ? m1 : m0));
     }
     const ga = L.size || 1;
-    for (const { x, y, dx, dy } of L.arrows) {
-      const bx = x - dx * 9 * ga, by = y - dy * 9 * ga, nx = -dy, ny = dx, w = 3.2 * ga;
+    for (const { x, y, dx, dy, g: g1 } of L.arrows) {
+      const gg = g1 || ga, bx = x - dx * 9 * gg, by = y - dy * 9 * gg, nx = -dy, ny = dx, w = 3.2 * gg;
       const P = [[x, y], [bx + nx * w, by + ny * w], [bx - nx * w, by - ny * w], [bx - nx * w, by - ny * w]];
       g(0, 'SOLID'); g(8, '0');
       P.forEach(([px, py], i) => { g(10 + i, mx(px)); g(20 + i, my(py)); g(30 + i, 0); });
@@ -285,8 +284,10 @@ export const styleKey = (e) => `${e.ltype ?? 'continua'}|${e.color ?? 'auto'}|${
 // Clases presentes en el dibujo, con cuantos elementos tiene cada una (lineas, circulos, arcos y splines).
 export function laserClasses(doc) {
   const m = new Map();
+  const lb = leadBodies(doc); // el cuerpo de una linea indicativa es una anotacion: no se corta
   for (const set of [doc.lines, doc.circles, doc.arcs || {}, doc.splines || {}, doc.ellipses || {}]) {
-    for (const e of Object.values(set)) {
+    for (const [id, e] of Object.entries(set)) {
+      if (lb.has(id)) continue;
       const key = styleKey(e);
       if (!m.has(key)) { const [ltype, color, w] = key.split('|'); m.set(key, { key, ltype, color, w: Number(w), count: 0 }); }
       m.get(key).count++;
@@ -310,7 +311,8 @@ export function exportSVGLaser(doc, o = {}) {
     if (o.modes) return o.modes[styleKey(e)] || 'skip';
     return o.onlyContinuous === false || (e.ltype ?? 'continua') === 'continua' ? 'cut' : 'skip';
   };
-  const pick = (set) => Object.values(set || {}).map((e) => ({ e, mode: modeOf(e) })).filter((x) => x.mode !== 'skip');
+  const lb = leadBodies(doc); // el cuerpo de una linea indicativa es una anotacion: no se corta
+  const pick = (set) => Object.entries(set || {}).filter(([id]) => !lb.has(id)).map(([, e]) => ({ e, mode: modeOf(e) })).filter((x) => x.mode !== 'skip');
   const lines = pick(doc.lines), circles = pick(doc.circles), arcs = pick(doc.arcs), splines = pick(doc.splines), ellipses = pick(doc.ellipses);
   const xs = [], ys = [];
   const add = (x, y) => { xs.push(x); ys.push(y); };

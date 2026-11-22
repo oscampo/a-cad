@@ -17,7 +17,7 @@ import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, past
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
-import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, pointOnElement, leadOffset0, leadLabel, angSector, angTrue, initAngle, trackAngles, DIAM, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
+import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, pointOnElement, endOfElement, leadBody, leadOffset0, leadLabel, angSector, angTrue, initAngle, trackAngles, DIAM, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
@@ -183,7 +183,7 @@ function updateEnabled() {
     CONC: crv >= 2 && !ln && !n.sp,
     TAN: (ln === 1 && crv === 1 && !n.sp && !n.el) || (crv === 2 && !ln && !n.sp && !n.el) || (n.sp === 1 && ln + crv === 1 && !n.el) || (n.el === 1 && ln + crv === 1 && !n.sp) || (n.el === 2 && !ln && !crv && !n.sp),
     FIX: pt + ln + crv > 0,
-    DIM: (pt === 2 && !ln) || (ln === 1 && !pt) || (pt === 1 && ln === 1) || (ln === 2 && !pt && !crv && !n.sp && !n.el) || (crv >= 1 && pt + ln + crv + n.el === 2 && !n.sp),
+    DIM: (pt === 2 && !ln) || (ln === 1 && !pt) || (pt === 1 && ln === 1) || (ln === 2 && !pt && !crv && !n.sp && !n.el) || (crv >= 1 && pt + ln + crv + n.el === 2 && !n.sp) || (pt === 1 && n.sp + n.el === 1 && !ln && !crv), // punto + spline o elipse: línea indicativa
     ANG: ln === 2,
     GEAR: ln === 2 && !pt && !crv && !n.sp && !n.el,
     RACK: ln === 2 && pt === 1 && !crv && !n.sp && !n.el,
@@ -1254,7 +1254,7 @@ function drawDim(c, id, k, col, o = null) {
     c.setLineDash(a.dashed ? [4 * dpr, 3 * dpr] : []); c.stroke();
   }
   c.setLineDash([]);
-  for (const ar of L.arrows) arrowHead(c, ar, L.size);
+  for (const ar of L.arrows) arrowHead(c, ar, ar.g || L.size);
   c.restore();
   if (L.label) label(c, L.label.text, L.label.x, L.label.y, id, col, L.label.italic, L.label.underline, L.label.px);
 }
@@ -1265,7 +1265,7 @@ function drawConstraints(c, o) {
     if (k.hidden || (hp && consHidden(doc, k, hp))) continue;
     // al exportar (sin interfaz) las cotas van en el color del dibujo y no se pintan los simbolos de relaciones
     const col = !o.ui ? o.fg : isSel('co', id) ? theme.sel : theme.accent;
-    if (k.t === 'LEAD') { if (o.dims) drawDim(c, id, k, !o.ui ? colorOf(k.color, o) : isSel('co', id) ? theme.sel : colorOf(k.color, o), o); continue; } // línea indicativa: con su color, tipo y grosor
+    if (k.t === 'LEAD') { const lc = (leadBody(doc, k) || k).color ?? 'auto'; if (o.dims) drawDim(c, id, k, !o.ui ? colorOf(lc, o) : isSel('co', id) ? theme.sel : colorOf(lc, o), o); continue; } // línea indicativa: con su color, tipo y grosor
     if (k.t === 'DIST' || k.t === 'DISTPL' || k.t === 'ANG' || k.t === 'ANG4' || k.t === 'RAD') { if (o.dims) drawDim(c, id, k, col); continue; }
     if (!o.cons) continue;
     const text = conTag(k);
@@ -3173,7 +3173,8 @@ async function addLeader(pt, el) {
   if (src === null) return;
   const lbl = leadLabel(src), st = style();
   pushUndo();
-  const id = addCon(doc, { t: 'LEAD', refs: [pt, el], ...(lbl ? { lbl } : {}), ...leadOffset0(view, (cur.dimFs || DIM_FS) / DIM_FS), color: st.color ?? 'auto', ltype: st.ltype || 'continua', w: st.w ?? 2, ...(st.ls && st.ls !== 1 ? { ls: st.ls } : {}), ...newFs() });
+  // en un extremo, el elemento mismo es el cuerpo (con su estilo); en el centro o en un punto intermedio, una linea recta propia
+  const id = endOfElement(doc, pt, el) ? addCon(doc, { t: 'LEAD', refs: [pt, el], on: 1, ...(lbl ? { lbl } : {}), ...newFs() }) : addCon(doc, { t: 'LEAD', refs: [pt, el], ...(lbl ? { lbl } : {}), ...leadOffset0(view, (cur.dimFs || DIM_FS) / DIM_FS), color: st.color ?? 'auto', ltype: st.ltype || 'continua', w: st.w ?? 2, ...(st.ls && st.ls !== 1 ? { ls: st.ls } : {}), ...newFs() });
   sel = [{ k: 'co', id }]; afterChange();
 }
 async function editLeader(id) {
@@ -3250,7 +3251,7 @@ function applyStyle(prop, value) {
   for (const s of sel) {
     const o = s.k === 'ln' ? doc.lines[s.id] : s.k === 'ci' ? doc.circles[s.id] : s.k === 'ar' ? doc.arcs[s.id] : s.k === 'sp' ? doc.splines[s.id] : s.k === 'el' ? doc.ellipses[s.id] : (s.k === 'ha' || s.k === 'tx') && prop === 'color' ? (s.k === 'ha' ? doc.hatches[s.id] : doc.texts[s.id]) : null;
     if (o) { o[prop] = value; touched = true; if (prop === 'ltype' && value === 'constructiva') { o.color = CLINE_STYLE.color; o.w = CLINE_STYLE.w; } } // convertir a constructiva toma su color y grosor
-    else if (s.k === 'co' && doc.cons[s.id]?.t === 'LEAD' && ['color', 'ltype', 'w', 'ls'].includes(prop)) { doc.cons[s.id][prop] = value; touched = true; } // línea indicativa: color, tipo y grosor
+    else if (s.k === 'co' && doc.cons[s.id]?.t === 'LEAD' && ['color', 'ltype', 'w', 'ls'].includes(prop)) { (leadBody(doc, doc.cons[s.id]) || doc.cons[s.id])[prop] = value; touched = true; } // con cuerpo: el estilo es el del elemento // línea indicativa: color, tipo y grosor
     else if (prop === 'dimFs' && s.k === 'co' && (doc.cons[s.id]?.v !== undefined || doc.cons[s.id]?.t === 'LEAD')) { const k = doc.cons[s.id]; if (value !== DIM_FS) k.fs = value; else delete k.fs; touched = true; } // letra de una cota seleccionada
     else if (s.k === 'pt' && doc.traces[s.id]) { doc.traces[s.id][prop] = value; touched = true; } // el estilo de un punto con trazado es el de su trayectoria
   }
@@ -3303,7 +3304,7 @@ function syncPanel() {
   if (first && !csel) { cur.color = first.color; cur.ltype = first.ltype; cur.w = first.w; cur.ls = first.ls ?? 1; }
   else if (hat) cur.color = hat.color;
   else if (txt) cur.color = txt.color;
-  else if (sel.some((s) => s.k === 'co' && doc.cons[s.id]?.t === 'LEAD')) { const ld = doc.cons[sel.find((s) => s.k === 'co' && doc.cons[s.id]?.t === 'LEAD').id]; cur.color = ld.color ?? cur.color; cur.ltype = ld.ltype ?? cur.ltype; cur.w = ld.w ?? cur.w; cur.ls = ld.ls ?? 1; } // línea indicativa: su estilo
+  else if (sel.some((s) => s.k === 'co' && doc.cons[s.id]?.t === 'LEAD')) { const ld0 = doc.cons[sel.find((s) => s.k === 'co' && doc.cons[s.id]?.t === 'LEAD').id], ld = leadBody(doc, ld0) || ld0; cur.color = ld.color ?? cur.color; cur.ltype = ld.ltype ?? cur.ltype; cur.w = ld.w ?? cur.w; cur.ls = ld.ls ?? 1; } // línea indicativa: su estilo
   else if (sel.some((s) => s.k === 'pt' && doc.traces[s.id])) { const tr = doc.traces[sel.find((s) => s.k === 'pt' && doc.traces[s.id]).id]; cur.color = tr.color; cur.ltype = tr.ltype; cur.w = tr.w; cur.ls = tr.ls ?? 1; }
   const sv = csel || cur;
   $('ltEl').value = String(sv.ls ?? 1);
