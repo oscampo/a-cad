@@ -38,7 +38,7 @@ import { setIconSource } from './iconpaths.js';
 setIconSource(ICONS); // los iconos de la app que un texto puede mostrar: ![Linea](icon:line)
 import { buildTree, kindOf, conLabel } from './tree.js';
 import { cleanFileBase } from './files.js';
-import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProblem, libFileName, libPayload } from './library.js';
+import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProblem, libFileName, libPayload, legacyLibPath, newLibPath } from './library.js';
 import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX, imgRect, syncImages, ensureImagePoints, anchorPoint } from './images.js';
 import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
@@ -5327,10 +5327,11 @@ $('ltDel').onclick = () => {
   fillLtypes(); afterChange();
 };
 
-$('fNew').onclick = () => { if (confirm('¿Empezar un dibujo nuevo? Se pierde lo no guardado.')) { loadDoc(freshDoc()); opts.fileBase = ''; fitView(); afterChange(); } };
-$('fSave').onclick = () => saveFile('json', '', () => new Blob([JSON.stringify({ app: 'ipad-cad', version: VERSION, doc: docForSave(doc) }, null, 1)], { type: 'application/json' }));
+$('fNew').onclick = () => { if (confirm('¿Empezar un dibujo nuevo? Se pierde lo no guardado.')) { loadDoc(freshDoc()); opts.fileBase = ''; opts.ghPath = null; fitView(); afterChange(); } };
+$('fSave').onclick = () => saveFile(doc.lib?.on ? 'alib.json' : 'json', '', () => new Blob([JSON.stringify({ app: 'ipad-cad', version: VERSION, doc: docForSave(doc) }, null, 1)], { type: 'application/json' }));
 $('fLoad').onclick = () => $('fileIn').click();
 $('fileIn').onchange = async (e) => {
+  opts.ghPath = null; // un archivo del dispositivo, no de GitHub
   const f = e.target.files[0]; e.target.value = '';
   if (!f) return;
   try { const j = JSON.parse(await f.text()); loadDoc(j.doc || j); const b = cleanFileBase(f.name, 'json'); if (b) opts.fileBase = b; fitView(); afterChange(); toast('Abierto: ' + f.name); setTimeout(warnRedundant, 2800); }
@@ -5383,8 +5384,27 @@ async function ghSaveCmd() {
     const text = JSON.stringify({ app: 'ipad-cad', version: VERSION, doc: docForSave(libNext ? { ...doc, lib: libNext } : doc) }, null, 1);
     const sha = await gh.write(c, path, text, `A-CAD: ${name}` + (libNext ? ` (biblioteca v${libNext.version})` : ''), cur);
     if (sha) gh.rememberSha(c, path, sha);
-    if (libNext) { doc.lib = libNext; afterChange(); toast(`Biblioteca guardada en GitHub: ${path} (v${libNext.version})`); }
-    else toast(`Guardado en GitHub: ${path}`);
+    if (libNext) {
+      doc.lib = libNext; afterChange();
+      let moved = '';
+      try { // la version con el nombre de antes (MyLibrary/X.json): queda solo la nueva (los documentos que la insertaron la encuentran al buscar versiones)
+        const old = legacyLibPath(path), osha = old !== path && (await gh.currentSha(c, old));
+        if (osha) { await gh.remove(c, old, osha, `A-CAD: ${old} -> ${path}`); moved = ` (reemplaza a ${old})`; }
+      } catch (e) { toast('No se pudo quitar la versión con el nombre anterior: ' + e.message); }
+      toast(`Biblioteca guardada en GitHub: ${path} (v${libNext.version})${moved}`);
+      // el documento venia de otra carpeta (dibujos/): el original puede ir a la papelera, para no tener dos archivos iguales
+      const src0 = opts.ghPath;
+      if (src0 && !src0.startsWith(LIB_DIR + '/') && src0 !== path) {
+        try {
+          if ((await gh.currentSha(c, src0)) && confirm(`Esta biblioteca se abrió desde «${src0}». ¿Mandar ese original a la papelera de GitHub? La biblioteca queda en «${path}»; desde la papelera se puede restaurar.`)) {
+            const taken = (await gh.list(c, gh.TRASH)).map((f) => f.name), base = src0.split('/').pop();
+            await gh.moveFile(c, src0, gh.filePath(c, gh.TRASH + '/' + gh.uniqueName(base, taken)));
+            toast(`«${src0}» quedó en la papelera`);
+          }
+        } catch (e) { toast('No se pudo mover el original a la papelera: ' + e.message); }
+      }
+      opts.ghPath = path; persist();
+    } else { opts.ghPath = path; persist(); toast(`Guardado en GitHub: ${path}`); }
   } catch (e) { toast('No se pudo guardar en GitHub: ' + e.message + (e.status === 409 || e.status === 422 ? '. Ábrelo de nuevo y reintenta.' : '')); }
 }
 // Gestor de archivos de GitHub: abrir, seleccion multiple, papelera (restaurar / eliminar definitivamente), renombrar, duplicar y proteger.
@@ -5441,7 +5461,7 @@ async function ghOpenCmd() {
       toast('Abriendo de GitHub…');
       const j = JSON.parse(await gh.read(c, p));
       loadDoc(j.doc || j);
-      gh.rememberSha(c, p, f.sha);
+      gh.rememberSha(c, p, f.sha); opts.ghPath = p; // de donde vino (al guardarlo como biblioteca, el original puede ir a la papelera)
       const base = cleanFileBase(f.name, 'json'); if (base) opts.fileBase = base;
       fitView(); afterChange(); toast('Abierto de GitHub: ' + f.name); setTimeout(warnRedundant, 2800);
     } catch (e) { toast('No se pudo abrir: ' + e.message); }
@@ -5620,7 +5640,8 @@ async function checkLibUpdates() {
   if (!gh.isReady(c) || !libTexts().length) return;
   for (const [id, t] of libTexts()) {
     try {
-      const sha = await gh.currentSha(c, t.lib.path);
+      let sha = await gh.currentSha(c, t.lib.path);
+      if (!sha && newLibPath(t.lib.path) !== t.lib.path && (sha = await gh.currentSha(c, newLibPath(t.lib.path)))) t.lib.path = newLibPath(t.lib.path); // se renombro a .alib.json
       if (!sha || sha === t.lib.sha) continue;
       const j = JSON.parse(await gh.read(c, t.lib.path)), v = (j.doc || j).lib?.version || 0;
       if (v > (t.lib.version || 0) && doc.texts[id] === t && t.libNew !== v) { t.libNew = v; draw(); }
@@ -5633,7 +5654,8 @@ async function updateLibrary(id) {
   if (!gh.isReady(c)) { toast('Para buscar versiones nuevas hace falta configurar GitHub'); return; }
   try {
     toast('Buscando en GitHub…');
-    const sha = await gh.currentSha(c, t.lib.path);
+    let sha = await gh.currentSha(c, t.lib.path);
+    if (!sha && newLibPath(t.lib.path) !== t.lib.path && (sha = await gh.currentSha(c, newLibPath(t.lib.path)))) t.lib.path = newLibPath(t.lib.path); // se renombro a .alib.json
     if (!sha) { toast(`${t.lib.path} ya no está en GitHub: queda la copia de este documento`); return; }
     const j = JSON.parse(await gh.read(c, t.lib.path)), d = j.doc || j, L = d.lib || {};
     if (!L.on) { toast(`${t.lib.path} ya no está marcado como biblioteca`); return; }

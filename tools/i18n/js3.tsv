@@ -459,3 +459,9 @@ Imagen	Image
 Para seleccionar un texto, enciérralo con un cuadro (arrastra desde él o desde un lugar vacío); doble toque abre sus propiedades	To select a text, enclose it with a box (drag from it or from an empty spot); double tap opens its properties
 Bloqueada	Locked
 Bloqueada, no se selecciona ni se mueve con un toque o un arrastre (para calcar encima sin moverla). El doble toque sigue abriendo esta ventana.	Locked, it is not selected or moved by a tap or a drag (to trace over it without moving it). Double tap still opens this window.
+No se pudo quitar la versión con el nombre anterior: 	The version with the previous name could not be removed: 
+Biblioteca guardada en GitHub: {0} (v{1}){2}	Library saved to GitHub: {0} (v{1}){2}
+Esta biblioteca se abrió desde «{0}». ¿Mandar ese original a la papelera de GitHub? La biblioteca queda en «{1}»; desde la papelera se puede restaurar.	This library was opened from «{0}». Move that original to the GitHub trash? The library stays in «{1}»; it can be restored from the trash.
+«{0}» quedó en la papelera	«{0}» is now in the trash
+No se pudo mover el original a la papelera: 	The original could not be moved to the trash: 
+ (reemplaza a {0})	 (replaces {0})

@@ -69,7 +69,10 @@ export function aliasProblem(alias) {
   return null;
 }
 // Nombre del archivo en MyLibrary/: el de la biblioteca, sin caracteres que GitHub o un sistema de archivos no acepten
-export const libFileName = (lib) => String(lib?.name || 'Biblioteca').trim().replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ') + '.json';
+export const libFileName = (lib) => String(lib?.name || 'Biblioteca').trim().replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ') + '.alib.json'; // .alib.json: se distingue de un dibujo tambien fuera de A-CAD
+// La ruta vieja de una biblioteca (antes de .alib.json): «MyLibrary/X.json» para «MyLibrary/X.alib.json»
+export const legacyLibPath = (p) => String(p).replace(/\.alib\.json$/i, '.json');
+export const newLibPath = (p) => (/\.alib\.json$/i.test(p) ? p : String(p).replace(/\.json$/i, '.alib.json'));
 
 // Revision antes de guardar: [] si esta lista; si no, los problemas, uno por linea
 export function checkLibrary(doc) {

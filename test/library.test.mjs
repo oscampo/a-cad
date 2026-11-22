@@ -46,7 +46,7 @@ t('revisión antes de guardar: nombre, alias, nada público, un público que ya 
 t('alias y nombre del archivo', () => {
   assert.equal(aliasProblem('UF'), null); assert.equal(aliasProblem('Fat2'), null);
   for (const [a, re] of [['', /falta/], ['U F', /letras y números/], ['2UF', /letras y números/], ['p1', /elemento del dibujo/], ['D3', /elemento del dibujo/], ['sin', /reservado/]]) assert.match(aliasProblem(a), re, a);
-  assert.equal(libFileName({ name: 'Utilidades: Fatiga/2' }), 'Utilidades- Fatiga-2.json');
+  assert.equal(libFileName({ name: 'Utilidades: Fatiga/2' }), 'Utilidades- Fatiga-2.alib.json'); // una biblioteca se distingue de un dibujo por su extension
   assert.equal(LIB_DIR, 'MyLibrary');
 });
 
