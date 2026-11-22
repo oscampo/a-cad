@@ -40,6 +40,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Corregido
 
+- Bibliotecas: un nombre con subíndice de una biblioteca insertada con índice (`UF.Neuber_(steels)_(1,1)`) se dibujaba con la sintaxis a la vista (`Neuber_steels_(1, 1)`); ahora se dibuja igual que un nombre propio del documento.
 - Cálculo: el elemento de una matriz o un vector cuyo nombre lleva subíndice (`T_(st)_(1,2)`, `k_(total)_2`) daba «No reconozco «_»»; ahora es ese elemento.
 - Cálculo: los números de 1000 o más ya no llevan un «.0» de sobra: `1000` y no `1000.0`, `[1, 1000, 1e6]` y no `[1 1000.0 1000000.0]`.
 - Gráficas: **una unidad por eje**. Cada serie elegía su unidad por separado: un vector en MPa y una variable escrita en ksi en el mismo eje se dibujaban cada una en su unidad, con una sola escala (38,2 ksi quedaba a la altura de 38,2 MPa). Ahora las series de un eje con la misma magnitud se muestran en la unidad de la primera, y su etiqueta lo dice.

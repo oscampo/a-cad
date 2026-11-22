@@ -144,7 +144,7 @@ function textValue1(doc, t) {
   };
   const wrapNames = (seg) => {
     if (!seg.includes('_(')) return seg;
-    subNames ||= new Set([...(st ||= textVars(doc)).names].filter((n) => n.includes('_(')));
+    subNames ||= new Set([...(st ||= textVars(doc)).names, ...Object.values(doc.texts || {}).flatMap((x) => (x.lib?.defs || []).map((d) => d.name))].filter((n) => n.includes('_('))); // tambien los de las bibliotecas insertadas (UF.Neuber_(steels)_(1,1) como Neuber_(steels)_(1,1))
     if (!subNames.size) return seg;
     return seg.replace(/(?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_])[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?_\([^(){}\n]+\)/g, (m) => (subNames.has(normName(m)) ? NM0 + normName(m) + NM1 : m));
   };
