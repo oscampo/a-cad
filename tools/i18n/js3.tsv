@@ -421,3 +421,6 @@ Todavía no hay bibliotecas. Declara un documento como biblioteca en Configuraci
 falta el nombre de la biblioteca	the library name is missing
 falta el alias (p. ej. UF)	the alias is missing (e.g. UF)
 no viaja	does not travel
+La biblioteca «{0}» no tiene «{1}»	The library «{0}» has no «{1}»
+la biblioteca «{0}» se borró con clear() antes de este punto	the library «{0}» was cleared with clear() before this point
+«{0}» es una biblioteca que está más abajo: en el orden de lectura debe insertarse antes de usarla	«{0}» is a library placed further down: in reading order it must be inserted before it is used

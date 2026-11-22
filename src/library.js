@@ -3,36 +3,26 @@
 // Lo que viaja al insertarla (fase 3) son sus nombres publicos y lo que esos necesitan (dependencias); los ejemplos y las salidas no.
 // Aqui: las definiciones del documento, sus dependencias y la revision antes de guardar. Sin DOM.
 import { textVars } from './params.js';
-import { exprRefs, indexParts, isReservedName, normName } from './expr.js';
+import { exprRefs, indexParts, isReservedName } from './expr.js';
+import { localsOf } from './qualify.js';
 
 export const LIB_DIR = 'MyLibrary';
-const ASG = /(?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_'.])([A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*(?:_\([^()]*\))?'*)\s*:(?!=)/g;
-const FORV = /(?:^|[^A-Za-z0-9_])for\s*\(\s*([A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*'*)\s*[,;]/g;
 
 // Las definiciones del documento (la ultima de cada nombre): { name, kind: 'fn' | 'script' | 'var', expr, params, lib, err }
 export function libDefs(doc) {
   const st = textVars(doc), defs = new Map();
   for (const d of st.defs || []) {
     if (!d.name) continue;
-    defs.set(d.name, { name: d.name, kind: d.script ? 'script' : d.params ? 'fn' : 'var', expr: d.expr, params: d.params || null, lib: d.lib || null, err: st.errs.get(d.name) || null });
+    defs.delete(d.name); // la ultima definicion de cada nombre, en su lugar del orden de lectura
+    defs.set(d.name, { name: d.name, kind: d.script ? 'script' : d.params ? 'fn' : 'var', expr: d.expr, params: d.params || null, lib: d.lib || null, ...(d.unit ? { unit: d.unit } : {}), err: st.errs.get(d.name) || null });
   }
   return { defs, st };
 }
 
-// Nombres locales de una definicion (parametros, asignaciones de un programa, variable de un for, funciones locales de un script):
-// no son dependencias aunque se llamen como algo del documento (la b local de C_(surf) no arrastra una b de los ejemplos)
-function localsOf(d) {
-  const out = new Set(d.params || []);
-  const scan = (s) => { for (const m of String(s).matchAll(ASG)) out.add(normName(m[1])); for (const m of String(s).matchAll(FORV)) out.add(normName(m[1])); };
-  scan(d.expr);
-  for (const [g, x] of Object.entries(d.lib || {})) { out.add(g); for (const q of x.fn?.params || []) out.add(q); scan(x.fn?.body); }
-  out.add('nargin'); out.add('varargin');
-  return out;
-}
 // Los nombres que lee una definicion (sin sus locales): v_2 y A_(i,j) cuentan como v y A
 // known: los nombres definidos; «Neuber_(steels)» definido es ese nombre, no el elemento steels de un vector Neuber
 export function refsOf(d, known = new Map()) {
-  const loc = localsOf(d), out = new Set();
+  const loc = localsOf(d.params, d.expr, d.lib), out = new Set();
   const add = (s) => {
     for (const r of exprRefs(String(s ?? ''))) {
       if (!/^[A-Za-zα-ωΑ-Ωϑϕϖɛ]/.test(r)) continue; // restos que no son un nombre («_» de T_(st)_(1,2))
@@ -94,4 +84,16 @@ export function checkLibrary(doc) {
   for (const e of c.errors) out.push(e);
   for (const m of c.measures) out.push(`${m}: una biblioteca no debería depender de las cotas ni de las medidas de su dibujo`);
   return out;
+}
+
+// Lo que se guarda en el documento al insertar la biblioteca (fase 3): su ficha y lo que viaja, en orden de lectura
+export function libPayload(doc, alias = doc.lib?.alias) {
+  const L = doc.lib || {}, c = libClosure(doc, Array.isArray(L.exports) ? L.exports : []);
+  const defs = [...c.defs.values()].filter((d) => c.names.has(d.name)).map(({ err, ...d }) => { // eslint-disable-line no-unused-vars
+    const out = { ...d };
+    if (!out.lib) delete out.lib; else out.lib = Object.fromEntries(Object.entries(out.lib).map(([g, x]) => [g, { fn: { params: x.fn.params, body: x.fn.body } }]));
+    if (!out.params) delete out.params;
+    return out;
+  });
+  return { name: L.name || '', alias, version: L.version || 0, exports: [...(L.exports || [])], decimal: L.decimal ?? doc.decimal ?? null, angles: L.angles ?? (doc.angles === 'rad' ? 'rad' : 'deg'), defs };
 }

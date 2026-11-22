@@ -8,6 +8,7 @@ import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg, setUserUnits, addUserUnit, onDocUnits, unitsVersion, UNIT_NAME_RE } from './units.js';
 import { solveEqs, splitEq, eqResiduals } from './nsolve.js';
 import { isScript, parseScript } from './script.js';
+import { qualifyDef } from './qualify.js';
 // Tolerancia de una meta sobre el dibujo («solve(D5 == 40'mm; D1)=»): el solver geometrico no es exacto.
 export const GOAL_TOL = 1e-6;
 
@@ -286,8 +287,8 @@ function readingItems(doc, probes = []) {
   let n = 0;
   for (const [tid, t] of Object.entries(doc.texts || {})) {
     const s = String(t.text ?? '');
-    if (!calcStmts(s).length) continue;
-    const P = doc.pts?.[t.pt] || { x: 0, y: 0 }, h = t.h > 0 ? t.h : 1, lines = isScript(s) ? (t.open ? s.split('\n') : ['  ' + scriptStmt(s).sig + '  ']) : showFlat(s).split('\n'); // como se dibuja (una formula partida entre parentesis es una linea; un script colapsado, su firma)
+    if (!calcStmts(s).length && !t.lib) continue; // t.lib: una biblioteca insertada (un bloque que da sus definiciones como alias.nombre)
+    const P = doc.pts?.[t.pt] || { x: 0, y: 0 }, h = t.h > 0 ? t.h : 1, lines = t.lib ? ['▸ ' + (t.lib.name || '') + ' (' + (t.lib.alias || '') + ')'] : isScript(s) ? (t.open ? s.split('\n') : ['  ' + scriptStmt(s).sig + '  ']) : showFlat(s).split('\n'); // como se dibuja (una formula partida entre parentesis es una linea; un script colapsado, su firma)
     const hh = lines.length * 1.2 * h, w = Math.max(1, ...lines.map((l) => l.length)) * 0.55 * h, an = t.anchor || 'bl';
     items.push({ tid, t, h, n: n++, top: P.y + { t: 0, m: hh / 2, b: hh }[an[0]], left: P.x - { l: 0, c: w / 2, r: w }[an[1]] });
   }
@@ -312,6 +313,7 @@ function readingEvents(doc, probes = []) {
   const out = [];
   for (const it of readingItems(doc, probes)) {
     if (it.probe !== undefined) { out.push({ kind: 'dim', id: it.probe, name: it.pname }); continue; }
+    if (it.t.lib) { out.push({ kind: 'lib', tid: it.tid, idx: 0, lib: it.t.lib }); continue; }
     let di = 0, oi = 0;
     for (const p of calcStmts(it.t.text)) {
       if (p.k === 'def') out.push({ kind: 'def', tid: it.tid, idx: di++, name: normName(p.name), expr: p.expr.trim(), params: p.params === undefined ? null : p.params.split(paramSep()).map((q) => normName(q.trim())), ...(p.eq !== undefined && p.params !== undefined ? { eq: true } : {}), ...(p.unit ? { unit: p.unit } : {}), ...(p.script ? { script: true } : {}), ...(p.lib ? { lib: p.lib } : {}), ...(p.err ? { err: p.err } : {}) });
@@ -336,6 +338,11 @@ export const textDefs = (doc) => readingEvents(doc).filter((e) => e.kind === 'de
 // «x:expr'unidad»: si expr no lleva unidades, vale expr en esa unidad; si las lleva, deben ser de la misma magnitud y se muestra en ella (pu, pf: unidad y su factor al SI).
 // Si no cuadran, se prueba la unidad como parte de la expresion («L1+3'mm» es L1 + 3 mm). Un vector o una matriz lleva una sola unidad
 // para todos sus elementos («v:[1, 2, 3]'mm»).
+// El valor que guarda una variable de texto a partir del resultado de evalDef
+function valOf(r) {
+  const u = { ...(r.dim ? { d: r.dim } : {}), ...(r.pu ? { pu: r.pu, pf: r.pf } : {}) };
+  return r.str !== undefined ? { str: r.str } : r.strs ? { strs: r.strs } : r.mi ? { mat: r.mat, mi: r.mi, r: false, ...u } : r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false, ...u } : { mat: r.mat, r: false, ...u }) : { v: r.value, r: r.rad, ...u, ...(r.im ? { im: r.im } : {}) }; // un complejo guarda su parte imaginaria (una matriz compleja, siempre como mat + mi) // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
+}
 export function evalDef(expr, unit, vars) {
   const all = (s) => evalExpr(s, { vars, allowMat: true, allowCplx: true }); // los textos de calculo aceptan complejos
   if (!unit) return all(expr);
@@ -529,11 +536,13 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   const dimLater = new Set(events.filter((e) => e.kind === 'dim' && e.name).map((e) => e.name)), pend = new Set();
   const hid = new Set(); // cotas y medidas del dibujo borradas con clear() hasta este punto: ya no se leen
   const later = st.names; // para avisar «se define mas abajo»
+  const libAliases = new Set(events.filter((e) => e.kind === 'lib').map((e) => String(e.lib?.alias || ''))); // bibliotecas insertadas (su alias)
   const hint = (msg) => {
     const m = /No reconozco «(.+?)»/.exec(msg);
     if (!m || m[1] in cur) return msg;
     if (pend.has(m[1])) return `«${m[1]}» es una cota que se lee desde el lugar de su etiqueta, más abajo (antes se borró con clear())`;
     if (st.cleared.has(m[1])) return `«${m[1]}» se borró con clear() antes de este punto: vuelve a definirla o quita el clear`;
+    if (libAliases.has(m[1])) return [...st.cleared].some((n) => n.startsWith(m[1] + '.')) ? `la biblioteca «${m[1]}» se borró con clear() antes de este punto` : `«${m[1]}» es una biblioteca que está más abajo: en el orden de lectura debe insertarse antes de usarla`;
     return later.has(m[1]) ? `«${m[1]}» se define más abajo o más a la derecha: en el orden de lectura debe definirse antes` : msg;
   };
   for (const e of events) {
@@ -544,6 +553,20 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
     } // una cota ve las variables de texto de este punto de la lectura
     const drop = (n) => { (dimLater.has(n) ? pend : hid).add(n); delete cur[n]; st.cleared.add(n); };
     const back = (n) => { delete env[n]; if (n in dimVars && !hid.has(n) && !dimLater.has(n)) cur[n] = dimVars[n]; else { delete cur[n]; if (n in dimVars && !hid.has(n)) pend.add(n); } };
+    if (e.kind === 'lib') { // biblioteca insertada: sus definiciones valen desde aqui como alias.nombre, atadas a sus propios nombres (qualify.js)
+      const L = e.lib, A = String(L.alias || ''), names = new Set((L.defs || []).map((d) => d.name));
+      for (const d of L.defs || []) {
+        const key = A + '.' + d.name, q = qualifyDef(d, names, A);
+        let val = null;
+        if (d.params) val = { fn: { params: d.params, body: q.expr, ...(q.lib ? { lib: q.lib } : {}) } };
+        else {
+          try { val = valOf(evalDef(q.expr, d.unit, q.lib ? { ...cur, ...q.lib } : cur)); }
+          catch (err) { st.errs.set(key, `«${key}»: ${hint(err.message)}`); }
+        }
+        if (val) { cur[key] = val; env[key] = val; } else delete cur[key];
+      }
+      continue;
+    }
     if (e.kind === 'out' || e.kind === 'def') st.at.set(k, { live: new Set(Object.keys(env)), expr: e.expr });
     if (e.kind === 'out') {
       st.outEnv.set(k, { ...cur });
@@ -609,8 +632,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
       try {
         const rg = e.script ? null : parseRange(e.expr); // un script puede llevar «1..n» de un for: no es un rango
         const r = rg ? evalRangeDef(rg, e.unit, cur) : evalDef(e.expr, e.unit, e.lib ? { ...cur, ...e.lib } : cur); // las funciones locales de un script
-        const u = { ...(r.dim ? { d: r.dim } : {}), ...(r.pu ? { pu: r.pu, pf: r.pf } : {}) };
-        val = r.str !== undefined ? { str: r.str } : r.strs ? { strs: r.strs } : r.mi ? { mat: r.mat, mi: r.mi, r: false, ...u } : r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false, ...u } : { mat: r.mat, r: false, ...u }) : { v: r.value, r: r.rad, ...u, ...(r.im ? { im: r.im } : {}) }; // un complejo guarda su parte imaginaria (una matriz compleja, siempre como mat + mi) // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
+        val = valOf(r);
       } catch (err) { st.bad.add(k); st.errs.set(e.name, `«${e.name}»: ${hint(err.message)}`); }
     }
     if (val) { cur[e.name] = val; env[e.name] = val; st.defVal.set(k, val); if (e.eq) st.fnEnv.set(k, { ...cur }); } else back(e.name); // una definicion que falla deja la variable sin definir (o vuelve a la cota del mismo nombre)

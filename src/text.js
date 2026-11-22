@@ -122,6 +122,13 @@ function textValue1(doc, t) {
   // Nombres con subindice («var_(texto)») dentro de una formula: se marcan para dibujarlos como nombre con subindice de texto
   // (sin marcar, AsciiMath leeria «texto» como letras y simbolos sueltos: «to» seria una flecha).
   let subNames = null;
+  // el prefijo de una biblioteca insertada («UF.» de UF.C_(surf)) se dibuja en gris: se ve que el nombre viene de la biblioteca
+  let libRe;
+  const libPre = (seg) => {
+    if (!seg.includes('.')) return seg;
+    if (libRe === undefined) { const al = [...new Set(Object.values(doc.texts || {}).map((x) => x.lib?.alias).filter((a) => /^[A-Za-z][A-Za-z0-9]{0,11}$/.test(a || '')))]; libRe = al.length ? new RegExp(`(?<![A-Za-z0-9_.'])(${al.join('|')})\\.(?=[A-Za-zα-ωΑ-Ωϑϕϖɛ_])`, 'g') : null; }
+    return libRe ? seg.replace(libRe, 'color(gray)($1.)') : seg;
+  };
   const wrapNames = (seg) => {
     if (!seg.includes('_(')) return seg;
     subNames ||= new Set([...(st ||= textVars(doc)).names].filter((n) => n.includes('_(')));
@@ -166,7 +173,7 @@ function textValue1(doc, t) {
   const piece = (p) => {
     if (p.k === 'lit') return p.closed ? p.s : '`' + p.s + ' ⚠'; // literal: se dibuja, no se calcula
     if (p.k === 'code') return badU(p) ? wrapNames(p.s) + ' ⚠' : wrapNames(p.s);
-    if (p.k === 'out') return p.pre + outStr(p.expr, (q) => showU(wrapNames(q))) + '=' + outVal(p, true) + p.post; // expr= -> expr=valor
+    if (p.k === 'out') return p.pre + outStr(p.expr, (q) => showU(wrapNames(libPre(q)))) + '=' + outVal(p, true) + p.post; // expr= -> expr=valor
     const name = normName(p.name), shown = name.includes('_(') ? NM0 + name + NM1 : name; // x:valor -> x:=valor (en cursiva)
     const dk = tid + ':' + idx++, bad = st.bad.has(dk);
     const val = !bad ? st.defVal.get(dk) : null, mx = val?.vec ? [val.vec] : val?.mat;
@@ -175,7 +182,7 @@ function textValue1(doc, t) {
     const shownVal = p.eq === undefined || mx ? '' : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? (val.str !== undefined || val.strs ? showStr(val, true) : qty({ value: val.v, im: val.im, dim: val.d }, { [name]: val }, name, null, true)) : '⚠');
     // «x:valor'unidad»: la unidad va detras del valor; con «=valor», el valor ya sale en esa unidad
     const un = p.unit && !(shownVal && !shownVal.endsWith('⚠')) ? unitMath(p.unit.replace(/^\((.*)\)$/, '$1')) : '';
-    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + matQ(mx, val.d, { [name]: val }, name, null, true, val.mi) + (val.d ? '' : un) : IT0 + shown + call + ':=' + outStr(p.expr.trim(), (q) => showU(wrapNames(q))) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;
+    return p.pre + (mx ? IT0 + shown + ':=' + IT1 + matQ(mx, val.d, { [name]: val }, name, null, true, val.mi) + (val.d ? '' : un) : IT0 + shown + call + ':=' + outStr(p.expr.trim(), (q) => showU(wrapNames(libPre(q)))) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;
   };
   return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + contBack(tk, tk.lines.map((l) => l.map(piece).join('')).join('\n'), true) + (tk.disp ? '$$' : '$'))).join('');
 }

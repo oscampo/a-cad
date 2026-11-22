@@ -114,6 +114,7 @@ const numRe = (depth) => { const m = decimalMode(); return m === '.' ? RE_DOT : 
 // Primas al final de un nombre («Se'», «Se''»): la comilla que sigue a un nombre es una prima si lo que viene despues no puede empezar
 // una unidad («Se'=», «Se'*2», «Se':»); si puede, la ultima comilla es la de la unidad («Se'MPa» es Se en MPa, como siempre).
 // «f'(3)» es la funcion f' si ya existe; si no, «'(…)» sigue siendo una unidad entre parentesis. Devuelve cuantas primas son del nombre.
+const IDX_TAIL = /^_(?:\([^()]*\)|[A-Za-z0-9α-ωΑ-Ωϑϕϖɛ]+)/; // indice despues de un nombre con subindice: «_(1,2)» o «_k»
 function primesAt(src, k, name, vars) {
   let q = 0;
   while (src[k + q] === "'") q++;
@@ -166,6 +167,7 @@ function tokenize(src, vars = null, loose = false) {
     if (c === '√') { toks.push({ t: 'sqrt', i, j: i + 1 }); i++; continue; }
     if (c === 'π') { toks.push({ t: 'id', v: 'π', i, j: i + 1 }); i++; continue; }
     m = SUB_RE.exec(src.slice(i)) || ID_RE.exec(src.slice(i));
+    if (m && m[0].endsWith(')')) { const ex = IDX_TAIL.exec(src.slice(i + m[0].length)); if (ex) m = [m[0] + ex[0]]; } // «T_(st)_(1,2)»: el indice de un nombre con subindice
     if (m && !m[0].endsWith(')')) { const q = primesAt(src, i + m[0].length, m[0], vars); if (q) m = [m[0] + "'".repeat(q)]; } // «Se'»: primas del nombre
     if (m) {
       let ix = null;
@@ -177,6 +179,23 @@ function tokenize(src, vars = null, loose = false) {
         const full = raw + '.' + dm[1];
         if (loose || (vars && Object.prototype.hasOwnProperty.call(vars, full))) { toks.push({ t: 'var', v: full, i, j: i + full.length }); i += full.length; continue; }
         if (!(vars && Object.prototype.hasOwnProperty.call(vars, raw))) throw new Error(`No reconozco «${full}» (propiedades: p1.x, p1.y, l1.len, l1.ang, c1.r, c1.d)`);
+      }
+      // nombre de una biblioteca insertada: «UF.C_(surf)», «UF.S_e'», «UF.b_k» (alias + «.» + nombre; ver qualify.js y tvars.js)
+      if (/^[A-Za-z][A-Za-z0-9]{0,11}$/.test(raw) && src[i + L] === '.' && /[A-Za-zα-ωΑ-Ωϑϕϖɛ_]/.test(src[i + L + 1] || '')) {
+        let m2 = SUB_RE.exec(src.slice(i + L + 1)) || ID_RE.exec(src.slice(i + L + 1));
+        if (m2 && m2[0].endsWith(')')) { const ex = IDX_TAIL.exec(src.slice(i + L + 1 + m2[0].length)); if (ex) m2 = [m2[0] + ex[0]]; }
+        if (m2 && !m2[0].endsWith(')')) { // primas: «UF.S_e'(…)» es la funcion S_e' de la biblioteca si existe
+          const k2 = i + L + 1 + m2[0].length; let q = 0; while (src[k2 + q] === "'") q++;
+          if (q) { const after = /^\s*(.?)/.exec(src.slice(k2 + q))[1]; if (/[A-Za-zµμΩ°%áéíóúñÑ_(]/.test(after) && !(after === '(' && vars && Object.prototype.hasOwnProperty.call(vars, raw + '.' + normName(m2[0] + "'".repeat(q))))) q--; }
+          if (q) m2 = [m2[0] + "'".repeat(q)];
+        }
+        if (m2) {
+          const full = raw + '.' + normName(m2[0]), LL = L + 1 + m2[0].length;
+          if (loose) { toks.push({ t: 'var', v: full, i, j: i + LL }); i += LL; continue; }
+          if (vars && Object.prototype.hasOwnProperty.call(vars, full)) { toks.push({ t: vars[full]?.fn ? 'ufn' : 'var', v: full, i, j: i + LL }); i += LL; continue; }
+          if (vars && (ix = indexOfVar(full, vars))) { toks.push({ t: 'idx', base: ix.base, src: ix.src, i, j: i + LL }); i += LL; continue; }
+          if (vars && Object.keys(vars).some((k) => k.startsWith(raw + '.'))) throw new Error(`La biblioteca «${raw}» no tiene «${normName(m2[0])}»`);
+        }
       }
       if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: vars[raw]?.fn ? 'ufn' : 'var', v: raw, i, j: i + L }); // ufn: funcion definida en un texto
       else if (vars && (ix = indexOfVar(raw, vars))) toks.push({ t: 'idx', base: ix.base, src: ix.src, i, j: i + L }); // v_2, v_i, A_(1,2): un elemento de un vector o matriz
