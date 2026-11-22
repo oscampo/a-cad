@@ -120,6 +120,10 @@ t('rand en una salida: la misma tirada en cada dibujo, distinta entre salidas; r
   assert.notEqual(r1[0], r1[1]); // dos salidas, dos tiradas
   const b = mk('rng(7)='), c = mk('rng(7)=');
   assert.deepEqual(b(), c()); assert.notDeepEqual(b(), r1); // otra secuencia, tambien reproducible
+  const d = newDoc(); d.decimal = '.'; // «rng("shuffle")=» muestra la semilla que se uso, no una nueva en cada dibujo (antes cambiaba al mover el mouse)
+  const sh = d.texts[addText(d, addPoint(d, 0, 300), '$$rng("shuffle")=$$', {})];
+  const sv = () => shownText(d, sh).text.replace(/[\uE000-\uF8FF]/g, '');
+  assert.equal(sv(), sv());
 });
 
 console.log(`\n${passed} pruebas de fatiga pasaron`);

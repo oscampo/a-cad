@@ -168,6 +168,7 @@ function textValue1(doc, t) {
     try {
       const k0 = tid + ':' + oidx++, env = st?.outEnv.get(k0) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
       rngSet(st?.outRng?.get(k0) ?? rngMix(rngReset(), oidx)); // rand: la tirada de esta salida es siempre la misma (la pantalla se redibuja a menudo)
+      if (st?.rngOut?.has(k0)) { const r0 = st.rngOut.get(k0); return qty(r0, env, p.expr, p.unit, math); } // «rng("shuffle")=»: la semilla que se uso al calcular, no una nueva en cada dibujo
       const r = evalExpr(p.expr, { vars: env, allowMat: true, allowCplx: true });
       if (r.str !== undefined || r.strs) return showStr(r, math);
       return r.mat ? matQ(r.mat, r.dim, env, p.expr, p.unit, math, r.mi) : qty(r, env, p.expr, p.unit, math);

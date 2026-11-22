@@ -41,7 +41,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Corregido
 
-- Cálculo: una salida con números aleatorios (`dados(4)=` con un `randi` dentro) **cambiaba cada vez que se redibujaba la pantalla**, al mover la vista o hacer zoom, contra lo prometido (secuencia reproducible). Ahora cada salida parte de su punto de la secuencia según el orden de lectura: muestra siempre la misma tirada, y dos salidas dan tiradas distintas. Lo mismo para las gráficas. `rng(7)=` escrito como salida vuelve a cambiar la secuencia desde su lugar.
+- Cálculo: una salida con números aleatorios (`dados(4)=` con un `randi` dentro) **cambiaba cada vez que se redibujaba la pantalla**, al mover la vista o hacer zoom, contra lo prometido (secuencia reproducible). Ahora cada salida parte de su punto de la secuencia según el orden de lectura: muestra siempre la misma tirada, y dos salidas dan tiradas distintas. Lo mismo para las gráficas. `rng(7)=` escrito como salida vuelve a cambiar la secuencia desde su lugar. `rng("shuffle")=` muestra la semilla que se usó en el último cálculo; antes mostraba una nueva con cada movimiento del mouse, que no era la del juego.
 - Bibliotecas: un nombre con subíndice de una biblioteca insertada con índice (`UF.Neuber_(steels)_(1,1)`) se dibujaba con la sintaxis a la vista (`Neuber_steels_(1, 1)`); ahora se dibuja igual que un nombre propio del documento.
 - Cálculo: el elemento de una matriz o un vector cuyo nombre lleva subíndice (`T_(st)_(1,2)`, `k_(total)_2`) daba «No reconozco «_»»; ahora es ese elemento.
 - Cálculo: los números de 1000 o más ya no llevan un «.0» de sobra: `1000` y no `1000.0`, `[1, 1000, 1e6]` y no `[1 1000.0 1000000.0]`.
