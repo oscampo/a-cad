@@ -17,7 +17,7 @@ import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, past
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
-import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, pointOnElement, endOfElement, leadBody, leadOffset0, leadLabel, angSector, angTrue, initAngle, trackAngles, DIAM, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
+import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
@@ -1188,21 +1188,11 @@ function measureRel(line, font, italic = false) {
   return mctx.measureText(line).width / 100;
 }
 
-function drawTexts(c, o) {
-  for (const [id, t] of shownEntries(doc, 'texts')) {
-    const P = doc.pts[t.pt];
-    if (!P) continue;
-    const pose = textPose(doc, t);
-    const S = toScreen(P), f = textFrame(shownText(doc, t), measureRel, pose.anchor), sc = view.s;
-    c.save();
-    c.translate(S.x * dpr, S.y * dpr);
-    c.rotate(-(pose.ang * Math.PI) / 180);
-    if (t.bg) { // color de fondo: un rectangulo bajo la caja del texto, con un margen
-      const pad = TEXT_BG_PAD * t.h;
-      c.fillStyle = t.bg === 'auto' ? o.bg : t.bg; c.fillRect((f.xmin - pad) * sc * dpr, (-f.ymax - pad) * sc * dpr, (f.w + 2 * pad) * sc * dpr, (f.hh + 2 * pad) * sc * dpr); // «auto»: el color del papel
-    }
+// Dibuja el contenido de un texto ya ubicado (origen en su punto de insercion): formulas con sus trazos, o lineas con sus tramos
+function paintFrame(c, f, t, color) {
+  const sc = view.s;
     c.font = `${t.h * sc * dpr}px ${fontCss(t.font)}`;
-    c.fillStyle = colorOf(t.color, o); c.textBaseline = 'top'; c.textAlign = 'left';
+    c.fillStyle = color; c.textBaseline = 'top'; c.textAlign = 'left';
     if (f.math) { // con formulas ($...$, $$...$$): textos en su linea base y trazos (barras, raices, parentesis grandes)
       c.textBaseline = 'alphabetic'; c.strokeStyle = c.fillStyle; c.lineCap = 'round'; c.lineJoin = 'round'; c.setLineDash([]);
       const base = c.fillStyle;
@@ -1227,6 +1217,22 @@ function drawTexts(c, o) {
         x += rw;
       }
     });
+}
+
+function drawTexts(c, o) {
+  for (const [id, t] of shownEntries(doc, 'texts')) {
+    const P = doc.pts[t.pt];
+    if (!P) continue;
+    const pose = textPose(doc, t);
+    const S = toScreen(P), f = textFrame(shownText(doc, t), measureRel, pose.anchor), sc = view.s;
+    c.save();
+    c.translate(S.x * dpr, S.y * dpr);
+    c.rotate(-(pose.ang * Math.PI) / 180);
+    if (t.bg) { // color de fondo: un rectangulo bajo la caja del texto, con un margen
+      const pad = TEXT_BG_PAD * t.h;
+      c.fillStyle = t.bg === 'auto' ? o.bg : t.bg; c.fillRect((f.xmin - pad) * sc * dpr, (-f.ymax - pad) * sc * dpr, (f.w + 2 * pad) * sc * dpr, (f.hh + 2 * pad) * sc * dpr); // «auto»: el color del papel
+    }
+    paintFrame(c, f, t, colorOf(t.color, o));
     if (o.ui && isSel('tx', id)) {
       c.strokeStyle = theme.sel; c.lineWidth = 1.5 * dpr; c.setLineDash([5 * dpr, 3 * dpr]);
       c.strokeRect(f.xmin * sc * dpr, -f.ymax * sc * dpr, f.w * sc * dpr, f.hh * sc * dpr);
@@ -1236,8 +1242,8 @@ function drawTexts(c, o) {
 }
 
 // cabeza de flecha con la punta en (x,y) apuntando hacia (dx,dy); medidas en px de pantalla
-function arrowHead(c, { x, y, dx, dy }, g = 1) {
-  const len = 9 * g, w = 3.2 * g, bx = x - dx * len, by = y - dy * len, nx = -dy, ny = dx;
+function arrowHead(c, { x, y, dx, dy, len: l0, hw }, g = 1) {
+  const len = l0 ?? 9 * g, w = hw ?? 3.2 * g, bx = x - dx * len, by = y - dy * len, nx = -dy, ny = dx;
   c.beginPath();
   c.moveTo(x * dpr, y * dpr); c.lineTo((bx + nx * w) * dpr, (by + ny * w) * dpr); c.lineTo((bx - nx * w) * dpr, (by - ny * w) * dpr);
   c.closePath(); c.fill();
@@ -1256,7 +1262,16 @@ function drawDim(c, id, k, col, o = null) {
   c.setLineDash([]);
   for (const ar of L.arrows) arrowHead(c, ar, ar.g || L.size);
   c.restore();
-  if (L.label) label(c, L.label.text, L.label.x, L.label.y, id, col, L.label.italic, L.label.underline, L.label.px);
+  if (L.label?.model) drawLeadLabel(c, L.label, id, col); // linea indicativa: un texto en unidades del dibujo
+  else if (L.label) label(c, L.label.text, L.label.x, L.label.y, id, col, L.label.italic, L.label.underline, L.label.px);
+}
+
+// Etiqueta de una linea indicativa: un texto con altura en unidades del dibujo y su anclaje en (x, y) de pantalla
+function drawLeadLabel(c, lab, id, color) {
+  const t = { text: lab.text, h: lab.h, anchor: lab.anchor }, f = textFrame(t, measureRel, lab.anchor), sc = view.s;
+  c.save(); c.translate(lab.x * dpr, lab.y * dpr); paintFrame(c, f, t, color); c.restore();
+  const bx = lab.x + f.xmin * sc, by = lab.y - f.ymax * sc, bw = f.w * sc, bh = f.hh * sc, px = Math.max(0, (24 - bw) / 2), py = Math.max(0, (24 - bh) / 2); // se puede tocar aunque se vea chica
+  if (id) labelHits.push({ x: bx - px, y: by - py, w: bw + 2 * px, h: bh + 2 * py, id });
 }
 
 function drawConstraints(c, o) {
@@ -1265,7 +1280,7 @@ function drawConstraints(c, o) {
     if (k.hidden || (hp && consHidden(doc, k, hp))) continue;
     // al exportar (sin interfaz) las cotas van en el color del dibujo y no se pintan los simbolos de relaciones
     const col = !o.ui ? o.fg : isSel('co', id) ? theme.sel : theme.accent;
-    if (k.t === 'LEAD') { const lc = (leadBody(doc, k) || k).color ?? 'auto'; if (o.dims) drawDim(c, id, k, !o.ui ? colorOf(lc, o) : isSel('co', id) ? theme.sel : colorOf(lc, o), o); continue; } // línea indicativa: con su color, tipo y grosor
+    if (k.t === 'LEAD') { if (!(k.h > 0)) k.h = cur.tx.h ?? niceHeight(); /* una de antes, sin altura: la de los textos nuevos */ const lc = (leadBody(doc, k) || k).color ?? 'auto'; if (o.dims) drawDim(c, id, k, !o.ui ? colorOf(lc, o) : isSel('co', id) ? theme.sel : colorOf(lc, o), o); continue; } // línea indicativa: con su color, tipo y grosor
     if (k.t === 'DIST' || k.t === 'DISTPL' || k.t === 'ANG' || k.t === 'ANG4' || k.t === 'RAD') { if (o.dims) drawDim(c, id, k, col); continue; }
     if (!o.cons) continue;
     const text = conTag(k);
@@ -3167,23 +3182,63 @@ function splitSelected() {
 }
 
 // Línea indicativa: la punta en el punto, la etiqueta arrastrable (sigue a la geometría); estilo y letra del menú de estilo
-const LEAD_ASK = 'Etiqueta de la línea indicativa: texto, "texto", $fórmula$ o $$fórmula$$';
+// Línea indicativa: en un extremo, el elemento mismo es el cuerpo; en el centro o un punto intermedio, una recta propia.
+// La etiqueta es un texto en unidades del dibujo (altura y punto de inserción como los textos); con cuerpo va en un extremo,
+// el medio o un punto del spline. Al crearla y con doble toque se abre su ventana.
 async function addLeader(pt, el) {
-  const src = await askText(LEAD_ASK, '');
-  if (src === null) return;
-  const lbl = leadLabel(src), st = style();
+  const k = { t: 'LEAD', refs: [pt, el], h: cur.tx.h ?? niceHeight() };
+  if (endOfElement(doc, pt, el)) k.on = 1;
+  else { const st = style(); Object.assign(k, { color: st.color ?? 'auto', ltype: st.ltype || 'continua', w: st.w ?? 2, ...(st.ls && st.ls !== 1 ? { ls: st.ls } : {}) }); }
+  const r = await askLeader(k, true);
+  if (!r) return;
   pushUndo();
-  // en un extremo, el elemento mismo es el cuerpo (con su estilo); en el centro o en un punto intermedio, una linea recta propia
-  const id = endOfElement(doc, pt, el) ? addCon(doc, { t: 'LEAD', refs: [pt, el], on: 1, ...(lbl ? { lbl } : {}), ...newFs() }) : addCon(doc, { t: 'LEAD', refs: [pt, el], ...(lbl ? { lbl } : {}), ...leadOffset0(view, (cur.dimFs || DIM_FS) / DIM_FS), color: st.color ?? 'auto', ltype: st.ltype || 'continua', w: st.w ?? 2, ...(st.ls && st.ls !== 1 ? { ls: st.ls } : {}), ...newFs() });
+  const id = addCon(doc, Object.assign(k, r));
   sel = [{ k: 'co', id }]; afterChange();
 }
 async function editLeader(id) {
   const k = doc.cons[id]; if (!k) return;
-  const src = await askText(LEAD_ASK, k.lbl || '');
-  if (src === null) return;
+  const r = await askLeader(k, false);
+  if (!r) return;
   pushUndo();
-  const lbl = leadLabel(src); if (lbl) k.lbl = lbl; else delete k.lbl;
+  for (const [f, v] of Object.entries(r)) if (v === undefined) delete k[f]; else k[f] = v;
   afterChange();
+}
+// Ventana de la línea indicativa: etiqueta, dónde va (con cuerpo), punto de inserción y altura. Devuelve los campos o null.
+function askLeader(k, isNew) {
+  return new Promise((resolve) => {
+    const dlg = $('dlgLead'), inp = $('leadText'), posSel = $('leadAt'), hIn = $('leadH'), box = $('leadAnchor');
+    $('dlgLeadTitle').textContent = isNew ? 'Nueva línea indicativa' : 'Línea indicativa';
+    inp.value = k.lbl || '';
+    $('leadAtRow').style.display = k.on ? 'flex' : 'none';
+    posSel.textContent = '';
+    if (k.on) for (const x of leadSpots(doc, k)) { const op = document.createElement('option'); op.value = x.key; op.textContent = x.name[0].toUpperCase() + x.name.slice(1); posSel.appendChild(op); }
+    posSel.value = k.at ?? leadAtDefault(doc, k);
+    hIn.value = String(Math.round((k.h || cur.tx.h || niceHeight()) * 1000) / 1000);
+    let anchor = k.anchor || leadAnchorDefault(doc, k);
+    const paint = () => {
+      box.textContent = '';
+      for (const a of ANCHORS) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.title = 'Punto de inserción: ' + ANCHOR_NAMES[a]; b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', String(a === anchor));
+        const x = { l: 5, c: 12, r: 19 }[a[1]], y = { t: 5, m: 12, b: 19 }[a[0]];
+        b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="1" opacity=".55"/><circle cx="${x}" cy="${y}" r="3" fill="currentColor"/></svg>`;
+        b.onclick = () => { anchor = a; paint(); };
+        box.appendChild(b);
+      }
+    };
+    paint();
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; dlg.close(); resolve(v); };
+    $('leadOk').onclick = (ev) => {
+      ev.preventDefault();
+      const h = Number(String(hIn.value).replace(',', '.'));
+      if (!(h > 0)) { toast('La altura debe ser un número mayor que cero'); return; }
+      finish({ lbl: leadLabel(inp.value) ?? undefined, h, anchor, ...(k.on ? { at: posSel.value } : {}) });
+    };
+    $('leadCancel').onclick = () => finish(null);
+    dlg.oncancel = () => finish(null);
+    dlg.showModal(); inp.focus();
+  });
 }
 
 // Tamaño de letra de una cota nueva: el del menú de estilo (12 px no se guarda)
@@ -3252,7 +3307,7 @@ function applyStyle(prop, value) {
     const o = s.k === 'ln' ? doc.lines[s.id] : s.k === 'ci' ? doc.circles[s.id] : s.k === 'ar' ? doc.arcs[s.id] : s.k === 'sp' ? doc.splines[s.id] : s.k === 'el' ? doc.ellipses[s.id] : (s.k === 'ha' || s.k === 'tx') && prop === 'color' ? (s.k === 'ha' ? doc.hatches[s.id] : doc.texts[s.id]) : null;
     if (o) { o[prop] = value; touched = true; if (prop === 'ltype' && value === 'constructiva') { o.color = CLINE_STYLE.color; o.w = CLINE_STYLE.w; } } // convertir a constructiva toma su color y grosor
     else if (s.k === 'co' && doc.cons[s.id]?.t === 'LEAD' && ['color', 'ltype', 'w', 'ls'].includes(prop)) { (leadBody(doc, doc.cons[s.id]) || doc.cons[s.id])[prop] = value; touched = true; } // con cuerpo: el estilo es el del elemento // línea indicativa: color, tipo y grosor
-    else if (prop === 'dimFs' && s.k === 'co' && (doc.cons[s.id]?.v !== undefined || doc.cons[s.id]?.t === 'LEAD')) { const k = doc.cons[s.id]; if (value !== DIM_FS) k.fs = value; else delete k.fs; touched = true; } // letra de una cota seleccionada
+    else if (prop === 'dimFs' && s.k === 'co' && doc.cons[s.id]?.v !== undefined) { const k = doc.cons[s.id]; if (value !== DIM_FS) k.fs = value; else delete k.fs; touched = true; } // letra de una cota seleccionada
     else if (s.k === 'pt' && doc.traces[s.id]) { doc.traces[s.id][prop] = value; touched = true; } // el estilo de un punto con trazado es el de su trayectoria
   }
   if (sel.length && !touched) undoStack.pop();
@@ -3310,7 +3365,7 @@ function syncPanel() {
   $('ltEl').value = String(sv.ls ?? 1);
   fillLtypes(sv.ltype);
   $('weight').value = String(sv.w);
-  { const dk = sel.map((s) => (s.k === 'co' ? doc.cons[s.id] : null)).find((k) => k && (k.v !== undefined || k.t === 'LEAD')); $('dimFs').value = String(dk ? dk.fs || DIM_FS : cur.dimFs || DIM_FS); } // la de la cota seleccionada o la de las nuevas
+  { const dk = sel.map((s) => (s.k === 'co' ? doc.cons[s.id] : null)).find((k) => k && k.v !== undefined); $('dimFs').value = String(dk ? dk.fs || DIM_FS : cur.dimFs || DIM_FS); } // la de la cota seleccionada o la de las nuevas
   panelColor = sv.color || 'auto';
   panelPicker?.refresh();
   if (hat) { $('hKind').value = hat.kind; $('hAngle').value = hat.angle; $('hSpace').value = hat.spacing; $('hAlpha').value = hat.alpha; }

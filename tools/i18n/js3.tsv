@@ -474,3 +474,8 @@ Letra de cotas (px)	Dimension text (px)
 Letra de la cota (px)	Dimension text (px)
 Línea indicativa	Leader
 Editar etiqueta	Edit label
+Etiqueta: texto, "texto", $fórmula$ o $$fórmula$$	Label: text, "text", $formula$ or $$formula$$
+Dónde va	Placement
+Altura del texto	Text height
+Nueva línea indicativa	New leader
+La altura debe ser un número mayor que cero	The height must be a number greater than zero

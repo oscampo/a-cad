@@ -2,7 +2,7 @@ import { visibleDoc, hatchLoops, allLtypes, arcOf, arcSamples, splinePolyline, e
 import { dashFromPattern, norm, splineBezier } from './geom.js';
 import { textFrame, textCorners, textPose, shownText, runsOf, plainText, framePrims, LINE_SPACING, fontCss, TEXT_BG_PAD } from './text.js';
 import { vecArrow } from './vectors.js';
-import { layoutDim, lblIsMath, lblPlain, leadBody, leadBodies } from './dims.js';
+import { layoutDim, lblIsMath, lblPlain, leadBody, leadBodies, leadLabelPlace } from './dims.js';
 
 const DIM_KINDS = new Set(['DIST', 'DISTPL', 'ANG', 'ANG4', 'RAD', 'LEAD']); // LEAD: lineas indicativas (anotaciones)
 const approx = (ln) => 0.6 * ln.length; // ancho aproximado de texto (por altura 1)
@@ -33,6 +33,19 @@ export function dimLayouts(doc, view) {
   return out;
 }
 
+// Las etiquetas de las lineas indicativas salen como textos (en unidades del dibujo, con formulas): un punto provisional
+// para cada una y su texto. Devuelve el documento con esos puntos y la lista de textos.
+function withLeadTexts(doc) {
+  const pts = { ...doc.pts }, extra = [];
+  let i = 0;
+  for (const k of Object.values(doc.cons || {})) {
+    if (k.t !== 'LEAD' || k.hidden) continue;
+    const Lp = leadLabelPlace(doc, k, 3); if (!Lp) continue;
+    const id = '__lead' + i++; pts[id] = Lp.P;
+    extra.push({ pt: id, text: Lp.text, h: Lp.h, anchor: Lp.anchor, color: (leadBody(doc, k) || k).color, lead: true });
+  }
+  return { doc: { ...doc, pts }, extra };
+}
 const lblTxt = (t) => (lblIsMath(t) ? lblPlain(t) : t); // una etiqueta con formula va como texto plano en el SVG
 const labelBox = (l) => {
   const g = (l.px || 12) / 12, w = 0.6 * 12 * g * lblTxt(l.text).length + 8 * g, h = 18 * g;
@@ -47,10 +60,11 @@ export function extraExtents(doc, view, vis = {}) {
   for (const L of vis.dims === false ? [] : dimLayouts(doc, view)) {
     for (const l of L.lines) { add(l[0], l[1]); add(l[2], l[3]); }
     for (const a of L.arcs) { add(a.cx - a.r, a.cy - a.r); add(a.cx + a.r, a.cy + a.r); }
-    const g = L.size || 1; for (const ar of L.arrows) { const ga = ar.g || g; add(ar.x - ar.dx * 9 * ga - 4 * ga, ar.y - ar.dy * 9 * ga - 4 * ga); add(ar.x - ar.dx * 9 * ga + 4 * ga, ar.y - ar.dy * 9 * ga + 4 * ga); }
-    if (L.label) { const b = labelBox(L.label); add(b.x, b.y); add(b.x + b.w, b.y + b.h); }
+    const g = L.size || 1; for (const ar of L.arrows) { const ln = ar.len ?? 9 * (ar.g || g), hw = ar.hw ?? 4 * (ar.g || g); add(ar.x - ar.dx * ln - hw, ar.y - ar.dy * ln - hw); add(ar.x - ar.dx * ln + hw, ar.y - ar.dy * ln + hw); }
+    if (L.label && !L.label.model) { const b = labelBox(L.label); add(b.x, b.y); add(b.x + b.w, b.y + b.h); }
   }
-  for (const t of vis.texts === false ? [] : Object.values(doc.texts || {})) {
+  const WL = withLeadTexts(doc); doc = WL.doc;
+  for (const t of vis.texts === false ? [] : [...Object.values(doc.texts || {}), ...WL.extra]) {
     if (!doc.pts[t.pt]) continue;
     for (const p of textCorners(doc, t, approx)) add(p.x * view.s + view.ox, view.oy - p.y * view.s);
   }
@@ -66,11 +80,11 @@ function dimSvg(L, color, leadAttrs = null) {
     const delta = a.ccw ? norm(a.a0 - a.a1) : norm(a.a1 - a.a0);
     out.push(`<path d="M${p(a.a0)} A${n(a.r)} ${n(a.r)} 0 ${delta > Math.PI ? 1 : 0} ${a.ccw ? 0 : 1} ${p(a.a1)}" fill="none" stroke="${color}" stroke-width="1"${a.dashed ? ' stroke-dasharray="4 3"' : ''}/>`);
   }
-  for (const { x, y, dx, dy, g: ga } of L.arrows) {
-    const g = ga || L.size || 1, aw = 3.2 * g, bx = x - dx * 9 * g, by = y - dy * 9 * g, nx = -dy, ny = dx;
+  for (const { x, y, dx, dy, g: ga, len, hw } of L.arrows) {
+    const g = ga || L.size || 1, aw = hw ?? 3.2 * g, ln = len ?? 9 * g, bx = x - dx * ln, by = y - dy * ln, nx = -dy, ny = dx;
     out.push(`<polygon points="${n(x)},${n(y)} ${n(bx + nx * aw)},${n(by + ny * aw)} ${n(bx - nx * aw)},${n(by - ny * aw)}" fill="${color}"/>`);
   }
-  if (L.label) {
+  if (L.label && !L.label.model) { // la de una linea indicativa sale con los textos
     const b = labelBox(L.label);
     out.push(`<rect x="${n(b.x)}" y="${n(b.y)}" width="${n(b.w)}" height="${n(b.h)}" rx="3" fill="#fff" fill-opacity="0.85"/>`);
     out.push(`<text x="${n(L.label.x)}" y="${n(L.label.y)}" font-family="sans-serif" font-size="${n(L.label.px || 12)}" text-anchor="middle" dominant-baseline="central"${L.label.italic ? ' font-style="italic"' : ''}${L.label.underline ? ' text-decoration="underline"' : ''} fill="${color}">${esc(lblTxt(L.label.text))}</text>`);
@@ -153,8 +167,9 @@ export function exportSVG(doc, ltScale = 1, vis = {}) {
     out.push(`<path d="${polyPath(tr.pts, false)}" fill="none" stroke="${col(tr.color)}" stroke-width="${tr.w}" stroke-linejoin="round"${dash(tr.ltype, tr.ls)}/>`);
   }
   // textos: ancho aproximado (0.6 de la altura por caracter) solo para alinear
-  for (const t0 of vis.texts === false ? [] : Object.values(doc.texts || {})) {
-    const t = shownText(doc, t0);
+  const WL = withLeadTexts(doc); doc = WL.doc; // las etiquetas de las lineas indicativas, como textos
+  for (const t0 of vis.texts === false ? [] : [...Object.values(doc.texts || {}), ...WL.extra]) {
+    const t = t0.lead ? t0 : shownText(doc, t0);
     const P = doc.pts[t.pt];
     if (!P) continue;
     const pose = textPose(doc, t);
@@ -226,8 +241,9 @@ export function exportDXF(doc, viewScale = 5, vis = {}) {
   for (const e of Object.values(doc.ellipses || {})) { const part = !!(e.p1 && e.p2), P = ellipsePolyline(doc, e, 120); poly(part ? P : P.slice(0, -1), !part); }
   for (const tr of Object.values(doc.traces || {})) if (tr.pts.length >= 2) poly(tr.pts, false);
   // textos: una entidad TEXT por linea, alineada segun el punto de insercion (ancho aproximado)
-  for (const t0 of vis.texts === false ? [] : Object.values(doc.texts || {})) {
-    const t = shownText(doc, t0);
+  const WL = withLeadTexts(doc); doc = WL.doc; // las etiquetas de las lineas indicativas, como textos
+  for (const t0 of vis.texts === false ? [] : [...Object.values(doc.texts || {}), ...WL.extra]) {
+    const t = t0.lead ? t0 : shownText(doc, t0);
     const P = doc.pts[t.pt];
     if (!P) continue;
     const pose = textPose(doc, t);
@@ -262,13 +278,13 @@ export function exportDXF(doc, viewScale = 5, vis = {}) {
       g(50, deg(a.ccw ? m0 : m1)); g(51, deg(a.ccw ? m1 : m0));
     }
     const ga = L.size || 1;
-    for (const { x, y, dx, dy, g: g1 } of L.arrows) {
-      const gg = g1 || ga, bx = x - dx * 9 * gg, by = y - dy * 9 * gg, nx = -dy, ny = dx, w = 3.2 * gg;
+    for (const { x, y, dx, dy, g: g1, len, hw } of L.arrows) {
+      const gg = g1 || ga, ln = len ?? 9 * gg, bx = x - dx * ln, by = y - dy * ln, nx = -dy, ny = dx, w = hw ?? 3.2 * gg;
       const P = [[x, y], [bx + nx * w, by + ny * w], [bx - nx * w, by - ny * w], [bx - nx * w, by - ny * w]];
       g(0, 'SOLID'); g(8, '0');
       P.forEach(([px, py], i) => { g(10 + i, mx(px)); g(20 + i, my(py)); g(30 + i, 0); });
     }
-    if (L.label) {
+    if (L.label && !L.label.model) {
       g(0, 'TEXT'); g(8, '0'); g(10, mx(L.label.x)); g(20, my(L.label.y)); g(30, 0); g(40, (11 * (L.label.px || 12)) / 12 / S); g(1, (L.label.underline ? '%%u' : '') + lblTxt(L.label.text).replace(/\u2300/g, '%%c'));
       if (L.label.italic) g(51, 15); // cota de referencia: oblicuo
       g(72, 1); g(11, mx(L.label.x)); g(21, my(L.label.y)); g(31, 0); g(73, 2);

@@ -227,6 +227,59 @@ function bodyEnds(doc, k, v) {
   return { T: S[S.length - 1], u: outDir(S), F: S[0], uf: outDir([...S].reverse()) };
 }
 
+// ---- Etiqueta de la linea indicativa: un texto en unidades del dibujo (k.h), como los textos, anclado (k.anchor) a un punto.
+// Con cuerpo, ese punto (k.at) es un extremo o el medio de una recta, un arco o un arco eliptico ('a', 'b', 'm'), o uno de
+// los puntos de un spline por su indice ('i0', 'i1'…); sin cuerpo, la etiqueta va a (ox, oy) de la punta. La flecha mide segun la altura.
+export const LEAD_GAP = 0.25; // separacion entre el punto y la caja del texto, en alturas
+export const leadText = (k) => (k.lbl ? (lblIsMath(k.lbl) ? k.lbl : lblPlain(k.lbl)) : '…');
+// Los lugares donde puede ir la etiqueta de una linea indicativa con cuerpo: [{ key, name, P }]
+export function leadSpots(doc, k) {
+  const el = k.refs[1], out = [], pt = (id) => doc.pts[id];
+  const l = doc.lines[el], ar = doc.arcs[el], e = doc.ellipses?.[el], sp = doc.splines?.[el];
+  if (l || ar) {
+    const a = pt(l ? l.a : ar.a), b = pt(l ? l.b : ar.b);
+    let m;
+    if (l) m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    else { const c = pt(ar.c), g = arcOf(doc, ar), t = g.a0 + g.sweep / 2; m = { x: c.x + ar.r * Math.cos(t), y: c.y + ar.r * Math.sin(t) }; }
+    out.push({ key: 'a', name: 'extremo ' + (l ? l.a : ar.a), P: a }, { key: 'm', name: 'punto medio', P: m }, { key: 'b', name: 'extremo ' + (l ? l.b : ar.b), P: b });
+  } else if (e && e.p1 && e.p2) {
+    const P = ellipsePolyline(doc, e, 180);
+    out.push({ key: 'a', name: 'extremo ' + e.p1, P: pt(e.p1) }, { key: 'm', name: 'punto medio', P: P[P.length >> 1] }, { key: 'b', name: 'extremo ' + e.p2, P: pt(e.p2) });
+  } else if (sp) sp.pts.forEach((id, i) => out.push({ key: 'i' + i, name: 'punto ' + id, P: pt(id) }));
+  return out.filter((x) => x.P);
+}
+// Lugar por defecto: el otro extremo (no la punta)
+export function leadAtDefault(doc, k) {
+  const el = k.refs[1], tip = k.refs[0], l = doc.lines[el] || doc.arcs[el], e = doc.ellipses?.[el], sp = doc.splines?.[el];
+  if (l) return l.a === tip ? 'b' : 'a';
+  if (e) return e.p1 === tip ? 'b' : 'a';
+  if (sp) return sp.pts[0] === tip ? 'i' + (sp.pts.length - 1) : 'i0';
+  return 'a';
+}
+// Anclaje por defecto: el texto sigue la direccion de la curva en el otro extremo (a la derecha si sale hacia la derecha…)
+export function leadAnchorDefault(doc, k) {
+  if (!k.on) return 'mc';
+  const poly = bodyPath(doc, k); if (!poly) return 'bl';
+  const S = [...poly].reverse(), u = outDir(S); // en unidades del dibujo (y hacia arriba)
+  return (u.y > 0.38 ? 'b' : u.y < -0.38 ? 't' : 'm') + (u.x > 0.38 ? 'l' : u.x < -0.38 ? 'r' : 'c');
+}
+const SX = { l: 1, c: 0, r: -1 }, SY = { b: 1, m: 0, t: -1 };
+// Donde va el texto (unidades del dibujo): su punto de insercion P (con la separacion), el anclaje, la altura y su caja aproximada
+export function leadLabelPlace(doc, k, h0) {
+  const h = k.h > 0 ? k.h : h0, text = leadText(k), anchor = k.anchor || leadAnchorDefault(doc, k);
+  let P;
+  if (k.on) {
+    const spots = leadSpots(doc, k), at = k.at ?? leadAtDefault(doc, k), q = (spots.find((x) => x.key === at) || spots[0])?.P;
+    if (!q) return null;
+    const g = LEAD_GAP * h; P = { x: q.x + SX[anchor[1]] * g, y: q.y + SY[anchor[0]] * g };
+  } else {
+    const T = doc.pts[k.refs[0]]; if (!T) return null;
+    P = { x: T.x + (k.ox ?? 2 * h), y: T.y + (k.oy ?? 1.6 * h) };
+  }
+  const w = 0.6 * h * lblLen(text) + 0.3 * h, hh = 1.15 * h; // caja aproximada (el dibujo mide la real)
+  return { P, anchor, h, text, w, hh, C: { x: P.x + (SX[anchor[1]] * w) / 2, y: P.y + (SY[anchor[0]] * hh) / 2 } };
+}
+
 // Lo que se teclea como etiqueta de una linea indicativa: «"texto"», «$formula$», «$$formula$$» (tambien entre corchetes, como en una
 // cota) o texto suelto, que se toma como «"texto"». null si queda vacia.
 export function leadLabel(src) {
@@ -246,26 +299,23 @@ function layoutDimBase(doc, k, view) {
   const out = { lines: [], arcs: [], arrows: [], label: null };
   const text = dimText(doc, k);
 
-  if (k.t === 'LEAD' && k.on) { // el elemento es el cuerpo: flecha en la punta, en la direccion de la curva; etiqueta junto al otro extremo
-    const B = bodyEnds(doc, k, v), body = leadBody(doc, k); if (!B) return out;
-    const hw = (0.6 * 12 * G * lblLen(text) + 8 * G) / 2, hh = 9 * G;
-    const Lc = k.ox !== undefined ? { x: B.F.x + k.ox * s, y: B.F.y - k.oy * s } : { x: B.F.x + B.uf.x * (hw + 4 * G), y: B.F.y + B.uf.y * (hh + 4 * G) }; // por defecto, a continuacion del otro extremo
-    out.label = { x: Lc.x, y: Lc.y, text };
-    const w = body?.w ?? 2, g = Math.max(G, w * 0.75), sh = (w / 2) * (ARROW0 / 3.2); // flecha con el grosor de la linea; adelantada para que la punta tape el final del trazo
-    out.arrows.push({ x: B.T.x + B.u.x * sh, y: B.T.y + B.u.y * sh, dx: B.u.x, dy: B.u.y, g });
-    return out;
-  }
-  if (k.t === 'LEAD') { // la etiqueta en su lugar, la linea desde el borde de su caja hasta la punta, y la flecha en la punta
-    const P = doc.pts[k.refs[0]]; if (!P) return out;
-    const T = v(P), o0 = leadOffset0(view), Lc = { x: T.x + (k.ox ?? o0.ox) * s, y: T.y - (k.oy ?? o0.oy) * s };
-    out.label = { x: Lc.x, y: Lc.y, text };
-    const dx = T.x - Lc.x, dy = T.y - Lc.y, d = Math.hypot(dx, dy);
-    const hw = (0.6 * 12 * G * lblLen(text) + 8 * G) / 2, hh = 9 * G; // media caja de la etiqueta (la de label())
-    const cut = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity) * d; // donde la linea sale de la caja
-    if (d > cut + ARROW) {
+  if (k.t === 'LEAD') { // la etiqueta, un texto en unidades del dibujo; la flecha, con la altura del texto
+    const Lp = leadLabelPlace(doc, k, DIM_FS / s); if (!Lp) return out;
+    const Ps = v(Lp.P), C = v(Lp.C), len = 1.2 * Lp.h * s, hw = 0.35 * len; // flecha: 1,2 alturas de largo
+    out.label = { x: Ps.x, y: Ps.y, text: Lp.text, model: true, h: Lp.h, anchor: Lp.anchor };
+    if (k.on) { // el elemento es el cuerpo: flecha en la punta, en la direccion de la curva
+      const B = bodyEnds(doc, k, v), body = leadBody(doc, k); if (!B) return out;
+      const sh = Math.min(((body?.w ?? 2) / 2) / 0.35, len * 0.5); // adelantada para que tape el final del trazo
+      out.arrows.push({ x: B.T.x + B.u.x * sh, y: B.T.y + B.u.y * sh, dx: B.u.x, dy: B.u.y, len, hw });
+      return out;
+    }
+    const T = v(doc.pts[k.refs[0]]), dx = T.x - C.x, dy = T.y - C.y, d = Math.hypot(dx, dy); // sin cuerpo: recta desde el borde de la caja
+    const bw = (Lp.w * s) / 2 + 2, bh = (Lp.hh * s) / 2 + 2;
+    const cut = Math.min(dx ? bw / Math.abs(dx) : Infinity, dy ? bh / Math.abs(dy) : Infinity) * d;
+    if (d > cut + len) {
       const u = { x: dx / d, y: dy / d };
-      out.lines.push([Lc.x + u.x * cut, Lc.y + u.y * cut, T.x - u.x * ARROW * 0.6, T.y - u.y * ARROW * 0.6]);
-      out.arrows.push({ x: T.x, y: T.y, dx: u.x, dy: u.y });
+      out.lines.push([C.x + u.x * cut, C.y + u.y * cut, T.x - u.x * len * 0.6, T.y - u.y * len * 0.6]);
+      out.arrows.push({ x: T.x, y: T.y, dx: u.x, dy: u.y, len, hw });
     }
     return out;
   }
@@ -401,7 +451,12 @@ export function dragDim(doc, k, view, p) {
     return ok;
   }
   const s = view.s, v = V(view);
-  if (k.t === 'LEAD' && k.on) { const B = bodyEnds(doc, k, v); if (!B) return false; k.ox = (p.x - B.F.x) / s; k.oy = (B.F.y - p.y) / s; return true; } // relativa al otro extremo
+  if (k.t === 'LEAD' && k.on) { // la etiqueta salta al lugar permitido mas cercano (un extremo, el medio, un punto del spline)
+    let best = null;
+    for (const x of leadSpots(doc, k)) { const q = v(x.P), dd = Math.hypot(q.x - p.x, q.y - p.y); if (!best || dd < best.d) best = { d: dd, key: x.key }; }
+    if (!best || best.key === (k.at ?? leadAtDefault(doc, k))) return false;
+    k.at = best.key; return true;
+  }
   if (k.t === 'LEAD') { const P = doc.pts[k.refs[0]]; if (!P) return false; const T = v(P); k.ox = (p.x - T.x) / s; k.oy = (T.y - p.y) / s; return true; }
   if (k.t === 'DIST' || k.t === 'DISTPL') {
     const [p1, p2] = distEnds(doc, k);

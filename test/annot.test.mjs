@@ -1,13 +1,14 @@
 // Cotas con etiqueta libre y tamaño de letra; lineas indicativas (anotaciones LEAD): geometria, arrastre, exportacion.
 import assert from 'node:assert/strict';
 import { newDoc, addPoint, addLine, addCircle, addArc, addSpline, addCon, deleteItems } from '../src/model.js';
-import { splitLabel, splitScale, dimText, layoutDim, dragDim, pointOnElement, leadLabel, dimGain, endOfElement } from '../src/dims.js';
+import { splitLabel, splitScale, dimText, layoutDim, dragDim, pointOnElement, leadLabel, dimGain, endOfElement, leadSpots, leadLabelPlace, LEAD_GAP } from '../src/dims.js';
 import { exportSVG, exportSVGLaser, laserClasses } from '../src/export.js';
 import { solve, initSolver } from '../src/solver.js';
 
 let passed = 0;
 const t = async (name, fn) => { await fn(); passed++; console.log('ok  ' + name); };
 const view = { s: 4, ox: 100, oy: 400 };
+const SXs = (a) => ({ l: 1, c: 0, r: -1 })[a[1]];
 
 await t('etiqueta libre: texto, fórmula y combinada con la escala; el valor no cambia', () => {
   assert.deepEqual(splitLabel('50["D"]'), { body: '50', lbl: '"D"' });
@@ -70,14 +71,14 @@ await t('línea indicativa: el solver no la ve y se va con su elemento', async (
   assert.equal(d.cons[id], undefined);
 });
 
-await t('SVG: con su color, grosor y tipo de línea; la letra de cada cota; la fórmula como texto plano', () => {
+await t('SVG: con su color, grosor y tipo de línea; la letra de cada cota; la etiqueta de la línea indicativa como texto, con su fórmula', () => {
   const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 10, 0), l = addLine(d, a, b, { color: 'auto', ltype: 'continua', w: 2 });
   d.cons.k1 = { t: 'LEAD', refs: [b, l], lbl: '$K_t$', ox: 5, oy: 5, color: '#ff0000', ltype: 'discontinua', w: 3 };
   d.cons.k2 = { t: 'DIST', refs: [a, b], v: 10, lbl: '"L"', fs: 20 };
   const svg = exportSVG(d);
   assert.match(svg, /<line [^>]*stroke="#ff0000" stroke-width="3" stroke-dasharray/);
   assert.match(svg, /<polygon [^>]*fill="#ff0000"/);
-  assert.match(svg, /fill="#ff0000">K_t<\/text>/);
+  assert.match(svg, /<g transform="translate\([^)]*\) rotate\(0\)" fill="#ff0000"><text [^>]*>K<\/text><text [^>]*>t<\/text><\/g>/); // la etiqueta sale como texto, con la formula dibujada (K con subindice t)
   assert.match(svg, /font-size="20"[^>]*>L<\/text>/);
 });
 
@@ -85,14 +86,19 @@ await t('con cuerpo: en un extremo, el elemento es la línea indicativa (flecha 
   const d = newDoc(), c = addPoint(d, 0, 0), a = addPoint(d, 10, 0), b = addPoint(d, 0, 10), ar = addArc(d, c, a, b, 10, { w: 2 });
   const s1 = addPoint(d, 30, 0), s2 = addPoint(d, 40, 8), s3 = addPoint(d, 50, 0), sp = addSpline(d, [s1, s2, s3], {}), spc = addSpline(d, [s1, s2, s3], {}, true);
   assert.ok(endOfElement(d, b, ar)); assert.ok(!endOfElement(d, c, ar)); assert.ok(endOfElement(d, s3, sp)); assert.ok(!endOfElement(d, s2, sp)); assert.ok(!endOfElement(d, s1, spc));
-  const k = { t: 'LEAD', refs: [b, ar], on: 1, lbl: '"q"' };
-  const L = layoutDim(d, k, view), A = L.arrows[0];
+  const k = { t: 'LEAD', refs: [b, ar], on: 1, lbl: '"q"', h: 2 };
+  let L = layoutDim(d, k, view); const A = L.arrows[0];
   assert.equal(L.lines.length, 0); // el trazo es el del arco
   assert.ok(Math.abs(A.dx + 1) < 0.01 && Math.abs(A.dy) < 0.05); // en b (arriba) el arco antihorario llega yendo hacia la izquierda
-  assert.ok(Math.abs(A.x - (100 - 0.5)) < 4 && Math.abs(A.y - 360) < 1); // en la punta (adelantada lo justo para tapar el final del trazo)
-  assert.ok(L.label.x > 140 && Math.abs(L.label.y - 400) < 15); // junto al otro extremo (a, a la derecha abajo)
-  d.pts[a].y = -0; assert.ok(dragDim(d, k, view, { x: 160, y: 420 })); assert.deepEqual([k.ox, k.oy], [5, -5]); // relativa al otro extremo
-  d.cons.k1 = k; d.cons.k2 = { t: 'LEAD', refs: [s3, sp], on: 1, lbl: '"r"' };
+  assert.ok(Math.abs(A.len - 1.2 * 2 * 4) < 1e-9); // la flecha mide con la altura del texto, en unidades del dibujo (no en px de pantalla)
+  assert.deepEqual(leadSpots(d, k).map((x) => x.key), ['a', 'm', 'b']);
+  assert.equal(L.label.anchor, 'tc'); // en a (abajo a la derecha) el arco sale hacia abajo: el texto cuelga debajo
+  assert.ok(Math.abs(L.label.x - 140) < 1e-9 && Math.abs(L.label.y - (400 + LEAD_GAP * 2 * 4)) < 1e-9); // en el otro extremo, separado un cuarto de altura
+  const L2 = layoutDim(d, k, { s: 8, ox: 100, oy: 400 }); assert.ok(Math.abs(L2.arrows[0].len - 2 * A.len) < 1e-9); // con el doble de zoom, el doble de px
+  assert.ok(dragDim(d, k, view, { x: 100 + 7.07 * 4, y: 400 - 7.07 * 4 })); assert.equal(k.at, 'm'); // arrastrada, salta al punto medio
+  k.anchor = 'bl'; const P = leadLabelPlace(d, k, 1).P; assert.ok(Math.abs(P.x - (7.071 + 0.5)) < 1e-3 && Math.abs(P.y - (7.071 + 0.5)) < 1e-3);
+  const ks = { t: 'LEAD', refs: [s3, sp], on: 1, h: 1 }; assert.deepEqual(leadSpots(d, ks).map((x) => x.key), ['i0', 'i1', 'i2']); assert.equal(leadLabelPlace(d, ks, 1).P.x, 30 + SXs(leadLabelPlace(d, ks, 1).anchor) * LEAD_GAP); // en un spline, en sus puntos; por defecto el primero
+  d.cons.k1 = k; d.cons.k2 = ks;
   assert.equal(laserClasses(d).reduce((n, x) => n + x.count, 0), 1); // solo el spline cerrado
   assert.ok(!/<path d="M[^"]*A/.test(exportSVGLaser(d) || '')); // el arco no sale en el corte
 });
