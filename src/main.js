@@ -595,7 +595,7 @@ const selOk = (x) => {
   const o = x.k === 'ln' ? doc.lines[x.id] : x.k === 'ci' ? doc.circles[x.id] : x.k === 'ar' ? doc.arcs[x.id] : x.k === 'sp' ? doc.splines[x.id] : x.k === 'el' ? doc.ellipses[x.id] : null;
   return !o || fltOk(o);
 };
-function hitTest(sx, sy) {
+function hitTest(sx, sy, noText = false) { // noText: lo que hay debajo de un texto (un toque no selecciona un texto)
   for (const h of labelHits) if (fkOn('co') && sx >= h.x && sx <= h.x + h.w && sy >= h.y && sy <= h.y + h.h) return { k: 'co', id: h.id };
   const m = toModel(sx, sy);
   let best = null, bd = 14;
@@ -607,7 +607,7 @@ function hitTest(sx, sy) {
   }
   if (best) return best;
   // un texto se toma por su caja (antes que las lineas que pasen por debajo)
-  for (const [id, t] of shownEntries(doc, 'texts')) {
+  for (const [id, t] of noText ? [] : shownEntries(doc, 'texts')) {
     if (opts.texts && fkOn('tx') && doc.pts[t.pt] && textHit(doc, t, m, measureRel, 2 / view.s)) return { k: 'tx', id };
   }
   best = hitCurves(sx, sy, true);
@@ -1691,7 +1691,7 @@ function pickLine(msg, kind = 'ln') {
   return new Promise((res) => { pickResolve = res; });
 }
 
-let lastCoTap = null, lastTap = null, lastGraphTap = null;
+let lastCoTap = null, lastTap = null, lastGraphTap = null, lastTxTap = null, lastImgTap = null, txTapHint = false;
 let selGraph = null; // grafica seleccionada (resaltada; se mueve y se redimensiona)
 // Graficas elegidas con un cuadro de seleccion junto con otros elementos (o varias): valen mientras sel sea el mismo arreglo (owner); cualquier
 // seleccion nueva (sel = [...]) las suelta sola. selGraph, la de un toque, tambien cuenta.
@@ -1765,8 +1765,22 @@ function selectAt(p) {
     return;
   }
   selGraph = null;
-  const h = hitTest(p.x, p.y);
-  if (!h) { sel = []; afterChange(); return; }
+  let h = hitTest(p.x, p.y);
+  // Un texto no se selecciona con un toque (en documentos con muchos textos se agarraban sin querer): se encierra con un cuadro.
+  // Doble toque abre sus propiedades, y un toque sobre un enlace lo selecciona para mostrar su pastilla. Si no, el toque es de lo de debajo.
+  if (h?.k === 'tx' && !tapMod && !sel.some((s) => same(s, h))) {
+    const now = performance.now(), dblTx = lastTxTap && lastTxTap.id === h.id && now - lastTxTap.t < 450 && dist(lastTxTap, p) < 24;
+    lastTxTap = dblTx ? null : { id: h.id, t: now, x: p.x, y: p.y };
+    if (dblTx) { sel = [h]; lastTap = null; afterChange(); openProps(h); return; }
+    if (textLinkAt(doc, doc.texts[h.id], toModel(p.x, p.y), measureRel, 4 / view.s)) { sel = [h]; afterChange(); return; }
+    if (!txTapHint) { txTapHint = true; toast('Para seleccionar un texto, enciérralo con un cuadro (arrastra desde él o desde un lugar vacío); doble toque abre sus propiedades'); }
+    h = hitTest(p.x, p.y, true);
+  }
+  if (!h) {
+    const li = lockedImgAt(p.x, p.y); // una imagen bloqueada: el toque la ignora, el doble toque abre sus propiedades
+    if (li) { const now = performance.now(), dbl = lastImgTap && lastImgTap.id === li && now - lastImgTap.t < 450 && dist(lastImgTap, p) < 24; lastImgTap = dbl ? null : { id: li, t: now, x: p.x, y: p.y }; if (dbl) { sel = []; afterChange(); editImage(li); return; } }
+    sel = []; afterChange(); return;
+  }
   if (h.k === 'co') { // un toque selecciona la cota (para borrarla, por ejemplo); doble toque la edita
     const now = performance.now(), dbl = lastCoTap && lastCoTap.id === h.id && now - lastCoTap.t < 450 && dist(lastCoTap, p) < 24;
     lastCoTap = dbl ? null : { id: h.id, t: now, x: p.x, y: p.y };
@@ -1918,7 +1932,8 @@ function toolDown(p) {
       drag = { p0: p, graph: gh.id, mode: gh.mode, orig: { x: g.x, y: g.y, w: g.w, h: g.h }, m0: toModel(p.x, p.y), started: false };
       return;
     }
-    const h = hitTest(p.x, p.y);
+    let h = hitTest(p.x, p.y);
+    if (h?.k === 'tx' && !sel.some((s) => same(s, h))) h = null; // un texto no seleccionado no se agarra: arrastrar abre un cuadro (para moverlo, primero encerrarlo)
     drag = { p0: p, hit: h, started: false };
     if (!h || h.k === 'ha') drag.box = true; // arrastrar desde un lugar vacio: cuadro de seleccion
     if (h && (h.k === 'pt' || h.k === 'ln' || h.k === 'ci' || h.k === 'ar' || h.k === 'sp')) {
@@ -1959,7 +1974,7 @@ function toolDown(p) {
 // izquierda, lo que queda dentro o lo toca. Con Mayus se suma a la seleccion.
 function finishBox(d, p) {
   const a = toModel(d.p0.x, d.p0.y), b = toModel(p.x, p.y);
-  const all = boxSelect(doc, { x0: a.x, y0: a.y, x1: b.x, y1: b.y }, { cross: p.x < d.p0.x, shown: shownPoints() }).filter(selOk);
+  const all = boxSelect(doc, { x0: a.x, y0: a.y, x1: b.x, y1: b.y }, { cross: p.x < d.p0.x, shown: shownPoints(), textBox: (t) => textCorners(doc, t, measureRel) }).filter(selOk); // un texto, por su caja
   const found = all.filter((x) => x.k !== 'gr'), gfound = fkOn('ac') ? all.filter((x) => x.k === 'gr').map((x) => x.id) : []; // las graficas siguen el filtro de actuadores
   const keep = shiftDown ? sel.filter((x) => !found.some((f) => same(f, x))) : [];
   const gkeep = shiftDown ? [...multiGraphs()] : [], gids = [...new Set([...gkeep, ...gfound])];
@@ -3613,7 +3628,8 @@ function graphAt(sx, sy) {
 }
 // ---- imagenes: se cargan una vez por dato (imgCache) y se dibujan cuando estan listas
 const imgCache = new Map();
-let imgHits = [];
+let imgHits = [], imgLocked = [];
+const lockedImgAt = (sx, sy) => { for (let i = imgLocked.length - 1; i >= 0; i--) { const h = imgLocked[i]; if (sx >= h.x && sx <= h.x + h.w && sy >= h.y && sy <= h.y + h.h) return h.id; } return null; };
 function imgEl(src) {
   let el = imgCache.get(src);
   if (!el) { el = new Image(); el.onload = () => draw(); el.src = src; imgCache.set(src, el); }
@@ -3624,7 +3640,7 @@ function imagesReady() {
   return Promise.all(Object.values(doc.images || {}).map((im) => { const src = imageSrc(doc, im); if (!src) return null; imgEl(src); const el = imgCache.get(src); return el.complete ? null : new Promise((r) => { el.addEventListener('load', r, { once: true }); el.addEventListener('error', r, { once: true }); }); }));
 }
 function drawImages(c, o) {
-  imgHits = [];
+  imgHits = []; imgLocked = [];
   const gsel = multiGraphs();
   for (const [id, im] of Object.entries(doc.images || {})) {
     if (isHidden(doc, im)) continue; // en una capa apagada
@@ -3640,7 +3656,7 @@ function drawImages(c, o) {
       if (selGraph === id) for (const [hx, hy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) { const r = 5 * dpr; c.beginPath(); c.rect(x0 + hx * W - r, y0 + hy * H - r, 2 * r, 2 * r); c.fill(); c.stroke(); }
     }
     c.restore();
-    imgHits.push({ id, x: A.x, y: A.y, w: B.x - A.x, h: B.y - A.y });
+    (im.locked ? imgLocked : imgHits).push({ id, x: A.x, y: A.y, w: B.x - A.x, h: B.y - A.y }); // bloqueada: no se toca ni se arrastra
   }
 }
 // Propiedades de una imagen (doble toque): su capa y su opacidad (para calcar sobre una foto)
@@ -3655,6 +3671,8 @@ function editImage(id) {
   lay.value = im.layer && doc.layers?.[im.layer] ? im.layer : '';
   const pct = () => Math.round((doc.images[id]?.alpha ?? 1) * 100);
   al.value = String(pct()); av.textContent = pct() + ' %';
+  $('imgLock').checked = !!im.locked;
+  $('imgLock').onchange = () => { pushUndo(); const x = doc.images[id]; if (!x) return; if ($('imgLock').checked) { x.locked = true; if (selGraph === id) selGraph = null; } else delete x.locked; afterChange(); };
   let undone = false; // un solo paso de deshacer por cada vez que se mueve el control
   lay.onchange = () => {
     pushUndo(); const x = doc.images[id]; if (!x) return;

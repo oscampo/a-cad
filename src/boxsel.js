@@ -25,8 +25,9 @@ function polyIn(P, r, cross) {
   return false;
 }
 
-// El cuadro puede venir con las esquinas en cualquier orden. shown: ids de puntos que se dibujan (opcional).
-export function boxSelect(doc, rect, { cross = false, shown = null } = {}) {
+// El cuadro puede venir con las esquinas en cualquier orden. shown: ids de puntos que se dibujan (opcional). textBox(t): las 4 esquinas
+// de un texto (opcional, con la medida del dibujo): con ella un texto se elige por su caja, como las figuras; sin ella, por su punto.
+export function boxSelect(doc, rect, { cross = false, shown = null, textBox = null } = {}) {
   const r = { x0: Math.min(rect.x0, rect.x1), x1: Math.max(rect.x0, rect.x1), y0: Math.min(rect.y0, rect.y1), y1: Math.max(rect.y0, rect.y1) };
   const out = [];
   for (const [id, p] of Object.entries(doc.pts)) {
@@ -45,9 +46,16 @@ export function boxSelect(doc, rect, { cross = false, shown = null } = {}) {
   for (const [id, a] of Object.entries(doc.arcs)) if (polyIn(arcSamples(doc, a), r, cross)) out.push({ k: 'ar', id });
   for (const [id, sp] of Object.entries(doc.splines || {})) if (polyIn(splinePolyline(doc, sp, 12), r, cross)) out.push({ k: 'sp', id });
   for (const [id, e] of Object.entries(doc.ellipses || {})) if (polyIn(ellipsePolyline(doc, e, 48), r, cross)) out.push({ k: 'el', id });
-  for (const [id, t] of Object.entries(doc.texts || {})) if (doc.pts[t.pt] && inside(doc.pts[t.pt], r)) out.push({ k: 'tx', id });
+  for (const [id, t] of Object.entries(doc.texts || {})) {
+    if (!doc.pts[t.pt]) continue;
+    const C = textBox ? textBox(t) : null;
+    if (!C?.length) { if (inside(doc.pts[t.pt], r)) out.push({ k: 'tx', id }); continue; }
+    const xs = C.map((q) => q.x), ys = C.map((q) => q.y), cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
+    const covers = cross && cx >= Math.min(...xs) && cx <= Math.max(...xs) && cy >= Math.min(...ys) && cy <= Math.max(...ys); // el cuadro, dentro del texto
+    if (covers || polyIn([...C, C[0]], r, cross)) out.push({ k: 'tx', id });
+  }
   // graficas: un rectangulo (x, y, w, h en el modelo); ventana = entera dentro, cruce = dentro o tocando
-  for (const [id, g] of [...Object.entries(doc.graphs || {}), ...Object.entries(doc.images || {}).filter(([, im]) => !(im.layer && doc.layers?.[im.layer] && !doc.layers[im.layer].on))]) { // y las imagenes (no las de una capa apagada), que se manejan como ellas
+  for (const [id, g] of [...Object.entries(doc.graphs || {}), ...Object.entries(doc.images || {}).filter(([, im]) => !im.locked && !(im.layer && doc.layers?.[im.layer] && !doc.layers[im.layer].on))]) { // y las imagenes (no las de una capa apagada), que se manejan como ellas
     const x1 = g.x + g.w, y1 = g.y + g.h;
     if (cross ? g.x <= r.x1 && x1 >= r.x0 && g.y <= r.y1 && y1 >= r.y0 : g.x >= r.x0 && x1 <= r.x1 && g.y >= r.y0 && y1 <= r.y1) out.push({ k: 'gr', id });
   }

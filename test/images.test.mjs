@@ -1,5 +1,6 @@
 // Imagenes: datos aparte (doc.assets) por contenido, guardar solo lo usado, historial sin los datos, reduccion y proporcion.
 import assert from 'node:assert/strict';
+import * as MODEL from '../src/model.js';
 import { newDoc, addLayer, visibleDoc, layerCount, deleteLayer } from '../src/model.js';
 import { boxSelect } from '../src/boxsel.js';
 import { addImage, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, imageSrc } from '../src/images.js';
@@ -42,6 +43,19 @@ t('capa y transparencia: una imagen nueva toma la capa actual; apagada no se exp
   d.layers[ly].on = false;
   assert.deepEqual(Object.keys(visibleDoc(d).images), []); assert.deepEqual(boxSelect(d, r, false).filter((x) => x.k === 'gr'), []);
   d.layers[ly].on = true; deleteLayer(d, ly); assert.equal(d.images[id].layer, undefined); // al borrar la capa pasa a «ninguna»
+});
+
+t('cuadro de selección: un texto por su caja (ventana: entero dentro; cruce: basta tocarlo); una imagen bloqueada no entra', () => {
+  const d = newDoc(); const { addText, addPoint } = MODEL;
+  const tid = addText(d, addPoint(d, 0, 0), 'abc', { h: 4 });
+  const box = () => [{ x: 0, y: 0 }, { x: 30, y: 0 }, { x: 30, y: 4 }, { x: 0, y: 4 }]; // la caja que da la medida del dibujo
+  const tx = (r, cross) => boxSelect(d, r, { cross, textBox: box }).filter((x) => x.k === 'tx').map((x) => x.id);
+  assert.deepEqual(tx({ x0: 10, y0: -1, x1: 40, y1: 5 }, false), []); // ventana sobre parte del texto: no
+  assert.deepEqual(tx({ x0: -1, y0: -1, x1: 40, y1: 5 }, false), [tid]); // ventana que lo encierra: si
+  assert.deepEqual(tx({ x0: 10, y0: -1, x1: 40, y1: 5 }, true), [tid]); // cruce que lo toca (sin su punto de insercion): si
+  assert.deepEqual(tx({ x0: 10, y0: 1, x1: 12, y1: 2 }, true), [tid]); // cruce dentro del texto: si
+  const im = addImage(d, SRC, 50, 0, 10, 5); d.images[im].locked = true;
+  assert.deepEqual(boxSelect(d, { x0: 40, y0: -5, x1: 70, y1: 10 }, { cross: true }).filter((x) => x.k === 'gr'), []);
 });
 
 console.log(`\n${passed} pruebas de imágenes pasaron`);
