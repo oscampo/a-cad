@@ -103,4 +103,15 @@ await t('con cuerpo: en un extremo, el elemento es la línea indicativa (flecha 
   assert.ok(!/<path d="M[^"]*A/.test(exportSVGLaser(d) || '')); // el arco no sale en el corte
 });
 
+await t('cotas con la letra de los textos (doc.dimText): altura en unidades del dibujo, escalan con el zoom; sin el ajuste, en px como antes', () => {
+  const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 50, 0), k = { t: 'DIST', refs: [a, b], v: 50 };
+  const px = (doc, kk, s) => layoutDim(doc, kk, { s, ox: 0, oy: 0 }).label.px;
+  assert.equal(px(d, k, 4), 12); assert.equal(px(d, k, 8), 12); // sin el ajuste: 12 px con cualquier zoom
+  d.dimText = true; d.dimH = 3;
+  assert.equal(px(d, k, 4), 12); assert.equal(px(d, k, 8), 24); // 3 unidades × escala: el doble de zoom, el doble de px
+  assert.equal(px(d, { ...k, th: 5 }, 4), 20); // una cota con su propia altura
+  assert.equal(px(d, { ...k, fs: 30 }, 4), 12); // el tamaño en px de antes no cuenta con el ajuste
+  const L = layoutDim(d, k, { s: 8, ox: 0, oy: 0 }); assert.equal(L.size, 2); // flechas y separaciones con la letra
+});
+
 console.log(`\n${passed} pruebas de etiquetas y anotaciones pasaron`);

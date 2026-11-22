@@ -17,7 +17,7 @@ import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, past
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
-import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
+import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, dimH, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
@@ -62,7 +62,7 @@ const ctx = cv.getContext('2d');
 const PAGES = { letter: { w: 215.9, h: 279.4 }, a4: { w: 210, h: 297 } };
 // El indicador decimal de un dibujo nuevo es el ultimo que se eligio en este dispositivo (sin eleccion: como los dibujos anteriores, se leen los dos).
 const decPref = () => { try { const v = localStorage.getItem('a-cad-decimal'); return v === ',' || v === '.' ? v : null; } catch (e) { return null; } };
-const freshDoc = () => ({ ...newDoc(), angles: 'rad', ...(decPref() ? { decimal: decPref() } : {}), page: { w: PAGES.letter.w, h: PAGES.letter.h, m: 25, x0: 0, y0: 0 } });
+const freshDoc = () => ({ ...newDoc(), dimText: true, dimH: (12 * 25.4) / 72, angles: 'rad', ...(decPref() ? { decimal: decPref() } : {}), page: { w: PAGES.letter.w, h: PAGES.letter.h, m: 25, x0: 0, y0: 0 } });
 const pageKind = (pg) => Object.keys(PAGES).find((k) => Math.abs(PAGES[k].w - pg.w) < 1e-6 && (pg.h == null || Math.abs(PAGES[k].h - pg.h) < 1e-6));
 // Alto de la pagina: una pagina guardada antes de que existiera toma el de su formato, o la proporcion de A4 si el ancho es otro.
 const pageH = (pg) => pg.h ?? PAGES[pageKind(pg)]?.h ?? +((pg.w * 297) / 210).toFixed(1);
@@ -2752,7 +2752,7 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
     nameRow.style.display = ctx && ctx.name !== undefined ? 'flex' : 'none';
     if (ctx && ctx.name !== undefined) nameInp.value = ctx.name;
     $('dlgLabel').textContent = labelText;
-    $('dlgFsRow').style.display = fsAsk ? 'flex' : 'none'; if (fsAsk) $('dlgFs').value = String(fsAsk);
+    $('dlgFsRow').style.display = fsAsk ? 'flex' : 'none'; if (fsAsk) { $('dlgFs').value = String(fsAsk); $('dlgFsLabel').textContent = dimFsLabel('Letra de la cota'); }
     inp.value = String(initial);
     chk.checked = refState; inp.disabled = refState;
     const unitSel = $('dlgUnit');
@@ -2854,7 +2854,7 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
     };
     inp.oninput = showPrev; scInp.oninput = showPrev; sync();
     let done = false;
-    const finish = (v) => { if (done) return; done = true; if (fsAsk && v !== null) { const f = Number($('dlgFs').value); dlgFs = f >= 6 && f <= 48 ? f : null; } dlgRef = chk.checked; dlgUnit = kind === 'angle' ? unitSel.value : null; dlg.close(); resolve(v); };
+    const finish = (v) => { if (done) return; done = true; if (fsAsk && v !== null) { const f = Number(String($('dlgFs').value).replace(',', '.')); dlgFs = doc.dimText ? (f > 0 ? f : null) : f >= 6 && f <= 48 ? f : null; } dlgRef = chk.checked; dlgUnit = kind === 'angle' ? unitSel.value : null; dlg.close(); resolve(v); };
     $('dlgOk').onclick = (ev) => {
       ev.preventDefault();
       if (ctx && ctx.name !== undefined) {
@@ -3247,7 +3247,12 @@ function askLeader(k, isNew) {
 }
 
 // Tamaño de letra de una cota nueva: el del menú de estilo (12 px no se guarda)
-const newFs = () => (cur.dimFs && cur.dimFs !== DIM_FS ? { fs: cur.dimFs } : {});
+const newFs = () => (!doc.dimText && cur.dimFs && cur.dimFs !== DIM_FS ? { fs: cur.dimFs } : {}); // con la letra de los textos, la nueva toma la del documento
+// Letra de las cotas como la de los textos (doc.dimText): se muestra en pt con página y en unidades del dibujo sin ella; sin el ajuste, en px
+const dimFsUnit = () => (doc.dimText ? (globalDoc().page ? 'pt' : '') : 'px');
+const dimFsShow = (k) => (!doc.dimText ? (k?.fs || DIM_FS) : globalDoc().page ? ptOf(dimH(doc, k)) : Math.round(dimH(doc, k) * 1000) / 1000);
+const dimFsRead = (v) => (globalDoc().page ? v * PT : v); // de lo que se escribe (pt o unidades) a unidades del dibujo
+const dimFsLabel = (base) => base + (dimFsUnit() ? ` (${dimFsUnit()})` : '');
 
 function commitCons(list, pre) {
   pushUndo();
@@ -3275,14 +3280,15 @@ async function editDimension(id) {
   if (k.expr && !k.ref) { try { const ev = k.t === 'ANG' ? parseValue(k.expr, { angle: true, radians: u0 === 'rad', vars: varsOf(doc, id) }) : dimEval(k.expr, varsOf(doc, id)).v; if (Math.abs(ev * sc0 - shown) <= 1e-6 * Math.max(1, Math.abs(shown))) initial = k.expr; } catch { /* formula invalida: valor */ } }
   if (sc0 !== 1 && !k.ref) initial = `${initial}[*${k.scaleExpr ?? sc0}]`;
   if (k.lbl) initial = `${initial}[${k.lbl}]`; // su etiqueta libre, al final
-  dlgFsAsk = k.fs || DIM_FS;
+  dlgFsAsk = dimFsShow(k);
   dlgCtx = { vars: varsOf(doc, id), list: varsList(doc, id), except: id, ...(k.name ? { name: k.name, check: (n) => checkName(doc, n, id) } : {}) };
   const val0 = await askNumber((k.name ? k.name + ' · ' : '') + (k.t === 'ANG' ? 'Ángulo (°)' : k.t === 'RAD' ? (isC ? `Diámetro (${DIAM})` : 'Radio (R)') : 'Distancia'), initial, !!k.ref, k.t === 'ANG' ? 'angle' : 'len', u0, k.t !== 'ANG' ? { scale0: k.scale > 0 && k.scale !== 1 ? (k.scaleExpr ?? String(k.scale)) : '', measured: shown, du0: lu ? k.du : '' } : false);
   if (val0 === null || (!dlgRef && k.t !== 'ANG' && val0 <= 0)) return;
   pushUndo();
   if (dlgName && dlgName !== k.name) renameDim(doc, id, dlgName);
   if (dlgLabel) k.lbl = dlgLabel; else delete k.lbl;
-  if (dlgFs && dlgFs !== DIM_FS) k.fs = dlgFs; else if (dlgFs) delete k.fs;
+  if (dlgFs && doc.dimText) { const th = dimFsRead(dlgFs); if (Math.abs(th - dimH(doc, {})) > 1e-9) k.th = th; else delete k.th; } // igual a la del documento: la sigue
+  else if (dlgFs && dlgFs !== DIM_FS) k.fs = dlgFs; else if (dlgFs) delete k.fs;
   if (k.t === 'ANG') { if (dlgUnit === 'rad') k.unit = 'rad'; else delete k.unit; opts.angUnit = dlgUnit; persist(); }
   else if (dlgDU) k.du = dlgDU; else delete k.du;
   if (dlgRef) { // es (o pasa a ser) cota de referencia: no toca el solver; su escala si cuenta (la cota dice medida ÷ escala)
@@ -3312,7 +3318,7 @@ function applyStyle(prop, value) {
     const o = s.k === 'ln' ? doc.lines[s.id] : s.k === 'ci' ? doc.circles[s.id] : s.k === 'ar' ? doc.arcs[s.id] : s.k === 'sp' ? doc.splines[s.id] : s.k === 'el' ? doc.ellipses[s.id] : (s.k === 'ha' || s.k === 'tx') && prop === 'color' ? (s.k === 'ha' ? doc.hatches[s.id] : doc.texts[s.id]) : null;
     if (o) { o[prop] = value; touched = true; if (prop === 'ltype' && value === 'constructiva') { o.color = CLINE_STYLE.color; o.w = CLINE_STYLE.w; } } // convertir a constructiva toma su color y grosor
     else if (s.k === 'co' && doc.cons[s.id]?.t === 'LEAD' && ['color', 'ltype', 'w', 'ls'].includes(prop)) { (leadBody(doc, doc.cons[s.id]) || doc.cons[s.id])[prop] = value; touched = true; } // con cuerpo: el estilo es el del elemento // línea indicativa: color, tipo y grosor
-    else if (prop === 'dimFs' && s.k === 'co' && doc.cons[s.id]?.v !== undefined) { const k = doc.cons[s.id]; if (value !== DIM_FS) k.fs = value; else delete k.fs; touched = true; } // letra de una cota seleccionada
+    else if (prop === 'dimFs' && s.k === 'co' && doc.cons[s.id]?.v !== undefined) { const k = doc.cons[s.id]; if (doc.dimText) k.th = dimFsRead(value); else if (value !== DIM_FS) k.fs = value; else delete k.fs; touched = true; } // letra de una cota seleccionada
     else if (s.k === 'pt' && doc.traces[s.id]) { doc.traces[s.id][prop] = value; touched = true; } // el estilo de un punto con trazado es el de su trayectoria
   }
   if (sel.length && !touched) undoStack.pop();
@@ -3351,6 +3357,7 @@ function syncPanel() {
   $('docUnits').value = doc.units === 'US' ? 'US' : 'SI';
   $('docSci').value = String(doc.sciAt ?? SCI_DEFAULT);
   renderLibCfg();
+  $('docDimText').checked = !!doc.dimText;
   $('docTol').value = String(Number(doc.approxTol) > 0 ? Number(doc.approxTol) : APPROX_TOL);
   const pg = doc.page;
   $('docPage').value = !pg ? 'none' : pageKind(pg) || 'custom';
@@ -3370,7 +3377,7 @@ function syncPanel() {
   $('ltEl').value = String(sv.ls ?? 1);
   fillLtypes(sv.ltype);
   $('weight').value = String(sv.w);
-  { const dk = sel.map((s) => (s.k === 'co' ? doc.cons[s.id] : null)).find((k) => k && k.v !== undefined); $('dimFs').value = String(dk ? dk.fs || DIM_FS : cur.dimFs || DIM_FS); } // la de la cota seleccionada o la de las nuevas
+  { const dk = sel.map((s) => (s.k === 'co' ? doc.cons[s.id] : null)).find((k) => k && k.v !== undefined); $('dimFs').value = String(dk ? dimFsShow(dk) : doc.dimText ? dimFsShow(null) : cur.dimFs || DIM_FS); $('dimFsLabel').textContent = dimFsLabel('Letra de cotas'); } // la de la cota seleccionada o la de las nuevas
   panelColor = sv.color || 'auto';
   panelPicker?.refresh();
   if (hat) { $('hKind').value = hat.kind; $('hAngle').value = hat.angle; $('hSpace').value = hat.spacing; $('hAlpha').value = hat.alpha; }
@@ -5156,7 +5163,16 @@ $('del').onclick = () => {
   afterChange();
 };
 $('weight').onchange = (e) => applyStyle('w', Number(e.target.value));
-$('dimFs').onchange = (e) => { const f = Math.round(Number(e.target.value)); if (f >= 6 && f <= 48) applyStyle('dimFs', f); else e.target.value = String(cur.dimFs || DIM_FS); };
+$('dimFs').onchange = (e) => {
+  const f = Number(String(e.target.value).replace(',', '.'));
+  if (doc.dimText) { // con la letra de los textos: sin selección de cotas cambia la del documento (todas las que no tienen una propia)
+    if (!(f > 0)) { buildSwatches(); return; }
+    if (sel.some((s) => s.k === 'co' && doc.cons[s.id]?.v !== undefined)) { applyStyle('dimFs', f); return; }
+    pushUndo(); doc.dimH = dimFsRead(f); afterChange(); return;
+  }
+  const r = Math.round(f); if (r >= 6 && r <= 48) applyStyle('dimFs', r); else e.target.value = String(cur.dimFs || DIM_FS);
+};
+$('docDimText').onchange = (e) => { pushUndo(); if (e.target.checked) { doc.dimText = true; if (!(doc.dimH > 0)) doc.dimH = cur.tx.h ?? niceHeight(); } else delete doc.dimText; afterChange(); };
 $('ltype').onchange = (e) => applyStyle('ltype', e.target.value);
 ['hKind', 'hAngle', 'hSpace', 'hAlpha'].forEach((id) => { $(id).onchange = updateHatchFromPanel; });
 $('hAlpha').oninput = updateHatchFromPanel;

@@ -10,6 +10,11 @@ export const ARROW = 9; const ARROW0 = ARROW;
 // Tamaño de la letra de una cota (k.fs, en px; por defecto 12): flechas y separaciones escalan con ella
 export const DIM_FS = 12;
 export const dimGain = (k) => (k?.fs > 0 ? k.fs / DIM_FS : 1);
+// Cotas con la letra de los textos (doc.dimText, en Configuracion): la altura va en unidades del dibujo, como la de un texto
+// (k.th, o la del documento, doc.dimH) y todo escala con el zoom. Sin el ajuste, k.fs en px de pantalla (como antes).
+export const DIM_H0 = 3.5; // altura por defecto (unidades del dibujo) si el documento no tiene una
+export const dimH = (doc, k) => (k?.th > 0 ? k.th : doc?.dimH > 0 ? doc.dimH : DIM_H0);
+export const dimGainV = (doc, k, view) => (doc?.dimText ? (dimH(doc, k) * view.s) / DIM_FS : dimGain(k));
 export const DIAM = '\u2300'; // simbolo de diametro (U+2300)
 export const fmtNum = (v) => (Math.abs(v) >= sciFrom() && Number.isFinite(v) ? sciText(v) : localNum(Math.abs(v) >= 1000 ? String(Number(v.toFixed(1))) : String(Math.round(v * 1000) / 1000))); // con coma decimal (doc.decimal), «0,333»; sin «.0» en los miles (1000, no 1000.0); desde el umbral de Configuracion, «2.569e5»
 
@@ -295,7 +300,7 @@ export const leadOffset0 = (view, g = 1) => ({ ox: (40 * g) / view.s, oy: (32 * 
 const lblLen = (t) => String(lblIsMath(t) ? lblPlain(t) : t).length;
 
 function layoutDimBase(doc, k, view) {
-  const s = view.s, v = V(view), G = dimGain(k), ARROW = ARROW0 * G; // G: tamaño de la letra de la cota respecto de 12 px (flechas y separaciones con ella)
+  const s = view.s, v = V(view), G = dimGainV(doc, k, view), ARROW = ARROW0 * G; // G: tamaño de la letra de la cota respecto de 12 px (flechas y separaciones con ella)
   const out = { lines: [], arcs: [], arrows: [], label: null };
   const text = dimText(doc, k);
 
@@ -325,7 +330,7 @@ function layoutDimBase(doc, k, view) {
     const A = v(p1), B = v(p2), L = Math.hypot(B.x - A.x, B.y - A.y);
     if (L < 1e-6) { out.label = { x: A.x + 16 * G, y: A.y - 16 * G, text }; return out; }
     const u = { x: (B.x - A.x) / L, y: (B.y - A.y) / L }, n = { x: -u.y, y: u.x };
-    const off = (k.off ?? 16 / s) * s, sg = off < 0 ? -1 : 1;
+    const off = (k.off ?? (16 * G) / s) * s, sg = off < 0 ? -1 : 1;
     const A2 = { x: A.x + n.x * off, y: A.y + n.y * off }, B2 = { x: B.x + n.x * off, y: B.y + n.y * off };
     if (Math.abs(off) > 7) {
       out.lines.push([A.x + n.x * sg * 3, A.y + n.y * sg * 3, A2.x + n.x * sg * 5, A2.y + n.y * sg * 5]);
@@ -355,7 +360,7 @@ function layoutDimBase(doc, k, view) {
       return out;
     }
     const th1 = Math.atan2(S.d1.y * S.s1, S.d1.x * S.s1), psi = S.psi, sgn = psi >= 0 ? 1 : -1;
-    const R = Math.max(14, (k.off ?? 50 / s) * s);
+    const R = Math.max(14 * G, (k.off ?? (50 * G) / s) * s);
     const C = v(V0);
     out.arcs.push({ cx: C.x, cy: C.y, r: R, a0: -th1, a1: -(th1 + psi), ccw: psi > 0 });
     const at = (th) => ({ x: C.x + R * Math.cos(th), y: C.y - R * Math.sin(th) });
@@ -437,7 +442,7 @@ function layoutDimBase(doc, k, view) {
 export function layoutDim(doc, k, view) {
   if (k.t === 'ANG4') { const x = v4(doc, k); return layoutDim(x.d, x.k, view); }
   const L = layoutDimBase(doc, k, view);
-  L.size = dimGain(k); // flechas y letra con el tamaño de la cota
+  L.size = dimGainV(doc, k, view); // flechas y letra con el tamaño de la cota
   if (L.label) L.label.px = DIM_FS * L.size;
   if (L.label) { L.label.italic = !!k.ref; L.label.underline = isScaledDim(k); } // a escala: subrayada
   return L;
