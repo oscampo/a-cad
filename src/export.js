@@ -42,7 +42,7 @@ function withLeadTexts(doc) {
     if (k.t !== 'LEAD' || k.hidden) continue;
     const Lp = leadLabelPlace(doc, k, 3); if (!Lp) continue;
     const id = '__lead' + i++; pts[id] = Lp.P;
-    extra.push({ pt: id, text: Lp.text, h: Lp.h, anchor: Lp.anchor, color: (leadBody(doc, k) || k).color, lead: true });
+    extra.push({ pt: id, text: Lp.text, h: Lp.h, anchor: Lp.anchor, color: (leadBody(doc, k) || k).color, ...(k.font ? { font: k.font } : {}), lead: true });
   }
   return { doc: { ...doc, pts }, extra };
 }

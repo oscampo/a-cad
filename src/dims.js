@@ -302,7 +302,7 @@ function layoutDimBase(doc, k, view) {
   if (k.t === 'LEAD') { // la etiqueta, un texto en unidades del dibujo; la flecha, con la altura del texto
     const Lp = leadLabelPlace(doc, k, DIM_FS / s); if (!Lp) return out;
     const Ps = v(Lp.P), C = v(Lp.C), len = 1.2 * Lp.h * s, hw = 0.35 * len; // flecha: 1,2 alturas de largo
-    out.label = { x: Ps.x, y: Ps.y, text: Lp.text, model: true, h: Lp.h, anchor: Lp.anchor };
+    out.label = { x: Ps.x, y: Ps.y, text: Lp.text, model: true, h: Lp.h, anchor: Lp.anchor, ...(k.font ? { font: k.font } : {}) };
     if (k.on) { // el elemento es el cuerpo: flecha en la punta, en la direccion de la curva
       const B = bodyEnds(doc, k, v), body = leadBody(doc, k); if (!B) return out;
       const sh = Math.min(((body?.w ?? 2) / 2) / 0.35, len * 0.5); // adelantada para que tape el final del trazo

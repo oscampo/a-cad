@@ -1268,7 +1268,7 @@ function drawDim(c, id, k, col, o = null) {
 
 // Etiqueta de una linea indicativa: un texto con altura en unidades del dibujo y su anclaje en (x, y) de pantalla
 function drawLeadLabel(c, lab, id, color) {
-  const t = { text: lab.text, h: lab.h, anchor: lab.anchor }, f = textFrame(t, measureRel, lab.anchor), sc = view.s;
+  const t = { text: lab.text, h: lab.h, anchor: lab.anchor, ...(lab.font ? { font: lab.font } : {}) }, f = textFrame(t, measureRel, lab.anchor), sc = view.s;
   c.save(); c.translate(lab.x * dpr, lab.y * dpr); paintFrame(c, f, t, color); c.restore();
   const bx = lab.x + f.xmin * sc, by = lab.y - f.ymax * sc, bw = f.w * sc, bh = f.hh * sc, px = Math.max(0, (24 - bw) / 2), py = Math.max(0, (24 - bh) / 2); // se puede tocar aunque se vea chica
   if (id) labelHits.push({ x: bx - px, y: by - py, w: bw + 2 * px, h: bh + 2 * py, id });
@@ -3186,7 +3186,7 @@ function splitSelected() {
 // La etiqueta es un texto en unidades del dibujo (altura y punto de inserción como los textos); con cuerpo va en un extremo,
 // el medio o un punto del spline. Al crearla y con doble toque se abre su ventana.
 async function addLeader(pt, el) {
-  const k = { t: 'LEAD', refs: [pt, el], h: cur.tx.h ?? niceHeight() };
+  const k = { t: 'LEAD', refs: [pt, el], h: cur.tx.h ?? niceHeight(), ...(cur.tx.font ? { font: cur.tx.font } : {}) }; // la altura y la fuente de los textos nuevos
   if (endOfElement(doc, pt, el)) k.on = 1;
   else { const st = style(); Object.assign(k, { color: st.color ?? 'auto', ltype: st.ltype || 'continua', w: st.w ?? 2, ...(st.ls && st.ls !== 1 ? { ls: st.ls } : {}) }); }
   const r = await askLeader(k, true);
@@ -3213,7 +3213,11 @@ function askLeader(k, isNew) {
     posSel.textContent = '';
     if (k.on) for (const x of leadSpots(doc, k)) { const op = document.createElement('option'); op.value = x.key; op.textContent = x.name[0].toUpperCase() + x.name.slice(1); posSel.appendChild(op); }
     posSel.value = k.at ?? leadAtDefault(doc, k);
-    hIn.value = String(Math.round((k.h || cur.tx.h || niceHeight()) * 1000) / 1000);
+    const inPt = !!globalDoc().page, h0 = k.h || cur.tx.h || niceHeight(); // con hoja, en puntos, como los textos
+    $('leadHLabel').textContent = inPt ? 'Altura (pt)' : 'Altura';
+    hIn.value = String(inPt ? ptOf(h0) : Math.round(h0 * 1000) / 1000);
+    const fSel = $('leadFont'); if (!fSel.options.length) for (const [fk, fn] of FONTS) { const op = document.createElement('option'); op.value = fk; op.textContent = fn; op.style.fontFamily = fontCss(fk); fSel.appendChild(op); }
+    fSel.value = k.font || '';
     let anchor = k.anchor || leadAnchorDefault(doc, k);
     const paint = () => {
       box.textContent = '';
@@ -3231,9 +3235,10 @@ function askLeader(k, isNew) {
     const finish = (v) => { if (done) return; done = true; dlg.close(); resolve(v); };
     $('leadOk').onclick = (ev) => {
       ev.preventDefault();
-      const h = Number(String(hIn.value).replace(',', '.'));
-      if (!(h > 0)) { toast('La altura debe ser un número mayor que cero'); return; }
-      finish({ lbl: leadLabel(inp.value) ?? undefined, h, anchor, ...(k.on ? { at: posSel.value } : {}) });
+      const hv = Number(String(hIn.value).replace(',', '.'));
+      if (!(hv > 0)) { toast('La altura debe ser un número mayor que cero'); return; }
+      const h = inPt ? hv * PT : hv;
+      finish({ lbl: leadLabel(inp.value) ?? undefined, h, font: fSel.value || undefined, anchor, ...(k.on ? { at: posSel.value } : {}) });
     };
     $('leadCancel').onclick = () => finish(null);
     dlg.oncancel = () => finish(null);
