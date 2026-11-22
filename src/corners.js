@@ -211,6 +211,11 @@ const startsOf = (c, tp, r) => (c.per ? [tp, ...Array.from({ length: 16 }, (_, i
 // todas pasan de media vuelta, la de menor arco. No depende del orden de los elementos.
 export function bestFillet(c1, c2, r, p1, p2, V = null) {
   const tp1 = c1.tOf(p1), tp2 = c2.tOf(p2), seen = [];
+  // Con vertice (los elementos o sus prolongaciones se cortan), lo tocado dice de que lado del vertice esta la rama que se
+  // conserva (como en el chaflan): asi un toque cerca de la esquina, antes o despues de donde caera la tangencia, no cambia el
+  // resultado. Sin vertice, lo que queda es lo que contiene lo tocado respecto de la tangencia.
+  const tV1 = V ? c1.tOf(V) : 0, tV2 = V ? c2.tOf(V) : 0;
+  const dir1 = rel(c1, tp1) >= rel(c1, tV1) ? 1 : -1, dir2 = rel(c2, tp2) >= rel(c2, tV2) ? 1 : -1;
   let best = null;
   for (const s1 of [1, -1]) for (const s2 of [1, -1]) {
     for (const a0 of startsOf(c1, tp1, r)) for (const b0 of startsOf(c2, tp2, r)) {
@@ -226,7 +231,12 @@ export function bestFillet(c1, c2, r, p1, p2, V = null) {
       const slack = (c) => (c.approx ? 2e-3 : 1e-6) * r + 1e-9;
       if (c1.dist(O) < r - slack(c1) || c2.dist(O) < r - slack(c2)) continue;
       // extremo que se reemplaza: el del lado donde cae la tangencia respecto de lo tocado; lo que queda es lo que contiene lo tocado
-      const st1 = rel(c1, sol.a) < rel(c1, tp1), st2 = rel(c2, sol.b) < rel(c2, tp2);
+      let st1, st2;
+      if (V) {
+        const tolV = 1e-9 * (1 + r); // la tangencia debe caer en la rama tocada, del otro lado del vertice no
+        if ((rel(c1, sol.a) - rel(c1, tV1)) * dir1 <= tolV || (rel(c2, sol.b) - rel(c2, tV2)) * dir2 <= tolV) continue;
+        st1 = dir1 > 0; st2 = dir2 > 0; // lo que queda esta mas adelante que el vertice: se reemplaza el primer extremo
+      } else { st1 = rel(c1, sol.a) < rel(c1, tp1); st2 = rel(c2, sol.b) < rel(c2, tp2); }
       const away1 = c1.T(sol.a), away2 = c2.T(sol.b);
       const k1 = st1 ? 1 : -1, k2 = st2 ? 1 : -1; // direccion en que se aleja lo que queda
       // sentido del arco de T1 a T2: sigue la direccion con que se llega a T1 desde lo que queda (sin cuspide)
@@ -312,16 +322,25 @@ function filletBetween0(doc, A, B, r) {
   const own = (c) => (c.k === 'ln' ? doc.lines[c.id] : c.k === 'ar' ? doc.arcs[c.id] : doc.ellipses[c.id]);
   const style = styleOf(own(c1));
   const q1 = addPoint(doc, f.T1.x, f.T1.y, true), q2 = addPoint(doc, f.T2.x, f.T2.y, true), cen = addPoint(doc, f.O.x, f.O.y, true);
+  // el vertice de antes queda como punto virtual sobre los dos elementos (como en el redondeo de esquina): sin el, al cambiar
+  // el radio el solver gira los elementos en vez de deslizar el arco por ellos
+  const V = anchorOf(c1, c2, V0 || f.O), v = V ? addPoint(doc, V.x, V.y, true) : null;
+  // un segmento que atraviesa el vertice (union en T, como el borde de un escalon): lo del otro lado del vertice no se borra,
+  // queda como un segmento propio del vertice a su extremo, alineado con el original
+  for (const [c, st] of [[c1, f.start1], [c2, f.start2]]) {
+    if (!v || c.k !== 'ln') continue;
+    const tv = rel(c, c.tOf(V)), eps = 1e-6 * (1 + c.len);
+    if (!(tv > eps && tv < c.len - eps)) continue;
+    const old = doc.lines[c.id][c.fields[st ? 0 : 1]];
+    addLine(doc, v, old, styleOf(doc.lines[c.id]));
+    addCon(doc, { t: 'PONL', refs: [old, c.id], hidden: true });
+  }
   const dropped = cutEnd(doc, c1.k, c1.id, c1.fields[f.start1 ? 0 : 1], q1) + cutEnd(doc, c2.k, c2.id, c2.fields[f.start2 ? 0 : 1], q2);
   const arc = f.ccw ? addArc(doc, cen, q1, q2, r, style) : addArc(doc, cen, q2, q1, r, style);
   addCon(doc, { t: 'TANEP', refs: [c1.id, arc, q1] });
   addCon(doc, { t: 'TANEP', refs: [c2.id, arc, q2] });
   const dim = addCon(doc, { t: 'RAD', refs: [arc], v: r });
-  // el vertice de antes queda como punto virtual sobre los dos elementos (como en el redondeo de esquina): sin el, al cambiar
-  // el radio el solver gira los elementos en vez de deslizar el arco por ellos
-  const V = anchorOf(c1, c2, V0 || f.O);
-  if (V) {
-    const v = addPoint(doc, V.x, V.y, true);
+  if (v) {
     addCon(doc, { t: PON[c1.k], refs: [v, c1.id], hidden: true });
     addCon(doc, { t: PON[c2.k], refs: [v, c2.id], hidden: true });
   }
