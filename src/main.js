@@ -1905,7 +1905,8 @@ function toolDown(p) {
   if (tool === 'select') {
     const gz = !sim && fkOn('ac') ? graphCtlAt(p.x, p.y) : null;
     if (gz) { ctlDown(gz, p); return; }
-    const gh = !sim && fkOn('ac') ? graphAt(p.x, p.y) : null;
+    let gh = !sim && fkOn('ac') ? graphAt(p.x, p.y) : null;
+    if (gh && doc.images?.[gh.id] && gh.mode.move && hitTest(p.x, p.y)) gh = null; // lo dibujado sobre una foto se toca antes que la foto (para calcarla); sus manijas, si esta seleccionada, siguen siendo de ella
     if (gh && graphHold && doc.graphs?.[gh.id]) { graphHold = null; gcalcMark(null); scheduleGraphs(); draw(); return; }
     if (gh) {
       const g = boxOf(gh.id), gs = multiGraphs();
@@ -2081,6 +2082,7 @@ function toolUp(p, q) {
       lastGraphTap = dbl ? null : { id, t: now, x: p.x, y: p.y };
       selGraph = id; sel = [];
       if (dbl && doc.graphs?.[id]) { afterChange(); editGraph(id, false); return; }
+      if (dbl && doc.images?.[id]) { afterChange(); editImage(id); return; }
       afterChange(); return;
     }
     if (d?.box && d.boxOn) { finishBox(d, p); return; }
@@ -3346,7 +3348,7 @@ function contentBounds(withGraphs = false) {
   const gr = withGraphs ? Object.values(globalDoc().graphs || {}) : [];
   const doc = visibleDoc(globalDoc());
   const xs = [], ys = [];
-  for (const g of [...gr, ...Object.values(globalDoc().images || {})]) { xs.push(g.x, g.x + g.w); ys.push(g.y, g.y + g.h); }
+  for (const g of [...gr, ...Object.values(globalDoc().images || {}).filter((im) => !isHidden(globalDoc(), im))]) { xs.push(g.x, g.x + g.w); ys.push(g.y, g.y + g.h); }
   for (const p of Object.values(doc.pts)) { xs.push(p.x); ys.push(p.y); }
   for (const c of Object.values(doc.circles)) { const p = doc.pts[c.c]; xs.push(p.x - c.r, p.x + c.r); ys.push(p.y - c.r, p.y + c.r); }
   for (const a of Object.values(doc.arcs)) { const p = doc.pts[a.c]; xs.push(p.x - a.r, p.x + a.r); ys.push(p.y - a.r, p.y + a.r); }
@@ -3625,11 +3627,12 @@ function drawImages(c, o) {
   imgHits = [];
   const gsel = multiGraphs();
   for (const [id, im] of Object.entries(doc.images || {})) {
+    if (isHidden(doc, im)) continue; // en una capa apagada
     const A = toScreen({ x: im.x, y: im.y + im.h }), B = toScreen({ x: im.x + im.w, y: im.y });
     const x0 = A.x * dpr, y0 = A.y * dpr, W = (B.x - A.x) * dpr, H = (B.y - A.y) * dpr;
     const src = imageSrc(doc, im), el = src && imgEl(src);
     c.save(); c.setLineDash([]);
-    if (el) c.drawImage(el, x0, y0, W, H);
+    if (el) { c.globalAlpha = im.alpha ?? 1; c.drawImage(el, x0, y0, W, H); c.globalAlpha = 1; } // transparencia: para calcar la geometria de una foto
     else { c.strokeStyle = o.fg + '55'; c.lineWidth = dpr; c.strokeRect(x0, y0, W, H); c.fillStyle = o.fg + '88'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = 11 * dpr + 'px system-ui, sans-serif'; c.fillText(src ? 'Cargando imagen…' : '⚠ Imagen sin datos', x0 + W / 2, y0 + H / 2); }
     if (o.ui && gsel.has(id) && tool === 'select') {
       c.strokeStyle = theme.sel; c.lineWidth = 2.5 * dpr; c.strokeRect(x0, y0, W, H);
@@ -3639,6 +3642,36 @@ function drawImages(c, o) {
     c.restore();
     imgHits.push({ id, x: A.x, y: A.y, w: B.x - A.x, h: B.y - A.y });
   }
+}
+// Propiedades de una imagen (doble toque): su capa y su opacidad (para calcar sobre una foto)
+function editImage(id) {
+  const im = doc.images?.[id];
+  if (!im) return;
+  const dlg = $('dlgImg'), lay = $('imgLayer'), al = $('imgAlpha'), av = $('imgAlphaV');
+  const el = imgCache.get(imageSrc(doc, im));
+  $('imgInfo').textContent = el?.naturalWidth ? `${el.naturalWidth} × ${el.naturalHeight} px` : '';
+  lay.textContent = '';
+  for (const [v, t] of [['', 'Ninguna'], ...Object.entries(doc.layers || {}).map(([lid, l]) => [lid, l.name + (l.on ? '' : ' (apagada)')])]) { const o = document.createElement('option'); o.value = v; o.textContent = t; lay.append(o); }
+  lay.value = im.layer && doc.layers?.[im.layer] ? im.layer : '';
+  const pct = () => Math.round((doc.images[id]?.alpha ?? 1) * 100);
+  al.value = String(pct()); av.textContent = pct() + ' %';
+  let undone = false; // un solo paso de deshacer por cada vez que se mueve el control
+  lay.onchange = () => {
+    pushUndo(); const x = doc.images[id]; if (!x) return;
+    if (lay.value) x.layer = lay.value; else delete x.layer;
+    if (isHidden(doc, x)) { selGraph = null; dlg.close(); toast('La imagen quedó en una capa apagada: se ocultó'); }
+    afterChange();
+  };
+  al.oninput = () => {
+    const x = doc.images[id]; if (!x) return;
+    if (!undone) { pushUndo(); undone = true; }
+    const v = Number(al.value) / 100; if (v >= 1) delete x.alpha; else x.alpha = v;
+    av.textContent = al.value + ' %'; draw();
+  };
+  al.onchange = () => { undone = false; afterChange(); };
+  $('imgDel').onclick = () => { pushUndo(); delete doc.images[id]; selGraph = null; dlg.close(); afterChange(); };
+  $('imgOk').onclick = (ev) => { ev.preventDefault(); dlg.close(); };
+  dlg.showModal();
 }
 // Insertar una imagen: se reduce a IMG_MAX px de lado mayor y queda en el centro de la vista, con 40 % de su ancho
 async function insertImage(f) {

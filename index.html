@@ -468,6 +468,12 @@ body.nopanel #panel { display: none; }
   <div class="row"><input type="text" id="lyName" placeholder="Nombre de la nueva capa" autocomplete="off" style="flex:1 1 140px"><button type="button" id="lyAdd" class="on">Crear capa</button></div>
   <div class="actions"><button id="lyOk" class="on">Cerrar</button></div>
 </form></dialog>
+<dialog id="dlgImg"><form method="dialog">
+  <p style="margin:0 0 6px"><b>Imagen</b> <span id="imgInfo" style="color:var(--muted);font-size:13px"></span></p>
+  <div class="row"><label for="imgLayer">Capa</label><select id="imgLayer" style="flex:1"></select></div>
+  <div class="row"><label for="imgAlpha">Opacidad</label><input type="range" id="imgAlpha" min="10" max="100" step="5" style="flex:1" title="Más transparente para calcar sobre la foto: lo que dibujes encima se ve y se toca primero."><span id="imgAlphaV" style="min-width:3.5em;text-align:right"></span></div>
+  <div class="actions"><button id="imgDel" type="button">Eliminar</button><button id="imgOk" class="on">Cerrar</button></div>
+</form></dialog>
 <dialog id="dlgLib"><form method="dialog">
   <p style="margin:0 0 6px"><b>Insertar biblioteca</b> <span id="libWhere" style="color:var(--muted);font-size:13px"></span></p>
   <div id="libList" style="max-height:46vh;overflow:auto"></div>

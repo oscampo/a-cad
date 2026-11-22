@@ -96,7 +96,7 @@ export function exportSVG(doc, ltScale = 1, vis = {}) {
   const out = [];
   let clip = 0;
   // imagenes: debajo de todo, con sus datos dentro del SVG
-  for (const im of Object.values(doc.images || {})) { const src = doc.assets?.[im.a]; if (src) out.push(`<image x="${X(im.x)}" y="${Y(im.y + im.h)}" width="${n(im.w * K)}" height="${n(im.h * K)}" preserveAspectRatio="none" href="${src}"/>`); }
+  for (const im of Object.values(doc.images || {})) { const src = doc.assets?.[im.a]; if (src) out.push(`<image x="${X(im.x)}" y="${Y(im.y + im.h)}" width="${n(im.w * K)}" height="${n(im.h * K)}" preserveAspectRatio="none"${im.alpha != null && im.alpha < 1 ? ` opacity="${n(im.alpha)}"` : ''} href="${src}"/>`); }
   for (const h of Object.values(doc.hatches)) {
     const loops = hatchLoops(doc, h);
     if (!loops.length) continue;

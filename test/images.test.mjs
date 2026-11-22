@@ -1,6 +1,7 @@
 // Imagenes: datos aparte (doc.assets) por contenido, guardar solo lo usado, historial sin los datos, reduccion y proporcion.
 import assert from 'node:assert/strict';
-import { newDoc } from '../src/model.js';
+import { newDoc, addLayer, visibleDoc, layerCount, deleteLayer } from '../src/model.js';
+import { boxSelect } from '../src/boxsel.js';
 import { addImage, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, imageSrc } from '../src/images.js';
 
 let passed = 0;
@@ -29,6 +30,18 @@ t('reducción a 1600 px de lado mayor y redimensión con la proporción', () => 
   assert.deepEqual(keepAspect(o, { r: true }, { x: 0, y: 0, w: 30, h: 10 }), { x: 0, y: 0, w: 30, h: 15 });
   assert.deepEqual(keepAspect(o, { l: true, b: true }, { x: -10, y: -4, w: 30, h: 14 }), { x: -10, y: -5, w: 30, h: 15 }); // la esquina opuesta queda fija
   assert.deepEqual(keepAspect(o, { t: true }, { x: 0, y: 0, w: 20, h: 20 }), { x: 0, y: 0, w: 40, h: 20 });
+});
+
+t('capa y transparencia: una imagen nueva toma la capa actual; apagada no se exporta ni entra en un cuadro de selección', () => {
+  const d = newDoc(), ly = addLayer(d, 'Fotos'); // addLayer la deja como capa actual
+  const id = addImage(d, SRC, 0, 0, 10, 5);
+  assert.equal(d.images[id].layer, ly); assert.equal(layerCount(d, ly), 1);
+  d.images[id].alpha = 0.4;
+  const r = { x0: -1, y0: -1, x1: 20, y1: 20 };
+  assert.deepEqual(boxSelect(d, r, false).filter((x) => x.k === 'gr').map((x) => x.id), [id]);
+  d.layers[ly].on = false;
+  assert.deepEqual(Object.keys(visibleDoc(d).images), []); assert.deepEqual(boxSelect(d, r, false).filter((x) => x.k === 'gr'), []);
+  d.layers[ly].on = true; deleteLayer(d, ly); assert.equal(d.images[id].layer, undefined); // al borrar la capa pasa a «ninguna»
 });
 
 console.log(`\n${passed} pruebas de imágenes pasaron`);

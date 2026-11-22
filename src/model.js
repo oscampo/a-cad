@@ -38,7 +38,7 @@ const stamp = (doc) => (doc.curLayer && doc.layers?.[doc.curLayer] ? { layer: do
 export const isHidden = (doc, o) => !!(o && o.layer && doc.layers?.[o.layer] && !doc.layers[o.layer].on);
 export const shownEntries = (doc, key) => Object.entries(doc[key] || {}).filter(([, o]) => !isHidden(doc, o));
 export const shownValues = (doc, key) => shownEntries(doc, key).map(([, o]) => o);
-const LAYERED = ['pts', 'lines', 'circles', 'arcs', 'ellipses', 'splines', 'texts', 'hatches'];
+const LAYERED = ['pts', 'lines', 'circles', 'arcs', 'ellipses', 'splines', 'texts', 'hatches', 'images'];
 export function addLayer(doc, name) {
   doc.layers ||= {};
   const id = nextId(doc, 'y');
@@ -93,6 +93,7 @@ export function visibleDoc(doc) {
   const hp = layerHiddenPoints(doc), out = { ...doc };
   for (const key of ['lines', 'circles', 'arcs', 'ellipses', 'splines', 'texts']) out[key] = Object.fromEntries(shownEntries(doc, key));
   out.pts = Object.fromEntries(Object.entries(doc.pts).filter(([id]) => !hp.has(id)));
+  if (doc.images) out.images = Object.fromEntries(shownEntries(doc, 'images')); // una imagen en una capa apagada no se exporta
   out.cons = Object.fromEntries(Object.entries(doc.cons).filter(([, k]) => !consHidden(doc, k, hp)));
   out.hatches = Object.fromEntries(shownEntries(doc, 'hatches').filter(([, h]) => h.ids.every((i) => i in out.lines || i in out.circles || i in out.arcs || i in out.splines)));
   return out;

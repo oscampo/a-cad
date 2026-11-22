@@ -17,7 +17,7 @@ export function addImage(doc, src, x, y, w, h) {
   const a = 'a' + hashStr(src);
   (doc.assets ||= {})[a] = src;
   const id = nextId(doc, 'im');
-  (doc.images ||= {})[id] = { x, y, w, h, a };
+  (doc.images ||= {})[id] = { x, y, w, h, a, ...(doc.curLayer && doc.layers?.[doc.curLayer] ? { layer: doc.curLayer } : {}) }; // en la capa actual, como lo demas
   return id;
 }
 
