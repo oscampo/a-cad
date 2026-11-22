@@ -38,11 +38,11 @@ import { setIconSource } from './iconpaths.js';
 setIconSource(ICONS); // los iconos de la app que un texto puede mostrar: ![Linea](icon:line)
 import { buildTree, kindOf, conLabel } from './tree.js';
 import { cleanFileBase } from './files.js';
-import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProblem, libFileName } from './library.js';
+import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProblem, libFileName, libPayload } from './library.js';
 import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX } from './images.js';
 import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
-import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL } from './expr.js';
+import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr } from './expr.js';
 import { localNum, SCI_DEFAULT, sciFrom } from './locale.js';
 import { getLang, setLang, initLang } from './i18n.js';
 import { HELP_HTML } from './help.js';
@@ -3438,6 +3438,7 @@ function loadDoc(d) {
   undoStack = []; redoStack = []; sel = []; pending = null;
   setAngleMode(doc);
   fillDimUnits(doc); // cotas guardadas como «2'cm»: la etiqueta dice «2 cm»
+  setTimeout(() => { checkLibUpdates(); }, 2000); // bibliotecas insertadas: ¿hay una version nueva en GitHub?
 }
 async function exportPNG() {
   await imagesReady();
@@ -3501,7 +3502,7 @@ document.querySelectorAll('[data-tool]').forEach((b) => { b.onclick = () => setT
 // ---- botones desplegables: cada grupo muestra la ultima herramienta usada; toca de nuevo (con el grupo activo),
 // toca la esquina marcada o mantén presionado para ver las demás.
 const GROUPS = {
-  file: [['fNew', 'file-plus', 'Nuevo dibujo'], ['fSave', 'save', 'Guardar (.json)'], ['fLoad', 'folder-open', 'Abrir…'], ['ghSave', 'save', 'Guardar en GitHub…'], ['ghOpen', 'folder-open', 'Abrir de GitHub…'], ['ghCfg', 'props', 'Configurar GitHub…'], ['fImg', 'image', 'Insertar imagen…'], ['fPng', 'image', 'Exportar PNG'], ['fSvg', 'svg', 'Exportar SVG'], ['fLaser', 'svg', 'SVG para corte láser…'], ['fDxf', 'dxf', 'Exportar DXF']],
+  file: [['fNew', 'file-plus', 'Nuevo dibujo'], ['fSave', 'save', 'Guardar (.json)'], ['fLoad', 'folder-open', 'Abrir…'], ['ghSave', 'save', 'Guardar en GitHub…'], ['ghOpen', 'folder-open', 'Abrir de GitHub…'], ['ghCfg', 'props', 'Configurar GitHub…'], ['fImg', 'image', 'Insertar imagen…'], ['libIns', 'folder-open', 'Insertar biblioteca…'], ['fPng', 'image', 'Exportar PNG'], ['fSvg', 'svg', 'Exportar SVG'], ['fLaser', 'svg', 'SVG para corte láser…'], ['fDxf', 'dxf', 'Exportar DXF']],
   spl: [['spline', 'spline', 'Spline por puntos (S)'], ['trTrace', 'trace', 'Trazar punto (activar o quitar)'], ['trClear', 'trash', 'Borrar trayectoria'], ['mkReset', 'mark-reset', 'Reiniciar marcas'], ['trSpline', 'spline', 'Trazado a spline…'], ['spClose', 'spline-closed', 'Cerrar o abrir el spline'], ['spOffset', 'spline', 'Equidistante…']],
   sel: [['select', 'select', 'Seleccionar y arrastrar (V)'], ['filter', 'filter', 'Filtrar la selección…']],
   line: [['line', 'line', 'Línea (L)'], ['vector', 'vector', 'Vector: línea con flecha y magnitud (W). Con una línea seleccionada, la convierte en vector'], ['mline', 'mline', 'Línea de punto medio (M)'], ['cline', 'cline', 'Línea constructiva (K)']],
@@ -3515,7 +3516,7 @@ const GROUPS = {
 };
 // Cada elemento de un grupo es una herramienta, salvo Filtrar y Copiar, que son acciones.
 // Archivo y Spline: sus acciones viven en botones ocultos (#acts) que conservan su logica y su estado habilitado.
-const ACT_IDS = new Set(['ghSave', 'ghOpen', 'ghCfg', 'fNew', 'fSave', 'fLoad', 'fImg', 'fPng', 'fSvg', 'fLaser', 'fDxf', 'trTrace', 'trClear', 'mkReset', 'trSpline', 'spClose', 'spOffset']);
+const ACT_IDS = new Set(['ghSave', 'ghOpen', 'ghCfg', 'fNew', 'fSave', 'fLoad', 'fImg', 'libIns', 'fPng', 'fSvg', 'fLaser', 'fDxf', 'trTrace', 'trClear', 'mkReset', 'trSpline', 'spClose', 'spOffset']);
 const MENU_ONLY = new Set(['file']); // el boton solo abre el desplegable (nunca ejecuta algo, p. ej. "Nuevo")
 const isAct = (id) => id === 'filter' || id === 'sim' || ACT_IDS.has(id);
 // Vector <-> linea con lo seleccionado: con una linea (y uno de sus extremos, la cola) seleccionada, «Vector» la convierte;
@@ -4638,11 +4639,12 @@ function openProps(h) {
       if (isSc() && !shc.checked) delete propObj().open;
       if (textEditOk(before)) afterChange();
     };
-    body.appendChild(propRow('Texto', taBox, taErr));
+    if (o.lib) libPropRows(body, propT.id, o); else body.appendChild(propRow('Texto', taBox, taErr)); // una biblioteca no se edita como texto
     const shc = document.createElement('input');
     shc.type = 'checkbox'; shc.checked = !!o.open; shc.style.cssText = 'width:22px;height:22px;min-height:22px;margin:0;flex:none';
     shc.onchange = () => { pushUndo(); if (shc.checked) propObj().open = true; else delete propObj().open; afterChange(); };
     if (isScript(o.text)) body.appendChild(propRow('Mostrar el código en el dibujo (si no, solo su nombre)', shc));
+    else if (o.lib) body.appendChild(propRow('Mostrar sus nombres públicos en el dibujo (si no, solo su nombre)', shc));
     body.appendChild(propRow('Fuente', propSelect(FONTS.map((f) => [f[0], f[1]]), o.font || '', (v) => txSet('font', v))));
     if (globalDoc().page) body.appendChild(propRow('Altura (pt)', propNumber(ptOf(o.h), (v, i) => { const n = Number(v); if (n > 0) txSet('h', n * PT); else i.value = String(ptOf(propObj().h)); }, { min: '1', step: '0.5' })));
     else body.appendChild(propRow('Altura', propNumber(o.h, (v, i) => { const n = Number(v); if (n > 0) txSet('h', n); else i.value = String(propObj().h); }, { min: '0.01' })));
@@ -5470,6 +5472,111 @@ async function ghOpenCmd() {
   dlg.showModal();
   await reload();
 }
+// ---- bibliotecas insertadas: se leen de MyLibrary/ en GitHub, quedan copiadas en el documento (un texto con t.lib: funciona sin red) y
+// se pueden actualizar cuando la biblioteca cambia. Sus nombres se usan como alias.nombre (ver tvars.js y qualify.js).
+const libTexts = () => Object.entries(doc.texts || {}).filter(([, t]) => t.lib);
+// Lo que se guarda en el documento: la ficha y lo que viaja; si la biblioteca usa otro indicador decimal, sus formulas se convierten
+function libPayloadFor(libDoc, alias, path, sha) {
+  const P = libPayload(libDoc, alias), from = P.decimal, to = doc.decimal === ',' || doc.decimal === '.' ? doc.decimal : null;
+  if (from && to && from !== to) for (const d of P.defs) { d.expr = convertExpr(d.expr, from, to); for (const x of Object.values(d.lib || {})) x.fn.body = convertExpr(x.fn.body, from, to); }
+  return { ...P, decimal: to ?? from, path, sha };
+}
+const libAngleWarn = (P) => (P.angles && (P.angles === 'rad') !== (doc.angles === 'rad') ? `Ojo: la biblioteca usa ángulos en ${P.angles === 'rad' ? 'radianes' : 'grados'} y este documento en ${doc.angles === 'rad' ? 'radianes' : 'grados'}: sus funciones con sin, cos… darían otro resultado` : '');
+async function insertLibraryCmd() {
+  const c = gh.loadCfg();
+  if (!gh.isReady(c)) { toast('Primero configura GitHub: las bibliotecas se leen de la carpeta MyLibrary/ de tu repositorio'); openGhCfg(); return; }
+  const dlg = $('dlgLib'), list = $('libList'), msg = $('libMsg'), as = $('libAs'), go = $('libGo');
+  $('libWhere').textContent = `${c.repo}/${LIB_DIR}`;
+  list.textContent = 'Cargando…'; msg.textContent = ''; as.value = ''; go.disabled = true;
+  let pick = null;
+  const used = new Set(libTexts().map(([, t]) => t.lib.alias));
+  const check = () => {
+    const a = as.value.trim(), pr = pick ? aliasProblem(a) || (used.has(a) ? `«${a}» ya es el alias de otra biblioteca de este documento` : null) : null;
+    msg.style.color = pr ? 'var(--warn)' : 'var(--muted)';
+    msg.textContent = !pick ? '' : pr ? '⚠ ' + pr : `Sus nombres se usarán como ${a}.nombre, p. ej. ${a}.${(pick.L.exports || [])[0] || '…'}`;
+    go.disabled = !pick || !!pr;
+  };
+  as.oninput = check;
+  $('libCancel').onclick = () => dlg.close();
+  go.onclick = (ev) => { ev.preventDefault(); if (!pick || go.disabled) return; dlg.close(); placeLibrary(pick, as.value.trim()); };
+  dlg.showModal();
+  let files;
+  try { files = await gh.list(c, '', fetch, LIB_DIR); } catch (e) { list.textContent = 'No se pudo leer GitHub: ' + e.message; return; }
+  if (!files.length) { list.textContent = 'Todavía no hay bibliotecas en MyLibrary/. Abre un documento, márcalo como biblioteca en Configuración y guárdalo en GitHub.'; return; }
+  const libs = await Promise.all(files.map(async (f) => { try { const j = JSON.parse(await gh.read(c, LIB_DIR + '/' + f.name)); const d = j.doc || j; return { f, d, L: d.lib || {} }; } catch (e) { return { f, err: e.message }; } }));
+  list.textContent = '';
+  for (const it of libs) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'lrow';
+    const line = (tag, txt) => { const e = document.createElement(tag); e.textContent = txt; b.append(e); };
+    if (it.err || !it.L.on) { b.disabled = true; line('b', it.f.name); line('small', it.err ? '⚠ ' + it.err : 'No está marcado como biblioteca'); list.append(b); continue; }
+    const L = it.L;
+    line('b', L.name || it.f.name); line('span', ` (${L.alias || '…'}) · v${L.version || 0}`);
+    line('small', [L.author, `${(L.exports || []).length} nombres públicos`].filter(Boolean).join(' · '));
+    if (L.desc) line('small', L.desc);
+    b.onclick = () => { pick = it; for (const x of list.children) x.classList.remove('on'); b.classList.add('on'); as.value = L.alias || ''; check(); };
+    list.append(b);
+  }
+}
+function placeLibrary(it, alias) {
+  const P = libPayloadFor(it.d, alias, LIB_DIR + '/' + it.f.name, it.f.sha);
+  const q = toModel(40, 40); // arriba a la izquierda de lo que se ve: una biblioteca va antes de donde se usa
+  pushUndo();
+  const id = addText(doc, addPoint(doc, q.x, q.y), '▸ ' + P.name, { h: cur.tx.h ?? niceHeight(), anchor: 'tl', font: cur.tx.font });
+  doc.texts[id].lib = P;
+  setTool('select'); sel = [{ k: 'tx', id }]; afterChange();
+  toast(`${P.name} v${P.version} insertada como ${alias}: ${P.exports.length} nombres públicos (${alias}.${P.exports[0] || '…'}…). Va antes de donde se usa, en el orden de lectura.`);
+  const w = libAngleWarn(P); if (w) setTimeout(() => toast(w), 3500);
+}
+// En segundo plano: si una biblioteca insertada cambio en GitHub, su bloque lo indica («⟳ v4»); sin red o sin GitHub no hace nada
+async function checkLibUpdates() {
+  const c = gh.loadCfg();
+  if (!gh.isReady(c) || !libTexts().length) return;
+  for (const [id, t] of libTexts()) {
+    try {
+      const sha = await gh.currentSha(c, t.lib.path);
+      if (!sha || sha === t.lib.sha) continue;
+      const j = JSON.parse(await gh.read(c, t.lib.path)), v = (j.doc || j).lib?.version || 0;
+      if (v > (t.lib.version || 0) && doc.texts[id] === t && t.libNew !== v) { t.libNew = v; draw(); }
+    } catch (e) { /* sin red: queda la copia */ }
+  }
+}
+async function updateLibrary(id) {
+  const t = doc.texts[id], c = gh.loadCfg();
+  if (!t?.lib) return;
+  if (!gh.isReady(c)) { toast('Para buscar versiones nuevas hace falta configurar GitHub'); return; }
+  try {
+    toast('Buscando en GitHub…');
+    const sha = await gh.currentSha(c, t.lib.path);
+    if (!sha) { toast(`${t.lib.path} ya no está en GitHub: queda la copia de este documento`); return; }
+    const j = JSON.parse(await gh.read(c, t.lib.path)), d = j.doc || j, L = d.lib || {};
+    if (!L.on) { toast(`${t.lib.path} ya no está marcado como biblioteca`); return; }
+    if ((L.version || 0) <= (t.lib.version || 0) && sha === t.lib.sha) { delete t.libNew; toast(`Ya es la última versión (v${t.lib.version || 0})`); draw(); return; }
+    const old = new Set(t.lib.exports || []), nw = new Set(L.exports || []);
+    const add = [...nw].filter((n) => !old.has(n)), gone = [...old].filter((n) => !nw.has(n));
+    const lines = [`Actualizar ${t.lib.name} de v${t.lib.version || 0} a v${L.version || 0}?`, ...(add.length ? ['Nuevos: ' + add.join(', ')] : []), ...(gone.length ? ['Ya no están (las fórmulas que los usan darán ⚠): ' + gone.join(', ')] : [])];
+    if (!confirm(lines.join('\n'))) return;
+    pushUndo();
+    t.lib = libPayloadFor(d, t.lib.alias, t.lib.path, sha); delete t.libNew;
+    afterChange(); toast(`${t.lib.name} actualizada a v${t.lib.version}`);
+    const w = libAngleWarn(t.lib); if (w) setTimeout(() => toast(w), 3000);
+  } catch (e) { toast('No se pudo leer la biblioteca: ' + e.message); }
+}
+// Filas del panel de propiedades de un bloque de biblioteca
+function libPropRows(body, id, o) {
+  const L = o.lib, info = document.createElement('div');
+  info.style.cssText = 'font-size:14px;line-height:1.5';
+  const add = (txt, muted) => { const e = document.createElement('div'); e.textContent = txt; if (muted) e.style.color = 'var(--muted)'; info.append(e); };
+  add(`${L.name} · v${L.version || 0}${o.libNew > (L.version || 0) ? ` (en GitHub hay v${o.libNew})` : ''}`);
+  add(`Alias ${L.alias}: sus nombres se usan como ${L.alias}.nombre`, true);
+  add(`${(L.exports || []).length} nombres públicos y ${(L.defs || []).length - (L.exports || []).length} privados · copiada de ${L.path}`, true);
+  const w = libAngleWarn(L); if (w) { const e = document.createElement('div'); e.textContent = '⚠ ' + w; e.style.color = 'var(--warn)'; info.append(e); }
+  body.appendChild(propRow('Biblioteca', info));
+  const b = document.createElement('button'); b.type = 'button';
+  b.textContent = o.libNew > (L.version || 0) ? `Actualizar a v${o.libNew}` : 'Buscar versión nueva';
+  b.onclick = () => updateLibrary(id);
+  body.appendChild(propRow('', b));
+}
+$('libIns').onclick = insertLibraryCmd;
 $('ghSave').onclick = ghSaveCmd;
 $('ghOpen').onclick = ghOpenCmd;
 $('ghCfg').onclick = openGhCfg;

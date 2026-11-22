@@ -197,6 +197,9 @@ dialog.help a { color: var(--accent); }
 .gm-row { display: flex; align-items: center; gap: 8px; margin: 2px 0; }
 .gm-row input[type=checkbox] { width: 22px; height: 22px; flex: none; }
 #dlgCfg input[type=checkbox] { width: 22px; height: 22px; min-height: 0; flex: none; margin: 0; }
+#libList .lrow { display: block; width: 100%; text-align: left; padding: 8px 10px; margin: 4px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--btn); color: var(--fg); }
+#libList .lrow.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+#libList .lrow small { display: block; color: var(--muted); }
 #libEx label { display: flex; gap: 8px; align-items: center; margin: 3px 0; font-size: 14px; }
 #libEx label small { color: var(--muted); }
 #libBox input:not([type=checkbox]), #libBox textarea { min-height: 36px; font-size: 15px; }
@@ -369,7 +372,7 @@ body.nopanel #panel { display: none; }
   <button id="fNew"></button><button id="fSave"></button><button id="fLoad"></button><button id="fPng"></button>
   <button id="fSvg"></button><button id="fLaser"></button><button id="fDxf"></button>
   <input type="file" id="fileIn" accept=".json,application/json">
-  <button id="fImg"></button><input type="file" id="imgIn" accept="image/*">
+  <button id="fImg"></button><input type="file" id="imgIn" accept="image/*"><button id="libIns"></button>
   <button id="ghSave"></button><button id="ghOpen"></button><button id="ghCfg"></button>
   <button id="trTrace"></button><button id="trClear"></button><button id="mkReset"></button><button id="trSpline"></button><button id="spClose"></button><button id="spOffset"></button>
 </div>
@@ -464,6 +467,13 @@ body.nopanel #panel { display: none; }
   <div id="lyList" style="margin:8px 0"></div>
   <div class="row"><input type="text" id="lyName" placeholder="Nombre de la nueva capa" autocomplete="off" style="flex:1 1 140px"><button type="button" id="lyAdd" class="on">Crear capa</button></div>
   <div class="actions"><button id="lyOk" class="on">Cerrar</button></div>
+</form></dialog>
+<dialog id="dlgLib"><form method="dialog">
+  <p style="margin:0 0 6px"><b>Insertar biblioteca</b> <span id="libWhere" style="color:var(--muted);font-size:13px"></span></p>
+  <div id="libList" style="max-height:46vh;overflow:auto"></div>
+  <div class="row" style="margin-top:8px"><label for="libAs">Alias</label><input id="libAs" autocomplete="off" style="flex:1" title="El prefijo con que se usan sus nombres en este documento: UF.C_(surf)(…). Conviene dejar el que trae la biblioteca, para que las fórmulas se puedan copiar entre documentos."></div>
+  <div id="libMsg" style="font-size:13px;color:var(--muted);min-height:1.2em"></div>
+  <div class="actions"><button id="libCancel" type="button">Cancelar</button><button id="libGo" class="on" disabled>Insertar</button></div>
 </form></dialog>
 <dialog id="dlgCfg"><form method="dialog">
   <p style="margin:0 0 6px"><b>Configuración</b></p>

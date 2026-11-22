@@ -87,4 +87,19 @@ t('fase 2: una biblioteca insertada vale desde su lugar, atada a sus propias tab
   assert.match(shownText(d, T[3]).text, /color\(gray\)\(PR\.\)h/); // el prefijo, en gris
 });
 
+t('fase 3: el bloque se dibuja colapsado o con sus nombres públicos; avisa ángulos distintos y versión nueva; un documento con solo la biblioteca calcula', () => {
+  const src = newDoc(); src.decimal = '.';
+  ['T_(st):[100, 200]', 'g(i):T_(st)_i + 1', 'h(x):g(x)*2'].forEach((q, i) => addText(src, addPoint(src, 0, 300 - i * 10), '$$' + q + '$$', {}));
+  src.lib = { on: true, name: 'Prueba', alias: 'PR', version: 2, exports: ['h'], angles: 'deg' };
+  const d = newDoc(); d.decimal = '.';
+  const bid = addText(d, addPoint(d, 0, 300), '▸ Prueba', { anchor: 'tl' }); d.texts[bid].lib = libPayload(src);
+  const o = d.texts[addText(d, addPoint(d, 0, 280), '$$PR.h(1)=$$', { anchor: 'tl' })]; // sin ninguna definicion propia
+  const blk = () => shownText(d, d.texts[bid]).text;
+  assert.equal(shownText(d, o).text.replace(/[\uE000-\uF8FF]/g, '').replace('color(gray)(PR.)', 'PR.'), '$$PR.h(1)=202$$'); // antes daba vacio: «sin definiciones»
+  assert.equal(blk(), '```\n▸ Prueba (PR) · v2\n```');
+  d.texts[bid].libNew = 3; assert.equal(blk(), '```\n▸ Prueba (PR) · v2  ⟳ v3\n```');
+  d.texts[bid].open = true; assert.match(blk(), /▾ Prueba \(PR\) · v2.*\n  PR\.h\(x\)\n```$/s);
+  d.angles = 'rad'; assert.match(blk(), /⚠ la biblioteca usa ángulos en grados y este documento en radianes/);
+});
+
 console.log(`\n${passed} pruebas de bibliotecas pasaron`);

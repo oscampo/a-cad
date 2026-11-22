@@ -106,8 +106,21 @@ function scriptShown(doc, t, s) {
   const lines = s.split('\n'), head = lines[0].replace(/^%\s*/, '');
   return fence(['▾ ' + head, ...lines.slice(1), ...(err ? ['⚠ ' + err] : [])].join('\n'));
 }
+// Una biblioteca insertada (t.lib, ver library.js y tvars.js) se dibuja como un bloque: colapsado, «▸ Nombre (alias) · v3», con ⚠ si algo
+// suyo falla o sus ángulos no son los del documento, y «⟳ v4» si en MyLibrary/ hay una versión nueva; expandido (t.open), sus nombres públicos.
+function libShown(doc, t) {
+  const L = t.lib, A = L.alias || '', fence = (body) => '```\n' + body + '\n```';
+  const errs = [...textVars(doc).errs].filter(([n]) => n.startsWith(A + '.')).map(([, m]) => m);
+  const angBad = L.angles && (L.angles === 'rad') !== (doc.angles === 'rad');
+  const head = (L.name || 'Biblioteca') + ' (' + A + ') · v' + (L.version || 0) + (errs.length || angBad ? '  ⚠' : '') + (t.libNew > (L.version || 0) ? '  ⟳ v' + t.libNew : '');
+  if (!t.open) return fence('▸ ' + head);
+  const sig = (d) => A + '.' + d.name + (d.params ? '(' + d.params.join(', ') + ')' : '');
+  const pub = (L.defs || []).filter((d) => (L.exports || []).includes(d.name)).map((d) => '  ' + sig(d));
+  return fence(['▾ ' + head, ...pub, ...(angBad ? [`⚠ la biblioteca usa ángulos en ${L.angles === 'rad' ? 'radianes' : 'grados'} y este documento en ${doc.angles === 'rad' ? 'radianes' : 'grados'}`] : []), ...errs.map((m) => '⚠ ' + m)].join('\n'));
+}
 function textValue1(doc, t) {
   setAngleMode(doc);
+  if (t.lib) return libShown(doc, t);
   const s = String(t.text ?? '');
   if (s[0] === '%') return scriptShown(doc, t, s);
   const hasSub = s.includes('$') && s.includes('_(');
@@ -118,7 +131,7 @@ function textValue1(doc, t) {
   const hasDef = pieces.some((p) => p.k === 'def'), hasOut = pieces.some((p) => p.k === 'out');
   let vars = null, st = null, tid = null, idx = 0, oidx = 0;
   // Orden de lectura: cada salida y cada definicion ve las variables tal como estaban en ese punto de la pagina (ver textVarState)
-  if (hasDef || (hasOut && Object.values(doc.texts || {}).some((x) => calcStmts(x.text).some((p) => p.k === 'def' || (p.k === 'out' && !!clearCall(p.expr)))))) { tid = Object.keys(doc.texts || {}).find((k) => doc.texts[k] === t); st = textVars(doc); }
+  if (hasDef || (hasOut && Object.values(doc.texts || {}).some((x) => !!x.lib || calcStmts(x.text).some((p) => p.k === 'def' || (p.k === 'out' && !!clearCall(p.expr)))))) { tid = Object.keys(doc.texts || {}).find((k) => doc.texts[k] === t); st = textVars(doc); } // una biblioteca insertada tambien define
   // Nombres con subindice («var_(texto)») dentro de una formula: se marcan para dibujarlos como nombre con subindice de texto
   // (sin marcar, AsciiMath leeria «texto» como letras y simbolos sueltos: «to» seria una flecha).
   let subNames = null;
