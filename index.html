@@ -472,6 +472,7 @@ body.nopanel #panel { display: none; }
 <dialog id="dlgImg"><form method="dialog">
   <p style="margin:0 0 6px"><b>Imagen</b> <span id="imgInfo" style="color:var(--muted);font-size:13px"></span></p>
   <div class="row"><label for="imgLayer">Capa</label><select id="imgLayer" style="flex:1"></select></div>
+  <div class="row" style="align-items:flex-start"><label>Punto de inserción<br><small id="imgPt" style="color:var(--muted)"></small></label><div id="imgAnchor" style="display:grid;grid-template-columns:repeat(3,40px);gap:6px;margin-left:auto"></div></div>
   <div class="row"><label for="imgLock">Bloqueada</label><input type="checkbox" id="imgLock" title="Bloqueada, no se selecciona ni se mueve con un toque o un arrastre (para calcar encima sin moverla). El doble toque sigue abriendo esta ventana."></div>
   <div class="row"><label for="imgAlpha">Opacidad</label><input type="range" id="imgAlpha" min="10" max="100" step="5" style="flex:1" title="Más transparente para calcar sobre la foto: lo que dibujes encima se ve y se toca primero."><span id="imgAlphaV" style="min-width:3.5em;text-align:right"></span></div>
   <div class="actions"><button id="imgDel" type="button">Eliminar</button><button id="imgOk" class="on">Cerrar</button></div>

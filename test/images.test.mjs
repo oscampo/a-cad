@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import * as MODEL from '../src/model.js';
 import { newDoc, addLayer, visibleDoc, layerCount, deleteLayer } from '../src/model.js';
 import { boxSelect } from '../src/boxsel.js';
-import { addImage, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, imageSrc } from '../src/images.js';
+import { addImage, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, imageSrc, imgRect, syncImages, ensureImagePoints, anchorPoint } from '../src/images.js';
+import { varsOf } from '../src/params.js';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
@@ -56,6 +57,20 @@ t('cuadro de selección: un texto por su caja (ventana: entero dentro; cruce: ba
   assert.deepEqual(tx({ x0: 10, y0: 1, x1: 12, y1: 2 }, true), [tid]); // cruce dentro del texto: si
   const im = addImage(d, SRC, 50, 0, 10, 5); d.images[im].locked = true;
   assert.deepEqual(boxSelect(d, { x0: 40, y0: -5, x1: 70, y1: 10 }, { cross: true }).filter((x) => x.k === 'gr'), []);
+});
+
+t('punto de inserción: un punto real con anclaje (9 posiciones); la imagen lo sigue; dibujos anteriores reciben el suyo; se lee en fórmulas', () => {
+  const d = newDoc(); const id = addImage(d, SRC, 10, 20, 40, 20), im = d.images[id];
+  assert.ok(d.pts[im.pt] && d.pts[im.pt].txOnly); assert.equal(im.anchor, 'bl');
+  assert.deepEqual(imgRect(d, im), { x: 10, y: 20, w: 40, h: 20 });
+  im.anchor = 'mc'; assert.deepEqual(imgRect(d, im), { x: -10, y: 10, w: 40, h: 20 }); // el punto es el centro
+  im.anchor = 'tr'; assert.deepEqual(imgRect(d, im), { x: -30, y: 0, w: 40, h: 20 });
+  assert.deepEqual(anchorPoint({ x: 0, y: 0, w: 40, h: 20 }, 'mc'), { x: 20, y: 10 });
+  im.anchor = 'bl'; d.pts[im.pt].x = 100; syncImages(d); assert.equal(im.x, 100); // la imagen sigue a su punto (p. ej. movido por el mecanismo)
+  assert.equal(varsOf(d)[im.pt + '.x'].v, 100); // se lee en las formulas como p12.x
+  const old = newDoc(); old.images = { im1: { x: 5, y: 6, w: 10, h: 5, a: 'z' } };
+  assert.equal(ensureImagePoints(old), 1); assert.deepEqual(old.pts[old.images.im1.pt], { x: 5, y: 6, fixed: false, auto: false, txOnly: true });
+  assert.equal(ensureImagePoints(old), 0); // una sola vez
 });
 
 console.log(`\n${passed} pruebas de imágenes pasaron`);

@@ -39,7 +39,7 @@ setIconSource(ICONS); // los iconos de la app que un texto puede mostrar: ![Line
 import { buildTree, kindOf, conLabel } from './tree.js';
 import { cleanFileBase } from './files.js';
 import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProblem, libFileName, libPayload } from './library.js';
-import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX } from './images.js';
+import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX, imgRect, syncImages, ensureImagePoints, anchorPoint } from './images.js';
 import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
 import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr } from './expr.js';
@@ -163,7 +163,7 @@ function updateFileTag() {
   const el = $('fileTag'), t = opts.fileBase ? opts.fileBase + '.json' : 'sin nombre';
   if (el && el.textContent !== t) el.textContent = t;
 }
-function afterChange() { pageExt = null; scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = unsnap(bak, doc.assets); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); persist(); draw(); renderTree(); }
+function afterChange() { syncImages(doc); pageExt = null; scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = unsnap(bak, doc.assets); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); persist(); draw(); renderTree(); }
 
 // Un boton de restriccion solo se activa si la seleccion actual le sirve (mismas reglas que applyCon).
 function updateEnabled() {
@@ -457,7 +457,7 @@ function geometryPoints() {
   return s;
 }
 
-const selectedTextPoints = () => new Set(sel.filter((x) => x.k === 'tx').map((x) => doc.texts[x.id]?.pt).filter(Boolean));
+const selectedTextPoints = () => new Set([...sel.filter((x) => x.k === 'tx').map((x) => doc.texts[x.id]?.pt), ...(selGraph && doc.images?.[selGraph] ? [doc.images[selGraph].pt] : [])].filter(Boolean)); // y el de la imagen seleccionada
 
 // Puntos de insercion propios de un texto (txOnly) que ahora no se muestran: solo se ven con el texto seleccionado.
 const selectedSplinePoints = () => new Set(sel.filter((x) => x.k === 'sp').flatMap((x) => doc.splines[x.id]?.pts || []));
@@ -1926,9 +1926,11 @@ function toolDown(p) {
       const g = boxOf(gh.id), gs = multiGraphs();
       if (gh.mode.move && gs.has(gh.id) && (gs.size > 1 || sel.length > 0)) { // una grafica de una seleccion de varios: se mueve todo lo seleccionado
         const pts = selPoints();
-        drag = { p0: p, gmove: true, gid: gh.id, m0: toModel(p.x, p.y), started: false, orig: Object.fromEntries([...pts].map((id) => [id, { ...doc.pts[id] }])), gorig: Object.fromEntries([...gs].map((id) => [id, { x: boxOf(id).x, y: boxOf(id).y }])) };
+        drag = { p0: p, gmove: true, gid: gh.id, m0: toModel(p.x, p.y), started: false, orig: Object.fromEntries([...pts].map((id) => [id, { ...doc.pts[id] }])), gorig: Object.fromEntries([...gs].filter((id) => !doc.images?.[id]?.pt).map((id) => [id, { x: boxOf(id).x, y: boxOf(id).y }])) };
+        for (const id of gs) { const ip = doc.images?.[id]?.pt; if (ip && doc.pts[ip]) drag.orig[ip] = { ...doc.pts[ip] }; } // las imagenes, por su punto
         return;
       }
+      if (gh.mode.move && g.pt && doc.pts[g.pt]) { drag = { p0: p, gmove: true, gid: gh.id, m0: toModel(p.x, p.y), started: false, orig: { [g.pt]: { ...doc.pts[g.pt] } }, gorig: {} }; return; } // una imagen se mueve por su punto de insercion
       drag = { p0: p, graph: gh.id, mode: gh.mode, orig: { x: g.x, y: g.y, w: g.w, h: g.h }, m0: toModel(p.x, p.y), started: false };
       return;
     }
@@ -1957,7 +1959,7 @@ function toolDown(p) {
     if (many && many.size && (sel.some((x) => x.k === h.k && x.id === h.id) || (h.k === 'pt' && many.has(h.id)))) {
       drag.m0 = toModel(p.x, p.y); drag.multi = true; drag.box = false;
       drag.orig = Object.fromEntries([...many].map((id) => [id, { ...doc.pts[id] }]));
-      if (gsel.size) drag.gorig = Object.fromEntries([...gsel].map((id) => [id, { x: boxOf(id).x, y: boxOf(id).y }])); // las graficas seleccionadas se mueven con ellos
+      if (gsel.size) { drag.gorig = Object.fromEntries([...gsel].filter((id) => !doc.images?.[id]?.pt).map((id) => [id, { x: boxOf(id).x, y: boxOf(id).y }])); for (const id of gsel) { const ip = doc.images?.[id]?.pt; if (ip && doc.pts[ip]) drag.orig[ip] = { ...doc.pts[ip] }; } } // las graficas seleccionadas se mueven con ellos
     }
   } else {
     drag = { p0: p, moved: false };
@@ -2034,6 +2036,7 @@ function toolMove(p) {
     if (M.t) h = Math.max(mn, o.h + dy);
     if (M.b) { h = Math.max(mn, o.h - dy); y = o.y + o.h - h; }
     if (doc.images?.[drag.graph]) ({ x, y, w, h } = keepAspect(o, M, { x, y, w, h })); // una imagen no se deforma
+    if (doc.images?.[drag.graph] && g.pt && doc.pts[g.pt]) { Object.assign(g, { w, h }); syncImages(doc); return; } // se agranda o achica desde su punto de insercion, que queda fijo
     Object.assign(g, { x, y, w, h });
     return;
   }
@@ -2088,7 +2091,10 @@ function toolUp(p, q) {
     if (d?.ctl) { ctlUp(d); return; }
     if (d?.gmove) {
       if (d.started) { if (Object.keys(d.orig).length) { recordTraces(doc, 2e-4); reparamSplines(doc); } afterChange(); return; }
-      selGraph = d.gid; selMulti = null; sel = []; // un toque sobre una grafica de la seleccion: queda ella sola
+      const id = d.gid, now = performance.now(), dbl = lastGraphTap && lastGraphTap.id === id && now - lastGraphTap.t < 450 && dist(lastGraphTap, p) < 24;
+      lastGraphTap = dbl ? null : { id, t: now, x: p.x, y: p.y };
+      selGraph = id; selMulti = null; sel = []; // un toque sobre una grafica de la seleccion (o una imagen, que se mueve por su punto): queda ella sola
+      if (dbl && doc.images?.[id]) { afterChange(); editImage(id); return; }
       afterChange(); return;
     }
     if (d?.graph) {
@@ -3455,6 +3461,7 @@ function loadDoc(d) {
   undoStack = []; redoStack = []; sel = []; pending = null;
   setAngleMode(doc);
   fillDimUnits(doc); // cotas guardadas como «2'cm»: la etiqueta dice «2 cm»
+  ensureImagePoints(doc); syncImages(doc); // imagenes de dibujos anteriores: su punto de insercion
   setTimeout(() => { checkLibUpdates(); }, 2000); // bibliotecas insertadas: ¿hay una version nueva en GitHub?
 }
 async function exportPNG() {
@@ -3644,7 +3651,8 @@ function drawImages(c, o) {
   const gsel = multiGraphs();
   for (const [id, im] of Object.entries(doc.images || {})) {
     if (isHidden(doc, im)) continue; // en una capa apagada
-    const A = toScreen({ x: im.x, y: im.y + im.h }), B = toScreen({ x: im.x + im.w, y: im.y });
+    const R = imgRect(doc, im); // desde su punto de insercion (puede moverse con el mecanismo)
+    const A = toScreen({ x: R.x, y: R.y + R.h }), B = toScreen({ x: R.x + R.w, y: R.y });
     const x0 = A.x * dpr, y0 = A.y * dpr, W = (B.x - A.x) * dpr, H = (B.y - A.y) * dpr;
     const src = imageSrc(doc, im), el = src && imgEl(src);
     c.save(); c.setLineDash([]);
@@ -3659,6 +3667,13 @@ function drawImages(c, o) {
     (im.locked ? imgLocked : imgHits).push({ id, x: A.x, y: A.y, w: B.x - A.x, h: B.y - A.y }); // bloqueada: no se toca ni se arrastra
   }
 }
+// Borra una imagen y su punto de insercion, si es solo suyo (sin restricciones ni geometria que lo use)
+function dropImage(id) {
+  const im = doc.images?.[id]; if (!im) return;
+  delete doc.images[id];
+  const P = im.pt && doc.pts[im.pt];
+  if (P?.txOnly && !geometryPoints().has(im.pt) && !Object.values(doc.cons).some((k) => (k.refs || []).includes(im.pt)) && !Object.values(doc.texts || {}).some((t) => t.pt === im.pt)) delete doc.pts[im.pt];
+}
 // Propiedades de una imagen (doble toque): su capa y su opacidad (para calcar sobre una foto)
 function editImage(id) {
   const im = doc.images?.[id];
@@ -3671,6 +3686,27 @@ function editImage(id) {
   lay.value = im.layer && doc.layers?.[im.layer] ? im.layer : '';
   const pct = () => Math.round((doc.images[id]?.alpha ?? 1) * 100);
   al.value = String(pct()); av.textContent = pct() + ' %';
+  // punto de insercion: su nombre (para las formulas: p12.x) y su anclaje; cambiar el anclaje no mueve la imagen si el punto esta libre
+  const ptFree = () => { const q = doc.images[id]?.pt; return !Object.values(doc.cons).some((k) => (k.refs || []).includes(q)) && !geometryPoints().has(q); };
+  const paintAnchor = () => {
+    const x = doc.images[id]; if (!x) return;
+    $('imgPt').textContent = x.pt ? `${x.pt} (${x.pt}.x, ${x.pt}.y)` : '';
+    const box = $('imgAnchor'); box.textContent = '';
+    for (const an of ANCHORS) {
+      const bt = document.createElement('button'); bt.type = 'button'; bt.title = ANCHOR_NAMES[an] || an; bt.style.cssText = 'width:40px;height:40px;min-height:0;padding:0';
+      bt.innerHTML = `<svg viewBox="0 0 20 20" width="20" height="20"><rect x="3" y="3" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="${{ l: 3, c: 10, r: 17 }[an[1]]}" cy="${{ t: 3, m: 10, b: 17 }[an[0]]}" r="2.6" fill="currentColor"/></svg>`;
+      if ((x.anchor || 'bl') === an) bt.classList.add('on');
+      bt.onclick = () => {
+        const y = doc.images[id]; if (!y || (y.anchor || 'bl') === an) return;
+        pushUndo();
+        const R = imgRect(doc, y);
+        if (y.pt && doc.pts[y.pt] && ptFree()) Object.assign(doc.pts[y.pt], anchorPoint(R, an)); // la imagen no se mueve: su punto va al nuevo anclaje
+        y.anchor = an; afterChange(); paintAnchor();
+      };
+      box.append(bt);
+    }
+  };
+  paintAnchor();
   $('imgLock').checked = !!im.locked;
   $('imgLock').onchange = () => { pushUndo(); const x = doc.images[id]; if (!x) return; if ($('imgLock').checked) { x.locked = true; if (selGraph === id) selGraph = null; } else delete x.locked; afterChange(); };
   let undone = false; // un solo paso de deshacer por cada vez que se mueve el control
@@ -3687,7 +3723,7 @@ function editImage(id) {
     av.textContent = al.value + ' %'; draw();
   };
   al.onchange = () => { undone = false; afterChange(); };
-  $('imgDel').onclick = () => { pushUndo(); delete doc.images[id]; selGraph = null; dlg.close(); afterChange(); };
+  $('imgDel').onclick = () => { pushUndo(); dropImage(id); selGraph = null; dlg.close(); afterChange(); };
   $('imgOk').onclick = (ev) => { ev.preventDefault(); dlg.close(); };
   dlg.showModal();
 }
@@ -4988,7 +5024,7 @@ $('del').onclick = () => {
   const gs = [...multiGraphs()];
   if (!sel.length && !gs.length) return;
   pushUndo();
-  for (const id of gs) { if (doc.graphs?.[id]) { delete doc.graphs[id]; delete graphData[id]; } else delete doc.images?.[id]; }
+  for (const id of gs) { if (doc.graphs?.[id]) { delete doc.graphs[id]; delete graphData[id]; } else dropImage(id); }
   selGraph = null; selMulti = null;
   if (sel.length) {
     deleteItems(doc, sel); sel = [];
