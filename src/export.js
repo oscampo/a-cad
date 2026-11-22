@@ -2,9 +2,9 @@ import { visibleDoc, hatchLoops, allLtypes, arcOf, arcSamples, splinePolyline, e
 import { dashFromPattern, norm, splineBezier } from './geom.js';
 import { textFrame, textCorners, textPose, shownText, runsOf, plainText, framePrims, LINE_SPACING, fontCss, TEXT_BG_PAD } from './text.js';
 import { vecArrow } from './vectors.js';
-import { layoutDim } from './dims.js';
+import { layoutDim, lblIsMath, lblPlain } from './dims.js';
 
-const DIM_KINDS = new Set(['DIST', 'DISTPL', 'ANG', 'ANG4', 'RAD']);
+const DIM_KINDS = new Set(['DIST', 'DISTPL', 'ANG', 'ANG4', 'RAD', 'LEAD']); // LEAD: lineas indicativas (anotaciones)
 const approx = (ln) => 0.6 * ln.length; // ancho aproximado de texto (por altura 1)
 
 function bounds(doc) {
@@ -28,13 +28,14 @@ export function dimLayouts(doc, view) {
   const out = [];
   for (const k of Object.values(doc.cons)) {
     if (!DIM_KINDS.has(k.t) || k.hidden) continue;
-    try { out.push(layoutDim(doc, k, view)); } catch { /* referencia perdida: se omite */ }
+    try { const L = layoutDim(doc, k, view); if (k.t === 'LEAD') L.lead = { color: k.color, w: k.w ?? 2, ltype: k.ltype, ls: k.ls }; out.push(L); } catch { /* referencia perdida: se omite */ }
   }
   return out;
 }
 
+const lblTxt = (t) => (lblIsMath(t) ? lblPlain(t) : t); // una etiqueta con formula va como texto plano en el SVG
 const labelBox = (l) => {
-  const w = 0.6 * 12 * l.text.length + 8, h = 18;
+  const g = (l.px || 12) / 12, w = 0.6 * 12 * g * lblTxt(l.text).length + 8 * g, h = 18 * g;
   return { x: l.x - w / 2, y: l.y - h / 2, w, h };
 };
 
@@ -46,7 +47,7 @@ export function extraExtents(doc, view, vis = {}) {
   for (const L of vis.dims === false ? [] : dimLayouts(doc, view)) {
     for (const l of L.lines) { add(l[0], l[1]); add(l[2], l[3]); }
     for (const a of L.arcs) { add(a.cx - a.r, a.cy - a.r); add(a.cx + a.r, a.cy + a.r); }
-    for (const ar of L.arrows) { add(ar.x - ar.dx * 9 - 4, ar.y - ar.dy * 9 - 4); add(ar.x - ar.dx * 9 + 4, ar.y - ar.dy * 9 + 4); }
+    const g = L.size || 1; for (const ar of L.arrows) { add(ar.x - ar.dx * 9 * g - 4 * g, ar.y - ar.dy * 9 * g - 4 * g); add(ar.x - ar.dx * 9 * g + 4 * g, ar.y - ar.dy * 9 * g + 4 * g); }
     if (L.label) { const b = labelBox(L.label); add(b.x, b.y); add(b.x + b.w, b.y + b.h); }
   }
   for (const t of vis.texts === false ? [] : Object.values(doc.texts || {})) {
@@ -57,22 +58,23 @@ export function extraExtents(doc, view, vis = {}) {
 }
 
 // Una cota como SVG (coordenadas del propio layout).
-function dimSvg(L, color) {
+function dimSvg(L, color, leadAttrs = null) {
   const out = [];
-  for (const l of L.lines) out.push(`<line x1="${n(l[0])}" y1="${n(l[1])}" x2="${n(l[2])}" y2="${n(l[3])}" stroke="${color}" stroke-width="1"/>`);
+  for (const l of L.lines) out.push(`<line x1="${n(l[0])}" y1="${n(l[1])}" x2="${n(l[2])}" y2="${n(l[3])}" ${leadAttrs || `stroke="${color}" stroke-width="1"`}/>`);
   for (const a of L.arcs) {
     const p = (t) => `${n(a.cx + a.r * Math.cos(t))} ${n(a.cy + a.r * Math.sin(t))}`;
     const delta = a.ccw ? norm(a.a0 - a.a1) : norm(a.a1 - a.a0);
     out.push(`<path d="M${p(a.a0)} A${n(a.r)} ${n(a.r)} 0 ${delta > Math.PI ? 1 : 0} ${a.ccw ? 0 : 1} ${p(a.a1)}" fill="none" stroke="${color}" stroke-width="1"${a.dashed ? ' stroke-dasharray="4 3"' : ''}/>`);
   }
+  const g = L.size || 1, aw = 3.2 * g;
   for (const { x, y, dx, dy } of L.arrows) {
-    const bx = x - dx * 9, by = y - dy * 9, nx = -dy, ny = dx;
-    out.push(`<polygon points="${n(x)},${n(y)} ${n(bx + nx * 3.2)},${n(by + ny * 3.2)} ${n(bx - nx * 3.2)},${n(by - ny * 3.2)}" fill="${color}"/>`);
+    const bx = x - dx * 9 * g, by = y - dy * 9 * g, nx = -dy, ny = dx;
+    out.push(`<polygon points="${n(x)},${n(y)} ${n(bx + nx * aw)},${n(by + ny * aw)} ${n(bx - nx * aw)},${n(by - ny * aw)}" fill="${color}"/>`);
   }
   if (L.label) {
     const b = labelBox(L.label);
     out.push(`<rect x="${n(b.x)}" y="${n(b.y)}" width="${n(b.w)}" height="${n(b.h)}" rx="3" fill="#fff" fill-opacity="0.85"/>`);
-    out.push(`<text x="${n(L.label.x)}" y="${n(L.label.y)}" font-family="sans-serif" font-size="12" text-anchor="middle" dominant-baseline="central"${L.label.italic ? ' font-style="italic"' : ''}${L.label.underline ? ' text-decoration="underline"' : ''} fill="${color}">${esc(L.label.text)}</text>`);
+    out.push(`<text x="${n(L.label.x)}" y="${n(L.label.y)}" font-family="sans-serif" font-size="${n(L.label.px || 12)}" text-anchor="middle" dominant-baseline="central"${L.label.italic ? ' font-style="italic"' : ''}${L.label.underline ? ' text-decoration="underline"' : ''} fill="${color}">${esc(lblTxt(L.label.text))}</text>`);
   }
   return out;
 }
@@ -171,7 +173,7 @@ export function exportSVG(doc, ltScale = 1, vis = {}) {
     out.push(`<text transform="translate(${X(P.x)} ${Y(P.y)}) rotate(${n(-pose.ang)})" font-family="${t.font ? fontCss(t.font).replace(/"/g, "'") : 'sans-serif'}" font-size="${n(t.h * K)}" text-anchor="${anchor}" fill="${col(t.color)}">${lines}</text>`);
   }
   // cotas
-  if (vis.dims !== false) for (const L of dimLayouts(doc, view)) out.push(...dimSvg(L, '#000000'));
+  if (vis.dims !== false) for (const L of dimLayouts(doc, view)) out.push(...(L.lead ? dimSvg(L, col(L.lead.color), `stroke="${col(L.lead.color)}" stroke-width="${L.lead.w}"${dash(L.lead.ltype, L.lead.ls)}`) : dimSvg(L, '#000000'))); // una linea indicativa, con su color, grosor y tipo
   // el lienzo crece para que quepan cotas y textos
   const ex = extraExtents(doc, view, vis);
   const m = 8;
@@ -260,14 +262,15 @@ export function exportDXF(doc, viewScale = 5, vis = {}) {
       g(0, 'ARC'); g(8, '0'); g(10, mx(a.cx)); g(20, my(a.cy)); g(30, 0); g(40, a.r / S);
       g(50, deg(a.ccw ? m0 : m1)); g(51, deg(a.ccw ? m1 : m0));
     }
+    const ga = L.size || 1;
     for (const { x, y, dx, dy } of L.arrows) {
-      const bx = x - dx * 9, by = y - dy * 9, nx = -dy, ny = dx;
-      const P = [[x, y], [bx + nx * 3.2, by + ny * 3.2], [bx - nx * 3.2, by - ny * 3.2], [bx - nx * 3.2, by - ny * 3.2]];
+      const bx = x - dx * 9 * ga, by = y - dy * 9 * ga, nx = -dy, ny = dx, w = 3.2 * ga;
+      const P = [[x, y], [bx + nx * w, by + ny * w], [bx - nx * w, by - ny * w], [bx - nx * w, by - ny * w]];
       g(0, 'SOLID'); g(8, '0');
       P.forEach(([px, py], i) => { g(10 + i, mx(px)); g(20 + i, my(py)); g(30 + i, 0); });
     }
     if (L.label) {
-      g(0, 'TEXT'); g(8, '0'); g(10, mx(L.label.x)); g(20, my(L.label.y)); g(30, 0); g(40, 11 / S); g(1, (L.label.underline ? '%%u' : '') + L.label.text.replace(/\u2300/g, '%%c'));
+      g(0, 'TEXT'); g(8, '0'); g(10, mx(L.label.x)); g(20, my(L.label.y)); g(30, 0); g(40, (11 * (L.label.px || 12)) / 12 / S); g(1, (L.label.underline ? '%%u' : '') + lblTxt(L.label.text).replace(/\u2300/g, '%%c'));
       if (L.label.italic) g(51, 15); // cota de referencia: oblicuo
       g(72, 1); g(11, mx(L.label.x)); g(21, my(L.label.y)); g(31, 0); g(73, 2);
     }

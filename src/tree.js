@@ -9,7 +9,7 @@ const CON_NAMES = {
   H: 'Horizontal', V: 'Vertical', DSH: 'Distribución horizontal', DSV: 'Distribución vertical', PAR: 'Paralelas', PERP: 'Perpendiculares', EQL: 'Igual longitud', EQR: 'Igual radio',
   COI: 'Coincidentes', PONL: 'Coincidente (punto sobre línea)', PONC: 'Coincidente (punto sobre círculo/arco)', PONS: 'Coincidente (punto sobre spline)', PONE: 'Coincidente (punto sobre elipse)',
   COL: 'Colineales', MID: 'Punto medio', CONC: 'Concéntricos', TANLC: 'Tangente', TANEP: 'Tangente en el extremo', TANCC: 'Tangente', TANLS: 'Tangente a spline', TANCS: 'Tangente a spline', TANLE: 'Tangente a elipse', TANCE: 'Tangente a elipse', TANEE: 'Tangente entre elipses',
-  DIST: 'Distancia', DISTPL: 'Distancia a recta', ANG: 'Ángulo', ANG4: 'Ángulo', RAD: 'Radio',
+  DIST: 'Distancia', DISTPL: 'Distancia a recta', ANG: 'Ángulo', ANG4: 'Ángulo', RAD: 'Radio', LEAD: 'Línea indicativa',
   AZ: 'Dirección', EQD: 'Igual distancia', SYM: 'Simetría', GEAR: 'Engranaje', RACK: 'Rueda y cremallera',
 };
 
@@ -19,6 +19,7 @@ export function conLabel(doc, k) {
   if (k.t === 'DIST' || k.t === 'DISTPL') s += ` = ${f(dimValue(doc, k))}`;
   else if (k.t === 'ANG' || k.t === 'ANG4') s += ` = ${dimText(doc, k)}`;
   else if (k.t === 'RAD') s += (k.refs[0] in doc.circles ? ` ${DIAM} = ${f(k.v * 2)}` : ` R = ${f(k.v)}`);
+  else if (k.t === 'LEAD') s += ` «${dimText(doc, k)}»`;
   else if (k.t === 'GEAR') s += ` (giro 2 / giro 1 = ${f(k.ratio)})`;
   else if (k.t === 'RACK') s += ` (avance / giro = ${f(k.ratio)})`;
   if (k.finite) s += k.stop ? ' (solo en los límites, con tope)' : ' (solo en los límites)';
@@ -33,7 +34,7 @@ export { kindOf };
 
 const KIND_NAME = { pt: 'Punto', ln: 'Línea', ci: 'Círculo', ar: 'Arco', sp: 'Spline', el: 'Elipse', tx: 'Texto', ac: 'Actuador' };
 // Tipos de relacion por grupo dentro de «Relaciones y cotas» (las ocultas van a «Automáticas»).
-const DIM_T = new Set(['DIST', 'DISTPL', 'ANG', 'ANG4', 'RAD']);
+const DIM_T = new Set(['DIST', 'DISTPL', 'ANG', 'ANG4', 'RAD', 'LEAD']);
 const MECH_T = new Set(['GEAR', 'RACK']);
 export const OP_NAMES = { MATL: 'Matriz lineal', MATC: 'Matriz circular', ESP: 'Copia espejo', RED: 'Redondeo', CHA: 'Chaflán', DIV: 'División', POL: 'Polígono' };
 // origen de una relacion automatica: { key, label, ord? } (ord: orden en que se hizo la operacion)

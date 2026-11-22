@@ -1,12 +1,15 @@
 // Geometria de las cotas (lineas de extension, flechas, posicion editable). Sin DOM.
 // layoutDim devuelve instrucciones de dibujo en pixeles de pantalla; dragDim cambia la
 // posicion de la cota (k.off, k.lt, k.ang, k.lp) sin tocar la geometria ni el solver.
-import { lineLine, signedAngle, norm, TAU, inSweep } from './geom.js';
-import { arcOf } from './model.js';
+import { lineLine, signedAngle, norm, TAU, inSweep, closestOnPolyline } from './geom.js';
+import { arcOf, splinePolyline, ellipsePolyline } from './model.js';
 import { localNum, sciFrom, sciText } from './locale.js';
 import { parseUnit, unitsVersion } from './units.js';
 
-export const ARROW = 9;
+export const ARROW = 9; const ARROW0 = ARROW;
+// Tamaño de la letra de una cota (k.fs, en px; por defecto 12): flechas y separaciones escalan con ella
+export const DIM_FS = 12;
+export const dimGain = (k) => (k?.fs > 0 ? k.fs / DIM_FS : 1);
 export const DIAM = '\u2300'; // simbolo de diametro (U+2300)
 export const fmtNum = (v) => (Math.abs(v) >= sciFrom() && Number.isFinite(v) ? sciText(v) : localNum(Math.abs(v) >= 1000 ? String(Number(v.toFixed(1))) : String(Math.round(v * 1000) / 1000))); // con coma decimal (doc.decimal), «0,333»; sin «.0» en los miles (1000, no 1000.0); desde el umbral de Configuracion, «2.569e5»
 
@@ -100,6 +103,15 @@ export function dimValue(doc, k) {
 export const dimScale = (k) => (k.t !== 'ANG' && k.t !== 'ANG4' && k.scale > 0 && k.scale !== 1 ? k.scale : 1);
 // Una escala de representacion (k.srep: con unidades, «30'kN[*1'mm/kN]») no es «fuera de escala»: la cota no va subrayada.
 export const isScaledDim = (k) => dimScale(k) !== 1 && !k.srep;
+// Etiqueta libre al final: «50["D"]», «50[$D/2$]», «50[$$\\frac{D}{2}$$]», combinable con la escala: «30[*k]["F"]». La cota sigue midiendo
+// (y gobernando) lo mismo: la etiqueta solo cambia lo que se muestra. -> { body, lbl } (lbl con sus comillas o sus $, o undefined).
+const LBL_RE = /^([\s\S]*?)\s*\[\s*("[^"]*"|“[^”]*”|\$\$[\s\S]*?\$\$|\$[^$]*\$)\s*\]\s*$/;
+export function splitLabel(src) {
+  const m = LBL_RE.exec(String(src ?? ''));
+  return m ? { body: m[1], lbl: m[2].replace(/^“|”$/g, '"') } : { body: String(src ?? '') };
+}
+export const lblIsMath = (lbl) => typeof lbl === 'string' && lbl[0] === '$';
+export const lblPlain = (lbl) => String(lbl).replace(/^"|"$/g, '').replace(/^\$\$?|\$\$?$/g, ''); // el texto de la etiqueta, sin comillas ni $
 // «valor[*k]» -> { body: 'valor', src: 'k', scale: k }: k es un numero (scale) o una formula con cotas y variables (src; quien llama la evalua).
 // Sin corchetes, { body }; con la escala vacia o un numero que no vale, { body, err }.
 export function splitScale(src) {
@@ -156,6 +168,8 @@ export function dimUnreadable(k) {
 }
 
 export function dimText(doc, k) {
+  if (k.lbl) return lblIsMath(k.lbl) ? k.lbl : lblPlain(k.lbl);
+  if (k.t === 'LEAD') return '…'; // sin etiqueta: se ve (y se puede tocar) // etiqueta libre: «D» o una formula ($…$, la dibuja quien llama)
   if (k.t === 'ANG4') { const x = v4(doc, k); return dimText(x.d, x.k); }
   const v = dimValue(doc, k);
   if (k.t === 'ANG') return k.unit === 'rad' ? fmtNum((v * Math.PI) / 180) + ' rad' : fmtNum(v) + '°';
@@ -164,15 +178,60 @@ export function dimText(doc, k) {
   return q;
 }
 
+// ---- Lineas indicativas (anotaciones): { t: 'LEAD', refs: [punto, elemento], lbl, ox, oy, fs, color, ltype, w }
+// La punta va en el punto; la etiqueta, a (ox, oy) de el (unidades del dibujo), asi sigue a la geometria. El solver no la ve.
+const PON = { PONL: 1, PONC: 1, PONS: 1, PONE: 1 };
+// ¿El punto pertenece al elemento? Un extremo, el centro, un punto de control, un punto «sobre» (restriccion) o que cae en el.
+export function pointOnElement(doc, pid, el) {
+  const P = doc.pts[pid]; if (!P) return false;
+  const o = doc.lines[el] || doc.circles[el] || doc.arcs[el] || doc.ellipses?.[el] || doc.splines?.[el];
+  if (!o) return false;
+  if ([o.a, o.b, o.c, o.p1, o.p2, ...(o.pts || [])].includes(pid)) return true;
+  if (Object.values(doc.cons || {}).some((k) => PON[k.t] && k.refs[0] === pid && k.refs[1] === el)) return true;
+  const tol = 1e-6 * (1 + Math.abs(P.x) + Math.abs(P.y));
+  if (doc.lines[el]) { const A = doc.pts[o.a], B = doc.pts[o.b], L = Math.hypot(B.x - A.x, B.y - A.y); return L > 0 && Math.abs((B.x - A.x) * (A.y - P.y) - (A.x - P.x) * (B.y - A.y)) / L <= tol; }
+  if (doc.circles[el] || doc.arcs[el]) { const C = doc.pts[o.c]; return Math.abs(Math.hypot(P.x - C.x, P.y - C.y) - o.r) <= tol; }
+  const poly = doc.splines?.[el] ? splinePolyline(doc, o, 64) : ellipsePolyline(doc, o, 720);
+  return (closestOnPolyline(poly, P)?.d ?? Infinity) <= 1e-3 * (1 + Math.abs(P.x) + Math.abs(P.y));
+}
+// Lo que se teclea como etiqueta de una linea indicativa: «"texto"», «$formula$», «$$formula$$» (tambien entre corchetes, como en una
+// cota) o texto suelto, que se toma como «"texto"». null si queda vacia.
+export function leadLabel(src) {
+  let t = String(src ?? '').trim();
+  const m = /^\[([\s\S]*)\]$/.exec(t); if (m) t = m[1].trim();
+  if (!t) return null;
+  if (/^"[^"]*"$|^“[^”]*”$/.test(t)) return t.replace(/^“|”$/g, '"');
+  if (/^\$\$[\s\S]+\$\$$|^\$[^$]+\$$/.test(t)) return t;
+  return '"' + t.replace(/"/g, '\u201D') + '"';
+}
+// Desplazamiento inicial de la etiqueta: 40 px a la derecha y 32 hacia arriba (por 12 px de letra), en unidades del dibujo
+export const leadOffset0 = (view, g = 1) => ({ ox: (40 * g) / view.s, oy: (32 * g) / view.s }); // g: crece con la letra
+const lblLen = (t) => String(lblIsMath(t) ? lblPlain(t) : t).length;
+
 function layoutDimBase(doc, k, view) {
-  const s = view.s, v = V(view);
+  const s = view.s, v = V(view), G = dimGain(k), ARROW = ARROW0 * G; // G: tamaño de la letra de la cota respecto de 12 px (flechas y separaciones con ella)
   const out = { lines: [], arcs: [], arrows: [], label: null };
   const text = dimText(doc, k);
+
+  if (k.t === 'LEAD') { // la etiqueta en su lugar, la linea desde el borde de su caja hasta la punta, y la flecha en la punta
+    const P = doc.pts[k.refs[0]]; if (!P) return out;
+    const T = v(P), o0 = leadOffset0(view), Lc = { x: T.x + (k.ox ?? o0.ox) * s, y: T.y - (k.oy ?? o0.oy) * s };
+    out.label = { x: Lc.x, y: Lc.y, text };
+    const dx = T.x - Lc.x, dy = T.y - Lc.y, d = Math.hypot(dx, dy);
+    const hw = (0.6 * 12 * G * lblLen(text) + 8 * G) / 2, hh = 9 * G; // media caja de la etiqueta (la de label())
+    const cut = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity) * d; // donde la linea sale de la caja
+    if (d > cut + ARROW) {
+      const u = { x: dx / d, y: dy / d };
+      out.lines.push([Lc.x + u.x * cut, Lc.y + u.y * cut, T.x - u.x * ARROW * 0.6, T.y - u.y * ARROW * 0.6]);
+      out.arrows.push({ x: T.x, y: T.y, dx: u.x, dy: u.y });
+    }
+    return out;
+  }
 
   if (k.t === 'DIST' || k.t === 'DISTPL') {
     const [p1, p2] = distEnds(doc, k);
     const A = v(p1), B = v(p2), L = Math.hypot(B.x - A.x, B.y - A.y);
-    if (L < 1e-6) { out.label = { x: A.x + 16, y: A.y - 16, text }; return out; }
+    if (L < 1e-6) { out.label = { x: A.x + 16 * G, y: A.y - 16 * G, text }; return out; }
     const u = { x: (B.x - A.x) / L, y: (B.y - A.y) / L }, n = { x: -u.y, y: u.x };
     const off = (k.off ?? 16 / s) * s, sg = off < 0 ? -1 : 1;
     const A2 = { x: A.x + n.x * off, y: A.y + n.y * off }, B2 = { x: B.x + n.x * off, y: B.y + n.y * off };
@@ -190,7 +249,7 @@ function layoutDimBase(doc, k, view) {
     } else {
       out.arrows.push({ x: A2.x, y: A2.y, dx: u.x, dy: u.y }, { x: B2.x, y: B2.y, dx: -u.x, dy: -u.y });
     }
-    out.label = { x: A2.x + u.x * t * L + n.x * sg * 11, y: A2.y + u.y * t * L + n.y * sg * 11, text };
+    out.label = { x: A2.x + u.x * t * L + n.x * sg * 11 * G, y: A2.y + u.y * t * L + n.y * sg * 11 * G, text };
     return out;
   }
 
@@ -200,7 +259,7 @@ function layoutDimBase(doc, k, view) {
     const S = angSector(doc, k), V0 = S.V0;
     if (!V0) {
       const m = v({ x: (a1.x + b1.x + a2.x + b2.x) / 4, y: (a1.y + b1.y + a2.y + b2.y) / 4 });
-      out.label = { x: m.x + 14, y: m.y - 14, text };
+      out.label = { x: m.x + 14 * G, y: m.y - 14 * G, text };
       return out;
     }
     const th1 = Math.atan2(S.d1.y * S.s1, S.d1.x * S.s1), psi = S.psi, sgn = psi >= 0 ? 1 : -1;
@@ -223,7 +282,7 @@ function layoutDimBase(doc, k, view) {
       else if (near > R) { const from = near - 3, to = Math.max(R - 6, 0); if (from > to) out.lines.push([C.x + ux * from, C.y - uy * from, C.x + ux * to, C.y - uy * to]); }
     });
     const thm = th1 + psi / 2;
-    out.label = { x: C.x + (R + 13) * Math.cos(thm), y: C.y - (R + 13) * Math.sin(thm), text };
+    out.label = { x: C.x + (R + 13 * G) * Math.cos(thm), y: C.y - (R + 13 * G) * Math.sin(thm), text };
     return out;
   }
 
@@ -239,12 +298,12 @@ function layoutDimBase(doc, k, view) {
     let defAng = Math.PI / 4;
     if (arc) { const g = arcOf(doc, arc); defAng = g.a0 + g.sweep / 2; }
     let ang = k.ang ?? defAng;
-    const tw = 0.6 * 12 * text.length + 8; // ancho aproximado del texto (px)
+    const tw = 0.6 * 12 * G * text.length + 8; // ancho aproximado del texto (px)
     let lp;
     if (k.lp !== undefined) lp = k.lp * s;
     else {
       const fits = circ ? 2 * rs >= tw + 2 * ARROW + 6 : rs >= tw + ARROW + 8;
-      lp = fits ? (circ ? 0 : o.r * 0.5 * s) : rs + 26; // por defecto dentro si cabe, fuera si no
+      lp = fits ? (circ ? 0 : o.r * 0.5 * s) : rs + 26 * G; // por defecto dentro si cabe, fuera si no
     }
     if (lp < 0) { ang += Math.PI; lp = -lp; }
     const d = { x: Math.cos(ang), y: -Math.sin(ang) }, nrm = { x: -d.y, y: d.x };
@@ -266,7 +325,7 @@ function layoutDimBase(doc, k, view) {
         out.lines.push([C.x, C.y, P.x, P.y]);
         out.arrows.push({ x: P.x, y: P.y, dx: d.x, dy: d.y });
       }
-      out.label = { x: L.x + nrm.x * 11, y: L.y + nrm.y * 11, text };
+      out.label = { x: L.x + nrm.x * 11 * G, y: L.y + nrm.y * 11 * G, text };
     }
     if (arc) {
       // si la cota cae fuera del tramo, prolonga el arco con una linea de extension
@@ -286,6 +345,8 @@ function layoutDimBase(doc, k, view) {
 export function layoutDim(doc, k, view) {
   if (k.t === 'ANG4') { const x = v4(doc, k); return layoutDim(x.d, x.k, view); }
   const L = layoutDimBase(doc, k, view);
+  L.size = dimGain(k); // flechas y letra con el tamaño de la cota
+  if (L.label) L.label.px = DIM_FS * L.size;
   if (L.label) { L.label.italic = !!k.ref; L.label.underline = isScaledDim(k); } // a escala: subrayada
   return L;
 }
@@ -298,6 +359,7 @@ export function dragDim(doc, k, view, p) {
     return ok;
   }
   const s = view.s, v = V(view);
+  if (k.t === 'LEAD') { const P = doc.pts[k.refs[0]]; if (!P) return false; const T = v(P); k.ox = (p.x - T.x) / s; k.oy = (T.y - p.y) / s; return true; }
   if (k.t === 'DIST' || k.t === 'DISTPL') {
     const [p1, p2] = distEnds(doc, k);
     const A = v(p1), B = v(p2), L = Math.hypot(B.x - A.x, B.y - A.y);

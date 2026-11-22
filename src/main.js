@@ -17,7 +17,7 @@ import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, past
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
-import { layoutDim, dragDim, dimValue, dimScale, splitScale, angSector, angTrue, initAngle, trackAngles, DIAM, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
+import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, pointOnElement, leadOffset0, leadLabel, angSector, angTrue, initAngle, trackAngles, DIAM, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
 import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
@@ -249,6 +249,7 @@ function renderTree() {
     if (n.con) {
       const k = doc.cons[n.con];
       if (k && ['DIST', 'DISTPL', 'ANG', 'RAD'].includes(k.t) && !k.ref) act(iconSvg('ruler'), 'Editar valor', () => editDimension(n.con));
+      if (k?.t === 'LEAD') act(iconSvg('ruler'), 'Editar etiqueta', () => editLeader(n.con));
     }
     if (n.act) { act(iconSvg('props'), 'Editar', () => treeEditAct(n.act)); act(iconSvg('trash'), 'Borrar', () => { pushUndo(); delete doc.acts?.[n.act]; delete doc.graphs?.[n.act]; delete graphData[n.act]; afterChange(); }); }
     if (n.sel && !n.link && !String(n.key).startsWith('tr:')) act(iconSvg('trash'), 'Borrar', () => treeDelete(n.sel));
@@ -1128,16 +1129,32 @@ function drawHatch(c, id, h, o) {
 }
 
 let labelBg = '#fff';
-function label(c, text, x, y, id, color, italic = false, underline = false) {
+// Etiqueta de cota con formula («$D/2$», ver splitLabel): se dibuja con el motor de los textos, centrada en (x, y), de px de alto
+function mathLabel(c, src, x, y, id, color, px = 12) {
+  const t = { text: src, h: px / view.s, anchor: 'mc' }, f = textFrame(t, measureRel, 'mc'), sc = view.s;
+  const w = f.w * sc + 8 * px / 12, h = Math.max(f.hh * sc + 4, 18 * px / 12), bx = x - w / 2, by = y - h / 2;
   c.save();
-  c.font = `${italic ? 'italic ' : ''}${12 * dpr}px -apple-system, system-ui, sans-serif`;
-  const w = c.measureText(text).width / dpr + 8, h = 18;
+  c.fillStyle = labelBg; c.globalAlpha = 0.85; c.beginPath(); c.roundRect(bx * dpr, by * dpr, w * dpr, h * dpr, 4 * dpr); c.fill(); c.globalAlpha = 1;
+  c.translate(x * dpr, y * dpr); c.textBaseline = 'alphabetic'; c.fillStyle = c.strokeStyle = color; c.lineCap = 'round'; c.lineJoin = 'round'; c.setLineDash([]);
+  for (const p of framePrims(f, t)) {
+    c.fillStyle = c.strokeStyle = p.col || color;
+    if (p.k === 't') { c.font = `${p.it ? 'italic ' : ''}${p.bold ? 'bold ' : ''}${p.size * sc * dpr}px ${fontCss(p.font)}`; c.fillText(p.s, p.x * sc * dpr, -p.y * sc * dpr); }
+    else { c.lineWidth = Math.max(p.lw * sc * dpr, dpr); c.beginPath(); p.pts.forEach(([px2, py2], k) => (k ? c.lineTo(px2 * sc * dpr, -py2 * sc * dpr) : c.moveTo(px2 * sc * dpr, -py2 * sc * dpr))); if (p.fill) c.fill(); c.stroke(); }
+  }
+  c.restore();
+  if (id) labelHits.push({ x: bx, y: by, w, h, id });
+}
+function label(c, text, x, y, id, color, italic = false, underline = false, px = 12) {
+  if (lblIsMath(text)) { mathLabel(c, text, x, y, id, color, px); return; }
+  c.save();
+  c.font = `${italic ? 'italic ' : ''}${px * dpr}px -apple-system, system-ui, sans-serif`;
+  const w = c.measureText(text).width / dpr + 8 * px / 12, h = 18 * px / 12;
   const bx = x - w / 2, by = y - h / 2;
   c.fillStyle = labelBg; c.globalAlpha = 0.85;
   c.beginPath(); c.roundRect(bx * dpr, by * dpr, w * dpr, h * dpr, 4 * dpr); c.fill();
   c.globalAlpha = 1; c.fillStyle = color; c.textBaseline = 'middle'; c.textAlign = 'center';
   c.fillText(text, x * dpr, y * dpr + dpr);
-  if (underline) { const tw = c.measureText(text).width; c.strokeStyle = color; c.lineWidth = dpr; c.beginPath(); c.moveTo(x * dpr - tw / 2, (y + 8) * dpr); c.lineTo(x * dpr + tw / 2, (y + 8) * dpr); c.stroke(); } // cota a escala: subrayada
+  if (underline) { const tw = c.measureText(text).width; c.strokeStyle = color; c.lineWidth = dpr; c.beginPath(); c.moveTo(x * dpr - tw / 2, (y + 8 * px / 12) * dpr); c.lineTo(x * dpr + tw / 2, (y + 8 * px / 12) * dpr); c.stroke(); } // cota a escala: subrayada
   c.restore();
   if (id) labelHits.push({ x: bx, y: by, w, h, id });
 }
@@ -1219,26 +1236,27 @@ function drawTexts(c, o) {
 }
 
 // cabeza de flecha con la punta en (x,y) apuntando hacia (dx,dy); medidas en px de pantalla
-function arrowHead(c, { x, y, dx, dy }) {
-  const len = 9, w = 3.2, bx = x - dx * len, by = y - dy * len, nx = -dy, ny = dx;
+function arrowHead(c, { x, y, dx, dy }, g = 1) {
+  const len = 9 * g, w = 3.2 * g, bx = x - dx * len, by = y - dy * len, nx = -dy, ny = dx;
   c.beginPath();
   c.moveTo(x * dpr, y * dpr); c.lineTo((bx + nx * w) * dpr, (by + ny * w) * dpr); c.lineTo((bx - nx * w) * dpr, (by - ny * w) * dpr);
   c.closePath(); c.fill();
 }
 
-function drawDim(c, id, k, col) {
+function drawDim(c, id, k, col, o = null) {
   const L = layoutDim(doc, k, view);
   c.save();
-  c.strokeStyle = col; c.fillStyle = col; c.lineWidth = dpr; c.setLineDash([]);
+  if (k.t === 'LEAD') { applyStroke(c, k.color ?? 'auto', k.w ?? 2, k.ltype, o || {}, k.ls ?? 1); c.strokeStyle = col; } else { c.strokeStyle = col; c.lineWidth = dpr; c.setLineDash([]); }
+  c.fillStyle = col;
   for (const l of L.lines) { c.beginPath(); c.moveTo(l[0] * dpr, l[1] * dpr); c.lineTo(l[2] * dpr, l[3] * dpr); c.stroke(); }
   for (const a of L.arcs) {
     c.beginPath(); c.arc(a.cx * dpr, a.cy * dpr, a.r * dpr, a.a0, a.a1, a.ccw);
     c.setLineDash(a.dashed ? [4 * dpr, 3 * dpr] : []); c.stroke();
   }
   c.setLineDash([]);
-  for (const ar of L.arrows) arrowHead(c, ar);
+  for (const ar of L.arrows) arrowHead(c, ar, L.size);
   c.restore();
-  if (L.label) label(c, L.label.text, L.label.x, L.label.y, id, col, L.label.italic, L.label.underline);
+  if (L.label) label(c, L.label.text, L.label.x, L.label.y, id, col, L.label.italic, L.label.underline, L.label.px);
 }
 
 function drawConstraints(c, o) {
@@ -1247,6 +1265,7 @@ function drawConstraints(c, o) {
     if (k.hidden || (hp && consHidden(doc, k, hp))) continue;
     // al exportar (sin interfaz) las cotas van en el color del dibujo y no se pintan los simbolos de relaciones
     const col = !o.ui ? o.fg : isSel('co', id) ? theme.sel : theme.accent;
+    if (k.t === 'LEAD') { if (o.dims) drawDim(c, id, k, !o.ui ? colorOf(k.color, o) : isSel('co', id) ? theme.sel : colorOf(k.color, o), o); continue; } // línea indicativa: con su color, tipo y grosor
     if (k.t === 'DIST' || k.t === 'DISTPL' || k.t === 'ANG' || k.t === 'ANG4' || k.t === 'RAD') { if (o.dims) drawDim(c, id, k, col); continue; }
     if (!o.cons) continue;
     const text = conTag(k);
@@ -1724,6 +1743,10 @@ function dimPlan(pre) {
     if (cls[0] === 'L' && pre) return { kind: 'DIM' };
     return { wait: true };
   }
+  if (has('P') && (has('S') || has('E'))) { // punto + spline o elipse: solo la línea indicativa, si el punto es suyo
+    const pi = cls.indexOf('P'), q = its[pi].k === 'tx' ? doc.texts[its[pi].id]?.pt : its[pi].id;
+    return pointOnElement(doc, q, its[1 - pi].id) ? { kind: 'DIM' } : { err: 'Un punto con un spline o una elipse: el punto debe pertenecerle (línea indicativa)' };
+  }
   if (has('C')) return has('S') ? { err: 'Un spline no tiene centro: no se puede acotar contra un arco o círculo' } : { kind: 'DIM' };
   if (cls[0] === 'P' && cls[1] === 'P') return { kind: 'DIM' };
   if (has('P') && has('L')) return { kind: 'DIM' };
@@ -1785,7 +1808,7 @@ function selectAt(p) {
     const now = performance.now(), dbl = lastCoTap && lastCoTap.id === h.id && now - lastCoTap.t < 450 && dist(lastCoTap, p) < 24;
     lastCoTap = dbl ? null : { id: h.id, t: now, x: p.x, y: p.y };
     sel = [h]; afterChange();
-    if (dbl) editDimension(h.id);
+    if (dbl) { if (doc.cons[h.id]?.t === 'LEAD') editLeader(h.id); else editDimension(h.id); }
     return;
   }
   // doble toque sobre un elemento: ventana de propiedades
@@ -1947,7 +1970,7 @@ function toolDown(p) {
       if (h.k === 'ci') drag.r0 = doc.circles[h.id].r;
       if (h.k === 'ar') drag.r0 = doc.arcs[h.id].r;
     }
-    if (h && h.k === 'co' && doc.cons[h.id]?.v !== undefined) drag.dim = true;
+    if (h && h.k === 'co' && (doc.cons[h.id]?.v !== undefined || doc.cons[h.id]?.t === 'LEAD')) drag.dim = true;
     if (h && h.k === 'tx') {
       const pid = doc.texts[h.id].pt;
       drag.m0 = toModel(p.x, p.y);
@@ -2693,14 +2716,18 @@ let dlgExpr = null; // formula tecleada en la ultima cota (null si fue un numero
 let dlgScale = null; // escala de «valor[*k]» en la ultima cota (null si no la llevaba)
 let dlgScaleExpr = null; // la escala como formula («k», «2*D1»), null si era un numero
 let dlgSrep = false; // la escala de la ultima cota es de representacion (con unidades): no se subraya
+let dlgFs = null, dlgFsAsk = null; // tamaño de letra de la cota: dlgFsAsk (lo fija quien llama) muestra el campo; dlgFs, el elegido
+let dlgLabel = null; // etiqueta libre de la ultima cota («"D"», «$D/2$»), null si no lleva
 let dlgDU = null; // unidad de la etiqueta de la ultima cota de distancia, radio o diametro («in»), null si no lleva
 const LEN_UNITS = ['mm', 'cm', 'm', 'in', 'ft'];
 const KEYS = [['π', 'π'], ['√', '√('], ['sin', 'sin('], ['cos', 'cos('], ['tan', 'tan('], ['^', '^'], ['(', '('], [')', ')'], ['×', '*'], ['÷', '/']];
 // kind: 'len' (distancias, radios) o 'angle' (grados; lo que lleve π se pasa de radianes a grados)
 // sopt: false (sin escala) o { scale0: escala actual como texto, measured: medida del dibujo } (cotas de distancia, radio y diametro).
 function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = 'deg', sopt = false) {
-  dlgScale = null; dlgScaleExpr = null; dlgDU = null; dlgSrep = false;
+  dlgScale = null; dlgScaleExpr = null; dlgDU = null; dlgSrep = false; dlgLabel = null; dlgFs = null;
+  const fsAsk = dlgFsAsk; dlgFsAsk = null;
   const scaleOk = !!sopt;
+  const raw = () => splitLabel($('dlgInput').value).body, lblTail = () => { const l = splitLabel($('dlgInput').value).lbl; return l ? `[${l}]` : ''; }; // la etiqueta libre va aparte de la escala y del valor
   return new Promise((resolve) => {
     const dlg = $('dlg'), inp = $('dlgInput'), chk = $('dlgRef'), prev = $('dlgPrev');
     const ctx = dlgCtx || { vars: varsOf(doc), list: varsList(doc) }; dlgCtx = null; dlgName = null;
@@ -2710,6 +2737,7 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
     nameRow.style.display = ctx && ctx.name !== undefined ? 'flex' : 'none';
     if (ctx && ctx.name !== undefined) nameInp.value = ctx.name;
     $('dlgLabel').textContent = labelText;
+    $('dlgFsRow').style.display = fsAsk ? 'flex' : 'none'; if (fsAsk) $('dlgFs').value = String(fsAsk);
     inp.value = String(initial);
     chk.checked = refState; inp.disabled = refState;
     const unitSel = $('dlgUnit');
@@ -2731,13 +2759,13 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
     luSel.onchange = () => {
       const nu = luSel.value, ou = luPrev; luPrev = nu;
       if (chk.checked) { showPrev(); return; } // solo lectura: la unidad solo cambia la etiqueta
-      const sp = splitScale(inp.value), t = splitUnit(sp.body), body = t ? t.body : sp.body, old = t ? t.unit : ou;
+      const sp = splitScale(raw()), t = splitUnit(sp.body), body = t ? t.body : sp.body, old = t ? t.unit : ou;
       let nb;
       if (isPlainNumber(body)) {
         const g0 = dimUnit(old)?.g ?? 1, g1 = dimUnit(nu)?.g ?? 1, n = Number(body.replace(',', '.'));
         nb = localNum(String(Number(((n * g0) / g1).toPrecision(10))));
       } else nb = body.trim();
-      inp.value = (nu ? `${nb}'${nu}` : nb) + (sp.src !== undefined ? `[*${sp.src}]` : '');
+      inp.value = (nu ? `${nb}'${nu}` : nb) + (sp.src !== undefined ? `[*${sp.src}]` : '') + lblTail();
       showPrev();
     };
     unitSel.onchange = () => { // un numero simple se convierte al cambiar de unidad
@@ -2767,7 +2795,7 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
     };
     // «valor[*k]»: cota a escala (el dibujo mide valor por k y la cota dice valor); solo donde scaleOk
     const evalNow = () => {
-      const sp = splitScale(inp.value);
+      const sp = splitScale(raw());
       if (sp.err) return { err: sp.err };
       if (sp.src !== undefined && !scaleOk) return { err: 'La escala [*k] solo vale en distancias, radios y diámetros' };
       let so = null, v, du = null, d;
@@ -2804,14 +2832,14 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
     const sync = () => { inp.disabled = chk.checked; keys.style.display = chk.checked ? 'none' : 'flex'; scRow.style.display = chk.checked && scaleOk ? 'flex' : 'none'; showPrev(); };
     chk.onchange = () => { // la escala pasa de un campo al otro al marcar o desmarcar «Solo lectura»
       if (scaleOk) {
-        if (chk.checked) { const sp = splitScale(inp.value); if (sp.src !== undefined && !scInp.value.trim()) scInp.value = sp.src; inp.value = splitScale(inp.value).body; }
-        else if (scInp.value.trim() && splitScale(inp.value).src === undefined) inp.value = `${inp.value.trim()}[*${scInp.value.trim()}]`;
+        if (chk.checked) { const tl = lblTail(), sp = splitScale(raw()); if (sp.src !== undefined && !scInp.value.trim()) scInp.value = sp.src; inp.value = splitScale(raw()).body + tl; }
+        else if (scInp.value.trim() && splitScale(raw()).src === undefined) { const tl = lblTail(); inp.value = `${raw().trim()}[*${scInp.value.trim()}]${tl}`; }
       }
       sync();
     };
     inp.oninput = showPrev; scInp.oninput = showPrev; sync();
     let done = false;
-    const finish = (v) => { if (done) return; done = true; dlgRef = chk.checked; dlgUnit = kind === 'angle' ? unitSel.value : null; dlg.close(); resolve(v); };
+    const finish = (v) => { if (done) return; done = true; if (fsAsk && v !== null) { const f = Number($('dlgFs').value); dlgFs = f >= 6 && f <= 48 ? f : null; } dlgRef = chk.checked; dlgUnit = kind === 'angle' ? unitSel.value : null; dlg.close(); resolve(v); };
     $('dlgOk').onclick = (ev) => {
       ev.preventDefault();
       if (ctx && ctx.name !== undefined) {
@@ -2822,12 +2850,12 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
       if (chk.checked) { // cota de referencia: no se teclea valor, pero si su escala
         const so = scaleOk ? refScale() : null;
         if (so?.err) { prev.style.color = 'var(--warn)'; prev.textContent = so.err; return; }
-        dlgExpr = null; dlgScale = so ? so.sc : null; dlgScaleExpr = so ? so.src : null; dlgDU = duOk && luSel.value ? luSel.value : null; dlgSrep = !!so?.rep;
+        dlgExpr = null; dlgScale = so ? so.sc : null; dlgScaleExpr = so ? so.src : null; dlgDU = duOk && luSel.value ? luSel.value : null; dlgSrep = !!so?.rep; dlgLabel = splitLabel(inp.value).lbl ?? null;
         finish(Number(initial)); return;
       }
       const r = evalNow();
       if (r.err) { prev.style.color = 'var(--warn)'; prev.textContent = r.err; return; } // se queda abierto para corregir
-      const sp = splitScale(inp.value);
+      const sp = splitScale(raw()); dlgLabel = splitLabel(inp.value).lbl ?? null;
       dlgExpr = isPlainNumber(sp.body) && !r.scaleSrc ? null : sp.body.trim(); // con la escala como formula, el valor tambien se guarda: «30[*k]» sigue a k
       dlgScale = r.scale ?? null; dlgScaleExpr = r.scaleSrc ?? null; dlgDU = r.du ?? null; dlgSrep = !!r.rep;
       if (r.warn) toast(r.warn);
@@ -2981,6 +3009,10 @@ async function applyCon(kind) {
       return;
     }
     case 'DIM': {
+      { // un punto + el elemento al que pertenece (un extremo, su centro o un punto sobre el): línea indicativa (anotación)
+        const els1 = [...lns, ...crv, ...sps, ...els];
+        if (pts.length === 1 && els1.length === 1 && pointOnElement(doc, pts[0], els1[0])) { await addLeader(pts[0], els1[0]); return; }
+      }
       let refs, t, v, parallelPair = null;
       if (crv.length) {
         // un arco o circulo con otro elemento: distancia desde ese elemento hasta el centro del arco o circulo
@@ -3022,7 +3054,7 @@ async function applyCon(kind) {
         list.push({ t: 'PAR', refs: parallelPair });
         toast('Se agregó también la restricción Paralela entre las dos líneas');
       }
-      list.push({ t, refs, v: val, ...(dlgExpr ? { expr: dlgExpr } : {}), ...(dlgScale ? { scale: dlgScale, ...(dlgScaleExpr ? { scaleExpr: dlgScaleExpr } : {}) } : {}), ...(dlgDU ? { du: dlgDU } : {}), ...(dlgScale && dlgSrep ? { srep: true } : {}), ...(dlgRef ? { ref: true } : {}) });
+      list.push({ t, refs, v: val, ...(dlgExpr ? { expr: dlgExpr } : {}), ...(dlgScale ? { scale: dlgScale, ...(dlgScaleExpr ? { scaleExpr: dlgScaleExpr } : {}) } : {}), ...(dlgDU ? { du: dlgDU } : {}), ...(dlgScale && dlgSrep ? { srep: true } : {}), ...(dlgRef ? { ref: true } : {}), ...(dlgLabel ? { lbl: dlgLabel } : {}), ...newFs() });
       break;
     }
     case 'ANG': {
@@ -3039,7 +3071,7 @@ async function applyCon(kind) {
       const val = await askNumber('Ángulo entre las dos líneas (sin límite: 400° = una vuelta y 40°)', u0 === 'rad' ? Math.round(((shownDeg * Math.PI) / 180) * 1e10) / 1e10 : Math.round(shownDeg * 100) / 100, false, 'angle', u0);
       if (val === null) return;
       opts.angUnit = dlgUnit; persist();
-      list.push({ t: 'ANG', refs: [lns[0], lns[1]], v: angTrue(doc, { ...tmp, cur: val }, val), s1: tmp.s1, s2: tmp.s2, sg: tmp.sg, cur: val, ...(dlgUnit === 'rad' ? { unit: 'rad' } : {}), ...(dlgExpr ? { expr: dlgExpr } : {}), ...(dlgRef ? { ref: true } : {}) });
+      list.push({ t: 'ANG', refs: [lns[0], lns[1]], v: angTrue(doc, { ...tmp, cur: val }, val), s1: tmp.s1, s2: tmp.s2, sg: tmp.sg, cur: val, ...(dlgUnit === 'rad' ? { unit: 'rad' } : {}), ...(dlgExpr ? { expr: dlgExpr } : {}), ...(dlgRef ? { ref: true } : {}), ...newFs() });
       break;
     }
     case 'RAD': {
@@ -3053,8 +3085,8 @@ async function applyCon(kind) {
       const r0 = curveOf(crv[0]).r;
       const val0 = await askNumber(allC ? `Diámetro (${DIAM})` : 'Radio (R)', Math.round((allC ? 2 * r0 : r0) * 1000) / 1000, false, 'len', 'deg', { scale0: '', measured: allC ? 2 * r0 : r0 });
       if (val0 === null || val0 <= 0) return;
-      const sc = dlgScale, scx = dlgScaleExpr, du = dlgDU, srep = dlgSrep;
-      crv.forEach((c) => list.push({ t: 'RAD', refs: [c], v: allC ? val0 / 2 : val0, ...(dlgExpr ? { expr: dlgExpr } : {}), ...(sc ? { scale: sc, ...(scx ? { scaleExpr: scx } : {}), ...(srep ? { srep: true } : {}) } : {}), ...(du ? { du } : {}), ...(dlgRef ? { ref: true } : {}) }));
+      const sc = dlgScale, scx = dlgScaleExpr, du = dlgDU, srep = dlgSrep, lb = dlgLabel;
+      crv.forEach((c) => list.push({ t: 'RAD', refs: [c], v: allC ? val0 / 2 : val0, ...(lb ? { lbl: lb } : {}), ...(dlgExpr ? { expr: dlgExpr } : {}), ...(sc ? { scale: sc, ...(scx ? { scaleExpr: scx } : {}), ...(srep ? { srep: true } : {}) } : {}), ...(du ? { du } : {}), ...(dlgRef ? { ref: true } : {}), ...newFs() }));
       break;
     }
     default: return;
@@ -3134,6 +3166,28 @@ function splitSelected() {
   afterChange();
 }
 
+// Línea indicativa: la punta en el punto, la etiqueta arrastrable (sigue a la geometría); estilo y letra del menú de estilo
+const LEAD_ASK = 'Etiqueta de la línea indicativa: texto, "texto", $fórmula$ o $$fórmula$$';
+async function addLeader(pt, el) {
+  const src = await askText(LEAD_ASK, '');
+  if (src === null) return;
+  const lbl = leadLabel(src), st = style();
+  pushUndo();
+  const id = addCon(doc, { t: 'LEAD', refs: [pt, el], ...(lbl ? { lbl } : {}), ...leadOffset0(view, (cur.dimFs || DIM_FS) / DIM_FS), color: st.color ?? 'auto', ltype: st.ltype || 'continua', w: st.w ?? 2, ...(st.ls && st.ls !== 1 ? { ls: st.ls } : {}), ...newFs() });
+  sel = [{ k: 'co', id }]; afterChange();
+}
+async function editLeader(id) {
+  const k = doc.cons[id]; if (!k) return;
+  const src = await askText(LEAD_ASK, k.lbl || '');
+  if (src === null) return;
+  pushUndo();
+  const lbl = leadLabel(src); if (lbl) k.lbl = lbl; else delete k.lbl;
+  afterChange();
+}
+
+// Tamaño de letra de una cota nueva: el del menú de estilo (12 px no se guarda)
+const newFs = () => (cur.dimFs && cur.dimFs !== DIM_FS ? { fs: cur.dimFs } : {});
+
 function commitCons(list, pre) {
   pushUndo();
   if (pre) pre();
@@ -3159,11 +3213,15 @@ async function editDimension(id) {
   if (lu && !k.ref) initial = `${initial}'${k.du}`;
   if (k.expr && !k.ref) { try { const ev = k.t === 'ANG' ? parseValue(k.expr, { angle: true, radians: u0 === 'rad', vars: varsOf(doc, id) }) : dimEval(k.expr, varsOf(doc, id)).v; if (Math.abs(ev * sc0 - shown) <= 1e-6 * Math.max(1, Math.abs(shown))) initial = k.expr; } catch { /* formula invalida: valor */ } }
   if (sc0 !== 1 && !k.ref) initial = `${initial}[*${k.scaleExpr ?? sc0}]`;
+  if (k.lbl) initial = `${initial}[${k.lbl}]`; // su etiqueta libre, al final
+  dlgFsAsk = k.fs || DIM_FS;
   dlgCtx = { vars: varsOf(doc, id), list: varsList(doc, id), except: id, ...(k.name ? { name: k.name, check: (n) => checkName(doc, n, id) } : {}) };
   const val0 = await askNumber((k.name ? k.name + ' · ' : '') + (k.t === 'ANG' ? 'Ángulo (°)' : k.t === 'RAD' ? (isC ? `Diámetro (${DIAM})` : 'Radio (R)') : 'Distancia'), initial, !!k.ref, k.t === 'ANG' ? 'angle' : 'len', u0, k.t !== 'ANG' ? { scale0: k.scale > 0 && k.scale !== 1 ? (k.scaleExpr ?? String(k.scale)) : '', measured: shown, du0: lu ? k.du : '' } : false);
   if (val0 === null || (!dlgRef && k.t !== 'ANG' && val0 <= 0)) return;
   pushUndo();
   if (dlgName && dlgName !== k.name) renameDim(doc, id, dlgName);
+  if (dlgLabel) k.lbl = dlgLabel; else delete k.lbl;
+  if (dlgFs && dlgFs !== DIM_FS) k.fs = dlgFs; else if (dlgFs) delete k.fs;
   if (k.t === 'ANG') { if (dlgUnit === 'rad') k.unit = 'rad'; else delete k.unit; opts.angUnit = dlgUnit; persist(); }
   else if (dlgDU) k.du = dlgDU; else delete k.du;
   if (dlgRef) { // es (o pasa a ser) cota de referencia: no toca el solver; su escala si cuenta (la cota dice medida ÷ escala)
@@ -3192,6 +3250,8 @@ function applyStyle(prop, value) {
   for (const s of sel) {
     const o = s.k === 'ln' ? doc.lines[s.id] : s.k === 'ci' ? doc.circles[s.id] : s.k === 'ar' ? doc.arcs[s.id] : s.k === 'sp' ? doc.splines[s.id] : s.k === 'el' ? doc.ellipses[s.id] : (s.k === 'ha' || s.k === 'tx') && prop === 'color' ? (s.k === 'ha' ? doc.hatches[s.id] : doc.texts[s.id]) : null;
     if (o) { o[prop] = value; touched = true; if (prop === 'ltype' && value === 'constructiva') { o.color = CLINE_STYLE.color; o.w = CLINE_STYLE.w; } } // convertir a constructiva toma su color y grosor
+    else if (s.k === 'co' && doc.cons[s.id]?.t === 'LEAD' && ['color', 'ltype', 'w', 'ls'].includes(prop)) { doc.cons[s.id][prop] = value; touched = true; } // línea indicativa: color, tipo y grosor
+    else if (prop === 'dimFs' && s.k === 'co' && (doc.cons[s.id]?.v !== undefined || doc.cons[s.id]?.t === 'LEAD')) { const k = doc.cons[s.id]; if (value !== DIM_FS) k.fs = value; else delete k.fs; touched = true; } // letra de una cota seleccionada
     else if (s.k === 'pt' && doc.traces[s.id]) { doc.traces[s.id][prop] = value; touched = true; } // el estilo de un punto con trazado es el de su trayectoria
   }
   if (sel.length && !touched) undoStack.pop();
@@ -3243,11 +3303,13 @@ function syncPanel() {
   if (first && !csel) { cur.color = first.color; cur.ltype = first.ltype; cur.w = first.w; cur.ls = first.ls ?? 1; }
   else if (hat) cur.color = hat.color;
   else if (txt) cur.color = txt.color;
+  else if (sel.some((s) => s.k === 'co' && doc.cons[s.id]?.t === 'LEAD')) { const ld = doc.cons[sel.find((s) => s.k === 'co' && doc.cons[s.id]?.t === 'LEAD').id]; cur.color = ld.color ?? cur.color; cur.ltype = ld.ltype ?? cur.ltype; cur.w = ld.w ?? cur.w; cur.ls = ld.ls ?? 1; } // línea indicativa: su estilo
   else if (sel.some((s) => s.k === 'pt' && doc.traces[s.id])) { const tr = doc.traces[sel.find((s) => s.k === 'pt' && doc.traces[s.id]).id]; cur.color = tr.color; cur.ltype = tr.ltype; cur.w = tr.w; cur.ls = tr.ls ?? 1; }
   const sv = csel || cur;
   $('ltEl').value = String(sv.ls ?? 1);
   fillLtypes(sv.ltype);
   $('weight').value = String(sv.w);
+  { const dk = sel.map((s) => (s.k === 'co' ? doc.cons[s.id] : null)).find((k) => k && (k.v !== undefined || k.t === 'LEAD')); $('dimFs').value = String(dk ? dk.fs || DIM_FS : cur.dimFs || DIM_FS); } // la de la cota seleccionada o la de las nuevas
   panelColor = sv.color || 'auto';
   panelPicker?.refresh();
   if (hat) { $('hKind').value = hat.kind; $('hAngle').value = hat.angle; $('hSpace').value = hat.spacing; $('hAlpha').value = hat.alpha; }
@@ -3293,7 +3355,7 @@ const HINTS = {
   rectc: 'Rectángulo de centro: toca el centro y luego una esquina (o arrastra del centro a la esquina).',
   polygon: 'Polígono: toca el centro y el radio (el ángulo del radio da la orientación; hay bloqueo suave); luego eliges el número de lados.',
   paste: 'Pegar: toca el punto donde va el centro del cuadro de lo copiado. Esc o Seleccionar termina.',
-  dim: 'Acotar: toca 2 puntos (distancia), punto y línea (distancia), 2 líneas (paralelas: distancia; si no, ángulo), un arco (radio), un círculo (diámetro), o un arco/círculo y otro elemento (distancia al centro). Si ya había algo seleccionado, acota eso.',
+  dim: 'Acotar: toca 2 puntos (distancia), punto y línea (distancia), un punto y el elemento al que pertenece (línea indicativa con etiqueta), 2 líneas (paralelas: distancia; si no, ángulo), un arco (radio), un círculo (diámetro), o un arco/círculo y otro elemento (distancia al centro). Si ya había algo seleccionado, acota eso.',
   intersect: 'Toca dos elementos (línea, arco o círculo) para crear su punto de intersección.',
   text: 'Toca donde va el punto de insercion del texto (puede ser un punto existente).',
   spline: 'Spline por puntos: toca los puntos por donde pasa la curva. Tocar de nuevo el último (o Esc) termina; tocar el primero la cierra.',
@@ -5033,6 +5095,7 @@ $('del').onclick = () => {
   afterChange();
 };
 $('weight').onchange = (e) => applyStyle('w', Number(e.target.value));
+$('dimFs').onchange = (e) => { const f = Math.round(Number(e.target.value)); if (f >= 6 && f <= 48) applyStyle('dimFs', f); else e.target.value = String(cur.dimFs || DIM_FS); };
 $('ltype').onchange = (e) => applyStyle('ltype', e.target.value);
 ['hKind', 'hAngle', 'hSpace', 'hAlpha'].forEach((id) => { $(id).onchange = updateHatchFromPanel; });
 $('hAlpha').oninput = updateHatchFromPanel;
