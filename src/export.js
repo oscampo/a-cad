@@ -2,7 +2,7 @@ import { visibleDoc, hatchLoops, allLtypes, arcOf, arcSamples, splinePolyline, e
 import { dashFromPattern, norm, splineBezier } from './geom.js';
 import { textFrame, textCorners, textPose, shownText, runsOf, plainText, framePrims, LINE_SPACING, fontCss, TEXT_BG_PAD } from './text.js';
 import { vecArrow } from './vectors.js';
-import { layoutDim, lblIsMath, lblPlain, leadBody, leadBodies, leadLabelPlace } from './dims.js';
+import { layoutDim, lblIsMath, lblPlain, leadBody, leadBodies, leadLabelPlace, ARROW, ARROW_HW } from './dims.js';
 
 const DIM_KINDS = new Set(['DIST', 'DISTPL', 'ANG', 'ANG4', 'RAD', 'LEAD']); // LEAD: lineas indicativas (anotaciones)
 const approx = (ln) => 0.6 * ln.length; // ancho aproximado de texto (por altura 1)
@@ -60,7 +60,7 @@ export function extraExtents(doc, view, vis = {}) {
   for (const L of vis.dims === false ? [] : dimLayouts(doc, view)) {
     for (const l of L.lines) { add(l[0], l[1]); add(l[2], l[3]); }
     for (const a of L.arcs) { add(a.cx - a.r, a.cy - a.r); add(a.cx + a.r, a.cy + a.r); }
-    const g = L.size || 1; for (const ar of L.arrows) { const ln = ar.len ?? 9 * (ar.g || g), hw = ar.hw ?? 4 * (ar.g || g); add(ar.x - ar.dx * ln - hw, ar.y - ar.dy * ln - hw); add(ar.x - ar.dx * ln + hw, ar.y - ar.dy * ln + hw); }
+    const g = L.size || 1; for (const ar of L.arrows) { const ln = ar.len ?? ARROW * (ar.g || g), hw = ar.hw ?? ARROW * ARROW_HW * (ar.g || g); add(ar.x - ar.dx * ln - hw, ar.y - ar.dy * ln - hw); add(ar.x - ar.dx * ln + hw, ar.y - ar.dy * ln + hw); }
     if (L.label && !L.label.model) { const b = labelBox(L.label); add(b.x, b.y); add(b.x + b.w, b.y + b.h); }
   }
   const WL = withLeadTexts(doc); doc = WL.doc;
@@ -81,7 +81,7 @@ function dimSvg(L, color, leadAttrs = null) {
     out.push(`<path d="M${p(a.a0)} A${n(a.r)} ${n(a.r)} 0 ${delta > Math.PI ? 1 : 0} ${a.ccw ? 0 : 1} ${p(a.a1)}" fill="none" stroke="${color}" stroke-width="1"${a.dashed ? ' stroke-dasharray="4 3"' : ''}/>`);
   }
   for (const { x, y, dx, dy, g: ga, len, hw } of L.arrows) {
-    const g = ga || L.size || 1, aw = hw ?? 3.2 * g, ln = len ?? 9 * g, bx = x - dx * ln, by = y - dy * ln, nx = -dy, ny = dx;
+    const g = ga || L.size || 1, aw = hw ?? ARROW * ARROW_HW * g, ln = len ?? ARROW * g, bx = x - dx * ln, by = y - dy * ln, nx = -dy, ny = dx;
     out.push(`<polygon points="${n(x)},${n(y)} ${n(bx + nx * aw)},${n(by + ny * aw)} ${n(bx - nx * aw)},${n(by - ny * aw)}" fill="${color}"/>`);
   }
   if (L.label && !L.label.model) { // la de una linea indicativa sale con los textos
@@ -279,7 +279,7 @@ export function exportDXF(doc, viewScale = 5, vis = {}) {
     }
     const ga = L.size || 1;
     for (const { x, y, dx, dy, g: g1, len, hw } of L.arrows) {
-      const gg = g1 || ga, ln = len ?? 9 * gg, bx = x - dx * ln, by = y - dy * ln, nx = -dy, ny = dx, w = hw ?? 3.2 * gg;
+      const gg = g1 || ga, ln = len ?? ARROW * gg, bx = x - dx * ln, by = y - dy * ln, nx = -dy, ny = dx, w = hw ?? ARROW * ARROW_HW * gg;
       const P = [[x, y], [bx + nx * w, by + ny * w], [bx - nx * w, by - ny * w], [bx - nx * w, by - ny * w]];
       g(0, 'SOLID'); g(8, '0');
       P.forEach(([px, py], i) => { g(10 + i, mx(px)); g(20 + i, my(py)); g(30 + i, 0); });

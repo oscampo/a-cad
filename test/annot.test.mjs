@@ -90,7 +90,7 @@ await t('con cuerpo: en un extremo, el elemento es la línea indicativa (flecha 
   let L = layoutDim(d, k, view); const A = L.arrows[0];
   assert.equal(L.lines.length, 0); // el trazo es el del arco
   assert.ok(Math.abs(A.dx + 1) < 0.01 && Math.abs(A.dy) < 0.05); // en b (arriba) el arco antihorario llega yendo hacia la izquierda
-  assert.ok(Math.abs(A.len - 1.2 * 2 * 4) < 1e-9); // la flecha mide con la altura del texto, en unidades del dibujo (no en px de pantalla)
+  assert.ok(Math.abs(A.len - 2 * 4) < 1e-9 && Math.abs(A.hw - A.len / 6) < 1e-9); // ASME Y14.2: largo = altura del texto (en unidades del dibujo), base = largo / 3
   assert.deepEqual(leadSpots(d, k).map((x) => x.key), ['a', 'm', 'b']);
   assert.equal(L.label.anchor, 'tc'); // en a (abajo a la derecha) el arco sale hacia abajo: el texto cuelga debajo
   assert.ok(Math.abs(L.label.x - 140) < 1e-9 && Math.abs(L.label.y - (400 + LEAD_GAP * 2 * 4)) < 1e-9); // en el otro extremo, separado un cuarto de altura
@@ -112,6 +112,16 @@ await t('cotas con la letra de los textos (doc.dimText): altura en unidades del 
   assert.equal(px(d, { ...k, th: 5 }, 4), 20); // una cota con su propia altura
   assert.equal(px(d, { ...k, fs: 30 }, 4), 12); // el tamaño en px de antes no cuenta con el ajuste
   const L = layoutDim(d, k, { s: 8, ox: 0, oy: 0 }); assert.equal(L.size, 2); // flechas y separaciones con la letra
+});
+
+await t('flechas de cota según ASME Y14.2: largo = altura de las cifras y base = largo / 3, rellenas (también en el SVG)', () => {
+  const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 50, 0); d.dimText = true; d.dimH = 3;
+  d.cons.k1 = { t: 'DIST', refs: [a, b], v: 50 };
+  const svg = exportSVG(d), m = /<polygon points="([^"]+)" fill="#000000"\/>/.exec(svg);
+  const [P0, P1, P2] = m[1].split(' ').map((q) => q.split(',').map(Number));
+  const base = Math.hypot(P1[0] - P2[0], P1[1] - P2[1]), mid = [(P1[0] + P2[0]) / 2, (P1[1] + P2[1]) / 2], len = Math.hypot(P0[0] - mid[0], P0[1] - mid[1]);
+  assert.ok(Math.abs(len / base - 3) < 1e-6, `proporción ${len / base}`);
+  assert.ok(Math.abs(len - 3 * 6) < 1e-3); // 3 de altura × 6 (escala del SVG): el largo es la altura de las cifras
 });
 
 console.log(`\n${passed} pruebas de etiquetas y anotaciones pasaron`);

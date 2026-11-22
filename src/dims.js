@@ -6,7 +6,9 @@ import { arcOf, arcSamples, splinePolyline, ellipsePolyline } from './model.js';
 import { localNum, sciFrom, sciText } from './locale.js';
 import { parseUnit, unitsVersion } from './units.js';
 
-export const ARROW = 9; const ARROW0 = ARROW;
+// Cabeza de flecha segun ASME Y14.2: largo = altura de las cifras de cota (12 px por 12 px de letra) y base = largo / 3 (3:1),
+// recta y rellena. ARROW_W: la mitad de la base.
+export const ARROW = 12; const ARROW0 = ARROW; export const ARROW_HW = 1 / 6; // media base = largo / 6
 // Tamaño de la letra de una cota (k.fs, en px; por defecto 12): flechas y separaciones escalan con ella
 export const DIM_FS = 12;
 export const dimGain = (k) => (k?.fs > 0 ? k.fs / DIM_FS : 1);
@@ -306,12 +308,11 @@ function layoutDimBase(doc, k, view) {
 
   if (k.t === 'LEAD') { // la etiqueta, un texto en unidades del dibujo; la flecha, con la altura del texto
     const Lp = leadLabelPlace(doc, k, DIM_FS / s); if (!Lp) return out;
-    const Ps = v(Lp.P), C = v(Lp.C), len = 1.2 * Lp.h * s, hw = 0.35 * len; // flecha: 1,2 alturas de largo
+    const Ps = v(Lp.P), C = v(Lp.C), len = Lp.h * s, hw = len * ARROW_HW; // flecha ASME Y14.2: largo = altura del texto, base = largo / 3
     out.label = { x: Ps.x, y: Ps.y, text: Lp.text, model: true, h: Lp.h, anchor: Lp.anchor, ...(k.font ? { font: k.font } : {}) };
     if (k.on) { // el elemento es el cuerpo: flecha en la punta, en la direccion de la curva
-      const B = bodyEnds(doc, k, v), body = leadBody(doc, k); if (!B) return out;
-      const sh = Math.min(((body?.w ?? 2) / 2) / 0.35, len * 0.5); // adelantada para que tape el final del trazo
-      out.arrows.push({ x: B.T.x + B.u.x * sh, y: B.T.y + B.u.y * sh, dx: B.u.x, dy: B.u.y, len, hw });
+      const B = bodyEnds(doc, k, v); if (!B) return out;
+      out.arrows.push({ x: B.T.x, y: B.T.y, dx: B.u.x, dy: B.u.y, len, hw }); // la punta toca el punto (ASME), sin adelantarla
       return out;
     }
     const T = v(doc.pts[k.refs[0]]), dx = T.x - C.x, dy = T.y - C.y, d = Math.hypot(dx, dy); // sin cuerpo: recta desde el borde de la caja
