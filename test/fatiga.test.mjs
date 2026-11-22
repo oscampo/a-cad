@@ -107,4 +107,19 @@ t('números grandes: sin «.0» en los miles; notación científica desde el umb
   assert.equal(show(undefined, '[1, 1e3, 1e6, 1e9]='), '[1, 1000, 1e6, 1e9]');
 });
 
+t('rand en una salida: la misma tirada en cada dibujo, distinta entre salidas; rng(7)= cambia la secuencia desde su lugar', () => {
+  const mk = (pre) => {
+    const d = newDoc(); d.decimal = '.';
+    addText(d, addPoint(d, 0, 300), '%dado(n):\n  randi(1000)', {});
+    if (pre) addText(d, addPoint(d, 0, 290), '$$' + pre + '$$', {});
+    const o = [280, 270].map((y) => d.texts[addText(d, addPoint(d, 0, y), '$$dado(1)=$$', {})]);
+    return () => o.map((t) => shownText(d, t).text.replace(/[\uE000-\uF8FF]/g, ''));
+  };
+  const a = mk(null), r1 = a(), r2 = a();
+  assert.deepEqual(r1, r2); // antes cambiaba con cada redibujo (al mover la vista)
+  assert.notEqual(r1[0], r1[1]); // dos salidas, dos tiradas
+  const b = mk('rng(7)='), c = mk('rng(7)=');
+  assert.deepEqual(b(), c()); assert.notDeepEqual(b(), r1); // otra secuencia, tambien reproducible
+});
+
 console.log(`\n${passed} pruebas de fatiga pasaron`);

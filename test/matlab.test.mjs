@@ -63,6 +63,7 @@ t('rand, randn, randi y rng: tamaños, rangos y una secuencia reproducible', () 
   assert.ok(Math.abs(mu) < 0.06 && Math.abs(sd - 1) < 0.05, `${mu} ${sd}`);
   E('rng(7)'); const b = E('rand()').value; E('rng(7)'); assert.equal(E('rand()').value, b);
   assert.throws(() => E('randi(2.5)'), /enteros/); assert.throws(() => E('rng(-1)'), /entero ≥ 0/);
+  assert.ok(E('rng("shuffle")').value >= 0); assert.throws(() => E('rng("otro")'), /shuffle/);
 });
 
 console.log(`\n${passed} pruebas de funciones de MATLAB pasaron`);

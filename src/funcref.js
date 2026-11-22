@@ -74,7 +74,7 @@ export const FUNC_GROUPS = [
       ['<code>rand()</code>, <code>rand(n)</code>, <code>rand(n; m)</code>', 'Números aleatorios uniformes en [0, 1): uno, una matriz de n×n o de n×m (<code>rand(1; 200)</code>, una fila). La secuencia es <b>reproducible</b>: cada cálculo del dibujo empieza en la misma semilla, para que una salida y su gráfica muestren los mismos valores.', 'size(rand(2; 3))', '[2, 3]', 'm'],
       ['<code>randn(…)</code>', 'Como rand, con distribución normal estándar (media 0, desviación 1). Para media μ y desviación s: <code>μ + s*randn(1; n)</code>.', 'numel(randn(1; 5))', '5', 'n'],
       ['<code>randi(imax; …)</code>, <code>randi([a, b]; …)</code>', 'Enteros aleatorios de 1 a imax, o de a a b; con n y m, una matriz.', 'min(randi([4, 4]; 1; 3))', '4', 'n'],
-      ['<code>rng(semilla)</code>', 'Cambia la semilla de rand, randn y randi desde ese punto de la lectura: otra secuencia, también reproducible. Vale la semilla.', 'rng(7)', '7', 'n'],
+      ['<code>rng(semilla)</code>, <code>rng("shuffle")</code>', 'Cambia la semilla de rand, randn y randi desde ese punto de la lectura: otra secuencia, también reproducible. Con <code>"shuffle"</code>, como en MATLAB, una semilla nueva cada vez que el dibujo se recalcula (al cambiar algo): para un juego o una simulación que no deba repetirse. Una salida muestra siempre la misma tirada aunque la pantalla se redibuje. Vale la semilla.', 'rng(7)', '7', 'n'],
     ],
   },
   {

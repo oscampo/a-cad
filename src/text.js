@@ -1,7 +1,7 @@
 // Geometria de los textos: caja imaginaria, punto de insercion y orientacion. Sin DOM.
 // measure(linea) -> ancho de la linea para una altura de texto de 1 (en el navegador sale
 // de measureText; en las pruebas puede ser una aproximacion).
-import { evalExpr, setAngleMode } from './expr.js';
+import { evalExpr, setAngleMode, rngSet, rngMix, rngReset } from './expr.js';
 import { varsOf, textVars } from './params.js';
 import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, showFlat, scriptStmt, clearCall, solveCall, unitDefOf, UDEF_ERR } from './tvars.js';
 import { normName, exprRefs } from './expr.js';
@@ -166,7 +166,8 @@ function textValue1(doc, t) {
       return math ? VB0 + col + VB1 : col;
     }
     try {
-      const env = st?.outEnv.get(tid + ':' + oidx++) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
+      const k0 = tid + ':' + oidx++, env = st?.outEnv.get(k0) || (vars ||= varsOf(doc)); // sin estado (un texto sin definiciones en el dibujo): las variables de siempre
+      rngSet(st?.outRng?.get(k0) ?? rngMix(rngReset(), oidx)); // rand: la tirada de esta salida es siempre la misma (la pantalla se redibuja a menudo)
       const r = evalExpr(p.expr, { vars: env, allowMat: true, allowCplx: true });
       if (r.str !== undefined || r.strs) return showStr(r, math);
       return r.mat ? matQ(r.mat, r.dim, env, p.expr, p.unit, math, r.mi) : qty(r, env, p.expr, p.unit, math);

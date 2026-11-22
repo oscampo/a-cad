@@ -78,7 +78,7 @@ Los ángulos de los **textos de cálculo y las gráficas** van según la opción
 | `rand()`, `rand(n)`, `rand(n; m)` | Números aleatorios uniformes en [0, 1): uno, una matriz de n×n o de n×m (`rand(1; 200)`, una fila). La secuencia es **reproducible**: cada cálculo del dibujo empieza en la misma semilla, para que una salida y su gráfica muestren los mismos valores. | `size(rand(2; 3))` | `[2, 3]` |
 | `randn(…)` | Como rand, con distribución normal estándar (media 0, desviación 1). Para media μ y desviación s: `μ + s*randn(1; n)`. | `numel(randn(1; 5))` | `5` |
 | `randi(imax; …)`, `randi([a, b]; …)` | Enteros aleatorios de 1 a imax, o de a a b; con n y m, una matriz. | `min(randi([4, 4]; 1; 3))` | `4` |
-| `rng(semilla)` | Cambia la semilla de rand, randn y randi desde ese punto de la lectura: otra secuencia, también reproducible. Vale la semilla. | `rng(7)` | `7` |
+| `rng(semilla)`, `rng("shuffle")` | Cambia la semilla de rand, randn y randi desde ese punto de la lectura: otra secuencia, también reproducible. Con `"shuffle"`, como en MATLAB, una semilla nueva cada vez que el dibujo se recalcula (al cambiar algo): para un juego o una simulación que no deba repetirse. Una salida muestra siempre la misma tirada aunque la pantalla se redibuje. Vale la semilla. | `rng(7)` | `7` |
 
 ## Vectores y matrices
 

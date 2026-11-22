@@ -3,7 +3,7 @@
 // y las cotas ven lo que valen al final. El valor puede usar cotas y variables definidas antes. El texto la muestra en cursiva como «nombre:=valor».
 import { argChar, decimalMode } from './locale.js';
 const paramSep = () => (decimalMode() === ',' ? /;/ : /[;,]/); // parametros de una funcion: con coma decimal solo «;»
-import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName, rngReset } from './expr.js';
+import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName, rngReset, rngState, rngMix } from './expr.js';
 import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg, setUserUnits, addUserUnit, onDocUnits, unitsVersion, UNIT_NAME_RE } from './units.js';
 import { solveEqs, splitEq, eqResiduals } from './nsolve.js';
@@ -496,7 +496,7 @@ export function solveCall(expr) {
 
 export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = []) {
   setAngleMode(doc);
-  const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map(), clearRes: new Map(), cleared: new Set(), dimHide: new Map(), openEnd: new Set(), at: new Map(), solveRes: new Map(), goals: [] };
+  const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map(), clearRes: new Map(), outRng: new Map(), cleared: new Set(), dimHide: new Map(), openEnd: new Set(), at: new Map(), solveRes: new Map(), goals: [] };
   const events = readingEvents(doc, probes);
   if (!events.some((e) => e.kind !== 'dim')) return st; // sin definiciones ni salidas: nada que leer
   const key = JSON.stringify([events, dimVars, [...dimNames], angleRad(), unitsVersion()]);
@@ -570,6 +570,8 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
     if (e.kind === 'out' || e.kind === 'def') st.at.set(k, { live: new Set(Object.keys(env)), expr: e.expr });
     if (e.kind === 'out') {
       st.outEnv.set(k, { ...cur });
+      st.outRng.set(k, rngMix(rngState(), st.outRng.size)); // rand en una salida: siempre la misma tirada, distinta de la de otra salida
+      if (/(?:^|[^A-Za-z0-9_.])rng\s*\(/.test(e.expr)) { try { evalExpr(e.expr, { vars: cur, allowMat: true, allowCplx: true }); } catch (err) { /* el error se ve en la salida */ } } // «rng(7)=»: cambia la secuencia desde aqui
       const cl = clearCall(e.expr);
       if (cl) { // clear: 1 si todas las que nombra existian aqui (las que existian se borran), 0 si alguna no
         let res;

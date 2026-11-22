@@ -8,7 +8,7 @@
 // La variable independiente «x»: si el dibujo ya define x (un rango o un vector) se grafican esos valores, uno por uno; si no, cada grafica
 // usa su propio vector generico de n valores entre los limites de su eje x1 (por defecto GEN_X), asi acercar o mover la ventana la vuelve a muestrear.
 import { varsOf, varsAt } from './params.js';
-import { evalExpr, exprRefs, setAngleMode, angleRad } from './expr.js';
+import { evalExpr, exprRefs, setAngleMode, angleRad, rngSet, rngMix, rngReset } from './expr.js';
 import { actDisp, simBegin, simStep } from './actuators.js';
 import { autoUnit, sameDim } from './units.js';
 
@@ -106,6 +106,7 @@ export function graphVarNames(doc) {
 const bareRe = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][\wα-ωΑ-Ωϑϕϖɛ]*(\.[A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*)?$/;
 function* graphGen(doc, g, solveFn) {
   setAngleMode(doc); // las variables de los textos se leen con la opcion del documento
+  { let h = 7; for (const ch of JSON.stringify(g.series || [])) h = (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0; rngSet(rngMix(rngReset(), h)); } // rand en una relacion: la misma curva cada vez que se calcula
   // La grafica puede tener su propia opcion (g.angles: 'rad' | 'deg'; sin ella, la del documento): con ella evalua sin/cos/tan
   // de sus relaciones y en esa unidad dibuja un angulo
   const rad = g.angles === 'rad' ? true : g.angles === 'deg' ? false : angleRad();

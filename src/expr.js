@@ -721,7 +721,12 @@ function integrate(f, a, b) {
 // verdad una nube de puntos cambiaria al mover cualquier cosa y una salida no coincidiria con su grafica. Cada calculo del dibujo empieza la
 // secuencia desde la misma semilla (rngReset, en textVarState); rng(n) en un texto la cambia desde ese punto de la lectura.
 let RNG = 0;
-export function rngReset(seed = 1) { RNG = (Math.abs(Math.round(seed)) * 2654435761 + 1013904223) >>> 0; }
+export function rngReset(seed = 1) { RNG = (Math.abs(Math.round(seed)) * 2654435761 + 1013904223) >>> 0; return RNG; }
+// Punto de la secuencia: cada salida «…=» y cada grafica parte del suyo (tvars.js lo guarda en el orden de lectura), asi se ve siempre lo
+// mismo aunque la pantalla se redibuje; rngMix da un punto distinto para la salida k (dos salidas no repiten la tirada)
+export const rngState = () => RNG;
+export const rngSet = (s) => { RNG = s >>> 0; };
+export function rngMix(s, k) { let h = (s ^ Math.imul((k >>> 0) + 1, 0x9e3779b9)) >>> 0; h = Math.imul(h ^ (h >>> 16), 0x85ebca6b); h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35); return (h ^ (h >>> 16)) >>> 0; }
 rngReset();
 function rnd01() { RNG = (RNG + 0x6d2b79f5) >>> 0; let t = RNG; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; } // mulberry32
 const gauss = () => { let u = 0; while (u === 0) u = rnd01(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rnd01()); };
@@ -735,7 +740,7 @@ const NF = {
     if (lim.length !== 2 || !lim.every(Number.isInteger) || lim[1] < lim[0]) throw new Error('randi(imax, n, m) o randi([a, b], n, m): imax, a y b son enteros, con a ≤ b');
     return randOut(randDims(A, 'randi', 1), () => lim[0] + Math.floor(rnd01() * (lim[1] - lim[0] + 1)));
   } },
-  rng: { n: [1, 1], f: (A) => { const v = A[0].v; if (!Number.isInteger(v) || v < 0) throw new Error('rng(semilla): la semilla es un entero ≥ 0'); rngReset(v); return { v, r: false }; } }, // cambia la secuencia desde aqui
+  rng: { n: [1, 1], opts: 0, f: (A) => { if (typeof A[0].str === 'string') { if (A[0].str.toLowerCase() !== 'shuffle') throw new Error('rng(semilla) o rng("shuffle")'); const sd = (Date.now() ^ Math.floor(Math.random() * 2147483647)) % 2147483647; rngReset(sd); return { v: sd, r: false }; } const v = A[0].v; if (!Number.isInteger(v) || v < 0) throw new Error('rng(semilla): la semilla es un entero ≥ 0'); rngReset(v); return { v, r: false }; } }, // cambia la secuencia desde aqui
   zeros: { n: [1, 2], f: (A) => { const n = intArg(A[0], 'zeros(n, m)', 'n', 1, 10000), m = A[1] ? intArg(A[1], 'zeros(n, m)', 'm', 1, 10000) : n; sizeLim(n, m, 'zeros'); return { m: Array.from({ length: n }, () => Array(m).fill(0)) }; } },
   ones: { n: [1, 2], f: (A) => { const n = intArg(A[0], 'ones(n, m)', 'n', 1, 10000), m = A[1] ? intArg(A[1], 'ones(n, m)', 'm', 1, 10000) : n; sizeLim(n, m, 'ones'); return { m: Array.from({ length: n }, () => Array(m).fill(1)) }; } },
   linspace: { n: [2, 3], f: (A) => {
@@ -1314,7 +1319,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === lo ? `${lo} ${lo === 1 ? 'valor' : 'valores'}` : `de ${lo} a ${hi} valores`}${sep}`);
       return SF[name].f(A, { radians });
     }
-    if (A.some((a, k) => isS(a) && !(NF[name]?.opts && k >= NF[name].opts))) throw new Error(`«${name}» no recibe cadenas`); // opts: desde que argumento acepta opciones de texto («"extrap"»)
+    if (A.some((a, k) => isS(a) && !(NF[name]?.opts !== undefined && k >= NF[name].opts))) throw new Error(`«${name}» no recibe cadenas`); // opts: desde que argumento acepta opciones de texto («"extrap"»)
     if (name in NF) { // funciones de MATLAB (tanda 1)
       const [lo, hi] = NF[name].n;
       if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === lo ? `${lo} ${lo === 1 ? 'valor' : 'valores'}` : `de ${lo} a ${hi} valores`}${sep}`);
