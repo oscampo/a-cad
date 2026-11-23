@@ -14,7 +14,7 @@
 import { TEXT_NAME_RE, normName, isReservedName, reservedWhy } from './expr.js';
 
 export const isScript = (s) => typeof s === 'string' && s[0] === '%';
-const NAME = "[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*(?:_\\([^()]*\\))?'*"; // con subindice de varias letras: «C_(surf)»
+const NAME = "[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*(?:_\\((?:[^()]|\\((?:[^()]|\\([^()]*\\))*\\))*\\))?'*"; // con subindice de varias letras: «C_(surf)»; o un indice con parentesis dentro (dos niveles): «b_(k + 7*(j - 1))»
 const HEAD_RE = new RegExp('^%\\s*(' + NAME + ')(?<!_)\\s*(?:\\(([^()]*)\\))?\\s*:=?\\s*(.*)$');
 const FOR_RE = new RegExp('^for\\s+(' + NAME + ')\\s+in\\s+(.+?)\\s*:$');
 const WHILE_RE = /^while\s+(.+?)\s*:$/;

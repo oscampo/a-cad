@@ -93,6 +93,25 @@ t('asignar a un elemento dentro de un programa: p_i, A_(i,j) y cadenas, sobre un
   assert.throws(() => ev('line(p:[1, 2], p_1:[1, 2], p)'), /se le asigna un número/);
 });
 
+t('índices con paréntesis dentro: b_(k + 7*(j - 1)), funciones en el índice, el índice de un nombre con subíndice y asignar', () => {
+  const V = { b: { vec: [10, 20, 30, 40, 50, 60, 70, 80], r: false }, jug: { v: 2, r: false }, k: { v: 1, r: false }, A: { mat: [[1, 2], [3, 4]], r: false }, 'T_(st)': { mat: [[5, 6], [7, 8]], r: false } };
+  const n = (s) => ev(s, V).value;
+  assert.equal(n('b_(k + 7*(jug - 1))'), 80); // antes: «No reconozco b_»
+  assert.equal(n('b_((2))'), 20); assert.equal(n('b_(max(1, 3))'), 30);
+  assert.equal(n('A_(max(1, 2), (1))'), 3);
+  assert.equal(n('T_(st)_((1),(2))'), 6); assert.equal(n('T_(st)_(1,2)'), 6);
+  assert.equal(n('b_(k + 7*(jug - 1)) * (2)'), 160); // el paréntesis de después no es parte del índice
+  assert.deepEqual(ev('line(p:b, p_(k + 3*(jug - 1)):0, p)', V).mat, [[10, 20, 30, 0, 50, 60, 70, 80]]);
+  const d = newDoc(); d.decimal = '.';
+  addText(d, addPoint(d, 0, 100), '$$b:[1, 2, 3, 4, 5, 6, 7, 8]$$', {});
+  addText(d, addPoint(d, 0, 90), '%lado(v, jug):\n  s:0\n  for k in 1..3:\n    s:s + v_(k + 4*(jug - 1))\n  s', {});
+  addText(d, addPoint(d, 0, 80), '%poner(v, jug):\n  v_(1 + 4*(jug - 1)):0\n  v', {});
+  const o = d.texts[addText(d, addPoint(d, 0, 70), '$$lado(b, 2)=$$', {})], q = d.texts[addText(d, addPoint(d, 0, 60), '$$sum(poner(b, 2))=$$', {})];
+  assert.equal(textVarErrors(d).length, 0, textVarErrors(d).map((e) => e.msg).join('|'));
+  assert.equal(clean(shownText(d, o).text), '$$lado(b, 2)=18$$'); // 5+6+7 (en un script, con «for»)
+  assert.equal(clean(shownText(d, q).text), '$$sum(poner(b, 2))=31$$'); // asignar con un índice anidado en un script: 36 - 5
+});
+
 t('«Mostrar solo el resultado» (valOnly): cada «expr=» se dibuja como su valor; sin la propiedad, como siempre', () => {
   const d = newDoc(); d.decimal = '.';
   const T = (q, y, o = {}) => Object.assign(d.texts[addText(d, addPoint(d, 0, y), q, {})], o);

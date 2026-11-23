@@ -74,14 +74,21 @@ export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada pa
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*$/;
 const ID_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*/;
 // Variables de texto con subindice: «var_(texto-del-subindice)». El subindice es texto libre (sin parentesis ni llaves); espacios sobrantes no cuentan.
-const SUB_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?'*_\([^(){}\n]+\)/;
+// Nombre con subindice o indice entre parentesis: «C_(surf)», «b_(14 - i)», y con parentesis dentro: «b_(k + 7*(j - 1))» (se cuentan).
+const SUB_HEAD = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?'*_\(/;
+// Desde k (justo despues de un «(»): donde termina el parentesis que lo cierra (indice siguiente), o -1 (sin cerrar, salto de linea o llaves)
+function closeParen(s, k) { let d = 1; for (let q = k; q < s.length; q++) { const c = s[q]; if (c === '\n' || c === '{' || c === '}') return -1; if (c === '(') d++; else if (c === ')' && !--d) return q + 1; } return -1; }
+const SUB_RE = { exec: (s) => { const h = SUB_HEAD.exec(s); if (!h) return null; const e = closeParen(s, h[0].length); return e > h[0].length + 1 ? [s.slice(0, e)] : null; } };
 // Un nombre puede terminar en primas: «Se'», «Se''», «σ'_(a)» (ver primesAt para distinguirlas de una unidad).
 export const TEXT_NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*?'*(?:_\([^(){}\n]+\))?$/;
 // Indices de vectores y matrices con la notacion matematica: «v_2», «v_i» (un indice) y «A_(fila,columna)», «v_(i+1)» (entre parentesis, con formulas).
 // Un nombre que existe como variable (p. ej. «k_(total)» o «x_1») es esa variable: solo es un indice si el nombre entero no existe y su base si.
 export function indexParts(raw) {
-  const k = raw.lastIndexOf('_(');
-  if (k > 0 && raw.endsWith(')')) return { base: raw.slice(0, k), src: raw.slice(k + 2, -1) };
+  if (raw.endsWith(')')) { // el «(» que cierra el «)» final: «b_(k + 7*(j - 1))» es b con el indice «k + 7*(j - 1)»
+    let d = 0, k = raw.length - 1;
+    for (; k >= 0; k--) { if (raw[k] === ')') d++; else if (raw[k] === '(' && !--d) break; }
+    if (k > 1 && raw[k - 1] === '_') return { base: raw.slice(0, k - 1), src: raw.slice(k + 1, -1) };
+  }
   const j = raw.lastIndexOf('_');
   if (j > 0 && /^[A-Za-z0-9α-ωΑ-Ωϑϕϖɛ]+$/.test(raw.slice(j + 1))) return { base: raw.slice(0, j), src: raw.slice(j + 1) };
   return null;
@@ -114,7 +121,7 @@ const numRe = (depth) => { const m = decimalMode(); return m === '.' ? RE_DOT : 
 // Primas al final de un nombre («Se'», «Se''»): la comilla que sigue a un nombre es una prima si lo que viene despues no puede empezar
 // una unidad («Se'=», «Se'*2», «Se':»); si puede, la ultima comilla es la de la unidad («Se'MPa» es Se en MPa, como siempre).
 // «f'(3)» es la funcion f' si ya existe; si no, «'(…)» sigue siendo una unidad entre parentesis. Devuelve cuantas primas son del nombre.
-const IDX_TAIL = /^_(?:\([^()]*\)|[A-Za-z0-9α-ωΑ-Ωϑϕϖɛ]+)/; // indice despues de un nombre con subindice: «_(1,2)» o «_k»
+const IDX_TAIL = { exec: (s) => { if (s.startsWith('_(')) { const e = closeParen(s, 2); return e > 3 ? [s.slice(0, e)] : null; } return /^_[A-Za-z0-9α-ωΑ-Ωϑϕϖɛ]+/.exec(s); } }; // indice despues de un nombre con subindice: «_(1,2)», «_(i+(1))» o «_k»
 function primesAt(src, k, name, vars) {
   let q = 0;
   while (src[k + q] === "'") q++;
