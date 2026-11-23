@@ -799,7 +799,7 @@ function strokeArc(c, cx, cy, r, a0, sweep, dash) {
 }
 
 function draw() {
-  if (!document.getElementById('ccPop').hidden && (!txState || document.getElementById('txLiveBox').hidden)) ccClose(); // la lista de sugerencias no sobrevive a su entrada de texto
+  if (!document.getElementById('ccPop').hidden) ccCheck(); // la lista de sugerencias no sobrevive a su entrada ni muestra un texto viejo
   setAngleMode(doc); // angulos e indicador decimal del dibujo activos para todo lo que se lea o se escriba
   render(ctx, cv.width, cv.height, view, { fg: theme.fg, bg: theme.bg, grid: opts.grid, cons: opts.cons, dims: opts.dims, texts: opts.texts, ui: true });
   drawHud();
@@ -2618,12 +2618,12 @@ function commitTextLive() {
   txState = { sUp: { type: 'free', ...next }, cursor: true };
   sel = []; txLive.value = ''; ccClose();
   finishEdit();
-  txLayout(); txLive.focus();
+  txLayout(); txLive.focus(); ccClose(); // la entrada nueva empieza sin lista
   return true;
 }
 function startTextLive(sUp) {
   if (txState && txLive.value.trim() && !commitTextLive()) return; // lo escrito se dibuja antes de mover la entrada
-  txState = { sUp }; txLive.value = ''; txLiveBox.hidden = false; txLayout(); txLive.focus();
+  txState = { sUp }; txLive.value = ''; txLiveBox.hidden = false; txLayout(); txLive.focus(); ccClose();
   if (!txHint) { txHint = true; toast('Escribe una ecuación (AsciiMath): Enter la dibuja, Shift+Enter hace otra línea; empezar con " (o un espacio) escribe texto normal, y con % un script'); }
 }
 txLive.addEventListener('keydown', (e) => {
@@ -2639,7 +2639,8 @@ txLive.addEventListener('keydown', (e) => {
 });
 txLive.addEventListener('input', () => { txLayout(); ccUpdate(); });
 txLive.addEventListener('click', () => ccUpdate(true));
-txLive.addEventListener('keyup', (e) => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) ccUpdate(true); });
+txLive.addEventListener('keyup', (e) => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) ccUpdate(true); else ccCheck(); });
+txLive.addEventListener('compositionend', () => setTimeout(ccUpdate, 0));
 txLive.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== txLive) ccClose(); }, 120));
 
 // ---- Sugerencias al escribir en el cuadro de ecuacion (ver complete.js): lo que existe en ese lugar de la pagina (orden de lectura),
@@ -2665,6 +2666,15 @@ function ccUpdate(keep = false) {
 }
 function ccHide() { ccPop.hidden = true; if (cc) cc.items = []; }
 function ccClose() { cc = null; ccPop.hidden = true; ccParam.hidden = true; }
+// La lista se valida sola: si el texto o el cursor ya no son los de cuando se armo (el teclado del iPad con prediccion no siempre avisa
+// cada cambio; el cierre automatico de parentesis o las letras griegas cambian el texto por codigo), se vuelve a calcular; vacia, se cierra.
+function ccCheck() {
+  if (ccPop.hidden && ccParam.hidden) return;
+  if (!txState || txLiveBox.hidden || !txLive.value) { ccClose(); return; }
+  if (!ccPop.hidden && cc?.snap !== txLive.value + '\u0000' + txLive.selectionStart) ccUpdate(true);
+}
+setInterval(ccCheck, 250);
+document.addEventListener('selectionchange', () => { if (document.activeElement === txLive) ccCheck(); });
 // posicion del cursor en el lienzo: la letra de una ecuacion es monoespaciada (columna × ancho de letra, linea × alto de linea)
 function ccCaret() {
   const px = parseFloat(txLive.style.fontSize) || 16, lh = px * 1.25;
@@ -2674,6 +2684,7 @@ function ccCaret() {
   return { x: txLiveBox.offsetLeft + 6 + lines.at(-1).length * cw, y: txLiveBox.offsetTop + 3 + lines.length * lh, top: txLiveBox.offsetTop };
 }
 function ccRender() {
+  cc.snap = txLive.value + '\u0000' + txLive.selectionStart; // lo que muestra la lista corresponde a este texto y este cursor
   const shown = cc.items.slice(0, 40);
   ccList.textContent = '';
   shown.forEach((it, i) => {
@@ -2757,6 +2768,7 @@ function ccAccept(it) {
 }
 function ccKey(e) {
   if ((e.ctrlKey || e.metaKey) && (e.key === ' ' || e.code === 'Space')) { e.preventDefault(); cc = { forced: true, items: [] }; ccUpdate(); return true; }
+  ccCheck(); // antes de aceptar con Enter o Tab: que la lista sea la del texto actual
   if (!cc || ccPop.hidden || !cc.items.length) return false;
   const n = Math.min(40, cc.items.length);
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); cc.hot = (cc.hot + (e.key === 'ArrowDown' ? 1 : n - 1)) % n; ccRender(); return true; }
