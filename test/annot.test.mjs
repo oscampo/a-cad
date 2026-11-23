@@ -90,14 +90,11 @@ await t('con cuerpo: en un extremo, el elemento es la línea indicativa (flecha 
   let L = layoutDim(d, k, view); const A = L.arrows[0];
   assert.equal(L.lines.length, 0); // el trazo es el del arco
   assert.ok(Math.abs(A.dx + 1) < 0.01 && Math.abs(A.dy) < 0.05); // en b (arriba) el arco antihorario llega yendo hacia la izquierda
-  assert.ok(Math.abs(A.hw - 1.5 * 2) < 1e-9 && Math.abs(A.len - 6 * A.hw) < 1e-9); // texto chico (2 × 4 px) con línea de 2 px: manda el grosor, base = 3 × 2 px, y sigue 3:1
-  d.arcs[ar].w = 0.5; const A2 = layoutDim(d, k, view).arrows[0];
-  assert.ok(Math.abs(A2.len - 2 * 4) < 1e-9 && Math.abs(A2.hw - A2.len / 6) < 1e-9); // línea fina: largo = altura del texto, base = largo / 3 (ASME Y14.2)
-  d.arcs[ar].w = 2;
+  assert.ok(Math.abs(A.len - 12) < 1e-9 && Math.abs(A.hw - 2) < 1e-9); // la flecha de las cotas: 12 px, 3:1
   assert.deepEqual(leadSpots(d, k).map((x) => x.key), ['a', 'm', 'b']);
   assert.equal(L.label.anchor, 'tc'); // en a (abajo a la derecha) el arco sale hacia abajo: el texto cuelga debajo
   assert.ok(Math.abs(L.label.x - 140) < 1e-9 && Math.abs(L.label.y - (400 + LEAD_GAP * 2 * 4)) < 1e-9); // en el otro extremo, separado un cuarto de altura
-  d.arcs[ar].w = 0.5; { const a4 = layoutDim(d, k, view).arrows[0], a8 = layoutDim(d, k, { s: 8, ox: 100, oy: 400 }).arrows[0]; assert.ok(Math.abs(a8.len - 2 * a4.len) < 1e-9); } d.arcs[ar].w = 2; // con línea fina: el doble de zoom, el doble de px
+  
   assert.ok(dragDim(d, k, view, { x: 100 + 7.07 * 4, y: 400 - 7.07 * 4 })); assert.equal(k.at, 'm'); // arrastrada, salta al punto medio
   k.anchor = 'bl'; const P = leadLabelPlace(d, k, 1).P; assert.ok(Math.abs(P.x - (7.071 + 0.5)) < 1e-3 && Math.abs(P.y - (7.071 + 0.5)) < 1e-3);
   const ks = { t: 'LEAD', refs: [s3, sp], on: 1, h: 1 }; assert.deepEqual(leadSpots(d, ks).map((x) => x.key), ['i0', 'i1', 'i2']); assert.equal(leadLabelPlace(d, ks, 1).P.x, 30 + SXs(leadLabelPlace(d, ks, 1).anchor) * LEAD_GAP); // en un spline, en sus puntos; por defecto el primero
@@ -127,14 +124,18 @@ await t('flechas de cota según ASME Y14.2: largo = altura de las cifras y base 
   assert.ok(Math.abs(len - 3 * 6) < 1e-3); // 3 de altura × 6 (escala del SVG): el largo es la altura de las cifras
 });
 
-await t('flecha de línea indicativa: la base es al menos 3 veces el grosor de la línea (ASME Y14.2), con zoom y al exportar', () => {
+await t('flecha de línea indicativa = flecha de cota: mismo largo y 3:1, con zoom; no depende del grosor ni de la altura de la etiqueta', () => {
   const d = newDoc(), a = addPoint(d, 0, 0), b = addPoint(d, 20, 0), l = addLine(d, a, b, { w: 3.5 });
-  const k = { t: 'LEAD', refs: [b, l], on: 1, lbl: '"F"', h: 3 };
-  for (const s of [1, 2, 10]) { // alejado, cerca: con texto chico manda el grosor; con texto grande, la altura
-    const A = layoutDim(d, k, { s, ox: 0, oy: 0 }).arrows[0];
-    assert.ok(2 * A.hw >= 3 * 3.5 - 1e-9, `base ${2 * A.hw} con escala ${s}`);
-    assert.ok(Math.abs(A.len / (2 * A.hw) - 3) < 1e-9); // siempre 3:1
-    assert.ok(Math.abs(A.len - Math.max(3 * s, 9 * 3.5)) < 1e-9);
+  const k = { t: 'LEAD', refs: [b, l], on: 1, lbl: '"F"', h: 3, fs: 18 }, kd = { t: 'DIST', refs: [a, b], v: 20 };
+  for (const dimText of [false, true]) {
+    if (dimText) { d.dimText = true; d.dimH = 2.5; }
+    for (const s of [1, 2, 10]) {
+      const view = { s, ox: 0, oy: 0 }, A = layoutDim(d, k, view).arrows[0], D = layoutDim(d, kd, view).arrows[0];
+      const dl = Math.hypot(D.dx, D.dy) && (D.len ?? 12 * layoutDim(d, kd, view).size);
+      assert.ok(Math.abs(A.len - dl) < 1e-9, `largo ${A.len} vs cota ${dl} (dimText ${dimText}, escala ${s})`);
+      assert.ok(Math.abs(A.len / (2 * A.hw) - 3) < 1e-9);
+      assert.ok(Math.abs(A.len - (dimText ? 2.5 * s : 12)) < 1e-9); // sin el ajuste, 12 px con cualquier zoom; con él, la letra de cotas × escala
+    }
   }
 });
 
