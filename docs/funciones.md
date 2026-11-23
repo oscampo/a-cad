@@ -246,6 +246,14 @@ Como en SMath: guardan un valor para leerlo después o desde otro dibujo. Los da
 | `rfile(Nombre; inicial)` | Lo guardado o, si todavía no hay datos con ese nombre, <i>inicial</i> (que solo se calcula entonces): sirve para empezar, `c:rfile(n; 0)`. Extensión de A-CAD: en SMath el segundo argumento es una ruta. | `rfile(NoExiste; 42)` | `42` |
 | `entered(nombre)` | Vale 1 en el paso que inició un Enter sobre el texto que define <i>nombre</i> (en la edición en el lugar, también sin cambiarlo) y 0 en cualquier otro paso: abrir el dibujo, mover algo, editar otro texto. Para ejecutar una orden al confirmarla: `wfile(si(entered(orden); hacer(x; orden); x); Estado)`. | `entered(x)` | `0` |
 
+## Sonidos
+
+Archivos de audio que viajan dentro del dibujo (Archivo → Sonidos del dibujo…: se agregan con un nombre, se prueban y se borran). Al agregarlos se reducen (un canal, 16 kHz, 8 bits) para que el dibujo pese poco: unos 16 KB por segundo.
+
+| Función | Qué hace | Ejemplo | Da |
+|---|---|---|---|
+| `play("nombre")` | Hace sonar el sonido del dibujo con ese nombre, una vez, en el paso que confirma un cambio del dibujo (un Enter en un texto: el mismo paso en que se ejecuta `wfile`). No suena al redibujar, al arrastrar, al abrir el dibujo ni en la simulación. Vale 1 si el dibujo tiene ese sonido y 0 si no (sin error), y se puede usar dentro de una función o de una biblioteca: `if(choca; play("explosion"); 0)`. Los navegadores solo dejan sonar después de un toque o una tecla. |  |  |
+
 ## Valores del dibujo
 
 Nombres que una fórmula puede leer. Siempre valen lo que tiene el dibujo en ese momento.

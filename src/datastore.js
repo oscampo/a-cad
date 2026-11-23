@@ -18,6 +18,14 @@ export const isEntered = (name) => entered.has(name);
 // rfile lee siempre lo guardado: lo que muestra un dibujo despues de un paso es lo que ese paso guardo. Para ver el resultado de un paso,
 // muestra lo que lees (q:rfile(E)), no lo que calculas para guardar (que ya es el paso siguiente).
 export const dataRead = (name) => store.get(name) ?? null;
+// play("nombre"): como wfile, solo actua en el paso que confirma un cambio del dibujo (main.js lo activa mientras lo calcula): en un redibujo o al
+// arrastrar no suena nada. Los nombres se anotan y main.js los reproduce al terminar el paso, cada uno una vez.
+let soundsOn = false, soundHas = () => true;
+const soundQ = new Set();
+export const setSoundsActive = (on) => { soundsOn = !!on; if (!on) soundQ.clear(); };
+export const setSoundCatalog = (fn) => { soundHas = fn; }; // fn(nombre): 1 si el dibujo tiene ese sonido
+export function soundPlay(name) { if (!soundHas(name)) return 0; if (soundsOn) soundQ.add(name); return 1; }
+export function takeSounds() { const a = [...soundQ]; soundQ.clear(); return a; }
 export function dataWrite(name, text) { pending.set(name, text); }
 export const clearDataWrites = () => pending.clear();
 export function takeDataWrites() { const w = [...pending]; pending.clear(); return w; }

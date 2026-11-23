@@ -234,6 +234,13 @@ export const FUNC_GROUPS = [
     ],
   },
   {
+    title: 'Sonidos',
+    note: 'Archivos de audio que viajan dentro del dibujo (Archivo → Sonidos del dibujo…: se agregan con un nombre, se prueban y se borran). Al agregarlos se reducen (un canal, 16 kHz, 8 bits) para que el dibujo pese poco: unos 16 KB por segundo.',
+    rows: [
+      ['<code>play("nombre")</code>', 'Hace sonar el sonido del dibujo con ese nombre, una vez, en el paso que confirma un cambio del dibujo (un Enter en un texto: el mismo paso en que se ejecuta <code>wfile</code>). No suena al redibujar, al arrastrar, al abrir el dibujo ni en la simulación. Vale 1 si el dibujo tiene ese sonido y 0 si no (sin error), y se puede usar dentro de una función o de una biblioteca: <code>if(choca; play("explosion"); 0)</code>. Los navegadores solo dejan sonar después de un toque o una tecla.', '', '', ''],
+    ],
+  },
+  {
     title: 'Valores del dibujo',
     note: 'Nombres que una fórmula puede leer. Siempre valen lo que tiene el dibujo en ese momento.',
     rows: [

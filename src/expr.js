@@ -6,7 +6,7 @@
 
 import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem, docUnitsHook, autoUnit, userUnitNames } from './units.js';
 import { solveEqs } from './nsolve.js';
-import { dataRead, dataWrite, dataName, valueText, isEntered } from './datastore.js';
+import { dataRead, dataWrite, dataName, valueText, isEntered, soundPlay } from './datastore.js';
 import { GREEK, GREEK_UP, addCalcFns } from './asciimath.js';
 import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText, localNum, setSci } from './locale.js';
 
@@ -965,6 +965,7 @@ const SF = {
   lower: { n: [1, 1], f: (A) => strOrVec(A[0], 'lower(s)', (x) => x.toLowerCase()) },
   strtrim: { n: [1, 1], f: (A) => strOrVec(A[0], 'strtrim(s)', (x) => x.trim()) },
   reverse: { n: [1, 1], f: (A) => strOrVec(A[0], 'reverse(s)', (x) => [...x].reverse().join('')) },
+  play: { n: [1, 1], f: (A) => { if (typeof A[0]?.str !== 'string') throw new Error('play("nombre"): el nombre del sonido va entre comillas'); return { v: soundPlay(A[0].str.trim()), r: false }; } }, // 1 si el dibujo tiene ese sonido (suena al confirmar el paso), 0 si no
   isempty: { n: [1, 1], f: (A) => ({ v: typeof A[0]?.str === 'string' ? (A[0].str === '' ? 1 : 0) : A[0]?.strs ? (A[0].strs.every((x) => x === '') ? 1 : 0) : 0, r: false }) }, // una cadena vacia; un numero o un vector nunca lo estan
   numel: { n: [1, 1], f: (A) => ({ v: A[0]?.strs ? A[0].strs.length : isM(A[0]) ? A[0].m.length * A[0].m[0].length : 1, r: false }) }, // tambien un vector de cadenas (el de strsplit)
   replace: { n: [3, 3], f: (A) => SF.strrep.f(A) }, // como strrep (MATLAB tiene los dos)

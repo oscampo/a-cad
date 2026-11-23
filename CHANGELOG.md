@@ -2,6 +2,12 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## Sin publicar
+
+### Nuevo
+
+- Sonidos: **`play("nombre")`** hace sonar un sonido del dibujo, y **Archivo → Sonidos del dibujo…** los agrega, prueba y borra. Los sonidos viajan dentro del dibujo (como las imágenes): al agregar un archivo de audio (WAV, MP3, OGG, M4A…) se reduce a un canal, 16 kHz y 8 bits, unos 16 KB por segundo, para que el .json y GitHub no pesen. `play` suena una sola vez, en el paso que confirma un cambio (un Enter en un texto, el mismo paso en que se ejecuta `wfile`); no suena al redibujar, al arrastrar, al abrir el dibujo ni en la simulación. Vale 1 si el dibujo tiene ese sonido y 0 si no (un sonido que falta no rompe el cálculo), y se puede usar dentro de una función o de una biblioteca. Los navegadores solo dejan sonar después de un toque o una tecla. Pruebas en `test/sounds.test.mjs`.
+
 ## v2.9.4 (2026-11-23)
 
 ### Nuevo

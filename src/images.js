@@ -50,7 +50,7 @@ export const imageSrc = (doc, im) => doc.assets?.[im?.a] || null;
 // Copia para guardar: solo los datos que alguna imagen usa (los de imagenes borradas se quedan en memoria para deshacer)
 export function docForSave(doc) {
   if (!doc.assets) return doc;
-  const used = new Set(Object.values(doc.images || {}).map((im) => im.a));
+  const used = new Set([...Object.values(doc.images || {}).map((im) => im.a), ...Object.values(doc.sounds || {}).map((s) => s.a)]); // las imagenes y los sonidos
   const assets = Object.fromEntries(Object.entries(doc.assets).filter(([k]) => used.has(k)));
   const out = { ...doc };
   if (Object.keys(assets).length) out.assets = assets; else delete out.assets;
