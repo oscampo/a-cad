@@ -47,7 +47,7 @@ t('errores claros: ciclo sin fin, «:» fuera de un programa, local sin valor, e
   err('line(k:0, while(1, k:k+1), k)', new RegExp(`pasó de ${LOOP_MAX.toLocaleString('es')} vueltas`));
   err('max(s:1, 2)', /«:» asigna un valor solo dentro de line\(\), for\(\) o while\(\)/, { s: { v: 1, r: false } });
   err('line(z:z+1, z)', /«z» se usa antes de darle un valor/);
-  err('line(v:[1,2], v_1:5, v)', /Asignar a un elemento/);
+  assert.deepEqual(ev('line(v:[1,2], v_1:5, v)').mat, [[5, 2]]); // asignar a un elemento ya se puede (ver más abajo)
   err('line(m:3, m_1)', /no es un vector ni una matriz/);
   err('for(i, 1..3)', /for\(i, inicio\.\.fin, cuerpo\)/);
   err('line()', /line\(a, b, …\)/);
@@ -76,6 +76,37 @@ t('el 0 sin unidades por cualquier cosa sigue valiendo con cualquier unidad (la 
   assert.deepEqual(ev("0*'m").dim, [1, 0, 0, 0, 0, 0, 0]);
   assert.throws(() => ev("0'mm+2'kg"), /No se puede sumar/);
   assert.deepEqual(ev("2'm*3").dim, [1, 0, 0, 0, 0, 0, 0]);
+});
+
+t('asignar a un elemento dentro de un programa: p_i, A_(i,j) y cadenas, sobre una copia local; crece como en MATLAB', () => {
+  const q = { vec: [1, 2, 3], r: false };
+  assert.deepEqual(ev('line(p:[1, 2, 3], for(i, 1..3, p_i:p_i + 1), p)').mat, [[2, 3, 4]]);
+  assert.deepEqual(ev('line(q_1:9, q)', { q }).mat, [[9, 2, 3]]); assert.deepEqual(q.vec, [1, 2, 3]); // la del documento no cambia
+  assert.deepEqual(ev('line(p:[0], for(i, 1..4, p_i:i^2), p)').mat, [[1, 4, 9, 16]]); // crece con cada asignación
+  assert.deepEqual(ev('line(A:[1, 2; 3, 4], A_(3,3):7, A)').mat, [[1, 2, 0], [3, 4, 0], [0, 0, 7]]);
+  assert.deepEqual(evalExpr('line(s:["a", "b"], s_2:"z", s)', { vars: {}, allowMat: true, allowCplx: true }).strs, ['a', 'z']); // allowCplx: también cadenas
+  assert.deepEqual(ev("line(p:zeros(1, 3), p_2:5'mm, p)").dim, [1, 0, 0, 0, 0, 0, 0]); // ceros sin unidades: toma la del valor
+  assert.equal(ev('line(p:[1, 2], p_2:7)').value, 7); // vale lo asignado
+  assert.throws(() => ev("line(p:[1'mm, 2'mm], p_1:3'kN, p)"), /lleva m: no se le asigna N/);
+  assert.throws(() => ev('line(p:[1, 2], p_0:1, p)'), /entero desde 1/);
+  assert.throws(() => ev('line(A:[1, 2; 3, 4], A_2:0, A)'), /lleva dos índices/);
+  assert.throws(() => ev('line(p:[1, 2], p_1:[1, 2], p)'), /se le asigna un número/);
+});
+
+t('el reparto de semillas del Mancala: una función que modifica su parámetro y un script con while', () => {
+  const d = newDoc(); d.decimal = '.';
+  const T = (q, y) => d.texts[addText(d, addPoint(d, 0, y), q, {})];
+  T('$$capture(p, i):line(p_7:p_7 + p_i + p_(14-i), p_i:0, p_(14-i):0, p)$$', 100);
+  T('%sembrar(p, k):\n  # reparte las semillas del foso k, una por foso, en sentido antihorario\n  n:p_k\n  p_k:0\n  i:k\n  while n > 0:\n    i:mod(i, 14) + 1\n    p_i:p_i + 1\n    n:n - 1\n  p', 90);
+  const a = T('$$tab:[4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0]$$', 80);
+  T('$$r:sembrar(tab, 3)$$', 70);
+  T('$$c:capture([0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 5, 0, 0, 0], 3)$$', 65);
+  const outs = ['r_3', 'r_4', 'r_7', 'r_8', 'r_9', 'sum(r)', 'c_7', 'c_3', 'c_11', 'tab_3'].map((q, i) => [q, T('$$' + q + '=$$', 60 - i * 3)]);
+  assert.equal(textVarErrors(d).length, 0, textVarErrors(d).map((e) => e.msg).join('|'));
+  const val = (t) => clean(shownText(d, t).text).replace(/^\$\$.*=/, '').replace(/\$\$$/, '');
+  // foso 3 con 4 semillas: queda vacío y van a 4, 5, 6 y 7 (el almacén); 8 no recibe; se conservan las 48 semillas
+  assert.deepEqual(outs.map(([q, t]) => q + '=' + val(t)), ['r_3=0', 'r_4=5', 'r_7=1', 'r_8=4', 'r_9=4', 'sum(r)=48', 'c_7=8', 'c_3=0', 'c_11=0', 'tab_3=4']); // tab no cambió
+  void a;
 });
 
 console.log(`\n${passed} pruebas de programas pasaron`);

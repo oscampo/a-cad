@@ -1116,7 +1116,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   function stmt() {
     const k = peek(), n = toks[p + 1];
     if (n?.t === 'asg') {
-      if (k.t === 'idx') throw new Error(`Asignar a un elemento («${k.base}_(${k.src}):…») todavía no se puede: arma el vector completo`);
+      if (k.t === 'idx') { p += 2; return assignElem(k, cmp()); } // p_i:valor, A_(i,j):valor (sobre una copia local)
       if (k.t !== 'var' && k.t !== 'ufn') throw new Error(ASG_MSG());
       if (vars[k.v]?.fn && !vars[k.v].loc) throw new Error(`«${k.v}» es una función: dentro de un programa no se le puede asignar un valor`);
       p += 2;
@@ -1125,6 +1125,49 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       return a;
     }
     return cmp();
+  }
+  // Asignar a un elemento dentro de un programa: «p_i:p_i + 1», «A_(i,j):0», «s_2:"x"». Se trabaja sobre una copia local (la variable
+  // del documento no cambia fuera del programa). Como en MATLAB, un indice mas alla del final agranda el vector (o la matriz) con ceros.
+  // El valor tiene la magnitud del vector; un vector de ceros sin unidades toma la del primer valor que recibe. Vale el valor asignado.
+  function assignElem(k, a) {
+    const x = vars[k.base], name = `${k.base}_(${k.src})`;
+    if (!x || (!x.vec && !x.mat && !x.strs)) throw new Error(x?.unset ? `«${k.base}» se usa antes de darle un valor` : `«${k.base}» no es un vector ni una matriz: no se le asigna un elemento`);
+    const ix = splitIdx(k.src).map((s0) => {
+      if (!s0 || s0 === ':') throw new Error(`Para asignar, «${name}» lleva índices enteros (no «:»)`);
+      const v = evalExpr(s0, { vars, depth: depth + 1, globals }).value;
+      if (!Number.isInteger(Math.round(v * 1e9) / 1e9) || Math.round(v) < 1) throw new Error(`El índice «${s0}» de «${k.base}» debe ser un entero desde 1 (vale ${Math.round(v * 1e6) / 1e6})`);
+      return Math.round(v);
+    });
+    if (ix.length > 2) throw new Error('Un elemento lleva un índice (vector) o dos (matriz): A_(fila,columna)');
+    const grow = (n) => { if (n > LOOP_MAX) throw new Error(`«${name}»: el vector no puede pasar de ${LOOP_MAX.toLocaleString('es')} elementos`); };
+    if (x.strs) { // vector de cadenas
+      if (ix.length !== 1) throw new Error(`«${k.base}» es un vector de cadenas: lleva un índice`);
+      if (!isS(a) || a.strs) throw new Error(`«${k.base}» es un vector de cadenas: a «${name}» se le asigna una cadena`);
+      grow(ix[0]); const L = [...x.strs]; while (L.length < ix[0]) L.push(''); L[ix[0] - 1] = a.str;
+      vars[k.base] = { strs: L, loc: true };
+      return a;
+    }
+    if (isS(a)) throw new Error(`«${k.base}» es de números: a «${name}» no se le asigna una cadena`);
+    if (isM(a)) throw new Error(`A «${name}» se le asigna un número, no un vector ni una matriz`);
+    const m = (x.mat || [x.vec]).map((r) => [...r]), mi = x.mi ? x.mi.map((r) => [...r]) : null;
+    let R = m.length, C = m[0].length;
+    if (ix.length === 1 && R > 1 && C > 1) throw new Error(`«${k.base}» es una matriz de ${R}×${C}: lleva dos índices, ${k.base}_(fila,columna)`);
+    const [i, j] = ix.length === 2 ? ix : R === 1 ? [1, ix[0]] : [ix[0], 1];
+    let d = x.d;
+    if (!sameDim(d, a.d) && !zero0(a)) {
+      if (!d && m.every((r) => r.every((v) => v === 0))) d = a.d; // vector de ceros sin unidades: toma la del valor
+      else throw new Error(`«${name}» lleva ${unitMsg(d)}: no se le asigna ${unitMsg(a.d)}`);
+    }
+    grow(i * j);
+    while (m.length < i) { m.push(new Array(C).fill(0)); if (mi) mi.push(new Array(C).fill(0)); }
+    R = m.length;
+    if (j > C) { for (const r of m) while (r.length < j) r.push(0); if (mi) for (const r of mi) while (r.length < j) r.push(0); C = j; }
+    m[i - 1][j - 1] = a.v;
+    let mi2 = mi;
+    if (a.im) { mi2 ||= m.map((r) => r.map(() => 0)); mi2[i - 1][j - 1] = a.im; } else if (mi2) mi2[i - 1][j - 1] = 0;
+    const cplx = mi2 && mi2.some((r) => r.some((v) => v)) ? { mi: mi2 } : {};
+    vars[k.base] = R === 1 && !x.mat ? { vec: m[0], ...cplx, r: false, d, loc: true } : { mat: m, ...cplx, d, loc: true };
+    return a;
   }
   const progSep = (msg) => { if (peek()?.t !== 'sep') throw new Error(msg()); p++; };
   const closeP = (msg) => { if (!isOp(')')) throw new Error(peek()?.t === 'sep' ? msg() : 'Falta cerrar un paréntesis'); p++; };

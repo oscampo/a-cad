@@ -219,6 +219,7 @@ Pasos en orden y ciclos dentro de una fórmula, como en SMath. Dentro, `s:valor`
 | `line(a; b; …; r)` | Hace los pasos en orden y vale el último. | `line(a:2; b:a^2; a+b)` | `6` |
 | `for(i; inicio..fin; cuerpo)` | Repite el cuerpo con i = inicio, inicio+1, … hasta fin (si fin < inicio, ninguna vez). Con un vector en lugar del rango, i toma cada elemento. | `suma2(n):line(s:0; for(i; 1..n; s:s+i^2); s)`<br>`suma2(10)=` | `385` |
 | `while(condición; cuerpo)` | Repite el cuerpo mientras la condición se cumpla. Para varios pasos en el cuerpo, `line(…)`. | `line(k:0; while(k^2<50; k:k+1); k)` | `8` |
+| `v_i:valor`, `A_(i,j):valor` | Asigna un elemento de un vector o de una matriz (o de un vector de cadenas) dentro de un programa, sobre una copia local: la variable del documento no cambia afuera. Como en MATLAB, un índice más allá del final agranda el vector con ceros (sirve para armar un vector en un `for`). El valor lleva la magnitud del vector; un vector de ceros sin unidades toma la del primer valor. | `line(p:[1,2,3]; p_2:7; sum(p))` | `11` |
 
 ## Ecuaciones
 

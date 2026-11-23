@@ -496,3 +496,11 @@ A pedido	On demand
 Sugerencias: variables, funciones y bibliotecas (Ctrl+Espacio)	Suggestions: variables, functions and libraries (Ctrl+Space)
 Sugerencias	Suggestions
 Biblioteca {0}	Library {0}
+«{0}» no es un vector ni una matriz: no se le asigna un elemento	«{0}» is not a vector or a matrix: an element cannot be assigned
+Para asignar, «{0}» lleva índices enteros (no «:»)	To assign, «{0}» takes integer indices (not «:»)
+El índice «{0}» de «{1}» debe ser un entero desde 1 (vale {2})	The index «{0}» of «{1}» must be an integer from 1 (it is {2})
+«{0}»: el vector no puede pasar de {1} elementos	«{0}»: the vector cannot exceed {1} elements
+«{0}» es un vector de cadenas: a «{1}» se le asigna una cadena	«{0}» is a vector of strings: «{1}» takes a string
+«{0}» es de números: a «{1}» no se le asigna una cadena	«{0}» holds numbers: «{1}» cannot take a string
+«{0}» lleva {1}: no se le asigna {2}	«{0}» is in {1}: it cannot take {2}
+A «{0}» se le asigna un número, no un vector ni una matriz	«{0}» takes a number, not a vector or a matrix
