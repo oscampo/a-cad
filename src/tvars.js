@@ -1,6 +1,7 @@
 // Variables definidas en los textos: «nombre:valor» (dentro de una formula) asigna a «nombre» el valor de una expresion (sin DOM).
 // Se leen en el orden de la pagina (arriba a abajo, izquierda a derecha; ver textOrder): una variable vale lo de su ultima definicion anterior,
 // y las cotas ven lo que valen al final. El valor puede usar cotas y variables definidas antes. El texto la muestra en cursiva como «nombre:=valor».
+import { dataVersion } from './datastore.js';
 import { argChar, decimalMode } from './locale.js';
 const paramSep = () => (decimalMode() === ',' ? /;/ : /[;,]/); // parametros de una funcion: con coma decimal solo «;»
 import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName, rngReset, rngState, rngMix } from './expr.js';
@@ -499,7 +500,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map(), clearRes: new Map(), outRng: new Map(), rngOut: new Map(), cleared: new Set(), dimHide: new Map(), openEnd: new Set(), at: new Map(), solveRes: new Map(), goals: [] };
   const events = readingEvents(doc, probes);
   if (!events.some((e) => e.kind !== 'dim')) return st; // sin definiciones ni salidas: nada que leer
-  const key = JSON.stringify([events, dimVars, [...dimNames], angleRad(), unitsVersion()]);
+  const key = JSON.stringify([events, dimVars, [...dimNames], angleRad(), unitsVersion(), dataVersion()]); // dataVersion: lo que lee rfile
   if (key === memoKey) return memoSt; // las mismas definiciones, posiciones y cotas: el mismo resultado
   rngReset(); // rand, randn, randi: la misma secuencia en cada calculo del dibujo (ver expr.js)
   const check = (d) => { // ¿vale la definicion? (motivo si no)

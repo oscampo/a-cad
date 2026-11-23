@@ -5,10 +5,19 @@
 // dibujo (no al arrastrar ni en la simulacion), asi cada cambio avanza un paso, como cada recalculo de SMath. Sin DOM: el almacen real
 // (localStorage) lo pone main.js; en las pruebas es un Map.
 let store = new Map(); // nombre -> texto
+let view = null; // lo que lee rfile entre un paso y el siguiente (null: lo guardado ahora)
+let ver = 0; // cambia cuando cambia lo que lee rfile: el calculo de los textos lo usa en su memoria (ver textVarState)
 const pending = new Map();
-export function setDataBackend(b) { store = b; }
+export function setDataBackend(b) { store = b; view = null; ver++; }
+export const dataVersion = () => ver;
 export const dataStore = () => store;
-export const dataRead = (name) => store.get(name) ?? null;
+// Un paso escribe lo nuevo, pero hasta el paso siguiente rfile sigue leyendo lo que leyo ese paso: asi lo que se ve es lo que se calculo
+// en el (con «e:rfile(E)», «n:jugar(e, k)» y «wfile(n, E)» se ve n, no la jugada siguiente). setDataView(null): leer lo guardado.
+// La vista vale solo mientras el dibujo sea el del ultimo paso (guard): un cambio se valida y se calcula con lo guardado ahora.
+let viewOk = () => true;
+export const setDataView = (m) => { view = m; ver++; };
+export const setDataViewGuard = (f) => { viewOk = f; };
+export const dataRead = (name) => (view && viewOk() ? view.get(name) : store.get(name)) ?? null;
 export function dataWrite(name, text) { pending.set(name, text); }
 export const clearDataWrites = () => pending.clear();
 export function takeDataWrites() { const w = [...pending]; pending.clear(); return w; }

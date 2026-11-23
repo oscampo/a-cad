@@ -32,7 +32,7 @@ import { codeKeyEvent } from './codeedit.js';
 import { isScript, parseScript } from './script.js';
 import { suggest, openCall, defSource, builtinInfo } from './complete.js';
 import * as gh from './github.js';
-import { setDataBackend, dataStore, clearDataWrites, takeDataWrites, dataName } from './datastore.js';
+import { setDataBackend, dataStore, clearDataWrites, takeDataWrites, dataName, setDataView, setDataViewGuard } from './datastore.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, textVars, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg, ICONS } from './icons.js';
@@ -154,7 +154,7 @@ let saveTimer = 0, autosaveAt = 0, quotaWarned = false;
 // ---- datos de wfile()/rfile() (ver datastore.js): en este navegador (localStorage «acad-data:nombre»), comunes a todos los dibujos.
 // Se escriben al confirmar un cambio del dibujo (afterChange), no al arrastrar ni en la simulacion, y solo si el dibujo cambio desde la
 // ultima escritura: tocar para seleccionar o mover la vista no avanza un paso (con «q:rfile(X)» y «wfile(q+1, X)», cada cambio suma 1).
-const DATA_PRE = 'acad-data:';
+const DATA_PRE = 'acad-data:', DATA_VIEW = 'acad-data-view';
 const dataMem = new Map();
 try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith(DATA_PRE)) { const v = JSON.parse(localStorage.getItem(k)); if (typeof v?.t === 'string') dataMem.set(k.slice(DATA_PRE.length), v); } } } catch { /* sin almacenamiento */ }
 setDataBackend({
@@ -167,19 +167,24 @@ window.addEventListener('storage', (e) => { // otra pestaña escribio: rfile ve 
   if (!e.key?.startsWith(DATA_PRE)) return;
   const n = e.key.slice(DATA_PRE.length);
   try { const v = e.newValue && JSON.parse(e.newValue); if (v?.t !== undefined) dataMem.set(n, v); else dataMem.delete(n); } catch { return; }
-  draw();
+  if (!usesWfile()) { setDataView(null); draw(); }
 });
 let dataSig = null, dataDoc = null, dataToast = false;
+setDataViewGuard(() => dataSig !== null && JSON.stringify(withoutAssets(doc)) === dataSig); // el dibujo del ultimo paso
 const usesWfile = () => Object.values(doc.texts || {}).some((t) => /wfile\s*\(/i.test(String(t.text ?? '')));
 function flushData() {
-  if (sim || drag || !usesWfile()) return;
+  if (!usesWfile()) { setDataView(null); return; } // un dibujo que solo lee: ve lo guardado ahora
+  if (sim || drag) return;
   if (dataDoc !== doc.texts) { dataDoc = doc.texts; dataToast = false; } // otro dibujo (abierto o deshecho): el aviso vuelve a salir una vez
   const sig = JSON.stringify(withoutAssets(doc));
   if (sig === dataSig) return;
   dataSig = sig;
-  clearDataWrites();
+  const st = dataStore(), read = new Map(st.entries().map(([n, v]) => [n, v.t])); // lo que lee este paso
+  setDataView(null); clearDataWrites();
   try { textVars(doc); for (const t of Object.values(doc.texts)) if (/wfile\s*\(/i.test(t.text)) shownText(doc, t); } catch { /* los errores ya se muestran en el dibujo */ }
-  const st = dataStore(), done = [];
+  const done = [];
+  setDataView(read); // hasta el paso siguiente, rfile lee lo mismo que este paso
+  try { localStorage.setItem(DATA_VIEW, JSON.stringify([...read])); } catch { /* sin almacenamiento */ } // al reabrir la app se ve lo mismo
   for (const [n, t] of takeDataWrites()) if (st.get(n) !== t) { st.set(n, t); done.push(n); }
   if (done.length && !dataToast) { dataToast = true; setTimeout(() => toast(`Este dibujo guarda datos con wfile: ${done.join(', ')} (Archivo → Datos)`), 1600); } // despues del aviso «Abierto»
 }
@@ -200,7 +205,7 @@ function openDataDlg() {
       const ex = document.createElement('button'); ex.type = 'button'; ex.textContent = 'Exportar'; ex.title = 'Descarga el archivo de texto';
       ex.onclick = () => download(n, new Blob([v.t], { type: 'text/plain' }));
       const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Borrar';
-      del.onclick = () => { if (!confirm(`¿Borrar los datos «${n}»? Los dibujos que lo leen con rfile darán ⚠ hasta que se vuelva a escribir.`)) return; dataStore().delete(n); dataSig = null; render(); draw(); };
+      del.onclick = () => { if (!confirm(`¿Borrar los datos «${n}»? Los dibujos que lo leen con rfile darán ⚠ hasta que se vuelva a escribir.`)) return; dataStore().delete(n); setDataView(null); render(); draw(); };
       row.append(info, ex, del); box.appendChild(row);
     }
   };
@@ -212,7 +217,7 @@ function openDataDlg() {
       try { const n = dataName(f.name), t = (await f.text()).trim(); if (dataStore().get(n) !== undefined && !confirm(`Ya hay datos «${n}». ¿Reemplazarlos?`)) continue; dataStore().set(n, t); } catch (err) { bad.push(`${f.name}: ${err.message}`); }
     }
     if (bad.length) toast(bad.join(' · '));
-    render(); draw();
+    setDataView(null); render(); draw();
   };
   render(); dlg.showModal();
 }
@@ -2755,12 +2760,17 @@ function txEditLayout() {
   txLiveBox.style.top = Math.max(2, Math.min(tl.y - 4, cv.clientHeight - Hh - 2)) + 'px';
 }
 // Guarda la edicion en el lugar. false: lo escrito da un error (se deshizo, con su aviso) y la entrada sigue abierta para corregirlo.
-function commitTextEdit() {
+function commitTextEdit(enter = false) {
   const id = txState.edit, t = doc.texts[id], kind = txState.kind;
   if (!t) { endTextLive(); return true; }
   const raw = txLive.value.replace(/\s+$/, '');
   const text = kind === 'eq' ? '$$' + raw.trim() + '$$' : raw;
-  if (!raw.trim() || text === t.text) { endTextLive(); return true; } // vacio: queda como estaba (para borrarlo, seleccionalo)
+  if (!raw.trim() || text === t.text) { // vacio o sin cambios: queda como estaba (para borrarlo, seleccionalo)
+    const again = enter && text === t.text && usesWfile(); // Enter sin cambios en un dibujo con wfile: un paso mas (como confirmar en SMath)
+    endTextLive();
+    if (again) { dataSig = null; afterChange(); }
+    return true;
+  }
   const before = textVarErrors(doc);
   pushUndo(); t.text = text;
   if (!textEditOk(before)) { txLayout(); return false; }
@@ -2768,9 +2778,9 @@ function commitTextEdit() {
   return true;
 }
 // Dibuja lo escrito como un texto nuevo y abre la entrada siguiente. false: no se pudo (la entrada sigue abierta para corregirla).
-function commitTextLive() {
+function commitTextLive(enter = false) {
   if (!txState) return false;
-  if (txState.edit) return commitTextEdit();
+  if (txState.edit) return commitTextEdit(enter);
   const raw = txLive.value.replace(/\s+$/, ''), asText = TX_MARK.test(raw), body = asText ? raw.slice(1) : raw;
   if (!body.trim()) { endTextLive(); return true; }
   const text = raw[0] === '%' ? raw : asText ? body : '$$' + body.trim() + '$$'; // un script se guarda tal cual (colapsado al dibujarlo)
@@ -2802,7 +2812,7 @@ txLive.addEventListener('keydown', (e) => {
   e.stopPropagation(); // ningun atajo del dibujo mientras se escribe
   if (ccKey(e)) return; // la lista de sugerencias abierta: flechas, Enter/Tab aceptan, Esc la cierra
   if (e.key === 'Escape') { e.preventDefault(); endTextLive(); return; }
-  if (txState?.edit && e.key === 'Enter' && !txIsScript() && !e.shiftKey && !e.isComposing) { e.preventDefault(); commitTextLive(); return; }
+  if (txState?.edit && e.key === 'Enter' && !txIsScript() && !e.shiftKey && !e.isComposing) { e.preventDefault(); commitTextLive(true); return; }
   if (txIsScript()) { // en un script Enter hace otra linea (con su sangria) y Tab sangra; Shift+Enter (o Ctrl/Cmd+Enter) lo dibuja
     if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); commitTextLive(); return; }
     if (codeKeyEvent(e, txLive)) return;
@@ -6221,6 +6231,10 @@ async function boot() {
   try {
     const s = JSON.parse(localStorage.getItem(STORE) || 'null');
     if (s?.doc) { autosaveAt = Number(s.at) || 0; loadDoc(s.doc); if (s.view) view = s.view; if (s.cur) cur = { ...cur, ...s.cur }; if (s.opts) Object.assign(opts, s.opts); }
+    if (s?.doc && usesWfile()) { // reabrir la app no es un paso (repetiria lo ultimo): se ve lo que calculo el ultimo paso
+      dataSig = JSON.stringify(withoutAssets(doc)); dataDoc = doc.texts; dataToast = true;
+      try { const v = JSON.parse(localStorage.getItem(DATA_VIEW) || 'null'); if (Array.isArray(v)) setDataView(new Map(v)); } catch { /* sin vista guardada */ }
+    }
   } catch { /* sin estado previo */ }
   $('intMs').value = String(opts.intMs); $('lockDeg').value = String(opts.lockDeg);
   for (const [id, key] of [['tGrid', 'grid'], ['tSnap', 'snap'], ['tCons', 'cons'], ['tTouch', 'touch'], ['tPts', 'pts'], ['tDims', 'dims'], ['tTexts', 'texts'], ['tLock', 'lock']]) $(id).setAttribute('aria-pressed', String(opts[key]));
