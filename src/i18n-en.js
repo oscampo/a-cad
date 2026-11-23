@@ -1250,6 +1250,8 @@ export const EN = {
   "«{0}» lleva {1}: no se le asigna {2}": "«{0}» is in {1}: it cannot take {2}",
   "A «{0}» se le asigna un número, no un vector ni una matriz": "«{0}» takes a number, not a vector or a matrix",
   "Mostrar solo el resultado (expr= se dibuja como su valor)": "Show only the result (expr= is drawn as its value)",
+  "Editando el script · Shift+Enter guarda · Esc lo deja como estaba": "Editing the script · Shift+Enter saves · Esc leaves it as it was",
+  "Editando el texto · Enter guarda, Shift+Enter otra línea · Esc lo deja como estaba": "Editing the text · Enter saves, Shift+Enter new line · Esc leaves it as it was",
   "Detener": "Stop",
   "Elementos": "Elements",
   "Restricciones": "Constraints",

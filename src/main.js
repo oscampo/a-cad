@@ -1223,7 +1223,7 @@ function paintFrame(c, f, t, color, sc = view.s) {
 function drawTexts(c, o) {
   for (const [id, t] of shownEntries(doc, 'texts')) {
     const P = doc.pts[t.pt];
-    if (!P) continue;
+    if (!P || (o.ui && txState?.edit === id)) continue; // el que se edita en el lugar: la entrada ocupa su sitio
     const pose = textPose(doc, t);
     const S = toScreen(P), f = textFrame(shownText(doc, t), measureRel, pose.anchor), sc = view.s;
     c.save();
@@ -1804,6 +1804,7 @@ function selectAt(p) {
     return;
   }
   selGraph = null;
+  if (txState?.edit && !commitTextLive()) return; // tocar fuera guarda la edicion en el lugar (si da error, sigue abierta)
   let h = hitTest(p.x, p.y);
   // Un texto no se selecciona con un toque (en documentos con muchos textos se agarraban sin querer): se encierra con un cuadro.
   // Doble toque abre sus propiedades, y un toque sobre un enlace lo selecciona para mostrar su pastilla. Si no, el toque es de lo de debajo.
@@ -1812,6 +1813,7 @@ function selectAt(p) {
     lastTxTap = dblTx ? null : { id: h.id, t: now, x: p.x, y: p.y };
     if (dblTx) { sel = [h]; lastTap = null; afterChange(); openProps(h); return; }
     if (textLinkAt(doc, doc.texts[h.id], toModel(p.x, p.y), measureRel, 4 / view.s)) { sel = [h]; afterChange(); return; }
+    if (!doc.texts[h.id].lib && !sim) { sel = []; afterChange(); startTextEdit(h.id, p); return; } // un toque lo edita en el lugar (el cursor donde se toco)
     if (!txTapHint) { txTapHint = true; toast('Para seleccionar un texto, enciérralo con un cuadro (arrastra desde él o desde un lugar vacío); doble toque abre sus propiedades'); }
     h = hitTest(p.x, p.y, true);
   }
@@ -2576,10 +2578,11 @@ function textEditOk(before) {
 // Esc, Enter en una entrada vacia o cambiar de herramienta terminan (lo ya escrito se dibuja al cambiar de herramienta).
 const txLiveBox = $('txLiveBox'), txLive = $('txLive');
 const TX_MARK = /^["“” ]/; // «'» queda para las unidades («x:valor'unidad»)
-const txIsText = () => TX_MARK.test(txLive.value);
-const txIsScript = () => txLive.value[0] === '%'; // «%f(x):» y el programa con sangria (ver script.js)
+const txIsText = () => (txState?.edit ? txState.kind === 'text' : TX_MARK.test(txLive.value));
+const txIsScript = () => (txState?.edit ? txState.kind === 'script' : txLive.value[0] === '%'); // «%f(x):» y el programa con sangria (ver script.js)
 function txLayout() {
   if (!txState) return;
+  if (txState.edit) { txEditLayout(); return; }
   const P = txState.sUp.type === 'pt' ? doc.pts[txState.sUp.id] : txState.sUp;
   if (!P) return;
   const S = toScreen(P), h = cur.tx.h ?? niceHeight(), px = Math.max(13, Math.min(56, h * view.s));
@@ -2595,10 +2598,113 @@ function txLayout() {
   txLiveBox.style.left = Math.max(26, Math.min(S.x - ax * W, cv.clientWidth - W - 2)) + 'px'; // a la izquierda queda sitio para la insignia
   txLiveBox.style.top = Math.max(24, Math.min(S.y - ay * Hh, cv.clientHeight - Hh - 2)) + 'px';
 }
-function endTextLive() { txState = null; txLiveBox.hidden = true; txLive.value = ''; txLive.blur(); ccClose(); }
+function endTextLive() { const ed = txState?.edit; txState = null; txLiveBox.hidden = true; txLiveBox.classList.remove('edit'); txLive.value = ''; txLive.blur(); ccClose(); if (ed) draw(); }
+
+// ---- edicion en el lugar: un toque sobre un texto abre la misma entrada encima de el, con su fuente (la ecuacion sin «$$», el texto
+// normal tal cual, el script con su codigo) y el cursor donde se toco. Enter (Shift+Enter en un script) o tocar fuera lo guardan;
+// Esc lo deja como estaba. Mientras se edita, el texto no se dibuja (la entrada ocupa su lugar). El doble toque sigue abriendo sus propiedades.
+function textEditSrc(t) {
+  if (isScript(t.text)) return { kind: 'script', src: t.text };
+  const m = /^\$\$([\s\S]*)\$\$$/.exec(t.text);
+  if (m && !m[1].includes('$$')) return { kind: 'eq', src: m[1] };
+  return { kind: 'text', src: t.text };
+}
+// La esquina superior izquierda del texto en pantalla y su marco (sistema local: x a la derecha, y hacia abajo, en px de pantalla).
+function textScreenFrame(t) {
+  const pose = textPose(doc, t), f = textFrame(shownText(doc, t), measureRel, pose.anchor), S = toScreen(doc.pts[t.pt]);
+  const a = (pose.ang * Math.PI) / 180, co = Math.cos(a), si = Math.sin(a), sc = view.s;
+  const toS = (x, y) => ({ x: S.x + x * co + y * si, y: S.y - x * si + y * co }); // como drawTexts: rotate(-ang)
+  const toL = (p) => { const dx = p.x - S.x, dy = p.y - S.y; return { x: (dx * co - dy * si) / sc, y: (dx * si + dy * co) / sc }; }; // a unidades del modelo
+  return { f, tl: toS(f.xmin * sc, -f.ymax * sc), toL };
+}
+// El lugar del cursor en la fuente para un toque en p (pantalla). Texto normal sin formulas: la linea y el caracter mas cercanos, medidos;
+// con formulas o un script: la linea por la altura y la columna en proporcion al ancho (lo dibujado no coincide letra a letra con la fuente).
+function textTapCaret(t, ed, p) {
+  const { f, toL } = textScreenFrame(t), L = toL(p), lines = ed.src.split('\n');
+  const u = Math.max(0, Math.min(1, (L.x - f.xmin) / f.w)), v = Math.max(0, Math.min(0.9999, (L.y + f.ymax) / f.hh));
+  if (ed.kind === 'script' && !t.open) return lines[0].length; // colapsado: al final de la firma
+  let li, col;
+  if (ed.kind === 'text' && !f.math && f.lines.length === lines.length) {
+    li = Math.min(lines.length - 1, Math.max(0, Math.floor((L.y + f.ymax) / (LINE_SPACING * t.h))));
+    const x = (L.x - f.xmin) / t.h, ln = lines[li];
+    col = 0; let best = Infinity;
+    for (let k = 0; k <= ln.length; k++) { const d = Math.abs(measureRel(ln.slice(0, k), t.font) - x); if (d < best) { best = d; col = k; } }
+  } else if (f.math && !(ed.kind === 'script')) {
+    const k = mathTapCaret(t, f, ed, L);
+    if (k != null) return k;
+    li = Math.floor(v * lines.length); col = Math.round(u * lines[li].length);
+  } else {
+    li = Math.floor(v * lines.length);
+    col = Math.round(u * lines[li].length);
+  }
+  return lines.slice(0, li).reduce((n, l) => n + l.length + 1, 0) + col;
+}
+// Con formulas: el tramo dibujado mas cercano al toque y su lugar en la fuente. Los tramos se buscan en orden en la fuente («a», «10», «=»
+// de «a*10=»); los que no estan escritos (el valor de «=50», «·» por «*», «:=») toman el lugar del anterior.
+const TAP_SYM = { '·': '*', '−': '-', '×': '*', '≤': '<=', '≥': '>=', '≠': '!=', ':=': ':' };
+function mathTapCaret(t, f, ed, L) {
+  const prims = framePrims(f, t).filter((q) => q.k === 't' && q.s.trim());
+  if (!prims.length) return null;
+  const src = ed.src;
+  let pos = 0;
+  const at = prims.map((q) => {
+    const s = TAP_SYM[q.s] ?? q.s, k = src.indexOf(s, pos);
+    if (k >= 0 && k - pos < 40) { pos = k + s.length; return { k, n: s.length }; }
+    return { k: pos, n: 0 };
+  });
+  const x = L.x, y = -L.y; // y del modelo (arriba)
+  let best = -1, bd = Infinity;
+  prims.forEach((q, i) => {
+    const w = q.w > 0 ? q.w : measureRel(q.s, q.font, q.it) * q.size;
+    const dx = x < q.x ? q.x - x : x > q.x + w ? x - (q.x + w) : 0, dy = Math.abs(y - (q.y + q.size * 0.3));
+    const d = dx + 2 * Math.max(0, dy - q.size * 0.5);
+    if (d < bd) { bd = d; best = i; }
+  });
+  const q = prims[best], m = at[best], w = q.w > 0 ? q.w : measureRel(q.s, q.font, q.it) * q.size;
+  if (!m.n) return m.k;
+  return m.k + Math.max(0, Math.min(m.n, Math.round(((x - q.x) / w) * m.n)));
+}
+function startTextEdit(id, p) {
+  if (txState && txLive.value.trim() && !commitTextLive()) return;
+  const t = doc.texts[id], ed = textEditSrc(t);
+  txState = { edit: id, kind: ed.kind, orig: t.text, t0: performance.now(), tap: { x: p.x, y: p.y } };
+  txLive.value = ed.src; txLiveBox.hidden = false; txLiveBox.classList.add('edit');
+  txLayout(); draw();
+  const k = textTapCaret(t, ed, p);
+  txLive.focus(); txLive.setSelectionRange(k, k); ccClose();
+}
+function txEditLayout() {
+  const t = doc.texts[txState.edit];
+  if (!t || !doc.pts[t.pt]) { endTextLive(); return; }
+  const { tl } = textScreenFrame(t), px = Math.max(13, Math.min(56, t.h * view.s));
+  txLive.style.fontSize = px + 'px';
+  txLive.style.fontFamily = txIsText() ? fontCss(t.font) : fontCss('mono');
+  const lines = txLive.value.split('\n'), mx = Math.max(4, ...lines.map((l) => l.length));
+  const W = Math.min(cv.clientWidth * 0.92, Math.max(120, mx * px * (txIsText() ? 0.55 : 0.62) + 26)), Hh = lines.length * px * 1.25 + 6;
+  txLive.rows = lines.length; txLive.style.height = Hh - 2 + 'px';
+  txLiveBox.style.width = W + 'px';
+  txLiveBox.dataset.tag = txIsScript() ? '{}' : txIsText() ? 'A' : 'α';
+  txLiveBox.title = txIsScript() ? 'Editando el script · Shift+Enter guarda · Esc lo deja como estaba' : 'Editando el texto · Enter guarda, Shift+Enter otra línea · Esc lo deja como estaba';
+  txLiveBox.style.left = Math.max(26, Math.min(tl.x - 7, cv.clientWidth - W - 2)) + 'px';
+  txLiveBox.style.top = Math.max(2, Math.min(tl.y - 4, cv.clientHeight - Hh - 2)) + 'px';
+}
+// Guarda la edicion en el lugar. false: lo escrito da un error (se deshizo, con su aviso) y la entrada sigue abierta para corregirlo.
+function commitTextEdit() {
+  const id = txState.edit, t = doc.texts[id], kind = txState.kind;
+  if (!t) { endTextLive(); return true; }
+  const raw = txLive.value.replace(/\s+$/, '');
+  const text = kind === 'eq' ? '$$' + raw.trim() + '$$' : raw;
+  if (!raw.trim() || text === t.text) { endTextLive(); return true; } // vacio: queda como estaba (para borrarlo, seleccionalo)
+  const before = textVarErrors(doc);
+  pushUndo(); t.text = text;
+  if (!textEditOk(before)) { txLayout(); return false; }
+  endTextLive(); afterChange();
+  return true;
+}
 // Dibuja lo escrito como un texto nuevo y abre la entrada siguiente. false: no se pudo (la entrada sigue abierta para corregirla).
 function commitTextLive() {
   if (!txState) return false;
+  if (txState.edit) return commitTextEdit();
   const raw = txLive.value.replace(/\s+$/, ''), asText = TX_MARK.test(raw), body = asText ? raw.slice(1) : raw;
   if (!body.trim()) { endTextLive(); return true; }
   const text = raw[0] === '%' ? raw : asText ? body : '$$' + body.trim() + '$$'; // un script se guarda tal cual (colapsado al dibujarlo)
@@ -2630,6 +2736,7 @@ txLive.addEventListener('keydown', (e) => {
   e.stopPropagation(); // ningun atajo del dibujo mientras se escribe
   if (ccKey(e)) return; // la lista de sugerencias abierta: flechas, Enter/Tab aceptan, Esc la cierra
   if (e.key === 'Escape') { e.preventDefault(); endTextLive(); return; }
+  if (txState?.edit && e.key === 'Enter' && !txIsScript() && !e.shiftKey && !e.isComposing) { e.preventDefault(); commitTextLive(); return; }
   if (txIsScript()) { // en un script Enter hace otra linea (con su sangria) y Tab sangra; Shift+Enter (o Ctrl/Cmd+Enter) lo dibuja
     if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); commitTextLive(); return; }
     if (codeKeyEvent(e, txLive)) return;
@@ -2638,6 +2745,14 @@ txLive.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (txLive.value.trim()) commitTextLive(); else endTextLive(); }
 });
 txLive.addEventListener('input', () => { txLayout(); ccUpdate(); });
+// el segundo toque de un doble toque cae sobre la entrada que abrio el primero: deja el texto como estaba y abre sus propiedades
+txLiveBox.addEventListener('pointerdown', (e) => {
+  if (!txState?.edit || performance.now() - txState.t0 > 450) return;
+  const r = cv.getBoundingClientRect(), q = { x: e.clientX - r.left, y: e.clientY - r.top };
+  if (dist(q, txState.tap) > 24) return;
+  e.preventDefault();
+  const id = txState.edit; endTextLive(); lastTxTap = null; sel = [{ k: 'tx', id }]; afterChange(); openProps(sel[0]);
+});
 txLive.addEventListener('click', () => ccUpdate(true));
 txLive.addEventListener('keyup', (e) => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) ccUpdate(true); else ccCheck(); });
 txLive.addEventListener('compositionend', () => setTimeout(ccUpdate, 0));
@@ -2781,7 +2896,7 @@ document.addEventListener('pointerdown', (e) => { // un toque fuera de la lista 
 }, true);
 $('txCc').onpointerdown = (e) => e.preventDefault();
 $('txCc').onclick = () => { if (cc && !ccPop.hidden) { ccClose(); return; } cc = { forced: true, items: [] }; ccUpdate(); txLive.focus(); };
-attachAutoPair(txLive, () => !TX_MARK.test(txLive.value)); // [] () {} $$ <> `` se cierran solos (ver autopair.js)
+attachAutoPair(txLive, () => !txIsText()); // [] () {} $$ <> `` se cierran solos (ver autopair.js)
 attachGreek(document, '#dlgGc'); // «\a» -> α y Ctrl+G en todos los campos de texto, menos la configuracion de GitHub (ver greek.js)
 function placeText(sUp) { startTextLive(sUp); }
 
@@ -3728,6 +3843,7 @@ function fitView() {
 }
 function loadDoc(d) {
   if (!d || typeof d !== 'object' || !d.pts || !d.lines || !d.circles) throw new Error('Archivo no válido');
+  if (txState) endTextLive(); // una edicion abierta no pasa al dibujo nuevo
   doc = { n: 0, cons: {}, hatches: {}, ltypes: {}, arcs: {}, ellipses: {}, texts: {}, splines: {}, traces: {}, cn: {}, layers: {}, curLayer: null, ...d };
   ensureNumbers(doc); ensureMarkRefs(doc);
   const nMig = migrateCalcDoc(doc); // dibujos anteriores a la v2: «x{=v}» -> «$x:v$», «[=e]» -> «$e=$»
@@ -3769,7 +3885,7 @@ async function exportPNG() {
 
 // ---------------------------------------------------------------- cableado de la interfaz
 function setTool(t) {
-  if (txState && t !== 'text') { if (txLive.value.trim()) commitTextLive(); endTextLive(); } // lo escrito se dibuja al cambiar de herramienta
+  if (txState && (t !== 'text' || txState.edit)) { if (txLive.value.trim()) commitTextLive(); endTextLive(); } // lo escrito se dibuja al cambiar de herramienta
   if (pending) { if (tool === 'spline' && pending.ids?.length >= 2) finishSpline(false); else { pending = null; cleanup(doc); } }
   toolName = t; consMode = t in CONS_TOOLS; tool = BASE_TOOL[t] || t; if (t !== 'select') selGraph = null;
   document.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === t));

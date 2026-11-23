@@ -51,6 +51,7 @@ main { display: grid; grid-template-columns: 1fr 300px; min-height: 0; }
 #pgScroll.drag #pgThumb { cursor: grabbing; }
 /* Entrada directa de texto (herramienta Texto): se escribe sobre el dibujo; la etiqueta de arriba dice el modo. */
 #txLiveBox { position: absolute; z-index: 25; border: 1.5px dashed var(--accent); border-radius: 4px; background: color-mix(in srgb, var(--bg) 90%, transparent); }
+#txLiveBox.edit { border-style: solid; } /* editando un texto existente en el lugar */
 #txLiveBox::before { content: attr(data-tag); position: absolute; right: 100%; top: -1.5px; margin-right: 3px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 4px; border-radius: 4px; background: var(--accent); color: var(--accent-fg); font: 600 13px/20px system-ui, sans-serif; text-align: center; pointer-events: none; }
 #txCc { position: absolute; right: 100%; top: 22px; margin-right: 3px; width: 22px; height: 22px; min-height: 0; padding: 0; border: 1px solid var(--accent); border-radius: 4px; background: var(--bg); color: var(--accent); font: italic 700 12px Georgia, serif; cursor: pointer; }
 #ccPop { position: absolute; z-index: 30; display: flex; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 22px rgba(0,0,0,.18); overflow: hidden; max-width: calc(100% - 12px); }
