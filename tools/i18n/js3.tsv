@@ -504,3 +504,4 @@ El índice «{0}» de «{1}» debe ser un entero desde 1 (vale {2})	The index «
 «{0}» es de números: a «{1}» no se le asigna una cadena	«{0}» holds numbers: «{1}» cannot take a string
 «{0}» lleva {1}: no se le asigna {2}	«{0}» is in {1}: it cannot take {2}
 A «{0}» se le asigna un número, no un vector ni una matriz	«{0}» takes a number, not a vector or a matrix
+Mostrar solo el resultado (expr= se dibuja como su valor)	Show only the result (expr= is drawn as its value)

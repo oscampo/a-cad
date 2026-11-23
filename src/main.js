@@ -5024,6 +5024,12 @@ function openProps(h) {
     rd.type = 'checkbox'; rd.checked = o.readable !== false; rd.style.cssText = 'width:22px;height:22px;min-height:22px;margin:0;flex:none';
     rd.onchange = () => txSet('readable', rd.checked);
     body.appendChild(propRow('Legible (gira 180° el texto que quedaría boca abajo)', rd));
+    if (!isScript(o.text) && !o.lib) { // «expr=» se dibuja como su valor solo: para un tablero o una tabla de resultados
+      const vo = document.createElement('input');
+      vo.type = 'checkbox'; vo.checked = !!o.valOnly; vo.style.cssText = 'width:22px;height:22px;min-height:22px;margin:0;flex:none';
+      vo.onchange = () => { pushUndo(); if (vo.checked) propObj().valOnly = true; else delete propObj().valOnly; afterChange(); };
+      body.appendChild(propRow('Mostrar solo el resultado (expr= se dibuja como su valor)', vo));
+    }
     const an = document.createElement('div');
     an.className = 'txa';
     const markA = () => [...an.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.a === (propObj()?.anchor || 'bl'))));

@@ -188,6 +188,7 @@ function textValue1(doc, t) {
   const piece = (p) => {
     if (p.k === 'lit') return p.closed ? p.s : '`' + p.s + ' ⚠'; // literal: se dibuja, no se calcula
     if (p.k === 'code') return badU(p) ? wrapNames(p.s) + ' ⚠' : wrapNames(p.s);
+    if (p.k === 'out' && t.valOnly) return p.pre + outVal(p, true) + p.post; // «Mostrar solo el resultado»: expr= -> valor (un tablero, una tabla)
     if (p.k === 'out') return p.pre + outStr(p.expr, (q) => showU(wrapNames(libPre(q)))) + '=' + outVal(p, true) + p.post; // expr= -> expr=valor
     const name = normName(p.name), shown = name.includes('_(') ? NM0 + name + NM1 : name; // x:valor -> x:=valor (en cursiva)
     const dk = tid + ':' + idx++, bad = st.bad.has(dk);

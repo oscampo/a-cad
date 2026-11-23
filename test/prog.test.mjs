@@ -93,6 +93,17 @@ t('asignar a un elemento dentro de un programa: p_i, A_(i,j) y cadenas, sobre un
   assert.throws(() => ev('line(p:[1, 2], p_1:[1, 2], p)'), /se le asigna un número/);
 });
 
+t('«Mostrar solo el resultado» (valOnly): cada «expr=» se dibuja como su valor; sin la propiedad, como siempre', () => {
+  const d = newDoc(); d.decimal = '.';
+  const T = (q, y, o = {}) => Object.assign(d.texts[addText(d, addPoint(d, 0, y), q, {})], o);
+  T("$$fo:[4, 0, 7]$$", 100); T("$$F:2.5'kN$$", 90);
+  const a = T('$$fo_3=$$', 80, { valOnly: true }), b = T('$$F=$$', 70, { valOnly: true }), c = T('$$fo_3=$$', 60), e = T('$$k:2\nk*fo_1=$$', 50, { valOnly: true });
+  const s = (x) => clean(shownText(d, x).text);
+  assert.equal(s(a), '$$7$$'); assert.equal(s(b), '$$2.5 " kN"$$'); // con su unidad (como en «F=»)
+  assert.equal(s(c), '$$fo_3=7$$'); // sin la propiedad, como siempre
+  assert.equal(s(e), '$$k:=2\n8$$'); // las definiciones se dibujan igual; solo las salidas cambian
+});
+
 t('el reparto de semillas del Mancala: una función que modifica su parámetro y un script con while', () => {
   const d = newDoc(); d.decimal = '.';
   const T = (q, y) => d.texts[addText(d, addPoint(d, 0, y), q, {})];
