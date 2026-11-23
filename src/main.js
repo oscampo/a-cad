@@ -32,7 +32,7 @@ import { codeKeyEvent } from './codeedit.js';
 import { isScript, parseScript } from './script.js';
 import { suggest, openCall, defSource, builtinInfo } from './complete.js';
 import * as gh from './github.js';
-import { setDataBackend, dataStore, clearDataWrites, takeDataWrites, dataName, setDataView, setDataViewGuard } from './datastore.js';
+import { setDataBackend, dataStore, clearDataWrites, takeDataWrites, dataName, dataChanged } from './datastore.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, textVars, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg, ICONS } from './icons.js';
@@ -154,38 +154,39 @@ let saveTimer = 0, autosaveAt = 0, quotaWarned = false;
 // ---- datos de wfile()/rfile() (ver datastore.js): en este navegador (localStorage «acad-data:nombre»), comunes a todos los dibujos.
 // Se escriben al confirmar un cambio del dibujo (afterChange), no al arrastrar ni en la simulacion, y solo si el dibujo cambio desde la
 // ultima escritura: tocar para seleccionar o mover la vista no avanza un paso (con «q:rfile(X)» y «wfile(q+1, X)», cada cambio suma 1).
-const DATA_PRE = 'acad-data:', DATA_VIEW = 'acad-data-view';
+const DATA_PRE = 'acad-data:';
 const dataMem = new Map();
 try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith(DATA_PRE)) { const v = JSON.parse(localStorage.getItem(k)); if (typeof v?.t === 'string') dataMem.set(k.slice(DATA_PRE.length), v); } } } catch { /* sin almacenamiento */ }
 setDataBackend({
   get: (n) => dataMem.get(n)?.t,
-  set: (n, t) => { const v = { t, at: Date.now() }; dataMem.set(n, v); try { localStorage.setItem(DATA_PRE + n, JSON.stringify(v)); } catch { toast(`No se pudo guardar «${n}»: el almacenamiento del navegador está lleno`); } },
-  delete: (n) => { dataMem.delete(n); try { localStorage.removeItem(DATA_PRE + n); } catch { /* sin almacenamiento */ } },
+  set: (n, t) => { const v = { t, at: Date.now() }; dataMem.set(n, v); dataChanged(); try { localStorage.setItem(DATA_PRE + n, JSON.stringify(v)); } catch { toast(`No se pudo guardar «${n}»: el almacenamiento del navegador está lleno`); } },
+  delete: (n) => { dataMem.delete(n); dataChanged(); try { localStorage.removeItem(DATA_PRE + n); } catch { /* sin almacenamiento */ } },
   entries: () => [...dataMem].sort((a, b) => a[0].localeCompare(b[0])),
 });
 window.addEventListener('storage', (e) => { // otra pestaña escribio: rfile ve lo nuevo
   if (!e.key?.startsWith(DATA_PRE)) return;
   const n = e.key.slice(DATA_PRE.length);
   try { const v = e.newValue && JSON.parse(e.newValue); if (v?.t !== undefined) dataMem.set(n, v); else dataMem.delete(n); } catch { return; }
-  if (!usesWfile()) { setDataView(null); draw(); }
+  dataChanged(); draw();
 });
 let dataSig = null, dataDoc = null, dataToast = false;
-setDataViewGuard(() => dataSig !== null && JSON.stringify(withoutAssets(doc)) === dataSig); // el dibujo del ultimo paso
 const usesWfile = () => Object.values(doc.texts || {}).some((t) => /wfile\s*\(/i.test(String(t.text ?? '')));
 function flushData() {
-  if (!usesWfile()) { setDataView(null); return; } // un dibujo que solo lee: ve lo guardado ahora
-  if (sim || drag) return;
+  if (sim || drag || !usesWfile()) return;
   if (dataDoc !== doc.texts) { dataDoc = doc.texts; dataToast = false; } // otro dibujo (abierto o deshecho): el aviso vuelve a salir una vez
   const sig = JSON.stringify(withoutAssets(doc));
   if (sig === dataSig) return;
   dataSig = sig;
-  const st = dataStore(), read = new Map(st.entries().map(([n, v]) => [n, v.t])); // lo que lee este paso
-  setDataView(null); clearDataWrites();
+  const st = dataStore();
+  dataChanged(); clearDataWrites(); // sin la memoria del calculo: wfile tiene que ejecutarse en este paso
   try { textVars(doc); for (const t of Object.values(doc.texts)) if (/wfile\s*\(/i.test(t.text)) shownText(doc, t); } catch { /* los errores ya se muestran en el dibujo */ }
   const done = [];
-  setDataView(read); // hasta el paso siguiente, rfile lee lo mismo que este paso
-  try { localStorage.setItem(DATA_VIEW, JSON.stringify([...read])); } catch { /* sin almacenamiento */ } // al reabrir la app se ve lo mismo
   for (const [n, t] of takeDataWrites()) if (st.get(n) !== t) { st.set(n, t); done.push(n); }
+  if (done.length && (hasReactive(doc) || usesTextVars(doc))) { // las cotas con formula que leen lo guardado se acomodan (no es otro paso: la firma queda despues)
+    const bak = snapshot(), r = settle(doc, solve, []);
+    if (!r.ok) doc = unsnap(bak, doc.assets);
+    dataSig = JSON.stringify(withoutAssets(doc));
+  }
   if (done.length && !dataToast) { dataToast = true; setTimeout(() => toast(`Este dibujo guarda datos con wfile: ${done.join(', ')} (Archivo → Datos)`), 1600); } // despues del aviso «Abierto»
 }
 function openDataDlg() {
@@ -205,7 +206,7 @@ function openDataDlg() {
       const ex = document.createElement('button'); ex.type = 'button'; ex.textContent = 'Exportar'; ex.title = 'Descarga el archivo de texto';
       ex.onclick = () => download(n, new Blob([v.t], { type: 'text/plain' }));
       const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Borrar';
-      del.onclick = () => { if (!confirm(`¿Borrar los datos «${n}»? Los dibujos que lo leen con rfile darán ⚠ hasta que se vuelva a escribir.`)) return; dataStore().delete(n); setDataView(null); render(); draw(); };
+      del.onclick = () => { if (!confirm(`¿Borrar los datos «${n}»? Los dibujos que lo leen con rfile darán ⚠ hasta que se vuelva a escribir.`)) return; dataStore().delete(n); render(); draw(); };
       row.append(info, ex, del); box.appendChild(row);
     }
   };
@@ -217,7 +218,7 @@ function openDataDlg() {
       try { const n = dataName(f.name), t = (await f.text()).trim(); if (dataStore().get(n) !== undefined && !confirm(`Ya hay datos «${n}». ¿Reemplazarlos?`)) continue; dataStore().set(n, t); } catch (err) { bad.push(`${f.name}: ${err.message}`); }
     }
     if (bad.length) toast(bad.join(' · '));
-    setDataView(null); render(); draw();
+    render(); draw();
   };
   render(); dlg.showModal();
 }
@@ -6233,7 +6234,6 @@ async function boot() {
     if (s?.doc) { autosaveAt = Number(s.at) || 0; loadDoc(s.doc); if (s.view) view = s.view; if (s.cur) cur = { ...cur, ...s.cur }; if (s.opts) Object.assign(opts, s.opts); }
     if (s?.doc && usesWfile()) { // reabrir la app no es un paso (repetiria lo ultimo): se ve lo que calculo el ultimo paso
       dataSig = JSON.stringify(withoutAssets(doc)); dataDoc = doc.texts; dataToast = true;
-      try { const v = JSON.parse(localStorage.getItem(DATA_VIEW) || 'null'); if (Array.isArray(v)) setDataView(new Map(v)); } catch { /* sin vista guardada */ }
     }
   } catch { /* sin estado previo */ }
   $('intMs').value = String(opts.intMs); $('lockDeg').value = String(opts.lockDeg);

@@ -5,7 +5,7 @@ import { newDoc, addPoint, addText } from '../src/model.js';
 import { shownText } from '../src/text.js';
 import { textVarErrors } from '../src/params.js';
 import { setDecimal } from '../src/locale.js';
-import { setDataBackend, takeDataWrites, clearDataWrites, dataName, numText, setDataView, setDataViewGuard } from '../src/datastore.js';
+import { setDataBackend, takeDataWrites, clearDataWrites, dataName, numText, dataChanged } from '../src/datastore.js';
 import { textVars } from '../src/params.js';
 
 let passed = 0;
@@ -78,19 +78,16 @@ t('errores: sin datos, una función, un nombre no válido, argumentos de más o 
   assert.throws(() => evalExpr('rfile(roto)', {}), /«roto» no se puede leer/);
 });
 
-t('un paso con el mismo dibujo vuelve a calcular (la memoria del cálculo sabe qué lee rfile) y la vista congelada solo vale con su guarda', () => {
+t('un paso con el mismo dibujo vuelve a calcular (la memoria del cálculo sabe que cambió lo guardado) y rfile lee lo guardado', () => {
   fresh();
   setDecimal('.');
   store.set('n', '0');
   const d = newDoc(); d.decimal = '.';
   addText(d, addPoint(d, 0, 100), '$$c:rfile(n)$$', {}); addText(d, addPoint(d, 0, 90), '$$ok:wfile(c+1, n)$$', {});
-  const step = () => { const read = new Map(store); setDataView(null); clearDataWrites(); textVars(d); setDataView(read); for (const [k, x] of takeDataWrites()) store.set(k, x); };
+  const step = () => { clearDataWrites(); textVars(d); for (const [k, x] of takeDataWrites()) store.set(k, x); dataChanged(); };
   step(); step(); step(); // el mismo dibujo tres veces: tres pasos
   assert.equal(store.get('n'), '3');
-  assert.equal(textVars(d).vals.c.v, 2); // se ve lo que leyo el ultimo paso (2), no lo guardado (3)
-  setDataViewGuard(() => false); setDataView(new Map(store)); // otro dibujo: lee lo guardado
-  assert.equal(textVars(d).vals.c.v, 3);
-  setDataViewGuard(() => true); setDataView(null);
+  assert.equal(textVars(d).vals.c.v, 3); // se ve lo guardado
 });
 
 t('numText: todas las cifras útiles, en una forma que se vuelve a leer', () => {

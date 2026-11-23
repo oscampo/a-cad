@@ -220,7 +220,7 @@ export const FUNC_GROUPS = [
   },
   {
     title: 'Datos entre dibujos',
-    note: 'Como en SMath: guardan un valor para leerlo después o desde otro dibujo. Los datos viven en este navegador, en este dispositivo (Archivo → Datos los muestra, exporta e importa). Se escriben al confirmar un cambio del dibujo, no al arrastrar ni en la simulación; rfile lee lo guardado hasta ese momento, así con <code>c:rfile(n)</code> y <code>wfile(c+1; n)</code> cada cambio suma 1.',
+    note: 'Como en SMath: guardan un valor para leerlo después o desde otro dibujo. Los datos viven en este navegador, en este dispositivo (Archivo → Datos los muestra, exporta e importa). Se escriben al confirmar un cambio del dibujo, no al arrastrar ni en la simulación; rfile lee siempre lo guardado, así con <code>c:rfile(n)</code> y <code>wfile(c+1; n)</code> cada cambio suma 1 y se ve lo último guardado.',
     rows: [
       ['<code>wfile(valor; Nombre)</code>', 'Guarda el valor (un número con su unidad, un vector, una matriz o una cadena) en el archivo de datos <i>Nombre</i> y vale 1. El nombre no se evalúa: es el de una variable (no importa su valor, ni si existe) o una cadena con extensión, <code>"datos.txt"</code>. El archivo es texto con la sintaxis de A-CAD y punto decimal: <code>12\'kN</code>, <code>[1, 2; 3, 4]\'mm</code>, <code>"texto"</code>.', "a:12'kN\nwfile(a; MiVariable)=", '1', 't'],
       ['<code>rfile(Nombre)</code>', 'El valor guardado con <code>wfile</code>, con sus unidades: <code>q:rfile(MiVariable)</code> da 12 kN. Si no hay datos con ese nombre, da ⚠.', '', '', ''],

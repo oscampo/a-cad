@@ -232,7 +232,7 @@ Se resuelven numéricamente (Levenberg-Marquardt): desde un valor inicial se bus
 
 ## Datos entre dibujos
 
-Como en SMath: guardan un valor para leerlo después o desde otro dibujo. Los datos viven en este navegador, en este dispositivo (Archivo → Datos los muestra, exporta e importa). Se escriben al confirmar un cambio del dibujo, no al arrastrar ni en la simulación; rfile lee lo guardado hasta ese momento, así con `c:rfile(n)` y `wfile(c+1; n)` cada cambio suma 1.
+Como en SMath: guardan un valor para leerlo después o desde otro dibujo. Los datos viven en este navegador, en este dispositivo (Archivo → Datos los muestra, exporta e importa). Se escriben al confirmar un cambio del dibujo, no al arrastrar ni en la simulación; rfile lee siempre lo guardado, así con `c:rfile(n)` y `wfile(c+1; n)` cada cambio suma 1 y se ve lo último guardado.
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
