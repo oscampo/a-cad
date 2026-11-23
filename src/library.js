@@ -5,6 +5,7 @@
 import { textVars } from './params.js';
 import { exprRefs, indexParts, isReservedName } from './expr.js';
 import { localsOf } from './qualify.js';
+import { scriptHelp } from './script.js';
 
 export const LIB_DIR = 'MyLibrary';
 
@@ -14,7 +15,8 @@ export function libDefs(doc) {
   for (const d of st.defs || []) {
     if (!d.name) continue;
     defs.delete(d.name); // la ultima definicion de cada nombre, en su lugar del orden de lectura
-    defs.set(d.name, { name: d.name, kind: d.script ? 'script' : d.params ? 'fn' : 'var', expr: d.expr, params: d.params || null, lib: d.lib || null, ...(d.unit ? { unit: d.unit } : {}), err: st.errs.get(d.name) || null });
+    const help = d.script ? scriptHelp(doc.texts?.[d.tid]?.text) : ''; // las lineas «#» tras la firma: viajan con la biblioteca (el script va compilado)
+    defs.set(d.name, { name: d.name, kind: d.script ? 'script' : d.params ? 'fn' : 'var', expr: d.expr, params: d.params || null, lib: d.lib || null, ...(d.unit ? { unit: d.unit } : {}), ...(help ? { help } : {}), err: st.errs.get(d.name) || null });
   }
   return { defs, st };
 }

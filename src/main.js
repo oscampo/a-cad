@@ -30,6 +30,7 @@ import { attachGreek } from './greek.js';
 import { migrateCalcDoc } from './tvars.js';
 import { codeKeyEvent } from './codeedit.js';
 import { isScript, parseScript } from './script.js';
+import { suggest, openCall, defSource, builtinInfo } from './complete.js';
 import * as gh from './github.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
@@ -43,7 +44,7 @@ import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepA
 import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
 import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr } from './expr.js';
-import { localNum, SCI_DEFAULT, sciFrom } from './locale.js';
+import { localNum, SCI_DEFAULT, sciFrom, decimalMode } from './locale.js';
 import { getLang, setLang, initLang } from './i18n.js';
 import { HELP_HTML } from './help.js';
 import { colorPicker } from './colorpicker.js';
@@ -1189,8 +1190,7 @@ function measureRel(line, font, italic = false) {
 }
 
 // Dibuja el contenido de un texto ya ubicado (origen en su punto de insercion): formulas con sus trazos, o lineas con sus tramos
-function paintFrame(c, f, t, color) {
-  const sc = view.s;
+function paintFrame(c, f, t, color, sc = view.s) {
     c.font = `${t.h * sc * dpr}px ${fontCss(t.font)}`;
     c.fillStyle = color; c.textBaseline = 'top'; c.textAlign = 'left';
     if (f.math) { // con formulas ($...$, $$...$$): textos en su linea base y trazos (barras, raices, parentesis grandes)
@@ -2594,7 +2594,7 @@ function txLayout() {
   txLiveBox.style.left = Math.max(26, Math.min(S.x - ax * W, cv.clientWidth - W - 2)) + 'px'; // a la izquierda queda sitio para la insignia
   txLiveBox.style.top = Math.max(24, Math.min(S.y - ay * Hh, cv.clientHeight - Hh - 2)) + 'px';
 }
-function endTextLive() { txState = null; txLiveBox.hidden = true; txLive.value = ''; txLive.blur(); }
+function endTextLive() { txState = null; txLiveBox.hidden = true; txLive.value = ''; txLive.blur(); ccClose(); }
 // Dibuja lo escrito como un texto nuevo y abre la entrada siguiente. false: no se pudo (la entrada sigue abierta para corregirla).
 function commitTextLive() {
   if (!txState) return false;
@@ -2615,7 +2615,7 @@ function commitTextLive() {
   if (txState.cursor) { P.x = sUp.x - ux * f.ymax; P.y = sUp.y - uy * f.ymax; next = { x: sUp.x - ux * (f.hh + gap), y: sUp.y - uy * (f.hh + gap) }; }
   else next = { x: P.x + ux * (f.ymin - gap), y: P.y + uy * (f.ymin - gap) };
   txState = { sUp: { type: 'free', ...next }, cursor: true };
-  sel = []; txLive.value = '';
+  sel = []; txLive.value = ''; ccClose();
   finishEdit();
   txLayout(); txLive.focus();
   return true;
@@ -2627,6 +2627,7 @@ function startTextLive(sUp) {
 }
 txLive.addEventListener('keydown', (e) => {
   e.stopPropagation(); // ningun atajo del dibujo mientras se escribe
+  if (ccKey(e)) return; // la lista de sugerencias abierta: flechas, Enter/Tab aceptan, Esc la cierra
   if (e.key === 'Escape') { e.preventDefault(); endTextLive(); return; }
   if (txIsScript()) { // en un script Enter hace otra linea (con su sangria) y Tab sangra; Shift+Enter (o Ctrl/Cmd+Enter) lo dibuja
     if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); commitTextLive(); return; }
@@ -2635,7 +2636,135 @@ txLive.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (txLive.value.trim()) commitTextLive(); else endTextLive(); }
 });
-txLive.addEventListener('input', txLayout);
+txLive.addEventListener('input', () => { txLayout(); ccUpdate(); });
+txLive.addEventListener('click', () => ccUpdate(true));
+txLive.addEventListener('keyup', (e) => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) ccUpdate(true); });
+txLive.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== txLive) ccClose(); }, 120));
+
+// ---- Sugerencias al escribir en el cuadro de ecuacion (ver complete.js): lo que existe en ese lugar de la pagina (orden de lectura),
+// con su detalle (la definicion dibujada, el valor, la ayuda) y la firma de la funcion en que esta el cursor. Automaticas (con 2 letras)
+// o a pedido (boton ƒx junto al cuadro o Ctrl+Espacio); por defecto automaticas en pantallas anchas y a pedido en el celular.
+const CC_KEY = 'acad-cc';
+const ccMode = () => { try { const m = localStorage.getItem(CC_KEY); if (m === 'auto' || m === 'demand') return m; } catch { /* sin almacenamiento */ } return window.matchMedia?.('(min-width: 700px)').matches ? 'auto' : 'demand'; };
+const ccPop = $('ccPop'), ccList = $('ccList'), ccDet = $('ccDet'), ccParam = $('ccParam');
+let cc = null; // { items, hot, ctx, forced }
+const CC_K = { var: 'x', fn: 'ƒ', lib: 'B', dim: 'D', el: 'p', builtin: 'ƒ' };
+const CC_KIND = { var: 'Variable del documento', fn: 'Función del documento', lib: 'Biblioteca', dim: 'Cota', el: 'Elemento del dibujo', builtin: 'Función de A-CAD' };
+// esquina superior izquierda del cuadro, en el dibujo: el lugar de lo que se escribe en el orden de lectura
+const ccWhere = () => { const P = toModel(txLiveBox.offsetLeft, txLiveBox.offsetTop); return [P.y, P.x]; };
+const ccArg = () => (decimalMode() === ',' ? '; ' : ', ');
+function ccUpdate(keep = false) {
+  if (!txState || txIsText()) { ccClose(); return; }
+  const pos = txLive.selectionStart, auto = ccMode() === 'auto', forced = !!cc?.forced;
+  const r = suggest(doc, txLive.value, pos, ...ccWhere(), { min: forced ? 0 : 2 });
+  const want = r.items.length && (forced || (auto && (r.ctx.scope === 'member' || r.ctx.q.length >= 2)));
+  if (!want) { if (!keep || !forced) ccHide(); ccParamShow(); return; }
+  cc = { items: r.items, hot: 0, ctx: r.ctx, forced };
+  ccRender(); ccParamShow();
+}
+function ccHide() { ccPop.hidden = true; if (cc) cc.items = []; }
+function ccClose() { cc = null; ccPop.hidden = true; ccParam.hidden = true; }
+// posicion del cursor en el lienzo: la letra de una ecuacion es monoespaciada (columna × ancho de letra, linea × alto de linea)
+function ccCaret() {
+  const px = parseFloat(txLive.style.fontSize) || 16, lh = px * 1.25;
+  if (!mctx) mctx = document.createElement('canvas').getContext('2d');
+  mctx.font = `${px}px ${fontCss('mono')}`;
+  const lines = txLive.value.slice(0, txLive.selectionStart).split('\n'), cw = mctx.measureText('M').width;
+  return { x: txLiveBox.offsetLeft + 6 + lines.at(-1).length * cw, y: txLiveBox.offsetTop + 3 + lines.length * lh, top: txLiveBox.offsetTop };
+}
+function ccRender() {
+  const shown = cc.items.slice(0, 40);
+  ccList.textContent = '';
+  shown.forEach((it, i) => {
+    const li = document.createElement('li');
+    li.setAttribute('role', 'option'); li.setAttribute('aria-selected', String(i === cc.hot));
+    li.innerHTML = `<span class="k k-${it.kind}">${CC_K[it.kind]}</span>`;
+    li.append(it.isAlias ? it.insert : it.name);
+    li.onpointerdown = (e) => e.preventDefault(); // no quita el foco del cuadro (ni cierra el teclado del iPad)
+    li.onclick = () => ccAccept(it);
+    ccList.appendChild(li);
+  });
+  ccDetail(shown[cc.hot]);
+  ccPop.hidden = false;
+  const c = ccCaret(), W = cv.clientWidth, H = cv.clientHeight, pw = ccPop.offsetWidth, ph = ccPop.offsetHeight;
+  ccPop.style.left = Math.max(4, Math.min(c.x - 28, W - pw - 4)) + 'px';
+  ccPop.style.top = (c.y + 4 + ph > H - 4 ? Math.max(4, c.top - ph - 4) : c.y + 4) + 'px'; // si no cabe debajo, encima del cuadro
+  ccList.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+}
+// Una formula dibujada con el motor de los textos en un canvas (el detalle: «f(x):=sin(x)/x», «Sut=520 MPa»)
+function ccFormula(src) {
+  const [top, left] = ccWhere(), PID = '\u0000cc';
+  const d2 = { ...doc, pts: { ...doc.pts, [PID]: { x: left, y: top } }, texts: { ...doc.texts, [PID]: { pt: PID, text: src, h: 15, anchor: 'tl' } } };
+  let shown; try { shown = shownText(d2, d2.texts[PID]); } catch { shown = { text: src, h: 15, anchor: 'tl' }; }
+  const t = { ...shown, h: 15, anchor: 'tl' }, f = textFrame(t, measureRel, 'tl'), r = window.devicePixelRatio || 1;
+  const cnv = document.createElement('canvas'), w = Math.ceil(f.w + 4), h = Math.ceil(f.hh + 4);
+  cnv.width = w * r; cnv.height = h * r; cnv.style.width = w + 'px'; cnv.style.height = h + 'px';
+  const c = cnv.getContext('2d'); c.scale(r, r); c.translate(2 - f.xmin, 2 + f.ymax);
+  const sdpr = dpr; dpr = 1; try { paintFrame(c, f, t, getComputedStyle(document.body).color, 1); } finally { dpr = sdpr; }
+  return cnv;
+}
+function ccDetail(it) {
+  ccDet.textContent = '';
+  if (!it) return;
+  const add = (cls, txt) => { const p = document.createElement('p'); p.className = cls; p.textContent = txt; ccDet.appendChild(p); return p; };
+  const base = cc.ctx.scope === 'member' ? cc.ctx.base + '.' : '';
+  if (it.kind === 'builtin') {
+    const b = builtinInfo().get(it.name);
+    const sg = document.createElement('div'); sg.className = 'sig'; sg.textContent = b.sig.replace(/;\s*/g, ccArg()); ccDet.appendChild(sg);
+    if (b.desc) add('', b.desc);
+    if (b.ex) add('ex', b.ex.replace(/;\s*/g, ccArg()));
+  } else if (it.isAlias) {
+    add('', it.kind === 'lib' ? `Biblioteca insertada: escribe ${it.insert} para ver sus nombres públicos.` : `Escribe ${it.insert} para ver sus medidas.`);
+  } else {
+    const full = base + it.name, src = it.kind === 'fn' || it.value?.fn ? defSource(doc, full) : null;
+    try {
+      if (src && src.params) ccDet.appendChild(ccFormula(`$$${it.name}(${src.params.join(ccArg())}):${src.script ? '…' : src.expr}$$`)); // la definicion, como SMath
+      else ccDet.appendChild(ccFormula(`$$${full}=$$`)); // su valor en ese lugar de la pagina
+    } catch { add('sig', full); }
+    if (src?.help) add('', src.help);
+  }
+  add('src', base && it.kind === 'lib' ? `Biblioteca ${cc.ctx.base}` : CC_KIND[it.kind]);
+}
+// firma de la funcion en que esta el cursor, con el argumento actual resaltado
+function ccParamShow() {
+  const call = txState && !txIsText() ? openCall(txLive.value, txLive.selectionStart) : null;
+  let ps = null;
+  if (call) {
+    const b = !call.name.includes('.') && builtinInfo().get(call.name);
+    if (b) ps = (/\((.*)\)/.exec(b.sig)?.[1] || '').split(/;\s*/);
+    else ps = defSource(doc, call.name)?.params || null;
+  }
+  if (!ps || !ps[0]) { ccParam.hidden = true; return; }
+  ccParam.textContent = '';
+  ccParam.append(call.name + '(');
+  ps.forEach((p, i) => { if (i) ccParam.append(ccArg()); if (i === call.idx) { const b = document.createElement('b'); b.textContent = p; ccParam.append(b); } else ccParam.append(p); });
+  ccParam.append(')');
+  ccParam.hidden = false;
+  ccParam.style.left = Math.max(4, Math.min(txLiveBox.offsetLeft, cv.clientWidth - ccParam.offsetWidth - 4)) + 'px';
+  ccParam.style.top = Math.max(2, txLiveBox.offsetTop - ccParam.offsetHeight - 4) + 'px';
+}
+function ccAccept(it) {
+  if (!it || !cc) return;
+  const v = txLive.value, pos = txLive.selectionStart, start = cc.ctx.start;
+  const call = !it.isAlias && (it.kind === 'builtin' || (it.params && it.params.length)) && v[pos] !== '(';
+  const ins = it.insert + (call ? '()' : ''), caret = start + it.insert.length + (call ? 1 : 0);
+  txLive.value = v.slice(0, start) + ins + v.slice(pos);
+  txLive.focus(); txLive.setSelectionRange(caret, caret);
+  const again = it.isAlias; // «UF.» o «p1.»: sigue con sus miembros
+  cc = again ? { forced: true, items: [] } : null; ccPop.hidden = true;
+  txLayout(); if (again) ccUpdate(); else ccParamShow();
+}
+function ccKey(e) {
+  if ((e.ctrlKey || e.metaKey) && (e.key === ' ' || e.code === 'Space')) { e.preventDefault(); cc = { forced: true, items: [] }; ccUpdate(); return true; }
+  if (!cc || ccPop.hidden || !cc.items.length) return false;
+  const n = Math.min(40, cc.items.length);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); cc.hot = (cc.hot + (e.key === 'ArrowDown' ? 1 : n - 1)) % n; ccRender(); return true; }
+  if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey && !e.isComposing) { e.preventDefault(); ccAccept(cc.items[cc.hot]); return true; } // con la lista abierta, Enter acepta (como SMath)
+  if (e.key === 'Escape') { e.preventDefault(); cc.forced = false; ccHide(); return true; } // cierra la lista sin descartar lo escrito
+  return false;
+}
+$('txCc').onpointerdown = (e) => e.preventDefault();
+$('txCc').onclick = () => { if (cc && !ccPop.hidden) { ccClose(); return; } cc = { forced: true, items: [] }; ccUpdate(); txLive.focus(); };
 attachAutoPair(txLive, () => !TX_MARK.test(txLive.value)); // [] () {} $$ <> `` se cierran solos (ver autopair.js)
 attachGreek(document, '#dlgGc'); // «\a» -> α y Ctrl+G en todos los campos de texto, menos la configuracion de GitHub (ver greek.js)
 function placeText(sUp) { startTextLive(sUp); }
@@ -3352,6 +3481,7 @@ function drawSample(canvas, pattern, color) {
 }
 
 function syncPanel() {
+  $('cfgCc').value = ccMode();
   $('cfgLang').value = getLang(); $('cfgDec').value = doc.decimal === ',' || doc.decimal === '.' ? doc.decimal : ''; // sin elegir: dibujos anteriores
   $('docAngles').value = doc.angles === 'rad' ? 'rad' : 'deg';
   $('docUnits').value = doc.units === 'US' ? 'US' : 'SI';
@@ -5372,6 +5502,7 @@ $('docMargin').onchange = pageNum('m', 0);
 $('tCfg').onclick = () => { syncPanel(); $('dlgCfg').showModal(); };
 $('cfgOk').onclick = () => $('dlgCfg').close();
 $('cfgLang').onchange = (e) => { setLang(e.target.value); syncPanel(); };
+$('cfgCc').onchange = (e) => { try { localStorage.setItem(CC_KEY, e.target.value); } catch { /* sin almacenamiento */ } ccClose(); };
 $('cfgDec').onchange = (e) => {
   const to = e.target.value || null;
   if (to === (doc.decimal ?? null)) return;

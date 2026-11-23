@@ -52,6 +52,23 @@ main { display: grid; grid-template-columns: 1fr 300px; min-height: 0; }
 /* Entrada directa de texto (herramienta Texto): se escribe sobre el dibujo; la etiqueta de arriba dice el modo. */
 #txLiveBox { position: absolute; z-index: 25; border: 1.5px dashed var(--accent); border-radius: 4px; background: color-mix(in srgb, var(--bg) 90%, transparent); }
 #txLiveBox::before { content: attr(data-tag); position: absolute; right: 100%; top: -1.5px; margin-right: 3px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 4px; border-radius: 4px; background: var(--accent); color: var(--accent-fg); font: 600 13px/20px system-ui, sans-serif; text-align: center; pointer-events: none; }
+#txCc { position: absolute; right: 100%; top: 22px; margin-right: 3px; width: 22px; height: 22px; min-height: 0; padding: 0; border: 1px solid var(--accent); border-radius: 4px; background: var(--bg); color: var(--accent); font: italic 700 12px Georgia, serif; cursor: pointer; }
+#ccPop { position: absolute; z-index: 30; display: flex; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 22px rgba(0,0,0,.18); overflow: hidden; max-width: calc(100% - 12px); }
+#ccList { list-style: none; margin: 0; padding: 3px; width: 230px; max-height: 250px; overflow: auto; flex: none; }
+#ccList li { display: flex; gap: 8px; align-items: center; padding: 3px 8px; border-radius: 5px; cursor: pointer; font: 14px ui-monospace, Menlo, Consolas, monospace; white-space: nowrap; min-height: 30px; }
+@media (pointer: coarse) { #ccList li { min-height: 40px; } }
+#ccList li[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+#ccList .k { width: 20px; height: 20px; border-radius: 5px; flex: none; display: grid; place-items: center; font: 700 10px system-ui, sans-serif; color: #fff; }
+#ccList .k-var { background: #0f766e; } #ccList .k-fn { background: #7c3aed; } #ccList .k-lib { background: #c2410c; } #ccList .k-dim { background: var(--accent); } #ccList .k-el { background: #6b7280; } #ccList .k-builtin { background: #9333ea; }
+#ccDet { width: 280px; padding: 9px 11px; border-left: 1px solid var(--line); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+#ccDet canvas { display: block; max-width: 100%; }
+#ccDet .sig { font: 13px ui-monospace, Menlo, Consolas, monospace; }
+#ccDet p { margin: 6px 0 0; }
+#ccDet .ex, #ccDet .src { color: var(--muted); font-size: 12px; }
+#ccDet .src { text-transform: uppercase; letter-spacing: .05em; font-size: 11px; }
+@media (max-width: 640px) { #ccDet { display: none; } }
+#ccParam { position: absolute; z-index: 30; font: 13px ui-monospace, Menlo, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 2px 8px; box-shadow: 0 4px 14px rgba(0,0,0,.14); white-space: nowrap; max-width: calc(100% - 12px); overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+#ccParam b { color: var(--accent); }
 #txLive { display: block; width: 100%; box-sizing: border-box; margin: 0; padding: 2px 6px; border: 0; outline: 0; background: transparent; color: var(--fg); resize: none; overflow: hidden; line-height: 1.25; min-height: 0; }
 #panel { overflow-y: auto; background: var(--panel); border-left: 1px solid var(--line); padding: 8px; -webkit-overflow-scrolling: touch; }
 #panel details { border-bottom: 1px solid var(--line); padding: 2px 0 8px; }
@@ -292,7 +309,7 @@ body.nopanel #panel { display: none; }
   <button id="tHelp" data-icon="help" title="Ayuda y documentación" aria-label="Ayuda"><i></i></button>
 </header>
 <main>
-  <div id="stage"><canvas id="cv"></canvas><div id="pgScroll" hidden title="Recorrer la página"><div id="pgThumb"></div></div><div id="txLiveBox" hidden><textarea id="txLive" rows="1" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Entrada de texto"></textarea></div><div id="linkChip" hidden role="toolbar" aria-label="Enlaces del texto"></div><div id="toast"></div>
+  <div id="stage"><canvas id="cv"></canvas><div id="pgScroll" hidden title="Recorrer la página"><div id="pgThumb"></div></div><div id="txLiveBox" hidden><button id="txCc" type="button" title="Sugerencias: variables, funciones y bibliotecas (Ctrl+Espacio)" aria-label="Sugerencias">ƒx</button><textarea id="txLive" rows="1" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Entrada de texto"></textarea></div><div id="ccPop" hidden><ul id="ccList" role="listbox" aria-label="Sugerencias"></ul><div id="ccDet"></div></div><div id="ccParam" hidden></div><div id="linkChip" hidden role="toolbar" aria-label="Enlaces del texto"></div><div id="toast"></div>
   <div id="simBar" hidden><button id="simBack" title="Paso atrás (1/100 del tiempo total)">◀|</button><button id="simPlay" title="Reproducir o pausar">▶</button><button id="simFwd" title="Paso adelante (1/100 del tiempo total)">|▶</button><input id="simRange" type="range" min="0" max="10" step="0.01" value="0" aria-label="Tiempo"><label>t <input id="simT" inputmode="decimal" size="5" value="0"></label><label>hasta <input id="simTmax" inputmode="decimal" size="4" value="10"></label><button id="simLoop" title="Repetir en ciclo (loop)">↻</button><button id="simPP" title="Vaivén (ping-pong)">⇄</button><select id="simSpeed" title="Velocidad de reproducción"><option value="0.5">0.5x</option><option value="1" selected>1.0x</option><option value="1.5">1.5x</option><option value="2">2.0x</option></select><button id="simStop" title="Detener la simulación y volver al dibujo">Detener</button></div>
   <button id="tLayers" data-icon="layers" title="Capas: crear, encender, apagar y borrar" aria-label="Capas"><i></i></button><div id="layerName" hidden></div><div id="relTag"></div><div id="fileTag"></div>
     <nav id="tree" aria-label="Árbol de elementos"><div class="thead"><b>Elementos</b><span class="tbtns"><button id="treeBy" data-icon="layers" aria-pressed="false" aria-label="Agrupar por capa" title="Agrupar por capa" hidden><i></i></button><button id="treeClose" aria-label="Cerrar">✕</button></span></div><div id="treeBody"></div></nav>
@@ -489,6 +506,7 @@ body.nopanel #panel { display: none; }
   <p style="margin:0 0 6px"><b>Configuración</b></p>
   <p style="margin:8px 0 2px;font-size:13px"><b>General</b></p>
   <div class="row"><label for="cfgLang">Idioma</label><select id="cfgLang" title="Idioma de la interfaz (se guarda en este dispositivo). La ayuda y el manual siguen en español."><option value="es">Español</option><option value="en">English</option></select></div>
+  <div class="row"><label for="cfgCc">Sugerencias al escribir</label><select id="cfgCc" title="En el cuadro de ecuación del dibujo: la lista de variables, funciones y bibliotecas que existen en ese lugar de la página. Automáticas aparecen con 2 letras; a pedido, con el botón ƒx junto al cuadro o Ctrl+Espacio (se guarda en este dispositivo)."><option value="auto">Automáticas</option><option value="demand">A pedido</option></select></div>
   <div class="row"><label for="cfgDec">Indicador decimal</label><select id="cfgDec" title="Cómo se escriben los decimales en este dibujo. Con punto los argumentos se separan con «,» (max(2.5, 3)); con coma, con «;» (max(2,5; 3)) y las matrices llevan «;» entre elementos y «|» entre filas ([1; 2 | 3; 4]). Al cambiarlo se reescriben las fórmulas que ya tiene el dibujo."><option value="">Sin elegir (acepta las dos formas)</option><option value=".">Punto (1.5)</option><option value=",">Coma (1,5)</option></select></div>
   <p style="margin:10px 0 2px;font-size:13px"><b>Documento</b></p>
   <div class="row"><label for="docAngles">Ángulos en</label><select id="docAngles" title="Cómo leen los ángulos los textos de cálculo y las gráficas: sin(1) en radianes o sin(30) en grados. Las cotas siguen en grados."><option value="rad">Radianes</option><option value="deg">Grados</option></select></div>

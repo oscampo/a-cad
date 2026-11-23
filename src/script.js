@@ -98,3 +98,10 @@ export function parseScript(src) {
     return { ...out, err: e.message };
   }
 }
+
+// Ayuda de un script: las lineas «#» que siguen a la firma (como en MATLAB y Python). '' si no tiene.
+export function scriptHelp(src) {
+  const lines = String(src ?? '').split('\n'), out = [];
+  for (let i = 1; i < lines.length; i++) { const t = lines[i].trim(); if (!t) { if (out.length) break; continue; } if (!t.startsWith('#')) break; out.push(t.replace(/^#+\s?/, '')); }
+  return out.join('\n');
+}
