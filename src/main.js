@@ -32,7 +32,8 @@ import { codeKeyEvent } from './codeedit.js';
 import { isScript, parseScript } from './script.js';
 import { suggest, openCall, defSource, builtinInfo } from './complete.js';
 import * as gh from './github.js';
-import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
+import { setDataBackend, dataStore, clearDataWrites, takeDataWrites, dataName } from './datastore.js';
+import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, textVars, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg, ICONS } from './icons.js';
 import { setIconSource } from './iconpaths.js';
@@ -150,6 +151,71 @@ function exists(s) {
   return s.k === 'pt' ? s.id in doc.pts : s.k === 'ln' ? s.id in doc.lines : s.k === 'ci' ? s.id in doc.circles : s.k === 'ar' ? s.id in doc.arcs : s.k === 'tx' ? s.id in doc.texts : s.k === 'sp' ? s.id in doc.splines : s.k === 'el' ? s.id in doc.ellipses : s.k === 'ha' ? s.id in doc.hatches : s.id in doc.cons;
 }
 let saveTimer = 0, autosaveAt = 0, quotaWarned = false;
+// ---- datos de wfile()/rfile() (ver datastore.js): en este navegador (localStorage «acad-data:nombre»), comunes a todos los dibujos.
+// Se escriben al confirmar un cambio del dibujo (afterChange), no al arrastrar ni en la simulacion, y solo si el dibujo cambio desde la
+// ultima escritura: tocar para seleccionar o mover la vista no avanza un paso (con «q:rfile(X)» y «wfile(q+1, X)», cada cambio suma 1).
+const DATA_PRE = 'acad-data:';
+const dataMem = new Map();
+try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith(DATA_PRE)) { const v = JSON.parse(localStorage.getItem(k)); if (typeof v?.t === 'string') dataMem.set(k.slice(DATA_PRE.length), v); } } } catch { /* sin almacenamiento */ }
+setDataBackend({
+  get: (n) => dataMem.get(n)?.t,
+  set: (n, t) => { const v = { t, at: Date.now() }; dataMem.set(n, v); try { localStorage.setItem(DATA_PRE + n, JSON.stringify(v)); } catch { toast(`No se pudo guardar «${n}»: el almacenamiento del navegador está lleno`); } },
+  delete: (n) => { dataMem.delete(n); try { localStorage.removeItem(DATA_PRE + n); } catch { /* sin almacenamiento */ } },
+  entries: () => [...dataMem].sort((a, b) => a[0].localeCompare(b[0])),
+});
+window.addEventListener('storage', (e) => { // otra pestaña escribio: rfile ve lo nuevo
+  if (!e.key?.startsWith(DATA_PRE)) return;
+  const n = e.key.slice(DATA_PRE.length);
+  try { const v = e.newValue && JSON.parse(e.newValue); if (v?.t !== undefined) dataMem.set(n, v); else dataMem.delete(n); } catch { return; }
+  draw();
+});
+let dataSig = null, dataDoc = null, dataToast = false;
+const usesWfile = () => Object.values(doc.texts || {}).some((t) => /wfile\s*\(/i.test(String(t.text ?? '')));
+function flushData() {
+  if (sim || drag || !usesWfile()) return;
+  if (dataDoc !== doc.texts) { dataDoc = doc.texts; dataToast = false; } // otro dibujo (abierto o deshecho): el aviso vuelve a salir una vez
+  const sig = JSON.stringify(withoutAssets(doc));
+  if (sig === dataSig) return;
+  dataSig = sig;
+  clearDataWrites();
+  try { textVars(doc); for (const t of Object.values(doc.texts)) if (/wfile\s*\(/i.test(t.text)) shownText(doc, t); } catch { /* los errores ya se muestran en el dibujo */ }
+  const st = dataStore(), done = [];
+  for (const [n, t] of takeDataWrites()) if (st.get(n) !== t) { st.set(n, t); done.push(n); }
+  if (done.length && !dataToast) { dataToast = true; setTimeout(() => toast(`Este dibujo guarda datos con wfile: ${done.join(', ')} (Archivo → Datos)`), 1600); } // despues del aviso «Abierto»
+}
+function openDataDlg() {
+  const dlg = $('dlgData'), box = $('dataList');
+  const render = () => {
+    box.textContent = '';
+    const all = dataStore().entries();
+    $('dataCount').textContent = all.length ? `${all.length} archivo${all.length > 1 ? 's' : ''}` : '';
+    if (!all.length) { box.textContent = 'Todavía no hay datos. Un texto con wfile(valor, Nombre) los guarda aquí; rfile(Nombre) los lee desde cualquier dibujo.'; return; }
+    for (const [n, v] of all) {
+      const row = document.createElement('div'); row.className = 'gm-row';
+      const info = document.createElement('div'); info.style.cssText = 'flex:1 1 auto;min-width:0';
+      const b = document.createElement('b'); b.textContent = n;
+      const pre = document.createElement('code'); pre.style.cssText = 'display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--muted)'; pre.textContent = v.t.length > 200 ? v.t.slice(0, 200) + '…' : v.t;
+      const sm = document.createElement('small'); sm.style.color = 'var(--muted)'; sm.textContent = new Date(v.at).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+      info.append(b, ' ', sm, pre);
+      const ex = document.createElement('button'); ex.type = 'button'; ex.textContent = 'Exportar'; ex.title = 'Descarga el archivo de texto';
+      ex.onclick = () => download(n, new Blob([v.t], { type: 'text/plain' }));
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Borrar';
+      del.onclick = () => { if (!confirm(`¿Borrar los datos «${n}»? Los dibujos que lo leen con rfile darán ⚠ hasta que se vuelva a escribir.`)) return; dataStore().delete(n); dataSig = null; render(); draw(); };
+      row.append(info, ex, del); box.appendChild(row);
+    }
+  };
+  $('dataImport').onclick = () => $('dataIn').click();
+  $('dataIn').onchange = async (e) => {
+    const files = [...e.target.files]; e.target.value = '';
+    const bad = [];
+    for (const f of files) {
+      try { const n = dataName(f.name), t = (await f.text()).trim(); if (dataStore().get(n) !== undefined && !confirm(`Ya hay datos «${n}». ¿Reemplazarlos?`)) continue; dataStore().set(n, t); } catch (err) { bad.push(`${f.name}: ${err.message}`); }
+    }
+    if (bad.length) toast(bad.join(' · '));
+    render(); draw();
+  };
+  render(); dlg.showModal();
+}
 function persist() {
   clearTimeout(saveTimer);
   if (sim) return; // no se guarda el dibujo movido por la simulacion
@@ -164,7 +230,7 @@ function updateFileTag() {
   const el = $('fileTag'), t = opts.fileBase ? opts.fileBase + '.json' : 'sin nombre';
   if (el && el.textContent !== t) el.textContent = t;
 }
-function afterChange() { syncImages(doc); pageExt = null; scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = unsnap(bak, doc.assets); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); persist(); draw(); renderTree(); }
+function afterChange() { syncImages(doc); pageExt = null; scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = unsnap(bak, doc.assets); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); flushData(); persist(); draw(); renderTree(); }
 
 // Un boton de restriccion solo se activa si la seleccion actual le sirve (mismas reglas que applyCon).
 function updateEnabled() {
@@ -3918,7 +3984,7 @@ document.querySelectorAll('[data-tool]').forEach((b) => { b.onclick = () => setT
 // ---- botones desplegables: cada grupo muestra la ultima herramienta usada; toca de nuevo (con el grupo activo),
 // toca la esquina marcada o mantén presionado para ver las demás.
 const GROUPS = {
-  file: [['fNew', 'file-plus', 'Nuevo dibujo'], ['fSave', 'save', 'Guardar (.json)'], ['fLoad', 'folder-open', 'Abrir…'], ['ghSave', 'save', 'Guardar en GitHub…'], ['ghOpen', 'folder-open', 'Abrir de GitHub…'], ['ghCfg', 'props', 'Configurar GitHub…'], ['fImg', 'image', 'Insertar imagen…'], ['libIns', 'folder-open', 'Insertar biblioteca…'], ['fPng', 'image', 'Exportar PNG'], ['fSvg', 'svg', 'Exportar SVG'], ['fLaser', 'svg', 'SVG para corte láser…'], ['fDxf', 'dxf', 'Exportar DXF']],
+  file: [['fNew', 'file-plus', 'Nuevo dibujo'], ['fSave', 'save', 'Guardar (.json)'], ['fLoad', 'folder-open', 'Abrir…'], ['ghSave', 'save', 'Guardar en GitHub…'], ['ghOpen', 'folder-open', 'Abrir de GitHub…'], ['ghCfg', 'props', 'Configurar GitHub…'], ['fImg', 'image', 'Insertar imagen…'], ['libIns', 'folder-open', 'Insertar biblioteca…'], ['dataMgr', 'folder-open', 'Datos (wfile, rfile)…'], ['fPng', 'image', 'Exportar PNG'], ['fSvg', 'svg', 'Exportar SVG'], ['fLaser', 'svg', 'SVG para corte láser…'], ['fDxf', 'dxf', 'Exportar DXF']],
   spl: [['spline', 'spline', 'Spline por puntos (S)'], ['trTrace', 'trace', 'Trazar punto (activar o quitar)'], ['trClear', 'trash', 'Borrar trayectoria'], ['mkReset', 'mark-reset', 'Reiniciar marcas'], ['trSpline', 'spline', 'Trazado a spline…'], ['spClose', 'spline-closed', 'Cerrar o abrir el spline'], ['spOffset', 'spline', 'Equidistante…']],
   sel: [['select', 'select', 'Seleccionar y arrastrar (V)'], ['filter', 'filter', 'Filtrar la selección…']],
   line: [['line', 'line', 'Línea (L)'], ['vector', 'vector', 'Vector: línea con flecha y magnitud (W). Con una línea seleccionada, la convierte en vector'], ['mline', 'mline', 'Línea de punto medio (M)'], ['cline', 'cline', 'Línea constructiva (K)']],
@@ -3932,7 +3998,7 @@ const GROUPS = {
 };
 // Cada elemento de un grupo es una herramienta, salvo Filtrar y Copiar, que son acciones.
 // Archivo y Spline: sus acciones viven en botones ocultos (#acts) que conservan su logica y su estado habilitado.
-const ACT_IDS = new Set(['ghSave', 'ghOpen', 'ghCfg', 'fNew', 'fSave', 'fLoad', 'fImg', 'libIns', 'fPng', 'fSvg', 'fLaser', 'fDxf', 'trTrace', 'trClear', 'mkReset', 'trSpline', 'spClose', 'spOffset']);
+const ACT_IDS = new Set(['ghSave', 'ghOpen', 'ghCfg', 'fNew', 'fSave', 'fLoad', 'fImg', 'libIns', 'dataMgr', 'fPng', 'fSvg', 'fLaser', 'fDxf', 'trTrace', 'trClear', 'mkReset', 'trSpline', 'spClose', 'spOffset']);
 const MENU_ONLY = new Set(['file']); // el boton solo abre el desplegable (nunca ejecuta algo, p. ej. "Nuevo")
 const isAct = (id) => id === 'filter' || id === 'sim' || ACT_IDS.has(id);
 // Vector <-> linea con lo seleccionado: con una linea (y uno de sus extremos, la cola) seleccionada, «Vector» la convierte;
@@ -6095,6 +6161,7 @@ function libPropRows(body, id, o) {
   body.appendChild(propRow('', b));
 }
 $('libIns').onclick = insertLibraryCmd;
+$('dataMgr').onclick = openDataDlg;
 $('ghSave').onclick = ghSaveCmd;
 $('ghOpen').onclick = ghOpenCmd;
 $('ghCfg').onclick = openGhCfg;

@@ -507,3 +507,20 @@ A «{0}» se le asigna un número, no un vector ni una matriz	«{0}» takes a nu
 Mostrar solo el resultado (expr= se dibuja como su valor)	Show only the result (expr= is drawn as its value)
 Editando el script · Shift+Enter guarda · Esc lo deja como estaba	Editing the script · Shift+Enter saves · Esc leaves it as it was
 Editando el texto · Enter guarda, Shift+Enter otra línea · Esc lo deja como estaba	Editing the text · Enter saves, Shift+Enter new line · Esc leaves it as it was
+Los valores que guarda	The values saved by
+, comunes a todos los dibujos de este navegador en este dispositivo (como la carpeta «user» de SMath). Para llevarlos a otro equipo, expórtalos e impórtalos allí.	, shared by all the drawings in this browser on this device (like SMath's «user» folder). To take them to another device, export them and import them there.
+Importar…	Import…
+«{0}» no sirve como nombre de archivo: sin barras, comillas ni los signos : * ? < > |, y hasta 80 caracteres	«{0}» is not a valid file name: no slashes, quotes or the signs : * ? < > |, and up to 80 characters
+{0}: el nombre del archivo es un nombre (MiVariable) o una cadena ("datos.txt")	{0}: the file name is a name (MyVariable) or a string ("data.txt")
+falta cerrar un paréntesis	a parenthesis is not closed
+wfile({0}): falta el nombre del archivo	wfile({0}): the file name is missing
+wfile guarda un número, un vector, una matriz o una cadena	wfile saves a number, a vector, a matrix or a string
+rfile(nombre): falta el nombre del archivo	rfile(name): the file name is missing
+rfile: no hay datos «{0}» (se guardan con wfile(valor{1} {2}))	rfile: there is no data «{0}» (it is saved with wfile(value{1} {2}))
+rfile: «{0}» no se puede leer: {1}	rfile: «{0}» cannot be read: {1}
+No se pudo guardar «{0}»: el almacenamiento del navegador está lleno	Could not save «{0}»: the browser storage is full
+Este dibujo guarda datos con wfile: {0} (Archivo → Datos)	This drawing saves data with wfile: {0} (File → Data)
+Todavía no hay datos. Un texto con wfile(valor, Nombre) los guarda aquí; rfile(Nombre) los lee desde cualquier dibujo.	No data yet. A text with wfile(value, Name) saves it here; rfile(Name) reads it from any drawing.
+¿Borrar los datos «{0}»? Los dibujos que lo leen con rfile darán ⚠ hasta que se vuelva a escribir.	Delete the data «{0}»? Drawings that read it with rfile will show ⚠ until it is written again.
+Ya hay datos «{0}». ¿Reemplazarlos?	There is already data «{0}». Replace it?
+Datos (wfile, rfile)…	Data (wfile, rfile)…

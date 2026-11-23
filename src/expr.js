@@ -4,8 +4,9 @@
 // Variables: las cotas con nombre (D1, A1, R2, O3 o el que les des) se pueden usar en las formulas: vars = { nombre: { v, r } }.
 // Un angulo vale su medida en radianes (r = true), igual que π: sin(A1) funciona y R*A1 es la longitud de arco.
 
-import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem, docUnitsHook, autoUnit } from './units.js';
+import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem, docUnitsHook, autoUnit, userUnitNames } from './units.js';
 import { solveEqs } from './nsolve.js';
+import { dataRead, dataWrite, dataName, valueText } from './datastore.js';
 import { GREEK, GREEK_UP, addCalcFns } from './asciimath.js';
 import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText, localNum, setSci } from './locale.js';
 
@@ -57,7 +58,7 @@ Object.assign(MULTI, {
   nchoosek: { n: [2, 2], f: (A) => { const n = intOf(A[0], 'nchoosek(n, k)', 'n'), k = intOf(A[1], 'nchoosek(n, k)', 'k'); if (k < 0 || n < 0 || k > n) throw new Error('nchoosek(n, k): hace falta 0 ≤ k ≤ n'); let c = 1; for (let i = 1; i <= Math.min(k, n - k); i++) c = (c * (n - Math.min(k, n - k) + i)) / i; return { v: Math.round(c), r: false }; } },
   nthroot: { n: [2, 2], f: (A) => { const x = A[0].v, n = A[1].v; if (!Number.isInteger(n) || n === 0) throw new Error('nthroot(x, n): n debe ser un entero distinto de 0'); if (x < 0 && n % 2 === 0) throw rt('nthroot(x, n): con x negativo, n debe ser impar (para un complejo usa x^(1/n))'); return { v: Math.sign(x) * Math.abs(x) ** (1 / n), r: false }; } },
 });
-const LAZY = new Set(['if', 'si', 'fzero', 'line', 'for', 'while', 'integral']); // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
+const LAZY = new Set(['if', 'si', 'fzero', 'line', 'for', 'while', 'integral', 'wfile', 'rfile']); // wfile/rfile: el nombre del archivo no se evalua (ver lazyWfile) // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
 // Funciones de vectores y matrices (reciben un vector o una matriz): inv, det; resumenes (sobre todos los elementos): sum, prod, mean, median, std, variance, norm, len;
 // forma: rows, cols, trace, diag, eye(n); acumuladas: cumsum, cumprod; entre dos vectores: dot, cross. min(x) y max(x) con un solo vector tambien resumen.
 const MATFN = new Set(['inv', 'det', 'sum', 'prod', 'mean', 'median', 'std', 'variance', 'norm', 'len', 'rows', 'cols', 'trace', 'diag', 'eye', 'cumsum', 'cumprod', 'dot', 'cross']);
@@ -173,6 +174,10 @@ function tokenize(src, vars = null, loose = false) {
     }
     if (c === '√') { toks.push({ t: 'sqrt', i, j: i + 1 }); i++; continue; }
     if (c === 'π') { toks.push({ t: 'id', v: 'π', i, j: i + 1 }); i++; continue; }
+    if (/[A-Za-zα-ωΑ-Ω_]/.test(c) && fileNamePos(toks)) { // el nombre de archivo de rfile(…) o wfile(valor, …): se toma tal cual (como en SMath, no se evalua)
+      const fm = /^[^\s,;()"]+/.exec(src.slice(i)), after = /^\s*(.?)/.exec(src.slice(i + fm[0].length))[1];
+      if (after === ')' || after === ',' || after === ';') { toks.push({ t: 'var', v: fm[0], file: true, i, j: i + fm[0].length }); i += fm[0].length; continue; }
+    }
     m = SUB_RE.exec(src.slice(i)) || ID_RE.exec(src.slice(i));
     if (m && m[0].endsWith(')')) { const ex = IDX_TAIL.exec(src.slice(i + m[0].length)); if (ex) m = [m[0] + ex[0]]; } // «T_(st)_(1,2)»: el indice de un nombre con subindice
     if (m && !m[0].endsWith(')')) { const q = primesAt(src, i + m[0].length, m[0], vars); if (q) m = [m[0] + "'".repeat(q)]; } // «Se'»: primas del nombre
@@ -1302,6 +1307,40 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       return wd({ v: x, r: g.r }, g.d);
     } catch (e) { throw new Error(`fzero: ${e.message}`); }
   }
+  // wfile(valor, nombre) y rfile(nombre), como en SMath: guardan un valor en el almacen de datos de A-CAD y lo leen (ver datastore.js).
+  // El nombre es el de una variable (no importa su valor, ni si existe: «MiVariable») o una cadena («"datos.txt"»). wfile vale 1.
+  const nextEnds = () => toks[p + 1] && (toks[p + 1].t === 'sep' || (toks[p + 1].t === 'op' && toks[p + 1].v === ')'));
+  function fileArg(fn) {
+    const k = peek();
+    if ((k?.t === 'var' || k?.t === 'ufn') && nextEnds()) { p++; return dataName(k.v); }
+    const a = cmp();
+    if (typeof a?.str !== 'string') throw new Error(`${fn}: el nombre del archivo es un nombre (MiVariable) o una cadena ("datos.txt")`);
+    return dataName(a.str);
+  }
+  const closeCall = (fn, sig) => { if (!isOp(')')) throw new Error(`${fn}(${sig}): ${peek()?.t === 'sep' ? 'sobra un argumento' : 'falta cerrar un paréntesis'}`); p++; };
+  function lazyWfile() { // ya se leyo «wfile(»
+    const SIG = `valor${argText()} nombre`;
+    if (isOp(')')) throw new Error(`wfile(${SIG}): falta el valor`);
+    const k0 = peek(), single = k0?.t === 'var' && toks[p + 1]?.t === 'sep' ? vars?.[k0.v] : null; // «wfile(a, …)»: en la unidad de a
+    const a = cmp();
+    if (peek()?.t !== 'sep') throw new Error(`wfile(${SIG}): falta el nombre del archivo`);
+    p++;
+    const name = fileArg('wfile');
+    closeCall('wfile', SIG);
+    if (a?.fn || (!isS(a) && !isM(a) && !Number.isFinite(a?.v))) throw new Error('wfile guarda un número, un vector, una matriz o una cadena');
+    const big = isM(a) ? Math.max(...a.m.flat().map(Math.abs), ...(a.mi ? a.mi.flat().map(Math.abs) : [])) : Math.hypot(a.v || 0, a.im || 0);
+    const units = [single?.pu && single.pf && !single.dv && sameDim(single.d, a.d) && !userUnitNames().includes(single.pu) ? { name: single.pu, f: single.pf } : null, autoUnit(big, a.d)];
+    dataWrite(name, valueText(a, units, (t) => sameValue(readData(t), a)));
+    return { v: 1, r: false };
+  }
+  function lazyRfile() { // ya se leyo «rfile(»
+    if (isOp(')')) throw new Error('rfile(nombre): falta el nombre del archivo');
+    const name = fileArg('rfile');
+    closeCall('rfile', 'nombre');
+    const t = dataRead(name);
+    if (t === null) throw new Error(`rfile: no hay datos «${name}» (se guardan con wfile(valor${argText()} ${name}))`);
+    try { return readData(t); } catch (e) { throw new Error(`rfile: «${name}» no se puede leer: ${e.message}`); }
+  }
   // Funciones con numeros complejos: con un argumento complejo, o con uno real fuera del dominio real (√(-4) = 2j). null: va por el camino real.
   function cplxCall(name, A) {
     const anyC = A.some(isC);
@@ -1644,6 +1683,8 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (k.v === 'line') return lazyLine();
       if (k.v === 'for') return lazyFor();
       if (k.v === 'while') return lazyWhile();
+      if (k.v === 'wfile') return lazyWfile();
+      if (k.v === 'rfile') return lazyRfile();
       if (LAZY.has(k.v)) return lazyIf(k.v);
       const A = [];
       if (isOp(')') && (k.v === 'rand' || k.v === 'randn')) { p++; return call(k.v, A); } // rand() y randn(): un numero
@@ -1674,6 +1715,40 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   }
   if (!Number.isFinite(res.v) || (res.im !== undefined && !Number.isFinite(res.im))) throw new Error('El resultado no es un número');
   return { value: res.v, ...(res.im ? { im: res.im } : {}), rad: res.r, dim: res.d };
+}
+
+// ¿Lo que sigue es el nombre de archivo de rfile(…) (justo tras «rfile(») o de wfile(valor, …) (justo tras su primera coma)?
+function fileNamePos(toks) {
+  const n = toks.length, last = toks[n - 1];
+  if (!last) return false;
+  if (last.t === 'op' && last.v === '(') return toks[n - 2]?.t === 'id' && toks[n - 2].v === 'rfile';
+  if (last.t !== 'sep') return false;
+  let d = 0;
+  for (let q = n - 2; q >= 0; q--) { // un argumento de mas tambien se toma como nombre: asi el aviso es «sobra un argumento»
+    const t = toks[q];
+    if (t.t === 'op' && (t.v === ')' || t.v === ']')) d++;
+    else if (t.t === 'op' && (t.v === '(' || t.v === '[')) { if (!d) return t.v === '(' && toks[q - 1]?.t === 'id' && (toks[q - 1].v === 'wfile' || toks[q - 1].v === 'rfile'); d--; }
+  }
+  return false;
+}
+// El valor que guarda un archivo de datos, como lo usa el evaluador por dentro. Se lee siempre con punto decimal (asi lo escribe wfile).
+function readData(t) {
+  const prev = decimalMode();
+  setDecimal('.');
+  let r;
+  try { r = evalExpr(t, { allowCplx: true, allowMat: true }); } finally { setDecimal(prev); }
+  if (r.str !== undefined) return { str: r.str };
+  if (r.strs) return { strs: r.strs };
+  const x = r.mat ? { m: r.mat, ...(r.mi ? { mi: r.mi } : {}) } : { v: r.value, ...(r.im ? { im: r.im } : {}), r: !!r.rad };
+  if (r.dim) x.d = r.dim;
+  return x;
+}
+const close = (x, y) => Math.abs(x - y) <= 1e-9 * Math.max(1, Math.abs(x), Math.abs(y));
+function sameValue(b, a) {
+  if (isS(a)) return JSON.stringify(a.str ?? a.strs) === JSON.stringify(b.str ?? b.strs);
+  if (!(a.d ? sameDim(a.d, b.d || []) : !b.d || b.d.every((e) => !e))) return false;
+  if (isM(a)) return isM(b) && a.m.length === b.m.length && a.m.every((r, i) => r.length === b.m[i].length && r.every((x, q) => close(x, b.m[i][q]) && close(a.mi?.[i][q] || 0, b.mi?.[i][q] || 0)));
+  return !isM(b) && close(a.v, b.v) && close(a.im || 0, b.im || 0);
 }
 
 // ¿El texto es un numero sin mas? (entonces no se guarda como formula)
