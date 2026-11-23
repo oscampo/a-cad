@@ -38,7 +38,7 @@ const stamp = (doc) => (doc.curLayer && doc.layers?.[doc.curLayer] ? { layer: do
 export const isHidden = (doc, o) => !!(o && o.layer && doc.layers?.[o.layer] && !doc.layers[o.layer].on);
 export const shownEntries = (doc, key) => Object.entries(doc[key] || {}).filter(([, o]) => !isHidden(doc, o));
 export const shownValues = (doc, key) => shownEntries(doc, key).map(([, o]) => o);
-const LAYERED = ['pts', 'lines', 'circles', 'arcs', 'ellipses', 'splines', 'texts', 'hatches', 'images'];
+const LAYERED = ['pts', 'lines', 'circles', 'arcs', 'ellipses', 'splines', 'texts', 'hatches', 'images', 'cons']; // de las relaciones, solo las cotas y las lineas indicativas llevan capa
 export function addLayer(doc, name) {
   doc.layers ||= {};
   const id = nextId(doc, 'y');
@@ -77,6 +77,7 @@ export function layerHiddenPoints(doc) {
 }
 // Una restriccion o cota se oculta si alguno de sus elementos o puntos esta oculto.
 export function consHidden(doc, k, hp) {
+  if (isHidden(doc, k)) return true; // una cota (o linea indicativa) en una capa apagada: no se dibuja ni se exporta, pero sigue midiendo o mandando
   for (const r of k.refs || []) {
     if (typeof r !== 'string') continue;
     if (hp.has(r)) return true;
@@ -247,6 +248,7 @@ export function addCon(doc, con) {
   if (isNamedDim(con)) { if (!con.name || nameTaken(doc, con.name)) giveName(doc, con); } else delete con.name;
   const g = CON_GROUP[con.t];
   if (g && !con.hidden) { doc.cn ||= {}; con.n = doc.cn[g] = (doc.cn[g] || 0) + 1; }
+  if (!con.hidden && (DIM_TYPES.includes(con.t) || con.t === 'LEAD') && !con.layer) Object.assign(con, stamp(doc)); // la capa actual, como cualquier elemento
   doc.cons[id] = con;
   return id;
 }

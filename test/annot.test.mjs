@@ -1,6 +1,6 @@
 // Cotas con etiqueta libre y tamaño de letra; lineas indicativas (anotaciones LEAD): geometria, arrastre, exportacion.
 import assert from 'node:assert/strict';
-import { newDoc, addPoint, addLine, addCircle, addArc, addSpline, addCon, deleteItems } from '../src/model.js';
+import { newDoc, addPoint, addLine, addCircle, addArc, addSpline, addCon, deleteItems, addLayer, consHidden, visibleDoc, layerCount, deleteLayer } from '../src/model.js';
 import { splitLabel, splitScale, dimText, layoutDim, dragDim, pointOnElement, leadLabel, dimGain, endOfElement, leadSpots, leadLabelPlace, LEAD_GAP } from '../src/dims.js';
 import { exportSVG, exportSVGLaser, laserClasses } from '../src/export.js';
 import { solve, initSolver } from '../src/solver.js';
@@ -137,6 +137,25 @@ await t('flecha de línea indicativa = flecha de cota: mismo largo y 3:1, con zo
       assert.ok(Math.abs(A.len - (dimText ? 2.5 * s : 12)) < 1e-9); // sin el ajuste, 12 px con cualquier zoom; con él, la letra de cotas × escala
     }
   }
+});
+
+await t('cotas en capas: toman la capa actual; con la capa apagada no se dibujan ni se exportan, pero siguen mandando', async () => {
+  await initSolver();
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 10, 0); d.pts[a].fixed = true;
+  const ln = addLine(d, a, b, {});
+  const lay = addLayer(d, 'Cotas'); // queda como capa actual
+  const k = addCon(d, { t: 'DIST', refs: [a, b], v: 25 });
+  const h = addCon(d, { t: 'H', refs: [ln] }); // una relacion no lleva capa
+  d.curLayer = null;
+  assert.equal(d.cons[k].layer, lay); assert.equal(d.cons[h].layer, undefined);
+  d.layers[lay].on = false;
+  assert.equal(consHidden(d, d.cons[k], new Set()), true);
+  assert.ok(!(k in visibleDoc(d).cons), 'no se exporta');
+  assert.ok(!exportSVG(d, { s: 1, ox: 0, oy: 0 }).includes('25'), 'el SVG no muestra la cota');
+  assert.ok(solve(d, []).ok); assert.ok(Math.abs(d.pts[b].x - 25) < 1e-6, 'manda igual');
+  assert.equal(layerCount(d, lay), 1);
+  deleteLayer(d, lay); assert.equal(d.cons[k].layer, undefined); // borrar la capa la deja sin capa
 });
 
 console.log(`\n${passed} pruebas de etiquetas y anotaciones pasaron`);

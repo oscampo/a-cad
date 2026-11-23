@@ -524,3 +524,4 @@ Todavía no hay datos. Un texto con wfile(valor, Nombre) los guarda aquí; rfile
 ¿Borrar los datos «{0}»? Los dibujos que lo leen con rfile darán ⚠ hasta que se vuelva a escribir.	Delete the data «{0}»? Drawings that read it with rfile will show ⚠ until it is written again.
 Ya hay datos «{0}». ¿Reemplazarlos?	There is already data «{0}». Replace it?
 Datos (wfile, rfile)…	Data (wfile, rfile)…
+La cota quedó en una capa apagada: no se ve, pero sigue midiendo o mandando	The dimension is now on a layer that is off: it is hidden, but it still measures or drives

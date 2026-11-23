@@ -167,7 +167,7 @@ window.addEventListener('storage', (e) => { // otra pestaña escribio: rfile ve 
   if (!e.key?.startsWith(DATA_PRE)) return;
   const n = e.key.slice(DATA_PRE.length);
   try { const v = e.newValue && JSON.parse(e.newValue); if (v?.t !== undefined) dataMem.set(n, v); else dataMem.delete(n); } catch { return; }
-  dataChanged(); draw();
+  dataChanged(); dataMoved();
 });
 let dataSig = null, dataDoc = null, dataToast = false;
 const usesWfile = () => Object.values(doc.texts || {}).some((t) => /wfile\s*\(/i.test(String(t.text ?? '')));
@@ -189,6 +189,11 @@ function flushData() {
   }
   if (done.length && !dataToast) { dataToast = true; setTimeout(() => toast(`Este dibujo guarda datos con wfile: ${done.join(', ')} (Archivo → Datos)`), 1600); } // despues del aviso «Abierto»
 }
+// Los datos cambiaron fuera de un paso (Archivo → Datos u otra pestaña): las cotas que los leen se acomodan.
+function dataMoved() {
+  if (usesTextVars(doc) || hasReactive(doc)) { const bak = snapshot(), r = settle(doc, solve, []); if (!r.ok) doc = unsnap(bak, doc.assets); else if (dataSig) dataSig = JSON.stringify(withoutAssets(doc)); }
+  draw();
+}
 function openDataDlg() {
   const dlg = $('dlgData'), box = $('dataList');
   const render = () => {
@@ -206,7 +211,7 @@ function openDataDlg() {
       const ex = document.createElement('button'); ex.type = 'button'; ex.textContent = 'Exportar'; ex.title = 'Descarga el archivo de texto';
       ex.onclick = () => download(n, new Blob([v.t], { type: 'text/plain' }));
       const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Borrar';
-      del.onclick = () => { if (!confirm(`¿Borrar los datos «${n}»? Los dibujos que lo leen con rfile darán ⚠ hasta que se vuelva a escribir.`)) return; dataStore().delete(n); render(); draw(); };
+      del.onclick = () => { if (!confirm(`¿Borrar los datos «${n}»? Los dibujos que lo leen con rfile darán ⚠ hasta que se vuelva a escribir.`)) return; dataStore().delete(n); render(); dataMoved(); };
       row.append(info, ex, del); box.appendChild(row);
     }
   };
@@ -218,7 +223,7 @@ function openDataDlg() {
       try { const n = dataName(f.name), t = (await f.text()).trim(); if (dataStore().get(n) !== undefined && !confirm(`Ya hay datos «${n}». ¿Reemplazarlos?`)) continue; dataStore().set(n, t); } catch (err) { bad.push(`${f.name}: ${err.message}`); }
     }
     if (bad.length) toast(bad.join(' · '));
-    render(); draw();
+    render(); dataMoved();
   };
   render(); dlg.showModal();
 }
@@ -3061,7 +3066,15 @@ function mountVarPicker(boxId, dlgId, inputIds, exceptId) {
   box.append(flt, lst);
 }
 
-let dlgRef = false;
+let dlgRef = false, dlgLayAsk, dlgLay; // dlgLayAsk: la capa de la cota que se edita (undefined: sin la fila «Capa»)
+// Llena un selector de capas: «Ninguna» y cada capa (las apagadas lo dicen). Devuelve si hay capas (si no, la fila no se muestra).
+function fillLayerSelect(sel, value) {
+  sel.textContent = '';
+  const ls = [['', 'Ninguna'], ...Object.entries(doc.layers || {}).map(([id, l]) => [id, l.name + (l.on ? '' : ' (apagada)')])];
+  for (const [v, t] of ls) { const op = document.createElement('option'); op.value = v; op.textContent = t; sel.appendChild(op); }
+  sel.value = value && doc.layers?.[value] ? value : '';
+  return ls.length > 1;
+}
 let dlgUnit = null; // unidad elegida en la ultima cota angular ('deg' | 'rad')
 let dlgCtx = null, dlgName = null; // dlgCtx (lo fija quien llama): { vars, list, name?, check? } para formulas con nombres y el campo Nombre
 let dlgExpr = null; // formula tecleada en la ultima cota (null si fue un numero simple)
@@ -3078,6 +3091,7 @@ const KEYS = [['π', 'π'], ['√', '√('], ['sin', 'sin('], ['cos', 'cos('], [
 function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = 'deg', sopt = false) {
   dlgScale = null; dlgScaleExpr = null; dlgDU = null; dlgSrep = false; dlgLabel = null; dlgFs = null;
   const fsAsk = dlgFsAsk; dlgFsAsk = null;
+  const layAsk = dlgLayAsk; dlgLayAsk = undefined; dlgLay = undefined;
   const scaleOk = !!sopt;
   const raw = () => splitLabel($('dlgInput').value).body, lblTail = () => { const l = splitLabel($('dlgInput').value).lbl; return l ? `[${l}]` : ''; }; // la etiqueta libre va aparte de la escala y del valor
   return new Promise((resolve) => {
@@ -3094,6 +3108,7 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
     chk.checked = refState; inp.disabled = refState;
     const unitSel = $('dlgUnit');
     $('dlgRefRow').style.display = kind === 'int' ? 'none' : 'flex';
+    $('dlgLayRow').style.display = layAsk !== undefined && fillLayerSelect($('dlgLay'), layAsk) ? 'flex' : 'none';
     $('dlgHelp').style.display = kind === 'int' ? 'none' : 'block';
     $('dlgUnitRow').style.display = kind === 'angle' ? 'flex' : 'none';
     unitSel.value = unit0;
@@ -3191,7 +3206,7 @@ function askNumber(labelText, initial, refState = false, kind = 'len', unit0 = '
     };
     inp.oninput = showPrev; scInp.oninput = showPrev; sync();
     let done = false;
-    const finish = (v) => { if (done) return; done = true; if (fsAsk && v !== null) { const f = Number(String($('dlgFs').value).replace(',', '.')); dlgFs = doc.dimText ? (f > 0 ? f : null) : f >= 6 && f <= 48 ? f : null; } dlgRef = chk.checked; dlgUnit = kind === 'angle' ? unitSel.value : null; dlg.close(); resolve(v); };
+    const finish = (v) => { if (done) return; done = true; if (fsAsk && v !== null) { const f = Number(String($('dlgFs').value).replace(',', '.')); dlgFs = doc.dimText ? (f > 0 ? f : null) : f >= 6 && f <= 48 ? f : null; } dlgRef = chk.checked; if (layAsk !== undefined) dlgLay = $('dlgLay').value; dlgUnit = kind === 'angle' ? unitSel.value : null; dlg.close(); resolve(v); };
     $('dlgOk').onclick = (ev) => {
       ev.preventDefault();
       if (ctx && ctx.name !== undefined) {
@@ -3530,6 +3545,7 @@ async function addLeader(pt, el) {
   if (!r) return;
   pushUndo();
   const id = addCon(doc, Object.assign(k, r));
+  if (!r.layer) delete doc.cons[id].layer; // «Ninguna» elegida a mano (addCon le pondria la capa actual)
   sel = [{ k: 'co', id }]; afterChange();
 }
 async function editLeader(id) {
@@ -3555,6 +3571,7 @@ function askLeader(k, isNew) {
     hIn.value = String(inPt ? ptOf(h0) : Math.round(h0 * 1000) / 1000);
     const fSel = $('leadFont'); if (!fSel.options.length) for (const [fk, fn] of FONTS) { const op = document.createElement('option'); op.value = fk; op.textContent = fn; op.style.fontFamily = fontCss(fk); fSel.appendChild(op); }
     fSel.value = k.font || '';
+    $('leadLayRow').style.display = fillLayerSelect($('leadLay'), isNew ? doc.curLayer : k.layer) ? 'flex' : 'none';
     let anchor = k.anchor || leadAnchorDefault(doc, k);
     const paint = () => {
       box.textContent = '';
@@ -3575,7 +3592,7 @@ function askLeader(k, isNew) {
       const hv = Number(String(hIn.value).replace(',', '.'));
       if (!(hv > 0)) { toast('La altura debe ser un número mayor que cero'); return; }
       const h = inPt ? hv * PT : hv;
-      finish({ lbl: leadLabel(inp.value) ?? undefined, h, font: fSel.value || undefined, anchor, ...(k.on ? { at: posSel.value } : {}) });
+      finish({ lbl: leadLabel(inp.value) ?? undefined, h, font: fSel.value || undefined, anchor, layer: $('leadLay').value || undefined, ...(k.on ? { at: posSel.value } : {}) });
     };
     $('leadCancel').onclick = () => finish(null);
     dlg.oncancel = () => finish(null);
@@ -3617,11 +3634,12 @@ async function editDimension(id) {
   if (k.expr && !k.ref) { try { const ev = k.t === 'ANG' ? parseValue(k.expr, { angle: true, radians: u0 === 'rad', vars: varsOf(doc, id) }) : dimEval(k.expr, varsOf(doc, id)).v; if (Math.abs(ev * sc0 - shown) <= 1e-6 * Math.max(1, Math.abs(shown))) initial = k.expr; } catch { /* formula invalida: valor */ } }
   if (sc0 !== 1 && !k.ref) initial = `${initial}[*${k.scaleExpr ?? sc0}]`;
   if (k.lbl) initial = `${initial}[${k.lbl}]`; // su etiqueta libre, al final
-  dlgFsAsk = dimFsShow(k);
+  dlgFsAsk = dimFsShow(k); dlgLayAsk = k.layer || '';
   dlgCtx = { vars: varsOf(doc, id), list: varsList(doc, id), except: id, ...(k.name ? { name: k.name, check: (n) => checkName(doc, n, id) } : {}) };
   const val0 = await askNumber((k.name ? k.name + ' · ' : '') + (k.t === 'ANG' ? 'Ángulo (°)' : k.t === 'RAD' ? (isC ? `Diámetro (${DIAM})` : 'Radio (R)') : 'Distancia'), initial, !!k.ref, k.t === 'ANG' ? 'angle' : 'len', u0, k.t !== 'ANG' ? { scale0: k.scale > 0 && k.scale !== 1 ? (k.scaleExpr ?? String(k.scale)) : '', measured: shown, du0: lu ? k.du : '' } : false);
   if (val0 === null || (!dlgRef && k.t !== 'ANG' && val0 <= 0)) return;
   pushUndo();
+  if (dlgLay !== undefined) { if (dlgLay) k.layer = dlgLay; else delete k.layer; if (isHidden(doc, k)) toast('La cota quedó en una capa apagada: no se ve, pero sigue midiendo o mandando'); }
   if (dlgName && dlgName !== k.name) renameDim(doc, id, dlgName);
   if (dlgLabel) k.lbl = dlgLabel; else delete k.lbl;
   if (dlgFs && doc.dimText) { const th = dimFsRead(dlgFs); if (Math.abs(th - dimH(doc, {})) > 1e-9) k.th = th; else delete k.th; } // igual a la del documento: la sigue
