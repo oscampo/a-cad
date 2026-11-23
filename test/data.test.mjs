@@ -90,6 +90,17 @@ t('un paso con el mismo dibujo vuelve a calcular (la memoria del cálculo sabe q
   assert.equal(textVars(d).vals.c.v, 3); // se ve lo guardado
 });
 
+t('rfile(nombre, inicial): el valor inicial si no hay datos (y solo entonces se calcula)', () => {
+  fresh();
+  setDecimal('.');
+  assert.equal(evalExpr('rfile(nada, 7)', {}).value, 7);
+  assert.deepEqual(evalExpr('rfile(nada, [1, 2])', { allowMat: true }).mat, [[1, 2]]);
+  store.set('hay', "3'kN");
+  assert.equal(evalExpr('rfile(hay, 1/0)', {}).value, 3000); // con datos, el inicial no se calcula (1/0 no da error)
+  assert.equal(evalExpr('rfile(nada, x0)', { vars: { x0: { v: 5 } } }).value, 5); // un nombre en el segundo lugar es una variable, no un archivo
+  assert.throws(() => evalExpr('rfile(nada, 1, 2)', {}), /sobra un argumento/);
+});
+
 t('numText: todas las cifras útiles, en una forma que se vuelve a leer', () => {
   assert.equal(numText(0.1 + 0.2), '0.3');
   assert.equal(numText(1.2e-7), '1.2e-7');

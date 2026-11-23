@@ -238,6 +238,7 @@ Como en SMath: guardan un valor para leerlo después o desde otro dibujo. Los da
 |---|---|---|---|
 | `wfile(valor; Nombre)` | Guarda el valor (un número con su unidad, un vector, una matriz o una cadena) en el archivo de datos <i>Nombre</i> y vale 1. El nombre no se evalúa: es el de una variable (no importa su valor, ni si existe) o una cadena con extensión, `"datos.txt"`. El archivo es texto con la sintaxis de A-CAD y punto decimal: `12'kN`, `[1, 2; 3, 4]'mm`, `"texto"`. | `a:12'kN`<br>`wfile(a; MiVariable)=` | `1` |
 | `rfile(Nombre)` | El valor guardado con `wfile`, con sus unidades: `q:rfile(MiVariable)` da 12 kN. Si no hay datos con ese nombre, da ⚠. |  |  |
+| `rfile(Nombre; inicial)` | Lo guardado o, si todavía no hay datos con ese nombre, <i>inicial</i> (que solo se calcula entonces): sirve para empezar, `c:rfile(n; 0)`. Extensión de A-CAD: en SMath el segundo argumento es una ruta. | `rfile(NoExiste; 42)` | `42` |
 
 ## Valores del dibujo
 

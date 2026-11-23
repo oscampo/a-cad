@@ -1333,11 +1333,19 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     dataWrite(name, valueText(a, units, (t) => sameValue(readData(t), a)));
     return { v: 1, r: false };
   }
+  // rfile(nombre, inicial): «inicial» si todavia no hay datos con ese nombre (extension de A-CAD: en SMath el segundo argumento es una ruta).
+  // Solo se calcula si hace falta.
   function lazyRfile() { // ya se leyo «rfile(»
     if (isOp(')')) throw new Error('rfile(nombre): falta el nombre del archivo');
-    const name = fileArg('rfile');
+    const name = fileArg('rfile'), t = dataRead(name);
+    if (peek()?.t === 'sep') {
+      p++;
+      if (t !== null) { skipArg(); closeCall('rfile', `nombre${argText()} inicial`); try { return readData(t); } catch (e) { throw new Error(`rfile: «${name}» no se puede leer: ${e.message}`); } }
+      const v = cmp();
+      closeCall('rfile', `nombre${argText()} inicial`);
+      return v;
+    }
     closeCall('rfile', 'nombre');
-    const t = dataRead(name);
     if (t === null) throw new Error(`rfile: no hay datos «${name}» (se guardan con wfile(valor${argText()} ${name}))`);
     try { return readData(t); } catch (e) { throw new Error(`rfile: «${name}» no se puede leer: ${e.message}`); }
   }
@@ -1724,10 +1732,10 @@ function fileNamePos(toks) {
   if (last.t === 'op' && last.v === '(') return toks[n - 2]?.t === 'id' && toks[n - 2].v === 'rfile';
   if (last.t !== 'sep') return false;
   let d = 0;
-  for (let q = n - 2; q >= 0; q--) { // un argumento de mas tambien se toma como nombre: asi el aviso es «sobra un argumento»
+  for (let q = n - 2; q >= 0; q--) { // en wfile, un argumento de mas tambien se toma como nombre: asi el aviso es «sobra un argumento»
     const t = toks[q];
     if (t.t === 'op' && (t.v === ')' || t.v === ']')) d++;
-    else if (t.t === 'op' && (t.v === '(' || t.v === '[')) { if (!d) return t.v === '(' && toks[q - 1]?.t === 'id' && (toks[q - 1].v === 'wfile' || toks[q - 1].v === 'rfile'); d--; }
+    else if (t.t === 'op' && (t.v === '(' || t.v === '[')) { if (!d) return t.v === '(' && toks[q - 1]?.t === 'id' && toks[q - 1].v === 'wfile'; d--; } // en rfile, despues de la coma va el valor inicial
   }
   return false;
 }
