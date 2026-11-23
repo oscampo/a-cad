@@ -308,7 +308,9 @@ function layoutDimBase(doc, k, view) {
 
   if (k.t === 'LEAD') { // la etiqueta, un texto en unidades del dibujo; la flecha, con la altura del texto
     const Lp = leadLabelPlace(doc, k, DIM_FS / s); if (!Lp) return out;
-    const Ps = v(Lp.P), C = v(Lp.C), len = Lp.h * s, hw = len * ARROW_HW; // flecha ASME Y14.2: largo = altura del texto, base = largo / 3
+    const Ps = v(Lp.P), C = v(Lp.C), lw = (k.on ? leadBody(doc, k)?.w : k.w) ?? 2; // grosor del trazo (px, como se dibuja)
+    // flecha ASME Y14.2: base = largo / 3 (3:1); largo = altura del texto, pero la base nunca menos de 3 veces el grosor de la linea
+    const hw = Math.max(Lp.h * s * ARROW_HW, 1.5 * lw), len = hw / ARROW_HW;
     out.label = { x: Ps.x, y: Ps.y, text: Lp.text, model: true, h: Lp.h, anchor: Lp.anchor, ...(k.font ? { font: k.font } : {}) };
     if (k.on) { // el elemento es el cuerpo: flecha en la punta, en la direccion de la curva
       const B = bodyEnds(doc, k, v); if (!B) return out;
