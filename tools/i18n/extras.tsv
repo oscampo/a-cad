@@ -83,18 +83,24 @@ solve([ecuaciones]{0} [incógnitas]) lleva dos vectores: las ecuaciones (con «=
 {0} elemento{1} seleccionado{2} ({3} gráfica{4})	{0} element{1} selected ({3} graph{4})
 {0} elementos seleccionados ({1} gráfica{2})	{0} elements selected ({1} graph{2})
 {0} elemento{1} seleccionado{2}	{0} element{1} selected
-Sonidos del dibujo	Drawing sounds
-Archivos de audio que viajan dentro del dibujo y suenan con	Audio files that travel inside the drawing and play with
-al confirmar un paso (un Enter en un texto, por ejemplo). Se reducen al agregarlos (un canal, 16 kHz, 8 bits) para que el dibujo pese poco.	when a step is confirmed (an Enter in a text, for example). They are reduced when added (one channel, 16 kHz, 8 bits) so the drawing stays light.
-Agregar…	Add…
 play("nombre"): el nombre del sonido va entre comillas	play("name"): the sound name goes in quotes
 Este navegador no reproduce audio	This browser does not play audio
 {0}: no se pudo leer como audio	{0}: could not be read as audio
 Nombre del sonido (el de play("nombre"))	Sound name (the one in play("name"))
 Ya hay un sonido «{0}». ¿Reemplazarlo?	There is already a sound «{0}». Replace it?
-Este dibujo no tiene sonidos. Agrega archivos de audio y tócalos con play("nombre") en un texto o en una biblioteca.	This drawing has no sounds. Add audio files and play them with play("name") in a text or in a library.
-¿Borrar el sonido «{0}»? play("{1}") dejará de sonar.	Delete the sound «{0}»? play("{1}") will stop playing.
-Sonidos del dibujo…	Drawing sounds…
 «{0}» no sirve como nombre de sonido: letras, números, _, - y espacios, hasta 40 caracteres	«{0}» is not valid as a sound name: letters, numbers, _, - and spaces, up to 40 characters
 solo WAV sin comprimir de 8 o 16 bits	only uncompressed 8 or 16-bit WAV
 El sonido dura {0} s: se admiten hasta {1} s	The sound lasts {0} s: up to {1} s are accepted
+La carpeta de datos de este dispositivo, común a todos los dibujos (como la carpeta «user» de SMath): los textos que guarda	The data folder of this device, shared by all drawings (like the SMath «user» folder): the texts saved by
+, y los archivos de audio (se reducen al importarlos: un canal, 16 kHz, 8 bits) que suenan con	, and the audio files (reduced on import: one channel, 16 kHz, 8 bits) that play with
+al confirmar un paso. Un dibujo lleva consigo los audios que nombra entre comillas y los restaura al abrirse si faltan aquí. Para llevar los demás datos a otro equipo, expórtalos e impórtalos allí.	when a step is confirmed. A drawing carries the audio files it names in quotes and restores them when opened if they are missing here. To take the other data to another computer, export and import them there.
+sin IndexedDB	no IndexedDB
+no se pudo abrir IndexedDB	IndexedDB could not be opened
+No se pudo guardar el dato en este navegador: queda solo mientras la app esté abierta (y viaja dentro de los dibujos que lo usan)	The data could not be saved in this browser: it stays only while the app is open (and travels inside the drawings that use it)
+Todavía no hay datos. Un texto con wfile(valor, Nombre) los guarda aquí; rfile(Nombre) los lee desde cualquier dibujo. Un archivo de audio (Importar…) suena con play("nombre").	There is no data yet. A text with wfile(value, Name) saves it here; rfile(Name) reads it from any drawing. An audio file (Import…) plays with play("name").
+ audio · {0} s · {1} KB	 audio · {0} s · {1} KB
+Descarga el audio (WAV reducido)	Downloads the audio (reduced WAV)
+¿Borrar el sonido «{0}»? play("{1}") dejará de sonar en los dibujos que no lo lleven incrustado.	Delete the sound «{0}»? play("{1}") will stop playing in drawings that do not carry it embedded.
+Ya hay en Datos un sonido distinto llamado {0}: se usa el del dispositivo	There is already a different sound named {0} in Data: the device one is used
+Datos…	Data…
+Datos	Data

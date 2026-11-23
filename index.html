@@ -393,7 +393,7 @@ body.nopanel #panel { display: none; }
   <button id="fNew"></button><button id="fSave"></button><button id="fLoad"></button><button id="fPng"></button>
   <button id="fSvg"></button><button id="fLaser"></button><button id="fDxf"></button>
   <input type="file" id="fileIn" accept=".json,application/json">
-  <button id="fImg"></button><input type="file" id="imgIn" accept="image/*"><button id="libIns"></button><button id="dataMgr"></button><button id="sndMgr"></button>
+  <button id="fImg"></button><input type="file" id="imgIn" accept="image/*"><button id="libIns"></button><button id="dataMgr"></button>
   <button id="ghSave"></button><button id="ghOpen"></button><button id="ghCfg"></button>
   <button id="trTrace"></button><button id="trClear"></button><button id="mkReset"></button><button id="trSpline"></button><button id="spClose"></button><button id="spOffset"></button>
 </div>
@@ -472,16 +472,9 @@ body.nopanel #panel { display: none; }
   <div id="ovList"></div>
   <div id="ovBtns"><button type="button" id="ovAll">Todos</button><button type="button" id="ovProp" title="Abre las propiedades del elemento marcado (debe haber uno solo)">Propiedades</button><span class="sp"></span><button type="button" id="ovNo">Cancelar</button><button type="button" id="ovOk" class="on">Confirmar</button></div>
 </div>
-<dialog id="dlgSnd"><form method="dialog" style="width:min(520px,calc(100vw - 48px))">
-  <p style="margin:0 0 6px"><b>Sonidos del dibujo</b> <span id="sndCount" style="color:var(--muted);font-size:13px"></span></p>
-  <small>Archivos de audio que viajan dentro del dibujo y suenan con <code>play("nombre")</code> al confirmar un paso (un Enter en un texto, por ejemplo). Se reducen al agregarlos (un canal, 16 kHz, 8 bits) para que el dibujo pese poco.</small>
-  <div id="sndList" style="margin:8px 0;max-height:45vh;overflow:auto"></div>
-  <input type="file" id="sndIn" accept="audio/*,.wav,.mp3,.ogg,.m4a,.aac,.flac" multiple hidden>
-  <div class="actions"><button type="button" id="sndAdd">Agregar…</button><button class="on">Cerrar</button></div>
-</form></dialog>
 <dialog id="dlgData"><form method="dialog" style="width:min(560px,calc(100vw - 48px))">
-  <p style="margin:0 0 6px"><b>Datos (wfile, rfile)</b> <span id="dataCount" style="color:var(--muted);font-size:13px"></span></p>
-  <small>Los valores que guarda <code>wfile(valor, Nombre)</code> y lee <code>rfile(Nombre)</code>, comunes a todos los dibujos de este navegador en este dispositivo (como la carpeta «user» de SMath). Para llevarlos a otro equipo, expórtalos e impórtalos allí.</small>
+  <p style="margin:0 0 6px"><b>Datos</b> <span id="dataCount" style="color:var(--muted);font-size:13px"></span></p>
+  <small>La carpeta de datos de este dispositivo, común a todos los dibujos (como la carpeta «user» de SMath): los textos que guarda <code>wfile(valor, Nombre)</code> y lee <code>rfile(Nombre)</code>, y los archivos de audio (se reducen al importarlos: un canal, 16 kHz, 8 bits) que suenan con <code>play("nombre")</code> al confirmar un paso. Un dibujo lleva consigo los audios que nombra entre comillas y los restaura al abrirse si faltan aquí. Para llevar los demás datos a otro equipo, expórtalos e impórtalos allí.</small>
   <div id="dataList" style="margin:8px 0;max-height:45vh;overflow:auto"></div>
   <input type="file" id="dataIn" multiple hidden>
   <div class="actions"><button type="button" id="dataImport">Importar…</button><button class="on">Cerrar</button></div>

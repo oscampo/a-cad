@@ -33,7 +33,9 @@ import { isScript, parseScript } from './script.js';
 import { suggest, openCall, defSource, builtinInfo } from './complete.js';
 import * as gh from './github.js';
 import { setDataBackend, dataStore, clearDataWrites, takeDataWrites, dataName, dataChanged, setEntered, setSoundsActive, setSoundCatalog, takeSounds } from './datastore.js';
-import { addSound, soundSrc, hasSound, removeSound, soundList, soundName, suggestName, reduceSound } from './sounds.js';
+import { soundName, suggestName, reduceSound, dataUrlBytes } from './sounds.js';
+import { setBlobSink, blobGet, blobHas, blobPut, blobDel, blobEntries, blobLoad, embedBlobs, takeEmbedded, restoreEmbedded } from './blobs.js';
+import { loadAllBlobs, putBlob, delBlob } from './blobdb.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, textVars, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg, ICONS } from './icons.js';
@@ -201,8 +203,15 @@ function flushData() {
   }
   if (done.length && !dataToast) { dataToast = true; setTimeout(() => toast(`Este dibujo guarda datos con wfile: ${done.join(', ')} (Archivo → Datos)`), 1600); } // despues del aviso «Abierto»
 }
-// ---- sonidos del dibujo (ver sounds.js): play("nombre") suena al confirmar un paso (flushData); Archivo → Sonidos los agrega, prueba y borra.
-setSoundCatalog((n) => (hasSound(doc, n) ? 1 : 0));
+// ---- datos binarios (ver blobs.js): audio hoy. Viven en la carpeta de datos del dispositivo (IndexedDB), comunes a todos los dibujos;
+// play("nombre") suena al confirmar un paso (flushData); Archivo → Datos los agrega, prueba, exporta y borra.
+// Un dibujo lleva incrustados los que lee por nombre (docOut) y al abrirse restaura los que faltan (loadDoc).
+let blobWarned = false;
+const blobFail = () => { if (!blobWarned) { blobWarned = true; toast('No se pudo guardar el dato en este navegador: queda solo mientras la app esté abierta (y viaja dentro de los dibujos que lo usan)'); } };
+setBlobSink({ put: (n, e) => { putBlob(n, e).catch(blobFail); dataChanged(); }, del: (n) => { delBlob(n).catch(blobFail); dataChanged(); } });
+const blobsReady = loadAllBlobs().then((es) => { blobLoad(es); dataChanged(); }).catch(() => {}); // sin IndexedDB: solo memoria
+const docOut = (d) => docForSave(embedBlobs(d)); // el dibujo como se guarda: con lo que lee incrustado
+setSoundCatalog((n) => (blobHas(n, 'audio') ? 1 : 0));
 let audioCtx = null;
 const audioBufs = new Map(); // clave del sonido -> Promise de su AudioBuffer (se decodifica una vez)
 function audio() { const C = window.AudioContext || window.webkitAudioContext; return C ? (audioCtx ||= new C()) : null; }
@@ -216,7 +225,7 @@ async function playSounds(names) {
   if (!ctx || !names.length) return;
   try { if (ctx.state === 'suspended') await ctx.resume(); } catch { /* el navegador pide un toque antes */ }
   for (const n of names) {
-    const src = soundSrc(doc, n), key = doc.sounds?.[n]?.a;
+    const e = blobGet(n), src = e?.kind === 'audio' ? e.url : null, key = e?.a;
     if (!src) continue;
     try {
       if (!audioBufs.has(key)) audioBufs.set(key, fetch(src).then((r) => r.arrayBuffer()).then((ab) => ctx.decodeAudioData(ab)));
@@ -224,7 +233,9 @@ async function playSounds(names) {
     } catch { audioBufs.delete(key); }
   }
 }
-// Un archivo de audio al dibujo: se decodifica, se reduce (un canal, 16 kHz, 8 bits) y se guarda con un nombre
+// Un archivo de audio a la carpeta de datos: se decodifica, se reduce (un canal, 16 kHz, 8 bits) y se guarda con un nombre
+const AUDIO_EXT = /\.(wav|mp3|ogg|oga|m4a|aac|flac|opus|weba)$/i;
+const isAudioFile = (f) => /^audio\//.test(f.type) || AUDIO_EXT.test(f.name);
 async function importSoundFile(file) {
   const ctx = audio();
   if (!ctx) { toast('Este navegador no reproduce audio'); return false; }
@@ -235,32 +246,9 @@ async function importSoundFile(file) {
   let name = await askText('Nombre del sonido (el de play("nombre"))', suggestName(file.name));
   if (name === null) return false;
   try { name = soundName(name); } catch (e) { toast(e.message); return false; }
-  if (doc.sounds?.[name] && !confirm(`Ya hay un sonido «${name}». ¿Reemplazarlo?`)) return false;
-  pushUndo(); addSound(doc, name, r.url, { ms: r.ms }); afterChange();
+  if (blobHas(name) && !confirm(`Ya hay un sonido «${name}». ¿Reemplazarlo?`)) return false;
+  blobPut(name, { kind: 'audio', url: r.url, ms: r.ms });
   return name;
-}
-function openSoundDlg() {
-  const dlg = $('dlgSnd'), box = $('sndList');
-  const render = () => {
-    box.textContent = '';
-    const all = soundList(doc);
-    $('sndCount').textContent = all.length ? `${all.length} sonido${all.length > 1 ? 's' : ''}` : '';
-    if (!all.length) { box.textContent = 'Este dibujo no tiene sonidos. Agrega archivos de audio y tócalos con play("nombre") en un texto o en una biblioteca.'; return; }
-    for (const s of all) {
-      const row = document.createElement('div'); row.className = 'gm-row';
-      const info = document.createElement('div'); info.style.cssText = 'flex:1 1 auto;min-width:0';
-      const b = document.createElement('b'); b.textContent = s.name;
-      const sm = document.createElement('small'); sm.style.color = 'var(--muted)'; sm.textContent = ` ${(s.ms / 1000).toFixed(1)} s · ${Math.max(1, Math.round(s.bytes / 1024))} KB`;
-      info.append(b, sm);
-      const pl = document.createElement('button'); pl.type = 'button'; pl.textContent = 'Probar'; pl.onclick = () => { unlockAudio(); playSounds([s.name]); };
-      const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Borrar';
-      del.onclick = () => { if (!confirm(`¿Borrar el sonido «${s.name}»? play("${s.name}") dejará de sonar.`)) return; pushUndo(); removeSound(doc, s.name); afterChange(); render(); };
-      row.append(info, pl, del); box.appendChild(row);
-    }
-  };
-  $('sndAdd').onclick = () => $('sndIn').click();
-  $('sndIn').onchange = async (e) => { const files = [...e.target.files]; e.target.value = ''; for (const f of files) await importSoundFile(f); render(); };
-  render(); dlg.showModal();
 }
 // Los datos cambiaron fuera de un paso (Archivo → Datos u otra pestaña): las cotas que los leen se acomodan.
 function dataMoved() {
@@ -271,9 +259,22 @@ function openDataDlg() {
   const dlg = $('dlgData'), box = $('dataList');
   const render = () => {
     box.textContent = '';
-    const all = dataStore().entries();
-    $('dataCount').textContent = all.length ? `${all.length} archivo${all.length > 1 ? 's' : ''}` : '';
-    if (!all.length) { box.textContent = 'Todavía no hay datos. Un texto con wfile(valor, Nombre) los guarda aquí; rfile(Nombre) los lee desde cualquier dibujo.'; return; }
+    const all = dataStore().entries(), blobs = blobEntries(), total = all.length + blobs.length;
+    $('dataCount').textContent = total ? `${total} archivo${total > 1 ? 's' : ''}` : '';
+    if (!total) { box.textContent = 'Todavía no hay datos. Un texto con wfile(valor, Nombre) los guarda aquí; rfile(Nombre) los lee desde cualquier dibujo. Un archivo de audio (Importar…) suena con play("nombre").'; return; }
+    for (const [n, v] of blobs) {
+      const row = document.createElement('div'); row.className = 'gm-row';
+      const info = document.createElement('div'); info.style.cssText = 'flex:1 1 auto;min-width:0';
+      const b = document.createElement('b'); b.textContent = n;
+      const sm = document.createElement('small'); sm.style.color = 'var(--muted)'; sm.textContent = ` audio · ${((v.ms || 0) / 1000).toFixed(1)} s · ${Math.max(1, Math.round((v.url.length * 3) / 4096))} KB`;
+      info.append(b, sm);
+      const pl = document.createElement('button'); pl.type = 'button'; pl.textContent = 'Probar'; pl.onclick = () => { unlockAudio(); playSounds([n]); };
+      const ex = document.createElement('button'); ex.type = 'button'; ex.textContent = 'Exportar'; ex.title = 'Descarga el audio (WAV reducido)';
+      ex.onclick = () => download(n + '.wav', new Blob([dataUrlBytes(v.url)], { type: 'audio/wav' }));
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Borrar';
+      del.onclick = () => { if (!confirm(`¿Borrar el sonido «${n}»? play("${n}") dejará de sonar en los dibujos que no lo lleven incrustado.`)) return; blobDel(n); render(); };
+      row.append(info, pl, ex, del); box.appendChild(row);
+    }
     for (const [n, v] of all) {
       const row = document.createElement('div'); row.className = 'gm-row';
       const info = document.createElement('div'); info.style.cssText = 'flex:1 1 auto;min-width:0';
@@ -293,6 +294,7 @@ function openDataDlg() {
     const files = [...e.target.files]; e.target.value = '';
     const bad = [];
     for (const f of files) {
+      if (isAudioFile(f)) { await importSoundFile(f); continue; }
       try { const n = dataName(f.name), t = (await f.text()).trim(); if (dataStore().get(n) !== undefined && !confirm(`Ya hay datos «${n}». ¿Reemplazarlos?`)) continue; dataStore().set(n, t); } catch (err) { bad.push(`${f.name}: ${err.message}`); }
     }
     if (bad.length) toast(bad.join(' · '));
@@ -305,7 +307,7 @@ function persist() {
   if (sim) return; // no se guarda el dibujo movido por la simulacion
   saveTimer = setTimeout(() => {
     autosaveAt = Date.now();
-    try { localStorage.setItem(STORE, JSON.stringify({ doc: docForSave(doc), view, cur, opts, at: autosaveAt })); quotaWarned = false; } catch { if (doc.images && Object.keys(doc.images).length && !quotaWarned) { quotaWarned = true; toast('Las imágenes no caben en el guardado automático del navegador: guarda el archivo (.json) para no perder cambios'); } }
+    try { localStorage.setItem(STORE, JSON.stringify({ doc: docOut(doc), view, cur, opts, at: autosaveAt })); quotaWarned = false; } catch { if (doc.images && Object.keys(doc.images).length && !quotaWarned) { quotaWarned = true; toast('Las imágenes no caben en el guardado automático del navegador: guarda el archivo (.json) para no perder cambios'); } }
   }, 300);
 }
 // afterChange tambien mantiene al dia las cotas que leen medidas (si no se estabilizan, se deja como estaba)
@@ -4027,6 +4029,8 @@ function loadDoc(d) {
   setAngleMode(doc);
   fillDimUnits(doc); // cotas guardadas como «2'cm»: la etiqueta dice «2 cm»
   ensureImagePoints(doc); syncImages(doc); // imagenes de dibujos anteriores: su punto de insercion
+  const emb = takeEmbedded(doc); // lo que el dibujo lleva incrustado pasa a la carpeta de datos si falta alli
+  if (emb.length) blobsReady.then(() => { const r = restoreEmbedded(emb); if (r.differs.length) setTimeout(() => toast(`Ya hay en Datos un sonido distinto llamado ${r.differs.join(', ')}: se usa el del dispositivo`), 1500); });
   setTimeout(() => { checkLibUpdates(); }, 2000); // bibliotecas insertadas: ¿hay una version nueva en GitHub?
 }
 async function exportPNG() {
@@ -4091,7 +4095,7 @@ document.querySelectorAll('[data-tool]').forEach((b) => { b.onclick = () => setT
 // ---- botones desplegables: cada grupo muestra la ultima herramienta usada; toca de nuevo (con el grupo activo),
 // toca la esquina marcada o mantén presionado para ver las demás.
 const GROUPS = {
-  file: [['fNew', 'file-plus', 'Nuevo dibujo'], ['fSave', 'save', 'Guardar (.json)'], ['fLoad', 'folder-open', 'Abrir…'], ['ghSave', 'save', 'Guardar en GitHub…'], ['ghOpen', 'folder-open', 'Abrir de GitHub…'], ['ghCfg', 'props', 'Configurar GitHub…'], ['fImg', 'image', 'Insertar imagen…'], ['libIns', 'folder-open', 'Insertar biblioteca…'], ['dataMgr', 'folder-open', 'Datos (wfile, rfile)…'], ['sndMgr', 'play', 'Sonidos del dibujo…'], ['fPng', 'image', 'Exportar PNG'], ['fSvg', 'svg', 'Exportar SVG'], ['fLaser', 'svg', 'SVG para corte láser…'], ['fDxf', 'dxf', 'Exportar DXF']],
+  file: [['fNew', 'file-plus', 'Nuevo dibujo'], ['fSave', 'save', 'Guardar (.json)'], ['fLoad', 'folder-open', 'Abrir…'], ['ghSave', 'save', 'Guardar en GitHub…'], ['ghOpen', 'folder-open', 'Abrir de GitHub…'], ['ghCfg', 'props', 'Configurar GitHub…'], ['fImg', 'image', 'Insertar imagen…'], ['libIns', 'folder-open', 'Insertar biblioteca…'], ['dataMgr', 'folder-open', 'Datos…'], ['fPng', 'image', 'Exportar PNG'], ['fSvg', 'svg', 'Exportar SVG'], ['fLaser', 'svg', 'SVG para corte láser…'], ['fDxf', 'dxf', 'Exportar DXF']],
   spl: [['spline', 'spline', 'Spline por puntos (S)'], ['trTrace', 'trace', 'Trazar punto (activar o quitar)'], ['trClear', 'trash', 'Borrar trayectoria'], ['mkReset', 'mark-reset', 'Reiniciar marcas'], ['trSpline', 'spline', 'Trazado a spline…'], ['spClose', 'spline-closed', 'Cerrar o abrir el spline'], ['spOffset', 'spline', 'Equidistante…']],
   sel: [['select', 'select', 'Seleccionar y arrastrar (V)'], ['filter', 'filter', 'Filtrar la selección…']],
   line: [['line', 'line', 'Línea (L)'], ['vector', 'vector', 'Vector: línea con flecha y magnitud (W). Con una línea seleccionada, la convierte en vector'], ['mline', 'mline', 'Línea de punto medio (M)'], ['cline', 'cline', 'Línea constructiva (K)']],
@@ -4105,7 +4109,7 @@ const GROUPS = {
 };
 // Cada elemento de un grupo es una herramienta, salvo Filtrar y Copiar, que son acciones.
 // Archivo y Spline: sus acciones viven en botones ocultos (#acts) que conservan su logica y su estado habilitado.
-const ACT_IDS = new Set(['ghSave', 'ghOpen', 'ghCfg', 'fNew', 'fSave', 'fLoad', 'fImg', 'libIns', 'dataMgr', 'sndMgr', 'fPng', 'fSvg', 'fLaser', 'fDxf', 'trTrace', 'trClear', 'mkReset', 'trSpline', 'spClose', 'spOffset']);
+const ACT_IDS = new Set(['ghSave', 'ghOpen', 'ghCfg', 'fNew', 'fSave', 'fLoad', 'fImg', 'libIns', 'dataMgr','fPng', 'fSvg', 'fLaser', 'fDxf', 'trTrace', 'trClear', 'mkReset', 'trSpline', 'spClose', 'spOffset']);
 const MENU_ONLY = new Set(['file']); // el boton solo abre el desplegable (nunca ejecuta algo, p. ej. "Nuevo")
 const isAct = (id) => id === 'filter' || id === 'sim' || ACT_IDS.has(id);
 // Vector <-> linea con lo seleccionado: con una linea (y uno de sus extremos, la cola) seleccionada, «Vector» la convierte;
@@ -5910,7 +5914,7 @@ $('ltDel').onclick = () => {
 };
 
 $('fNew').onclick = () => { if (confirm('¿Empezar un dibujo nuevo? Se pierde lo no guardado.')) { loadDoc(freshDoc()); opts.fileBase = ''; opts.ghPath = null; fitView(); afterChange(); } };
-$('fSave').onclick = () => saveFile(doc.lib?.on ? 'alib.json' : 'json', '', () => new Blob([JSON.stringify({ app: 'ipad-cad', version: VERSION, doc: docForSave(doc) }, null, 1)], { type: 'application/json' }));
+$('fSave').onclick = () => saveFile(doc.lib?.on ? 'alib.json' : 'json', '', () => new Blob([JSON.stringify({ app: 'ipad-cad', version: VERSION, doc: docOut(doc) }, null, 1)], { type: 'application/json' }));
 $('fLoad').onclick = () => $('fileIn').click();
 $('fileIn').onchange = async (e) => {
   opts.ghPath = null; // un archivo del dispositivo, no de GitHub
@@ -5963,7 +5967,7 @@ async function ghSaveCmd() {
     if (cur && cur !== known && !confirm(known
       ? `«${name}» cambió en GitHub desde la última vez que lo abriste o guardaste en este dispositivo (quizá lo editaste en otro). ¿Sobrescribirlo con este dibujo?`
       : `Ya existe «${name}» en GitHub. ¿Sobrescribirlo con este dibujo?`)) { toast('No se guardó'); return; }
-    const text = JSON.stringify({ app: 'ipad-cad', version: VERSION, doc: docForSave(libNext ? { ...doc, lib: libNext } : doc) }, null, 1);
+    const text = JSON.stringify({ app: 'ipad-cad', version: VERSION, doc: docOut(libNext ? { ...doc, lib: libNext } : doc) }, null, 1);
     const sha = await gh.write(c, path, text, `A-CAD: ${name}` + (libNext ? ` (biblioteca v${libNext.version})` : ''), cur);
     if (sha) gh.rememberSha(c, path, sha);
     if (libNext) {
@@ -6269,7 +6273,6 @@ function libPropRows(body, id, o) {
 }
 $('libIns').onclick = insertLibraryCmd;
 $('dataMgr').onclick = openDataDlg;
-$('sndMgr').onclick = openSoundDlg;
 $('ghSave').onclick = ghSaveCmd;
 $('ghOpen').onclick = ghOpenCmd;
 $('ghCfg').onclick = openGhCfg;
@@ -6347,6 +6350,6 @@ async function boot() {
     navigator.serviceWorker.register('sw.js').then((reg) => reg.update()).catch(() => {}); // reg.update(): mira si hay un service worker nuevo en cada arranque
     document.addEventListener('visibilitychange', checkNewBuild);
   }
-  window.__cad = { snd: { importFile: importSoundFile, play: playSounds }, load: (d) => { loadDoc(d); fitView(); afterChange(); draw(); }, hitTest, get doc() { return doc; }, get view() { return view; }, solve, setTool, toScreen, toModel, applyCon, get sel() { return sel; }, set sel(v) { sel = v; afterChange(); } };
+  window.__cad = { snd: { importFile: importSoundFile, play: playSounds }, blobs: { get: blobGet, has: blobHas, entries: blobEntries, ready: () => blobsReady }, load: (d) => { loadDoc(d); fitView(); afterChange(); draw(); }, hitTest, get doc() { return doc; }, get view() { return view; }, solve, setTool, toScreen, toModel, applyCon, get sel() { return sel; }, set sel(v) { sel = v; afterChange(); } };
 }
 boot();

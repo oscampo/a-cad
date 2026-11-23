@@ -248,7 +248,7 @@ Como en SMath: guardan un valor para leerlo después o desde otro dibujo. Los da
 
 ## Sonidos
 
-Archivos de audio que viajan dentro del dibujo (Archivo → Sonidos del dibujo…: se agregan con un nombre, se prueban y se borran). Al agregarlos se reducen (un canal, 16 kHz, 8 bits) para que el dibujo pese poco: unos 16 KB por segundo.
+Archivos de audio de la carpeta de datos del dispositivo (Archivo → Datos…: se importan con un nombre, se prueban, exportan y borran). Al importarlos se reducen (un canal, 16 kHz, 8 bits): unos 16 KB por segundo. El dibujo lleva incrustados los que nombra entre comillas, `play("nombre")`, y los restaura al abrirse si faltan; un nombre armado con una variable no viaja con el dibujo.
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
