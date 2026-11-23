@@ -58,7 +58,7 @@ Object.assign(MULTI, {
   nchoosek: { n: [2, 2], f: (A) => { const n = intOf(A[0], 'nchoosek(n, k)', 'n'), k = intOf(A[1], 'nchoosek(n, k)', 'k'); if (k < 0 || n < 0 || k > n) throw new Error('nchoosek(n, k): hace falta 0 ≤ k ≤ n'); let c = 1; for (let i = 1; i <= Math.min(k, n - k); i++) c = (c * (n - Math.min(k, n - k) + i)) / i; return { v: Math.round(c), r: false }; } },
   nthroot: { n: [2, 2], f: (A) => { const x = A[0].v, n = A[1].v; if (!Number.isInteger(n) || n === 0) throw new Error('nthroot(x, n): n debe ser un entero distinto de 0'); if (x < 0 && n % 2 === 0) throw rt('nthroot(x, n): con x negativo, n debe ser impar (para un complejo usa x^(1/n))'); return { v: Math.sign(x) * Math.abs(x) ** (1 / n), r: false }; } },
 });
-const LAZY = new Set(['if', 'si', 'fzero', 'line', 'for', 'while', 'integral', 'wfile', 'rfile']); // wfile/rfile: el nombre del archivo no se evalua (ver lazyWfile) // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
+const LAZY = new Set(['if', 'si', 'fzero', 'line', 'for', 'while', 'integral', 'wfile', 'rfile', 'break', 'continue', 'return']); // break, continue y return: senales de los programas (ver lazyFor) // wfile/rfile: el nombre del archivo no se evalua (ver lazyWfile) // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
 // Funciones de vectores y matrices (reciben un vector o una matriz): inv, det; resumenes (sobre todos los elementos): sum, prod, mean, median, std, variance, norm, len;
 // forma: rows, cols, trace, diag, eye(n); acumuladas: cumsum, cumprod; entre dos vectores: dot, cross. min(x) y max(x) con un solo vector tambien resumen.
 const MATFN = new Set(['inv', 'det', 'sum', 'prod', 'mean', 'median', 'std', 'variance', 'norm', 'len', 'rows', 'cols', 'trace', 'diag', 'eye', 'cumsum', 'cumprod', 'dot', 'cross']);
@@ -733,6 +733,10 @@ function integrate(f, a, b) {
 // verdad una nube de puntos cambiaria al mover cualquier cosa y una salida no coincidiria con su grafica. Cada calculo del dibujo empieza la
 // secuencia desde la misma semilla (rngReset, en textVarState); rng(n) en un texto la cambia desde ese punto de la lectura.
 let RNG = 0;
+// rng("shuffle"): la semilla la da quien usa el evaluador (main.js: cambia con cada cambio confirmado del dibujo, y por eso con cada paso de
+// wfile, y se mantiene al redibujar); sin quien la de, una al azar en cada llamada
+let SHUFFLE = () => (Date.now() ^ Math.floor(Math.random() * 2147483647)) >>> 0;
+export const setShuffleSeed = (f) => { SHUFFLE = f; };
 export function rngReset(seed = 1) { RNG = (Math.abs(Math.round(seed)) * 2654435761 + 1013904223) >>> 0; return RNG; }
 // Punto de la secuencia: cada salida «…=» y cada grafica parte del suyo (tvars.js lo guarda en el orden de lectura), asi se ve siempre lo
 // mismo aunque la pantalla se redibuje; rngMix da un punto distinto para la salida k (dos salidas no repiten la tirada)
@@ -752,7 +756,7 @@ const NF = {
     if (lim.length !== 2 || !lim.every(Number.isInteger) || lim[1] < lim[0]) throw new Error('randi(imax, n, m) o randi([a, b], n, m): imax, a y b son enteros, con a ≤ b');
     return randOut(randDims(A, 'randi', 1), () => lim[0] + Math.floor(rnd01() * (lim[1] - lim[0] + 1)));
   } },
-  rng: { n: [1, 1], opts: 0, f: (A) => { if (typeof A[0].str === 'string') { if (A[0].str.toLowerCase() !== 'shuffle') throw new Error('rng(semilla) o rng("shuffle")'); const sd = (Date.now() ^ Math.floor(Math.random() * 2147483647)) % 2147483647; rngReset(sd); return { v: sd, r: false }; } const v = A[0].v; if (!Number.isInteger(v) || v < 0) throw new Error('rng(semilla): la semilla es un entero ≥ 0'); rngReset(v); return { v, r: false }; } }, // cambia la secuencia desde aqui
+  rng: { n: [1, 1], opts: 0, f: (A) => { if (typeof A[0].str === 'string') { if (A[0].str.toLowerCase() !== 'shuffle') throw new Error('rng(semilla) o rng("shuffle")'); const sd = SHUFFLE() % 2147483647; rngReset(sd); return { v: sd, r: false }; } const v = A[0].v; if (!Number.isInteger(v) || v < 0) throw new Error('rng(semilla): la semilla es un entero ≥ 0'); rngReset(v); return { v, r: false }; } }, // cambia la secuencia desde aqui
   zeros: { n: [1, 2], f: (A) => { const n = intArg(A[0], 'zeros(n, m)', 'n', 1, 10000), m = A[1] ? intArg(A[1], 'zeros(n, m)', 'm', 1, 10000) : n; sizeLim(n, m, 'zeros'); return { m: Array.from({ length: n }, () => Array(m).fill(0)) }; } },
   ones: { n: [1, 2], f: (A) => { const n = intArg(A[0], 'ones(n, m)', 'n', 1, 10000), m = A[1] ? intArg(A[1], 'ones(n, m)', 'm', 1, 10000) : n; sizeLim(n, m, 'ones'); return { m: Array.from({ length: n }, () => Array(m).fill(1)) }; } },
   linspace: { n: [2, 3], f: (A) => {
@@ -792,6 +796,13 @@ const NF = {
     const a = asMat(A[0]), b = asMat(A[1]), P = cm(a), Q = cm(b), R = Q.length, C = Q[0].length;
     sizeLim(P.length * R, P[0].length * C, 'kron');
     return withD(fromCm(Array.from({ length: P.length * R }, (_, i) => Array.from({ length: P[0].length * C }, (_, k) => cmul(P[Math.floor(i / R)][Math.floor(k / C)], Q[i % R][k % C])))), mulDim(a.d, b.d));
+  } },
+  find: { n: [1, 1], f: (A) => { // las posiciones (desde 1, por columnas como en MATLAB) de los elementos distintos de 0; 0 si no hay
+    const a = A[0];
+    if (isS(a)) throw new Error('find(v): v es un número, un vector o una matriz (para cadenas, strfind)');
+    const P = isM(a) ? cm(a) : [[cpair(a)]], out = [];
+    for (let k = 0; k < P[0].length; k++) for (let i = 0; i < P.length; i++) if (P[i][k][0] !== 0 || P[i][k][1] !== 0) out.push(k * P.length + i + 1);
+    return !out.length ? { v: 0, r: false } : out.length === 1 ? { v: out[0], r: false } : { m: [out] };
   } },
   any: { n: [1, 1], f: (A) => { const a = A[0], P = isM(a) ? cm(a).flat() : [cpair(a)]; return { v: P.some((z) => z[0] !== 0 || z[1] !== 0) ? 1 : 0, r: false }; } },
   rank: { n: [1, 1], f: (A) => { const M = realMat(A[0], 'rank'), { S } = svdJ(M), tol = svdTol(M, S); return { v: S.filter((x) => x > tol).length, r: false }; } },
@@ -955,6 +966,8 @@ const SF = {
   lower: { n: [1, 1], f: (A) => strOrVec(A[0], 'lower(s)', (x) => x.toLowerCase()) },
   strtrim: { n: [1, 1], f: (A) => strOrVec(A[0], 'strtrim(s)', (x) => x.trim()) },
   reverse: { n: [1, 1], f: (A) => strOrVec(A[0], 'reverse(s)', (x) => [...x].reverse().join('')) },
+  isempty: { n: [1, 1], f: (A) => ({ v: typeof A[0]?.str === 'string' ? (A[0].str === '' ? 1 : 0) : A[0]?.strs ? (A[0].strs.every((x) => x === '') ? 1 : 0) : 0, r: false }) }, // una cadena vacia; un numero o un vector nunca lo estan
+  replace: { n: [3, 3], f: (A) => SF.strrep.f(A) }, // como strrep (MATLAB tiene los dos)
   strrep: { n: [3, 3], f: (A) => { const o = strArg(A[1], 'strrep(s, viejo, nuevo)', 'viejo'), nw = strArg(A[2], 'strrep(s, viejo, nuevo)', 'nuevo'); if (!o) throw new Error('strrep: el texto a reemplazar no puede estar vacío'); return strOrVec(A[0], 'strrep(s, viejo, nuevo)', (x) => x.split(o).join(nw)); } },
   strsplit: { n: [1, 2], f: (A) => { const t = strArg(A[0], 'strsplit(s, separador)'), d = A[1] ? strArg(A[1], 'strsplit(s, separador)', 'el separador') : null; return { strs: d ? t.split(d) : t.trim().split(/\s+/) }; } },
   strjoin: { n: [1, 2], f: (A) => { if (!A[0].strs && typeof A[0].str !== 'string') throw new Error('strjoin(v, separador): v es un vector de cadenas'); const d = A[1] ? strArg(A[1], 'strjoin(v, separador)', 'el separador') : ' '; return { str: (A[0].strs || [A[0].str]).join(d) }; } },
@@ -971,7 +984,13 @@ const SF = {
   strcmpi: { n: [2, 2], f: (A) => cmpStr(A, (x) => x.toLowerCase()) },
   extractBefore: { n: [2, 2], f: (A) => ({ str: cut(A, 'extractBefore(s, patrón)', true) }) },
   extractAfter: { n: [2, 2], f: (A) => ({ str: cut(A, 'extractAfter(s, patrón)', false) }) },
-  extractBetween: { n: [3, 3], f: (A) => { const t = strArg(A[0], 'extractBetween(s, inicio, fin)'), a = strArg(A[1], 'extractBetween(s, inicio, fin)', 'inicio'), b = strArg(A[2], 'extractBetween(s, inicio, fin)', 'fin'), i = t.indexOf(a); if (i < 0) throw rt(`extractBetween: «${a}» no aparece`); const j = t.indexOf(b, i + a.length); if (j < 0) throw rt(`extractBetween: «${b}» no aparece después de «${a}»`); return { str: t.slice(i + a.length, j) }; } },
+  extractBetween: { n: [3, 3], f: (A) => {
+    if (!isS(A[1]) && !isS(A[2])) { // con posiciones (desde 1, incluidas), como en MATLAB: extractBetween("abcdef", 2, 4) es "bcd"
+      const t = strArg(A[0], 'extractBetween(s, inicio, fin)'), ch = [...t], a = A[1].v, b = A[2].v;
+      if (![a, b].every(Number.isInteger) || a < 1 || b < a - 1 || b > ch.length) throw new Error(`extractBetween(s, inicio, fin): las posiciones van de 1 a ${ch.length} (inicio ≤ fin + 1)`);
+      return { str: ch.slice(a - 1, b).join('') };
+    }
+    const t = strArg(A[0], 'extractBetween(s, inicio, fin)'), a = strArg(A[1], 'extractBetween(s, inicio, fin)', 'inicio'), b = strArg(A[2], 'extractBetween(s, inicio, fin)', 'fin'), i = t.indexOf(a); if (i < 0) throw rt(`extractBetween: «${a}» no aparece`); const j = t.indexOf(b, i + a.length); if (j < 0) throw rt(`extractBetween: «${b}» no aparece después de «${a}»`); return { str: t.slice(i + a.length, j) }; } },
 };
 function cmpStr(A, norm) { // strcmp(a, b): 1 si son iguales (0 si alguna no es cadena); con un vector, elemento por elemento
   const [a, b] = A, eq = (x, y) => (typeof x === 'string' && typeof y === 'string' && norm(x) === norm(y) ? 1 : 0);
@@ -1213,8 +1232,13 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     progSep(FOR_MSG);
     const p0 = p;
     let last = { v: 0, r: false };
-    for (const x of seq) { loopTick(); vars[xt.v] = { ...x, loc: true }; p = p0; last = stmt(); }
-    if (!seq.length) { p = p0; skipArg(); }
+    let cut = !seq.length;
+    for (const x of seq) {
+      loopTick(); vars[xt.v] = { ...x, loc: true }; p = p0;
+      try { last = stmt(); } catch (e) { if (e?.flow === 'break') { cut = true; break; } if (e?.flow === 'continue') { cut = true; continue; } throw e; }
+      cut = false;
+    }
+    if (cut) { p = p0; skipArg(); } // sin vueltas, o la ultima termino con break/continue a mitad del cuerpo
     closeP(FOR_MSG);
     return last;
   }
@@ -1230,7 +1254,8 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       progSep(WHILE_MSG);
       if (c.v === 0) { skipArg(); break; }
       loopTick();
-      last = stmt();
+      const pb = p;
+      try { last = stmt(); } catch (e) { if (e?.flow === 'break') { p = pb; skipArg(); break; } if (e?.flow === 'continue') continue; throw e; }
     }
     closeP(WHILE_MSG);
     return last;
@@ -1684,6 +1709,18 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     }
     if (k.t === 'id') {
       if (k.v in CONSTS) return { v: CONSTS[k.v], r: k.v === 'pi' || k.v === 'π' };
+      if (k.v === 'break' || k.v === 'continue') { // break() sale del for/while; continue() pasa a la vuelta siguiente
+        if (isOp('(')) { p++; if (!isOp(')')) throw new Error(`«${k.v}» no lleva valores: ${k.v}()`); p++; }
+        throw { flow: k.v };
+      }
+      if (k.v === 'return') { // return(valor): el valor de la funcion (o del script), sin seguir
+        if (!isOp('(')) throw new Error('return lleva el valor entre paréntesis: return(x)');
+        p++;
+        const v = isOp(')') ? { v: 0, r: false } : stmt();
+        if (!isOp(')')) throw new Error('Falta cerrar un paréntesis');
+        p++;
+        throw { flow: 'return', value: v };
+      }
       if (!isOp('(')) throw new Error(`«${k.v}» necesita paréntesis, p. ej. ${k.v}(30)`);
       p++;
       if (k.v === 'fzero') return lazyFzero();
@@ -1708,8 +1745,12 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     }
     throw new Error('Expresión no válida');
   }
-  const res = cmp();
-  if (p < toks.length) throw new Error('Sobra algo al final de la expresión');
+  let res;
+  try { res = cmp(); if (p < toks.length) throw new Error('Sobra algo al final de la expresión'); } catch (e) {
+    if (e?.flow === 'return') res = e.value; // return(x): el valor de la funcion o del script
+    else if (e?.flow) throw new Error(`«${e.flow}» va dentro de un for o un while`);
+    else throw e;
+  }
   // un complejo solo sale donde se acepta (los textos de calculo y las funciones); una cota, un actuador o una grafica necesitan un real
   if (isS(res)) { // una cadena solo sale en los textos de calculo (y las funciones); una cota o una grafica necesitan un numero
     if (!allowCplx) throw new Error('El resultado es una cadena: aquí hace falta un número');

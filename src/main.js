@@ -44,7 +44,7 @@ import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProble
 import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX, imgRect, syncImages, ensureImagePoints, anchorPoint } from './images.js';
 import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
-import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr } from './expr.js';
+import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr, setShuffleSeed, rngMix } from './expr.js';
 import { localNum, SCI_DEFAULT, sciFrom, decimalMode } from './locale.js';
 import { getLang, setLang, initLang } from './i18n.js';
 import { HELP_HTML } from './help.js';
@@ -170,6 +170,12 @@ window.addEventListener('storage', (e) => { // otra pestaña escribio: rfile ve 
   dataChanged(); dataMoved();
 });
 let dataSig = null, dataDoc = null, dataToast = false;
+// rng("shuffle"): una semilla de esta apertura de la app mezclada con el numero de cambios confirmados: cambia con cada cambio del dibujo
+// (y asi con cada paso de wfile) y se mantiene entre redibujos (lo que se ve no salta)
+const SESSION_SEED = (Date.now() ^ Math.floor(Math.random() * 2 ** 31)) >>> 0;
+let shuffleStep = 0;
+setShuffleSeed(() => rngMix(SESSION_SEED, shuffleStep));
+const usesShuffle = () => Object.values(doc.texts || {}).some((t) => /shuffle/i.test(String(t.text ?? '')));
 const usesWfile = () => Object.values(doc.texts || {}).some((t) => /wfile\s*\(/i.test(String(t.text ?? '')));
 function flushData() {
   if (sim || drag || !usesWfile()) return;
@@ -178,7 +184,7 @@ function flushData() {
   if (sig === dataSig) return;
   dataSig = sig;
   const st = dataStore();
-  dataChanged(); clearDataWrites(); // sin la memoria del calculo: wfile tiene que ejecutarse en este paso
+  dataChanged(); clearDataWrites(); // sin la memoria del calculo: wfile tiene que ejecutarse en este paso (y rng("shuffle") cambia)
   try { textVars(doc); for (const t of Object.values(doc.texts)) if (/wfile\s*\(/i.test(t.text)) shownText(doc, t); } catch { /* los errores ya se muestran en el dibujo */ }
   const done = [];
   for (const [n, t] of takeDataWrites()) if (st.get(n) !== t) { st.set(n, t); done.push(n); }
@@ -241,7 +247,7 @@ function updateFileTag() {
   const el = $('fileTag'), t = opts.fileBase ? opts.fileBase + '.json' : 'sin nombre';
   if (el && el.textContent !== t) el.textContent = t;
 }
-function afterChange() { syncImages(doc); pageExt = null; scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = unsnap(bak, doc.assets); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); flushData(); persist(); draw(); renderTree(); }
+function afterChange() { if (usesShuffle()) { shuffleStep++; dataChanged(); } syncImages(doc); pageExt = null; scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = unsnap(bak, doc.assets); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); flushData(); persist(); draw(); renderTree(); }
 
 // Un boton de restriccion solo se activa si la seleccion actual le sirve (mismas reglas que applyCon).
 function updateEnabled() {

@@ -155,4 +155,25 @@ t('el reparto de semillas del Mancala: una función que modifica su parámetro y
   void a;
 });
 
+t('scripts con break, continue y return; también dentro de las fórmulas', () => {
+  const d = newDoc(); d.decimal = '.';
+  let y = 200; const T = (q) => addText(d, addPoint(d, 0, y -= 10), q, {});
+  T('%primero(v, lim):\n  for i in 1..numel(v):\n    if v_i > lim:\n      return i\n  0');
+  T('%pares(n):\n  s:0\n  for i in 1..n:\n    if mod(i, 2) == 1:\n      continue\n    s:s + i\n  s');
+  T('%hasta(n):\n  k:0\n  while 1:\n    k:k + 1\n    if k >= n:\n      break\n  k');
+  T('%anidado(n):\n  c:0\n  for i in 1..n:\n    for j in 1..n:\n      if j > i:\n        break\n      c:c + 1\n  c');
+  T('$$a:primero([1, 5, 9, 2], 4)$$'); T('$$b:primero([1, 2], 4)$$'); T('$$c:pares(10)$$'); T('$$k:hasta(7)$$'); T('$$f:anidado(4)$$');
+  const outs = ['a', 'b', 'c', 'k', 'f'].map((n) => d.texts[T(`$$${n}=$$`)]);
+  assert.deepEqual(textVarErrors(d), []);
+  assert.deepEqual(outs.map((t) => clean(shownText(d, t).text)), ['$$a=2$$', '$$b=0$$', '$$c=30$$', '$$k=7$$', '$$f=10$$']); // f: el break interno solo corta su ciclo (1+2+3+4)
+  assert.equal(ev('line(s:0, for(i, 1..10, line(if(i > 3, break(), 0), s:s + i)), s)').value, 6);
+  assert.equal(ev('line(return(5), 7)').value, 5);
+  assert.throws(() => ev('break()'), /va dentro de un for o un while/);
+  assert.deepEqual(ev('find([0, 3, 0, 5])').mat, [[2, 4]]);
+  assert.equal(ev('find([0, 0])').value, 0);
+  assert.equal(evalExpr('isempty("")', { allowCplx: true }).value, 1);
+  assert.equal(evalExpr('replace("a-b", "-", "+")', { allowCplx: true }).str, 'a+b');
+  assert.equal(evalExpr('extractBetween("abcdef", 2, 4)', { allowCplx: true }).str, 'bcd');
+});
+
 console.log(`\n${passed} pruebas de programas pasaron`);

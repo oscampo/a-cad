@@ -70,6 +70,8 @@ export function parseScript(src) {
         stmts.push(arms.reduceRight((acc, [c, b]) => `if(${c}${S}${b}${S}${acc})`, other));
       } else if (/^(elif\b|else\s*:)/.test(ln.s)) fail(ln, '«elif» y «else» van después de un «if», con la misma sangría');
       else if (/^(for|while|if)(\s|$)/.test(ln.s)) fail(ln, `«${ln.s.split(/\s/)[0]}» lleva la forma ${ln.s.startsWith('for') ? '«for i in 1..n:»' : ln.s.startsWith('while') ? '«while condición:»' : '«if condición:»'}`);
+      else if (/^(break|continue)$/.test(ln.s)) stmts.push(ln.s + '()'); // sale del for/while, o pasa a la vuelta siguiente
+      else if ((m = /^return(?:\s+(.+))?$/.exec(ln.s))) stmts.push(`return(${m[1] ?? 0})`); // el valor del script, sin seguir
       else if ((m = FN_RE.exec(ln.s)) && !/^\s*=/.test(m[3])) { // funcion local: g(x): expr (o con el cuerpo debajo)
         if (!top) fail(ln, 'las funciones locales van en el nivel principal del script, no dentro de un for, while o if');
         const gn = normName(m[1]), ps = splitParams(m[2]);

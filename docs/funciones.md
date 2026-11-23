@@ -78,7 +78,7 @@ Los ángulos de los **textos de cálculo y las gráficas** van según la opción
 | `rand()`, `rand(n)`, `rand(n; m)` | Números aleatorios uniformes en [0, 1): uno, una matriz de n×n o de n×m (`rand(1; 200)`, una fila). La secuencia es **reproducible**: cada cálculo del dibujo empieza en la misma semilla, para que una salida y su gráfica muestren los mismos valores. | `size(rand(2; 3))` | `[2, 3]` |
 | `randn(…)` | Como rand, con distribución normal estándar (media 0, desviación 1). Para media μ y desviación s: `μ + s*randn(1; n)`. | `numel(randn(1; 5))` | `5` |
 | `randi(imax; …)`, `randi([a, b]; …)` | Enteros aleatorios de 1 a imax, o de a a b; con n y m, una matriz. | `min(randi([4, 4]; 1; 3))` | `4` |
-| `rng(semilla)`, `rng("shuffle")` | Cambia la semilla de rand, randn y randi desde ese punto de la lectura: otra secuencia, también reproducible. Con `"shuffle"`, como en MATLAB, una semilla nueva cada vez que el dibujo se recalcula (al cambiar algo): para un juego o una simulación que no deba repetirse. Una salida muestra siempre la misma tirada aunque la pantalla se redibuje. Vale la semilla. | `rng(7)` | `7` |
+| `rng(semilla)`, `rng("shuffle")` | Cambia la semilla de rand, randn y randi desde ese punto de la lectura: otra secuencia, también reproducible. Con `"shuffle"`, como en MATLAB, una semilla nueva con cada cambio del dibujo (y con cada paso de `wfile`): para un juego o una simulación que no deba repetirse. Entre cambios se mantiene: la pantalla se redibuja con la misma tirada. Vale la semilla. | `rng(7)` | `7` |
 
 ## Vectores y matrices
 
@@ -132,6 +132,7 @@ Con los nombres de MATLAB. Las que reordenan conservan las unidades y los comple
 | `horzcat(A; B; …)`, `vertcat(A; B; …)` | Lado a lado y uno debajo del otro (como [A, B] y [A; B]). | `vertcat([1,2]; [3,4])` | `[1, 2; 3, 4]` |
 | `kron(A; B)` | Producto de Kronecker. | `kron([1,2]; [1;1])` | `[1, 2; 1, 2]` |
 | `any(v)` | 1 si algún elemento no es 0. | `any([0,0,3])` | `1` |
+| `find(v)` | Las posiciones (desde 1; en una matriz, por columnas) de los elementos que no son 0; 0 si no hay ninguno. Con una comparación, qué elementos cumplen: `find(v > 100)`. | `find([0,3,0,5])` | `[2, 4]` |
 
 ## Álgebra lineal
 
@@ -202,13 +203,15 @@ Una cadena va entre comillas: `"Cumple"` (sirven las “ ” del iPad; `""` dent
 | `str2double(s)`, `str2num(s)` | El número escrito en una cadena. | `str2double("3.25")*2` | `6.5` |
 | `strcat(a; b; …)` | Une cadenas (como +). | `strcat("A"; "-"; "CAD")=` | `“A-CAD”` |
 | `upper`, `lower`, `strtrim`, `reverse` | Mayúsculas, minúsculas, sin espacios en los extremos, al revés. | `upper("abc")=` | `“ABC”` |
-| `strrep(s; viejo; nuevo)` | Reemplaza todas las apariciones. | `strrep("a-b-c"; "-"; "+")=` | `“a+b+c”` |
+| `strrep(s; viejo; nuevo)`, `replace(s; viejo; nuevo)` | Reemplaza todas las apariciones. | `strrep("a-b-c"; "-"; "+")=` | `“a+b+c”` |
+| `isempty(s)` | 1 si la cadena está vacía (o todas las de un vector de cadenas); un número o un vector nunca lo están. | `isempty("")` | `1` |
 | `strsplit(s; sep)`, `strjoin(v; sep)` | Parte una cadena en un vector de cadenas (por espacios si no se da sep) y las vuelve a unir. | `strjoin(strsplit("a,b,c"; ","); " | ")=` | `“a | b | c”` |
 | `strlength(s)` | Número de caracteres. | `strlength("hola")` | `4` |
 | `contains`, `startsWith`, `endsWith` | 1 si la cadena contiene, empieza o termina con el patrón. | `contains("hola mundo"; "mun")` | `1` |
 | `strfind(s; patrón)` | Posiciones (desde 1) donde aparece el patrón; 0 si no aparece. | `strfind("abcabc"; "bc")` | `[2, 5]` |
 | `strcmp(a; b)`, `strcmpi(a; b)` | 1 si son iguales (strcmpi, sin distinguir mayúsculas). | `strcmpi("Abc"; "aBC")` | `1` |
-| `extractBefore`, `extractAfter`, `extractBetween` | Lo que hay antes o después de un patrón (o de una posición), o entre dos. | `extractAfter("x=10"; "=")=` | `“10”` |
+| `extractBefore`, `extractAfter`, `extractBetween` | Lo que hay antes o después de un patrón (o de una posición), o entre dos; con dos números, entre esas posiciones (incluidas). | `extractAfter("x=10"; "=")=` | `“10”` |
+|  | Entre dos posiciones (como `substr` de SMath). | `extractBetween("abcdef"; 2; 4)=` | `“bcd”` |
 
 ## Programas
 
@@ -219,6 +222,8 @@ Pasos en orden y ciclos dentro de una fórmula, como en SMath. Dentro, `s:valor`
 | `line(a; b; …; r)` | Hace los pasos en orden y vale el último. | `line(a:2; b:a^2; a+b)` | `6` |
 | `for(i; inicio..fin; cuerpo)` | Repite el cuerpo con i = inicio, inicio+1, … hasta fin (si fin < inicio, ninguna vez). Con un vector en lugar del rango, i toma cada elemento. | `suma2(n):line(s:0; for(i; 1..n; s:s+i^2); s)`<br>`suma2(10)=` | `385` |
 | `while(condición; cuerpo)` | Repite el cuerpo mientras la condición se cumpla. Para varios pasos en el cuerpo, `line(…)`. | `line(k:0; while(k^2<50; k:k+1); k)` | `8` |
+| `break()`, `continue()` | Dentro de un for o un while: `break()` sale del ciclo; `continue()` pasa a la vuelta siguiente. En un script se escriben solos en su línea: `break`, `continue`. | `line(s:0; for(i; 1..10; line(if(i > 3; break(); 0); s:s + i)); s)` | `6` |
+| `return(x)` | Termina la función (o el script) con el valor x, sin seguir. En un script, `return x`. | `line(return(5); 7)` | `5` |
 | `v_i:valor`, `A_(i,j):valor` | Asigna un elemento de un vector o de una matriz (o de un vector de cadenas) dentro de un programa, sobre una copia local: la variable del documento no cambia afuera. Como en MATLAB, un índice más allá del final agranda el vector con ceros (sirve para armar un vector en un `for`). El valor lleva la magnitud del vector; un vector de ceros sin unidades toma la del primer valor. | `line(p:[1,2,3]; p_2:7; sum(p))` | `11` |
 
 ## Ecuaciones
