@@ -1,6 +1,6 @@
 {
   "name": "a-cad",
-  "version": "2.9.3",
+  "version": "2.9.4",
   "description": "CAD 2D paramétrico para iOS/Android y navegador: restricciones, cotas con fórmulas, cálculo en el dibujo y simulaciones gráficas de mecanismos.",
   "license": "MIT",
   "private": true,
