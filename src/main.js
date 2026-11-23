@@ -27,12 +27,12 @@ import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsO
 import { linkTarget, resolveRepoPath, findAnchor } from './links.js';
 import { attachAutoPair } from './autopair.js';
 import { attachGreek } from './greek.js';
-import { migrateCalcDoc } from './tvars.js';
+import { migrateCalcDoc, calcStmts } from './tvars.js';
 import { codeKeyEvent } from './codeedit.js';
 import { isScript, parseScript } from './script.js';
 import { suggest, openCall, defSource, builtinInfo } from './complete.js';
 import * as gh from './github.js';
-import { setDataBackend, dataStore, clearDataWrites, takeDataWrites, dataName, dataChanged } from './datastore.js';
+import { setDataBackend, dataStore, clearDataWrites, takeDataWrites, dataName, dataChanged, setEntered } from './datastore.js';
 import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, textVars, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg, ICONS } from './icons.js';
@@ -44,7 +44,7 @@ import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProble
 import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX, imgRect, syncImages, ensureImagePoints, anchorPoint } from './images.js';
 import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
-import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr, setShuffleSeed, rngMix } from './expr.js';
+import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr, setShuffleSeed, rngMix, normName } from './expr.js';
 import { localNum, SCI_DEFAULT, sciFrom, decimalMode } from './locale.js';
 import { getLang, setLang, initLang } from './i18n.js';
 import { HELP_HTML } from './help.js';
@@ -2777,16 +2777,21 @@ function commitTextEdit(enter = false) {
   if (!t) { endTextLive(); return true; }
   const raw = txLive.value.replace(/\s+$/, '');
   const text = kind === 'eq' ? '$$' + raw.trim() + '$$' : raw;
+  // los nombres que define el texto: entered(nombre) vale 1 durante el paso que inicia esta confirmacion
+  const enterNames = (src) => calcStmts(src).filter((q) => q.k === 'def').map((q) => normName(q.name));
   if (!raw.trim() || text === t.text) { // vacio o sin cambios: queda como estaba (para borrarlo, seleccionalo)
     const again = enter && text === t.text && usesWfile(); // Enter sin cambios en un dibujo con wfile: un paso mas (como confirmar en SMath)
     endTextLive();
-    if (again) { dataSig = null; afterChange(); }
+    if (again) { dataSig = null; setEntered(enterNames(text)); try { afterChange(); } finally { setEntered([]); } }
     return true;
   }
   const before = textVarErrors(doc);
   pushUndo(); t.text = text;
-  if (!textEditOk(before)) { txLayout(); return false; }
-  endTextLive(); afterChange();
+  setEntered(enterNames(text));
+  try {
+    if (!textEditOk(before)) { txLayout(); return false; }
+    endTextLive(); afterChange();
+  } finally { setEntered([]); }
   return true;
 }
 // Dibuja lo escrito como un texto nuevo y abre la entrada siguiente. false: no se pudo (la entrada sigue abierta para corregirla).

@@ -5,7 +5,7 @@ import { newDoc, addPoint, addText } from '../src/model.js';
 import { shownText } from '../src/text.js';
 import { textVarErrors } from '../src/params.js';
 import { setDecimal } from '../src/locale.js';
-import { setDataBackend, takeDataWrites, clearDataWrites, dataName, numText, dataChanged } from '../src/datastore.js';
+import { setDataBackend, takeDataWrites, clearDataWrites, dataName, numText, dataChanged, setEntered } from '../src/datastore.js';
 import { textVars } from '../src/params.js';
 
 let passed = 0;
@@ -99,6 +99,18 @@ t('rfile(nombre, inicial): el valor inicial si no hay datos (y solo entonces se 
   assert.equal(evalExpr('rfile(hay, 1/0)', {}).value, 3000); // con datos, el inicial no se calcula (1/0 no da error)
   assert.equal(evalExpr('rfile(nada, x0)', { vars: { x0: { v: 5 } } }).value, 5); // un nombre en el segundo lugar es una variable, no un archivo
   assert.throws(() => evalExpr('rfile(nada, 1, 2)', {}), /sobra un argumento/);
+});
+
+t('entered(nombre): 1 solo en el paso que confirma con Enter el texto que define nombre', () => {
+  setDecimal('.');
+  const vars = { orden: { str: 'MOV 3 4' }, x: { v: 2 } };
+  assert.equal(evalExpr('entered(orden)', { vars }).value, 0);
+  setEntered(['orden']);
+  assert.equal(evalExpr('entered(orden)', { vars }).value, 1);
+  assert.equal(evalExpr('entered(x)', { vars }).value, 0);
+  setEntered([]);
+  assert.equal(evalExpr('entered(orden)', { vars }).value, 0);
+  assert.throws(() => evalExpr('entered(3)', { vars }), /el nombre de una variable/);
 });
 
 t('numText: todas las cifras útiles, en una forma que se vuelve a leer', () => {

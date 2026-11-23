@@ -6,7 +6,7 @@
 
 import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem, docUnitsHook, autoUnit, userUnitNames } from './units.js';
 import { solveEqs } from './nsolve.js';
-import { dataRead, dataWrite, dataName, valueText } from './datastore.js';
+import { dataRead, dataWrite, dataName, valueText, isEntered } from './datastore.js';
 import { GREEK, GREEK_UP, addCalcFns } from './asciimath.js';
 import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText, localNum, setSci } from './locale.js';
 
@@ -58,7 +58,7 @@ Object.assign(MULTI, {
   nchoosek: { n: [2, 2], f: (A) => { const n = intOf(A[0], 'nchoosek(n, k)', 'n'), k = intOf(A[1], 'nchoosek(n, k)', 'k'); if (k < 0 || n < 0 || k > n) throw new Error('nchoosek(n, k): hace falta 0 ≤ k ≤ n'); let c = 1; for (let i = 1; i <= Math.min(k, n - k); i++) c = (c * (n - Math.min(k, n - k) + i)) / i; return { v: Math.round(c), r: false }; } },
   nthroot: { n: [2, 2], f: (A) => { const x = A[0].v, n = A[1].v; if (!Number.isInteger(n) || n === 0) throw new Error('nthroot(x, n): n debe ser un entero distinto de 0'); if (x < 0 && n % 2 === 0) throw rt('nthroot(x, n): con x negativo, n debe ser impar (para un complejo usa x^(1/n))'); return { v: Math.sign(x) * Math.abs(x) ** (1 / n), r: false }; } },
 });
-const LAZY = new Set(['if', 'si', 'fzero', 'line', 'for', 'while', 'integral', 'wfile', 'rfile', 'break', 'continue', 'return']); // break, continue y return: senales de los programas (ver lazyFor) // wfile/rfile: el nombre del archivo no se evalua (ver lazyWfile) // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
+const LAZY = new Set(['if', 'si', 'fzero', 'line', 'for', 'while', 'integral', 'wfile', 'rfile', 'break', 'continue', 'return', 'entered']); // break, continue y return: senales de los programas (ver lazyFor) // wfile/rfile: el nombre del archivo no se evalua (ver lazyWfile) // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
 // Funciones de vectores y matrices (reciben un vector o una matriz): inv, det; resumenes (sobre todos los elementos): sum, prod, mean, median, std, variance, norm, len;
 // forma: rows, cols, trace, diag, eye(n); acumuladas: cumsum, cumprod; entre dos vectores: dot, cross. min(x) y max(x) con un solo vector tambien resumen.
 const MATFN = new Set(['inv', 'det', 'sum', 'prod', 'mean', 'median', 'std', 'variance', 'norm', 'len', 'rows', 'cols', 'trace', 'diag', 'eye', 'cumsum', 'cumprod', 'dot', 'cross']);
@@ -1374,6 +1374,15 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     if (t === null) throw new Error(`rfile: no hay datos «${name}» (se guardan con wfile(valor${argText()} ${name}))`);
     try { return readData(t); } catch (e) { throw new Error(`rfile: «${name}» no se puede leer: ${e.message}`); }
   }
+  // entered(nombre): 1 en el paso que inicio un Enter sobre el texto que define nombre (tambien sin cambiarlo); 0 en cualquier otro paso
+  // (abrir el dibujo, mover algo, editar otro texto). Para ejecutar una orden al confirmarla. El nombre no se evalua.
+  function lazyEntered() { // ya se leyo «entered(»
+    const k = peek();
+    if (!k || !(k.t === 'var' || k.t === 'ufn' || k.t === 'idx') || !nextEnds()) throw new Error('entered(nombre): el nombre de una variable definida en un texto, p. ej. entered(orden)');
+    p++;
+    closeCall('entered', 'nombre');
+    return { v: isEntered(normName(k.t === 'idx' ? k.base : k.v)) ? 1 : 0, r: false };
+  }
   // Funciones con numeros complejos: con un argumento complejo, o con uno real fuera del dominio real (√(-4) = 2j). null: va por el camino real.
   function cplxCall(name, A) {
     const anyC = A.some(isC);
@@ -1730,6 +1739,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (k.v === 'while') return lazyWhile();
       if (k.v === 'wfile') return lazyWfile();
       if (k.v === 'rfile') return lazyRfile();
+      if (k.v === 'entered') return lazyEntered();
       if (LAZY.has(k.v)) return lazyIf(k.v);
       const A = [];
       if (isOp(')') && (k.v === 'rand' || k.v === 'randn')) { p++; return call(k.v, A); } // rand() y randn(): un numero
@@ -1770,7 +1780,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
 function fileNamePos(toks) {
   const n = toks.length, last = toks[n - 1];
   if (!last) return false;
-  if (last.t === 'op' && last.v === '(') return toks[n - 2]?.t === 'id' && toks[n - 2].v === 'rfile';
+  if (last.t === 'op' && last.v === '(') return toks[n - 2]?.t === 'id' && (toks[n - 2].v === 'rfile' || toks[n - 2].v === 'entered'); // entered(nombre): tampoco se evalua
   if (last.t !== 'sep') return false;
   let d = 0;
   for (let q = n - 2; q >= 0; q--) { // en wfile, un argumento de mas tambien se toma como nombre: asi el aviso es «sobra un argumento»

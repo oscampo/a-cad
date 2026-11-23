@@ -11,6 +11,10 @@ export function setDataBackend(b) { store = b; ver++; }
 export const dataVersion = () => ver;
 export const dataChanged = () => { ver++; }; // quien escribe o borra en el almacen lo avisa
 export const dataStore = () => store;
+// entered(nombre): los nombres que define el texto que se acaba de confirmar con Enter; valen solo durante ese paso (main.js los pone y los quita)
+let entered = new Set();
+export function setEntered(names) { entered = new Set(names); ver++; }
+export const isEntered = (name) => entered.has(name);
 // rfile lee siempre lo guardado: lo que muestra un dibujo despues de un paso es lo que ese paso guardo. Para ver el resultado de un paso,
 // muestra lo que lees (q:rfile(E)), no lo que calculas para guardar (que ya es el paso siguiente).
 export const dataRead = (name) => store.get(name) ?? null;

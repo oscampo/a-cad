@@ -1277,6 +1277,7 @@ export const EN = {
   "return lleva el valor entre paréntesis: return(x)": "return takes its value in parentheses: return(x)",
   "«{0}» va dentro de un for o un while": "«{0}» goes inside a for or a while",
   "rng(semilla) o rng(\"shuffle\")": "rng(seed) or rng(\"shuffle\")",
+  "entered(nombre): el nombre de una variable definida en un texto, p. ej. entered(orden)": "entered(name): the name of a variable defined in a text, e.g. entered(order)",
   "Detener": "Stop",
   "Elementos": "Elements",
   "Restricciones": "Constraints",

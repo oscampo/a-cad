@@ -230,6 +230,7 @@ export const FUNC_GROUPS = [
       ['<code>wfile(valor; Nombre)</code>', 'Guarda el valor (un número con su unidad, un vector, una matriz o una cadena) en el archivo de datos <i>Nombre</i> y vale 1. El nombre no se evalúa: es el de una variable (no importa su valor, ni si existe) o una cadena con extensión, <code>"datos.txt"</code>. El archivo es texto con la sintaxis de A-CAD y punto decimal: <code>12\'kN</code>, <code>[1, 2; 3, 4]\'mm</code>, <code>"texto"</code>.', "a:12'kN\nwfile(a; MiVariable)=", '1', 't'],
       ['<code>rfile(Nombre)</code>', 'El valor guardado con <code>wfile</code>, con sus unidades: <code>q:rfile(MiVariable)</code> da 12 kN. Si no hay datos con ese nombre, da ⚠.', '', '', ''],
       ['<code>rfile(Nombre; inicial)</code>', 'Lo guardado o, si todavía no hay datos con ese nombre, <i>inicial</i> (que solo se calcula entonces): sirve para empezar, <code>c:rfile(n; 0)</code>. Extensión de A-CAD: en SMath el segundo argumento es una ruta.', 'rfile(NoExiste; 42)', '42', 'n'],
+      ['<code>entered(nombre)</code>', 'Vale 1 en el paso que inició un Enter sobre el texto que define <i>nombre</i> (en la edición en el lugar, también sin cambiarlo) y 0 en cualquier otro paso: abrir el dibujo, mover algo, editar otro texto. Para ejecutar una orden al confirmarla: <code>wfile(si(entered(orden); hacer(x; orden); x); Estado)</code>.', 'entered(x)', '0', 'n'],
     ],
   },
   {

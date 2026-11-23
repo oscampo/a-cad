@@ -6,6 +6,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Nuevo
 
+- Cálculo: **`entered(nombre)`** vale 1 en el paso que inició un Enter sobre el texto que define *nombre* (en la edición en el lugar, también sin cambiarlo) y 0 en cualquier otro: abrir el dibujo, mover algo, editar otro texto. Con `wfile`, ejecuta una orden al confirmarla (un juego por órdenes, o registrar una medición al escribirla) sin que otros cambios la repitan.
 - Textos: con **«Mostrar solo el resultado»**, una salida que da una cadena se dibuja como texto normal, en la fuente del texto y con sus espacios (un mensaje, o una fila de una tabla alineada en monoespaciada con fondo de color); antes, como fórmula. Un número o un bloque con definiciones se dibujan como antes.
 - Cálculo: `numel` acepta un vector de cadenas (el de `strsplit`): `numel(strsplit("MOV 3 4"))` da 3.
 - Textos: en los **scripts**, `break` sale del `for` o del `while`, `continue` pasa a la vuelta siguiente y `return x` termina con el valor x («el primer perfil que cumple», «parar cuando converge»). En las fórmulas, `break()`, `continue()` y `return(x)`, dentro de `for(…)` y `while(…)`. Un `break` fuera de un ciclo da su aviso.
