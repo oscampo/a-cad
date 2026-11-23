@@ -54,6 +54,7 @@ main { display: grid; grid-template-columns: 1fr 300px; min-height: 0; }
 #txLiveBox::before { content: attr(data-tag); position: absolute; right: 100%; top: -1.5px; margin-right: 3px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 4px; border-radius: 4px; background: var(--accent); color: var(--accent-fg); font: 600 13px/20px system-ui, sans-serif; text-align: center; pointer-events: none; }
 #txCc { position: absolute; right: 100%; top: 22px; margin-right: 3px; width: 22px; height: 22px; min-height: 0; padding: 0; border: 1px solid var(--accent); border-radius: 4px; background: var(--bg); color: var(--accent); font: italic 700 12px Georgia, serif; cursor: pointer; }
 #ccPop { position: absolute; z-index: 30; display: flex; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 22px rgba(0,0,0,.18); overflow: hidden; max-width: calc(100% - 12px); }
+#ccPop[hidden], #ccParam[hidden] { display: none; } /* su display propio le ganaria al atributo hidden */
 #ccList { list-style: none; margin: 0; padding: 3px; width: 230px; max-height: 250px; overflow: auto; flex: none; }
 #ccList li { display: flex; gap: 8px; align-items: center; padding: 3px 8px; border-radius: 5px; cursor: pointer; font: 14px ui-monospace, Menlo, Consolas, monospace; white-space: nowrap; min-height: 30px; }
 @media (pointer: coarse) { #ccList li { min-height: 40px; } }
