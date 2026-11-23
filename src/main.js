@@ -799,6 +799,7 @@ function strokeArc(c, cx, cy, r, a0, sweep, dash) {
 }
 
 function draw() {
+  if (!document.getElementById('ccPop').hidden && (!txState || document.getElementById('txLiveBox').hidden)) ccClose(); // la lista de sugerencias no sobrevive a su entrada de texto
   setAngleMode(doc); // angulos e indicador decimal del dibujo activos para todo lo que se lea o se escriba
   render(ctx, cv.width, cv.height, view, { fg: theme.fg, bg: theme.bg, grid: opts.grid, cons: opts.cons, dims: opts.dims, texts: opts.texts, ui: true });
   drawHud();
@@ -2763,6 +2764,9 @@ function ccKey(e) {
   if (e.key === 'Escape') { e.preventDefault(); cc.forced = false; ccHide(); return true; } // cierra la lista sin descartar lo escrito
   return false;
 }
+document.addEventListener('pointerdown', (e) => { // un toque fuera de la lista y de la entrada la cierra (y la firma de la funcion)
+  if ((!ccPop.hidden || !ccParam.hidden) && !ccPop.contains(e.target) && !txLiveBox.contains(e.target)) { if (cc) cc.forced = false; ccPop.hidden = true; ccParam.hidden = true; }
+}, true);
 $('txCc').onpointerdown = (e) => e.preventDefault();
 $('txCc').onclick = () => { if (cc && !ccPop.hidden) { ccClose(); return; } cc = { forced: true, items: [] }; ccUpdate(); txLive.focus(); };
 attachAutoPair(txLive, () => !TX_MARK.test(txLive.value)); // [] () {} $$ <> `` se cierran solos (ver autopair.js)
