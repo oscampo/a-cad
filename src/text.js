@@ -203,7 +203,22 @@ function textValue1(doc, t) {
     const un = p.unit && !(shownVal && !shownVal.endsWith('⚠')) ? unitMath(p.unit.replace(/^\((.*)\)$/, '$1')) : '';
     return p.pre + (mx ? IT0 + shown + ':=' + IT1 + matQ(mx, val.d, { [name]: val }, name, null, true, val.mi) + (val.d ? '' : un) : IT0 + shown + call + ':=' + outStr(p.expr.trim(), (q) => showU(wrapNames(libPre(q)))) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;
   };
-  return toks.map((tk) => (tk.t === 'txt' ? tk.raw : (tk.disp ? '$$' : '$') + contBack(tk, tk.lines.map((l) => l.map(piece).join('')).join('\n'), true) + (tk.disp ? '$$' : '$'))).join('');
+  // «Mostrar solo el resultado» con un bloque que es solo «expr=» y da una cadena: la cadena como texto normal, en la fuente del texto y con
+  // sus espacios (un mensaje, una fila de una tabla alineada en monoespaciada); no como formula
+  const plainStr = (tk) => {
+    if (!t.valOnly || tk.t === 'txt' || tk.lines.length !== 1 || tk.lines[0].length !== 1 || tk.lines[0][0].k !== 'out') return null;
+    const p = tk.lines[0][0];
+    if (p.unit || st?.solveRes?.size && solveCall(p.expr)) return null;
+    try {
+      const k0 = tid + ':' + (oidx++), env = st?.outEnv.get(k0) || (vars ||= varsOf(doc));
+      rngSet(st?.outRng?.get(k0) ?? rngMix(rngReset(), oidx));
+      const r = evalExpr(p.expr, { vars: env, allowMat: true, allowCplx: true });
+      if (typeof r.str === 'string') return r.str;
+      if (r.strs) return r.strs.join('\n');
+      oidx--; return null; // no es una cadena: la salida se dibuja como siempre (y se vuelve a contar)
+    } catch (e) { oidx--; return null; }
+  };
+  return toks.map((tk) => { if (tk.t === 'txt') return tk.raw; const ps = plainStr(tk); return ps !== null ? ps : (tk.disp ? '$$' : '$') + contBack(tk, tk.lines.map((l) => l.map(piece).join('')).join('\n'), true) + (tk.disp ? '$$' : '$'); }).join('');
 }
 // El texto tal como se ve (con sus salidas calculadas): el mismo objeto si no hay ninguna.
 export function shownText(doc, t) {

@@ -6,6 +6,8 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Nuevo
 
+- Textos: con **«Mostrar solo el resultado»**, una salida que da una cadena se dibuja como texto normal, en la fuente del texto y con sus espacios (un mensaje, o una fila de una tabla alineada en monoespaciada con fondo de color); antes, como fórmula. Un número o un bloque con definiciones se dibujan como antes.
+- Cálculo: `numel` acepta un vector de cadenas (el de `strsplit`): `numel(strsplit("MOV 3 4"))` da 3.
 - Textos: en los **scripts**, `break` sale del `for` o del `while`, `continue` pasa a la vuelta siguiente y `return x` termina con el valor x («el primer perfil que cumple», «parar cuando converge»). En las fórmulas, `break()`, `continue()` y `return(x)`, dentro de `for(…)` y `while(…)`. Un `break` fuera de un ciclo da su aviso.
 - Cálculo: **`find(v)`** (las posiciones de los elementos que no son 0, por ejemplo `find(v > 100)`; 0 si no hay), **`isempty(s)`** (una cadena vacía), **`replace`** (como `strrep`) y **`extractBetween(s, 2, 4)`** con posiciones, como el `substr` de SMath.
 - Capas: **las cotas y las líneas indicativas tienen capa**, como los demás elementos: toman la capa actual al crearlas y se cambia en su ventana (doble toque). Con la capa apagada no se dibujan ni se exportan, pero una cota sigue midiendo o mandando con su fórmula (sirve para una cota que mueve una pieza desde un cálculo, sin que se vea). Borrar la capa las deja sin capa. Antes una cota solo se ocultaba si sus puntos estaban en una capa apagada.
@@ -59,6 +61,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Corregido
 
+- Bibliotecas: una función privada que se usa solo dentro de un índice (`m_(libre(m, k)):1`, `v_(uno(n))`) no viajaba con la biblioteca, y la función pública que la usaba daba «No reconozco». Ahora viaja.
 - Cálculo: las cotas con fórmula que leen datos de `rfile` se reacomodan también cuando los datos cambian fuera de un paso (Archivo → Datos: importar o borrar; u otra pestaña). Antes quedaban con el valor anterior hasta el siguiente cambio del dibujo.
 - Cálculo: **un índice con paréntesis dentro** (`b_(k + 7*(j - 1))`, `b_(max(1, 3))`, `T_(st)_((1),(2))`) daba «No reconozco «b_»»: el lector cortaba el índice en el primer paréntesis. Ahora los cuenta, también al asignar dentro de un programa (`p_(k + 3*(j - 1)):0`) y en los scripts.
 - Redondeo: **tocando dos líneas cerca de la esquina, el arco salía en la esquina equivocada**. Si el toque caía entre la esquina y donde quedaría la tangencia (con un R2, a menos de 2 mm de la esquina), el redondeo descartaba el arco correcto y prolongaba una de las líneas para dar casi una vuelta (pasaba en el escalón de abajo de un eje y no en el de arriba solo por dónde se tocaba). Ahora, cuando los dos elementos se cortan, el toque solo indica de qué lado del vértice está la parte que se conserva, como ya hacía el chaflán.

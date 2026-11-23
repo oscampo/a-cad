@@ -103,4 +103,20 @@ t('fase 3: el bloque se dibuja colapsado o con sus nombres públicos; avisa áng
   d.angles = 'rad'; assert.match(blk(), /⚠ la biblioteca usa ángulos en grados y este documento en radianes/);
 });
 
+t('una función privada que se usa dentro de un índice viaja con la biblioteca (m_(uno(n)), al leer y al asignar)', () => {
+  setDecimal('.');
+  const L = newDoc(); L.decimal = '.';
+  addText(L, addPoint(L, 0, 100), '%uno(n):\n  n + 1', {});
+  addText(L, addPoint(L, 0, 90), '%f(n):\n  m:zeros(1, 3)\n  m_(uno(n)):5\n  m', {});
+  addText(L, addPoint(L, 0, 80), '%g(n):\n  m:[7, 8, 9]\n  m_(uno(n))', {});
+  L.lib = { on: true, name: 'Prueba', alias: 'PR', exports: ['f', 'g'], version: 1, decimal: '.' };
+  assert.ok(libClosure(L, ['f']).names.has('uno'));
+  const d = newDoc(); d.decimal = '.';
+  d.texts[addText(d, addPoint(d, 0, 100), '▸', {})].lib = libPayload(L);
+  const a = d.texts[addText(d, addPoint(d, 0, 80), '$$PR.f(1)=$$', {})], b = d.texts[addText(d, addPoint(d, 0, 70), '$$PR.g(1)=$$', {})];
+  assert.deepEqual(textVarErrors(d), []);
+  assert.match(shownText(d, a).text, /0.*5.*0/);
+  assert.match(shownText(d, b).text, /=8\$\$$/); // m_(uno(1)) = m_2
+});
+
 console.log(`\n${passed} pruebas de bibliotecas pasaron`);

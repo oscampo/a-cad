@@ -31,6 +31,7 @@ export function refsOf(d, known = new Map()) {
       if (known.has(r)) { if (!loc.has(r)) out.add(r); continue; }
       const ip = indexParts(r), n = ip && !r.includes('.') ? ip.base : r;
       if (!loc.has(n) && !loc.has(r)) out.add(n);
+      if (ip && ip.src !== r) add(ip.src); // lo que se lee dentro del indice: «m_(libre(m, k))» necesita libre
     }
   };
   add(d.expr);

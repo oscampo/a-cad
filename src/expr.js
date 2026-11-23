@@ -772,7 +772,6 @@ const NF = {
     const n = A[2] ? intArg(A[2], 'logspace(a, b, n)', 'n', 1, 10000) : 50;
     return { m: [Array.from({ length: n }, (_, i) => 10 ** (n === 1 ? b.v : a.v + ((b.v - a.v) * i) / (n - 1)))] };
   } },
-  numel: { n: [1, 1], f: (A) => ({ v: isM(A[0]) ? A[0].m.length * A[0].m[0].length : 1, r: false }) },
   size: { n: [1, 1], f: (A) => ({ m: [isM(A[0]) ? [A[0].m.length, A[0].m[0].length] : [1, 1]] }) },
   transpose: { n: [1, 1], f: (A) => { const a = A[0]; return isM(a) ? withD(isC(a) ? ctransposeM(a) : transposeM(a), a.d) : a; } },
   sort: { n: [1, 1], f: (A) => { const v = realVec(A[0], 'sort'); return isM(A[0]) ? vecOut([...v.arr].sort((x, y) => x - y), v.col, v.d) : A[0]; } },
@@ -967,6 +966,7 @@ const SF = {
   strtrim: { n: [1, 1], f: (A) => strOrVec(A[0], 'strtrim(s)', (x) => x.trim()) },
   reverse: { n: [1, 1], f: (A) => strOrVec(A[0], 'reverse(s)', (x) => [...x].reverse().join('')) },
   isempty: { n: [1, 1], f: (A) => ({ v: typeof A[0]?.str === 'string' ? (A[0].str === '' ? 1 : 0) : A[0]?.strs ? (A[0].strs.every((x) => x === '') ? 1 : 0) : 0, r: false }) }, // una cadena vacia; un numero o un vector nunca lo estan
+  numel: { n: [1, 1], f: (A) => ({ v: A[0]?.strs ? A[0].strs.length : isM(A[0]) ? A[0].m.length * A[0].m[0].length : 1, r: false }) }, // tambien un vector de cadenas (el de strsplit)
   replace: { n: [3, 3], f: (A) => SF.strrep.f(A) }, // como strrep (MATLAB tiene los dos)
   strrep: { n: [3, 3], f: (A) => { const o = strArg(A[1], 'strrep(s, viejo, nuevo)', 'viejo'), nw = strArg(A[2], 'strrep(s, viejo, nuevo)', 'nuevo'); if (!o) throw new Error('strrep: el texto a reemplazar no puede estar vacío'); return strOrVec(A[0], 'strrep(s, viejo, nuevo)', (x) => x.split(o).join(nw)); } },
   strsplit: { n: [1, 2], f: (A) => { const t = strArg(A[0], 'strsplit(s, separador)'), d = A[1] ? strArg(A[1], 'strsplit(s, separador)', 'el separador') : null; return { strs: d ? t.split(d) : t.trim().split(/\s+/) }; } },

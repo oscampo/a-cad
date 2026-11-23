@@ -123,7 +123,7 @@ Con los nombres de MATLAB. Las que reordenan conservan las unidades y los comple
 | `zeros(n; m)`, `ones(n; m)` | Matriz de ceros o de unos (de n×n con un solo valor). | `zeros(2; 3)` | `[0, 0, 0; 0, 0, 0]` |
 | `linspace(a; b; n)` | n valores igualmente espaciados de a a b (100 si se omite n). | `linspace(0; 1; 5)` | `[0, 0.25, 0.5, 0.75, 1]` |
 | `logspace(a; b; n)` | n valores de 10^a a 10^b en escala logarítmica (50 si se omite n). | `logspace(0; 2; 3)` | `[1, 10, 100]` |
-| `numel(A)`, `size(A)` | Número de elementos; [filas, columnas]. | `size([1,2,3;4,5,6])` | `[2, 3]` |
+| `numel(A)`, `size(A)` | Número de elementos (también de un vector de cadenas); [filas, columnas]. | `size([1,2,3;4,5,6])` | `[2, 3]` |
 | `transpose(A)` | Transpuesta (como A^T). | `transpose([1,2;3,4])` | `[1, 3; 2, 4]` |
 | `sort(v)` | Ordena un vector de menor a mayor. | `sort([3,1,2])` | `[1, 2, 3]` |
 | `flip(v)`, `fliplr(A)`, `flipud(A)` | Invierte el orden: un vector; las columnas (izquierda-derecha); las filas (arriba-abajo). | `fliplr([1,2;3,4])` | `[2, 1; 4, 3]` |

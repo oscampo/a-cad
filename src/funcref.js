@@ -117,7 +117,7 @@ export const FUNC_GROUPS = [
       ['<code>zeros(n; m)</code>, <code>ones(n; m)</code>', 'Matriz de ceros o de unos (de n×n con un solo valor).', 'zeros(2; 3)', '[0, 0, 0; 0, 0, 0]', 'm'],
       ['<code>linspace(a; b; n)</code>', 'n valores igualmente espaciados de a a b (100 si se omite n).', 'linspace(0; 1; 5)', '[0, 0.25, 0.5, 0.75, 1]', 'm'],
       ['<code>logspace(a; b; n)</code>', 'n valores de 10^a a 10^b en escala logarítmica (50 si se omite n).', 'logspace(0; 2; 3)', '[1, 10, 100]', 'm'],
-      ['<code>numel(A)</code>, <code>size(A)</code>', 'Número de elementos; [filas, columnas].', 'size([1,2,3;4,5,6])', '[2, 3]', 'm'],
+      ['<code>numel(A)</code>, <code>size(A)</code>', 'Número de elementos (también de un vector de cadenas); [filas, columnas].', 'size([1,2,3;4,5,6])', '[2, 3]', 'm'],
       ['<code>transpose(A)</code>', 'Transpuesta (como A^T).', 'transpose([1,2;3,4])', '[1, 3; 2, 4]', 'm'],
       ['<code>sort(v)</code>', 'Ordena un vector de menor a mayor.', 'sort([3,1,2])', '[1, 2, 3]', 'm'],
       ['<code>flip(v)</code>, <code>fliplr(A)</code>, <code>flipud(A)</code>', 'Invierte el orden: un vector; las columnas (izquierda-derecha); las filas (arriba-abajo).', 'fliplr([1,2;3,4])', '[2, 1; 4, 3]', 'm'],

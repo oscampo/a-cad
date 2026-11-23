@@ -123,7 +123,10 @@ t('«Mostrar solo el resultado» (valOnly): cada «expr=» se dibuja como su val
   assert.equal(s(e), '$$k:=2\n8$$'); // las definiciones se dibujan igual; solo las salidas cambian
   T('$$saludo:"Tu turno"$$', 40);
   const g = T('$$saludo=$$', 30, { valOnly: true }), h = T('$$saludo=$$', 20);
-  assert.equal(s(g), '$$"Tu turno"$$'); // una cadena: sin sus comillas tipográficas (un mensaje)
+  assert.equal(s(g), 'Tu turno'); // una cadena: como texto normal, sin comillas (un mensaje), en la fuente del texto
+  T('$$fila:" ·  ✶  A "$$', 15); const fl = T('$$fila=$$', 10, { valOnly: true }), mix = T('$$k:2\nk*fo_1=$$', 5, { valOnly: true });
+  assert.equal(s(fl), ' ·  ✶  A '); // con sus espacios (una fila alineada en monoespaciada)
+  assert.equal(s(mix), '$$k:=2\n8$$'); // un bloque con definiciones o un número: como fórmula, como siempre
   assert.equal(s(h), '$$saludo="“Tu turno”"$$'); // sin la propiedad, con ellas
 });
 
