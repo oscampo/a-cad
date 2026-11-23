@@ -188,14 +188,17 @@ function textValue1(doc, t) {
   const piece = (p) => {
     if (p.k === 'lit') return p.closed ? p.s : '`' + p.s + ' ⚠'; // literal: se dibuja, no se calcula
     if (p.k === 'code') return badU(p) ? wrapNames(p.s) + ' ⚠' : wrapNames(p.s);
-    if (p.k === 'out' && t.valOnly) return p.pre + outVal(p, true) + p.post; // «Mostrar solo el resultado»: expr= -> valor (un tablero, una tabla)
+    if (p.k === 'out' && t.valOnly) return p.pre + outVal(p, true).replace(/^("?)“([^”]*)”("?)$/, '$1$2$3') + p.post; // «Mostrar solo el resultado»: expr= -> valor (un tablero, una tabla); una cadena, sin sus comillas
     if (p.k === 'out') return p.pre + outStr(p.expr, (q) => showU(wrapNames(libPre(q)))) + '=' + outVal(p, true) + p.post; // expr= -> expr=valor
     const name = normName(p.name), shown = name.includes('_(') ? NM0 + name + NM1 : name; // x:valor -> x:=valor (en cursiva)
     const dk = tid + ':' + idx++, bad = st.bad.has(dk);
-    const val = !bad ? st.defVal.get(dk) : null, mx = val?.vec ? [val.vec] : val?.mat;
+    const val = !bad ? st.defVal.get(dk) : null, vm = val?.vec ? [val.vec] : val?.mat; // un vector o una matriz
+    // escrito a mano («v:[1, 2, 3]») o un rango («a:1..5») se dibuja como vector; el resultado de una funcion («juego:mancala(…)»,
+    // «v:linspace(…)»), su formula (como en SMath; con «v:expr=» tambien su valor)
+    const mx = vm && (/^\s*\[/.test(p.expr) || !/[A-Za-zα-ωΑ-Ω_][\w.']*\s*\(/.test(p.expr)) ? vm : null;
     const call = p.params !== undefined ? '(' + p.params.trim() + ')' : ''; // funcion: f(x; y):=...
-    // «x:expr=»: ademas del valor asignado, «=valor» (un vector o una matriz ya muestran su valor)
-    const shownVal = p.eq === undefined || mx ? '' : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? (val.str !== undefined || val.strs ? showStr(val, true) : qty({ value: val.v, im: val.im, dim: val.d }, { [name]: val }, name, null, true)) : '⚠');
+    // «x:expr=»: ademas del valor asignado, «=valor» (un vector escrito a mano ya muestra su valor)
+    const shownVal = p.eq === undefined || mx ? '' : vm ? '=' + matQ(vm, val.d, { [name]: val }, name, null, true, val.mi) : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? (val.str !== undefined || val.strs ? showStr(val, true) : qty({ value: val.v, im: val.im, dim: val.d }, { [name]: val }, name, null, true)) : '⚠');
     // «x:valor'unidad»: la unidad va detras del valor; con «=valor», el valor ya sale en esa unidad
     const un = p.unit && !(shownVal && !shownVal.endsWith('⚠')) ? unitMath(p.unit.replace(/^\((.*)\)$/, '$1')) : '';
     return p.pre + (mx ? IT0 + shown + ':=' + IT1 + matQ(mx, val.d, { [name]: val }, name, null, true, val.mi) + (val.d ? '' : un) : IT0 + shown + call + ':=' + outStr(p.expr.trim(), (q) => showU(wrapNames(libPre(q)))) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;

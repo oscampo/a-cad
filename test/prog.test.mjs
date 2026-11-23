@@ -121,6 +121,22 @@ t('«Mostrar solo el resultado» (valOnly): cada «expr=» se dibuja como su val
   assert.equal(s(a), '$$7$$'); assert.equal(s(b), '$$2.5 " kN"$$'); // con su unidad (como en «F=»)
   assert.equal(s(c), '$$fo_3=7$$'); // sin la propiedad, como siempre
   assert.equal(s(e), '$$k:=2\n8$$'); // las definiciones se dibujan igual; solo las salidas cambian
+  T('$$saludo:"Tu turno"$$', 40);
+  const g = T('$$saludo=$$', 30, { valOnly: true }), h = T('$$saludo=$$', 20);
+  assert.equal(s(g), '$$"Tu turno"$$'); // una cadena: sin sus comillas tipográficas (un mensaje)
+  assert.equal(s(h), '$$saludo="“Tu turno”"$$'); // sin la propiedad, con ellas
+});
+
+t('una definición cuyo valor es el vector que devuelve una función se dibuja como su fórmula (con «=», también su valor)', () => {
+  const d = newDoc(); d.decimal = '.';
+  const T = (q, y) => d.texts[addText(d, addPoint(d, 0, y), q, {})];
+  const s = (x) => clean(shownText(d, x).text);
+  T('$$doble(v):2*v$$', 100);
+  const a = T('$$w:doble([1, 2])$$', 90), b = T('$$z:doble([1, 2])=$$', 80), c = T('$$u:[1, 2]$$', 70), r = T('$$q:0..1..2$$', 60);
+  assert.equal(s(a), '$$w:=doble([1, 2])$$'); // la fórmula, no el vector
+  assert.match(s(b), /^\$\$z:=doble\(\[1, 2\]\)=.*2.*4/); // la fórmula y su valor
+  assert.equal(s(c), '$$u:=[1, 2]$$'); // escrito a mano: el vector, como siempre
+  assert.equal(s(r), '$$q:=[0, 1, 2]$$'); // un rango: su vector, como siempre
 });
 
 t('el reparto de semillas del Mancala: una función que modifica su parámetro y un script con while', () => {
