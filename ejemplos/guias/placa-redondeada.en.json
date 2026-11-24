@@ -195,7 +195,7 @@
   "texts": {
    "t56": {
     "pt": "p55",
-    "text": "Plate with its four corners rounded (radius 8). Each arc carries its radius dimension.",
+    "text": "Plate with its four corners rounded (radius 8). Each arc carries its radius dimension (R1…R4).",
     "h": 3,
     "ang": 0,
     "anchor": "tl",
@@ -204,7 +204,7 @@
    },
    "t58": {
     "pt": "p57",
-    "text": "Change R1 with a double tap: the four corners follow, because R2, R3 and R4 equal R1. Change D1 or D2 and the plate stays rounded.",
+    "text": "Change R1 with a double tap: the four corners follow, because R2, R3 and R4 equal R1. \nChange D1 or D2 and the plate stays rounded.",
     "h": 3,
     "ang": 0,
     "anchor": "tl",
@@ -250,7 +250,9 @@
      "p2"
     ],
     "v": 100,
-    "name": "D1"
+    "name": "D1",
+    "off": 7.809186362934154,
+    "lt": 0.5026727480548098
    },
    "k14": {
     "t": "DIST",
@@ -259,7 +261,9 @@
      "p3"
     ],
     "v": 60,
-    "name": "D2"
+    "name": "D2",
+    "off": 9.8079561042524,
+    "lt": 0.5121170553269319
    },
    "k19": {
     "t": "PONL",
@@ -306,7 +310,8 @@
     ],
     "v": 8,
     "op": "o15",
-    "name": "R1"
+    "name": "R1",
+    "lbl": "\"R1\""
    },
    "k29": {
     "t": "PONL",
@@ -354,7 +359,8 @@
     "v": 8,
     "op": "o25",
     "name": "R2",
-    "expr": "R1"
+    "expr": "R1'mm",
+    "du": "mm"
    },
    "k39": {
     "t": "PONL",
@@ -402,7 +408,10 @@
     "v": 8,
     "op": "o35",
     "name": "R3",
-    "expr": "R1"
+    "expr": "R1'mm",
+    "du": "mm",
+    "ang": 0.9098533527149602,
+    "lp": 15.50537753389292
    },
    "k49": {
     "t": "PONL",
@@ -450,7 +459,8 @@
     "v": 8,
     "op": "o45",
     "name": "R4",
-    "expr": "R1"
+    "expr": "R1'mm",
+    "du": "mm"
    }
   },
   "hatches": {},
@@ -462,6 +472,8 @@
   },
   "layers": {},
   "curLayer": null,
+  "dimText": true,
+  "dimH": 4.2333333333333325,
   "cnd": {
    "D": 2,
    "R": 4

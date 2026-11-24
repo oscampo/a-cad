@@ -12,11 +12,20 @@ import { makeVector } from '../src/vectors.js';
 import { circularArray } from '../src/edit.js';
 import { filletCorner } from '../src/corners.js';
 import { libPayload } from '../src/library.js';
+import { parseWav, reduceSound, addSound } from '../src/sounds.js';
 import { settle } from '../src/params.js';
 import { viewNeeds } from '../src/examples.js';
 
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 const DIR = fileURLToPath(new URL('../ejemplos/guias/', import.meta.url));
+
+// El sonido del ejemplo del contador: el WAV original (ejemplos/guias/aditional-files/ding.wav) reducido como lo hace la app al importar un audio
+// (un canal, 16 kHz, 8 bits) e incrustado en el dibujo; al abrir el ejemplo la app lo copia a Archivo → Datos si no hay uno con ese nombre.
+const dingSound = () => {
+  const b = readFileSync(new URL('../ejemplos/guias/aditional-files/ding.wav', import.meta.url));
+  const w = parseWav(new Uint8Array(b.buffer, b.byteOffset, b.byteLength));
+  return reduceSound(w.chs, w.rate);
+};
 
 // Un texto suelto: esquina superior izquierda en (x, y) (el eje y sube)
 const txt = (doc, x, y, text, h = 3.2) => addText(doc, addPoint(doc, x, y), text, { h, anchor: 'tl' });
@@ -183,36 +192,43 @@ const EXAMPLES = {
   // 8. Un valor que se recuerda entre cambios y un sonido
   'contador-y-sonido': (L) => {
     const d = newDoc();
+    d.page = { w: 215.9, h: 279.4, m: 25, x0: -25, y0: 125 }; // hoja tamaño carta (la dejo Oscar al revisar el ejemplo)
     txt(d, 0, 100, '$$c:rfile(contador; 0)$$');
     txt(d, 0, 92, '$$wfile(c+1; contador)=$$');
     txt(d, 0, 84, '$$c=$$');
     txt(d, 0, 76, '$$play("ding")=$$');
-    const A = addPoint(d, 0, 0), B = addPoint(d, 40, 0);
+    const A = addPoint(d, 0.27226494644253146, 43.016637325655886), B = addPoint(d, 40.27226494644294, 43.01663732565545);
     addLine(d, A, B);
-    note(d, 0, 50, L.es ? [
-      'c lee el dato «contador» (0 si no existe) y wfile lo guarda sumándole 1 cada vez que confirmas un cambio.',
-      'Para oír «ding», importa un sonido llamado ding en Archivo → Datos. Arrastra B para provocar un cambio.',
-    ] : [
-      'c reads the data "contador" (0 if missing) and wfile stores it plus 1 each time you confirm a change.',
-      'To hear "ding", import a sound named ding in File → Data. Drag B to trigger a change.',
-    ]);
+    addText(d, B, 'B', { h: 4.2333333333333325, anchor: 'bc' }); // la B que nombra la guia, sobre el extremo
+    txt(d, 0, 63.61286254728878, L.es
+      ? 'c lee el dato «contador» (0 si no existe) y wfile lo guarda sumándole 1 cada vez que confirmas un cambio.'
+      : 'c reads the data "contador" (0 if missing) and wfile stores it plus 1 each time you confirm a change.', 3);
+    txt(d, 0, 59.11286254728878, L.es
+      ? 'El ejemplo ya trae el sonido «ding» (al abrirlo pasa a Archivo → Datos). \nArrastra el punto debajo de B para provocar un cambio.'
+      : 'The example already includes the "ding" sound (opening it copies it to File → Data). \nDrag the point below B to trigger a change.', 3);
+    const ding = dingSound();
+    addSound(d, 'ding', ding.url, { ms: ding.ms });
     return d;
   },
   // 10. Una placa con las esquinas redondeadas (redondeo con cota de radio)
   'placa-redondeada': (L) => {
     const d = newDoc(), { p } = rectangle(d, 0, 0, 100, 60);
     d.pts[p[0]].fixed = true;
-    addCon(d, { t: 'DIST', refs: [p[0], p[1]], v: 100 });
-    addCon(d, { t: 'DIST', refs: [p[1], p[2]], v: 60 });
+    d.dimText = true; d.dimH = 4.2333333333333325; // cotas en puntos (12 pt), como las deja la app
+    const k1 = addCon(d, { t: 'DIST', refs: [p[0], p[1]], v: 100 }), k2 = addCon(d, { t: 'DIST', refs: [p[1], p[2]], v: 60 });
+    Object.assign(d.cons[k1], { off: 7.809186362934154, lt: 0.5026727480548098 }); // donde Oscar puso las etiquetas de D1 y D2
+    Object.assign(d.cons[k2], { off: 9.8079561042524, lt: 0.5121170553269319 });
     for (const q of p) { const r = filletCorner(d, q, 8); if (!r.ok) throw new Error('redondeo: ' + r.msg); }
-    const rads = Object.values(d.cons).filter((k) => k.t === 'RAD'); // R1 manda: R2, R3 y R4 valen R1 (una formula en la cota)
-    rads.slice(1).forEach((k) => { k.expr = 'R1'; });
+    const rads = Object.values(d.cons).filter((k) => k.t === 'RAD'); // R1 manda: R2, R3 y R4 valen R1, en mm (una formula en la cota)
+    rads[0].lbl = '"R1"'; // la etiqueta de R1 dice su nombre
+    rads.slice(1).forEach((k) => { k.expr = "R1'mm"; k.du = 'mm'; });
+    Object.assign(rads[2], { ang: 0.9098533527149602, lp: 15.50537753389292 }); // la etiqueta de R3, donde Oscar la dejo
     note(d, 0, 80, L.es ? [
       'Placa con las cuatro esquinas redondeadas (radio 8). Cada arco lleva su cota de radio (R1…R4).',
-      'Cambia R1 con doble toque: las cuatro esquinas lo siguen, porque R2, R3 y R4 valen R1. Cambia D1 o D2 y la placa sigue redondeada.',
+      'Cambia R1 con doble toque: las cuatro esquinas lo siguen, porque R2, R3 y R4 valen R1. \nCambia D1 o D2 y la placa sigue redondeada.',
     ] : [
-      'Plate with its four corners rounded (radius 8). Each arc carries its radius dimension.',
-      'Change R1 with a double tap: the four corners follow, because R2, R3 and R4 equal R1. Change D1 or D2 and the plate stays rounded.',
+      'Plate with its four corners rounded (radius 8). Each arc carries its radius dimension (R1…R4).',
+      'Change R1 with a double tap: the four corners follow, because R2, R3 and R4 equal R1. \nChange D1 or D2 and the plate stays rounded.',
     ]);
     return d;
   },
