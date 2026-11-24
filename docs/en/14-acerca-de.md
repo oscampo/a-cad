@@ -1,7 +1,7 @@
 <!-- es: bd0f31fa66 -->
 # 14. About
 
-The solver that resolves the constraints, the libraries the app uses, and where the version history is.
+The solver that solves the constraints, the libraries the app uses, and where the version history is.
 
 [← 13. Known limits](13-limites-conocidos.md) · [Index](README.md)
 

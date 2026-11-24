@@ -47,7 +47,7 @@ Select the elements and press the button. Each button states what selection it n
 
 ![Concentric](../icons/con-conc.svg) **Concentric** applies to 2 or more circles or arcs.
 
-**Which rules.** The center of the first one rules and the other centers coincide with it.
+**Which one governs.** The center of the first one governs and the other centers coincide with it.
 
 **If they already coincide.** If they already share the center, you are warned and nothing is added.
 

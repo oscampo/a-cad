@@ -18,7 +18,7 @@ Those points behave as free points until you constrain them.
 
 It can have points on it, intersections and tangencies with lines, circles and arcs.
 
-The solver resolves them exactly, not approximately, together with the rest of the drawing.
+The solver solves them exactly, not approximately, together with the rest of the drawing.
 
 ## Deformation
 
@@ -59,7 +59,7 @@ It warns you if the distance exceeds the radius of curvature.
 
 ![Close or open the spline](../icons/spline-closed.svg) **Close / open** the selected spline.
 
-In the cut SVG and in the DXF they come out as exact curves.
+In the SVG for laser cutting and in the DXF they are exported as exact curves.
 
 ## Fixed shape of a spline
 

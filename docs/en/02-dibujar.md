@@ -73,7 +73,7 @@ You can choose the line and the end in any order, or select them before choosing
 
 ## Midpoint line (M)
 
-![Midpoint line](../icons/mline.svg) **Midpoint line (M)** (in the [Line dropdown](desplegables.md#line)): tap the start point, which will be the *midpoint*, and then an end (or drag); the line grows equally to the other side.
+![Midpoint line](../icons/mline.svg) **Midpoint line (M)** (in the [Line dropdown](desplegables.md#line)): tap the start point, which will be the *midpoint*, and then an end (or drag); the line extends equally to the other side.
 
 It gets a [midpoint](05-restricciones.md#midpoint) (M) constraint and the soft lock works as it does for lines.
 
@@ -171,7 +171,7 @@ The center is the midpoint of the diagonal.
 
 ## Soft lock and intersection magnet when drawing lines
 
-![Soft lock](../icons/soft-lock.svg) **Soft lock**: when drawing a line, if the cursor is near a notable direction, the line snaps to it and a dotted guide appears with a label.
+![Soft lock](../icons/soft-lock.svg) **Soft lock**: when drawing a line, if the cursor is near a significant direction, the line snaps to it and a dotted guide appears with a label.
 
 ### Horizontal, vertical and 45°
 

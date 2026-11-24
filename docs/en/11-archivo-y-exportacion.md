@@ -38,7 +38,7 @@ Done once per device. You are asked for:
 
 ### Token security
 
-The token stays only in this browser's storage, does not go into the files or the .json.
+The token stays only in this browser's storage and is not included in the files or the .json.
 
 Anyone with access to your browser could use it, which is why the minimum permission and a repository used only for drawings are advisable.
 
@@ -107,7 +107,7 @@ In addition, the app remembers the last drawing **only in this browser**: save a
 
 ### Import and manage
 
-**Import…** adds a file. An audio file is asked for with a name, is reduced to one channel, 16 kHz and 8 bits, about 16 KB per second, and plays with `play("nombre")` (see [Sounds](funciones.md#sounds)).
+**Import…** adds a file. For an audio file you give a name; it is reduced to one channel, 16 kHz and 8 bits (about 16 KB per second) and plays with `play("nombre")` (see [Sounds](funciones.md#sounds)).
 
 Each item can be **tested** (audio), **exported** and **deleted**.
 
@@ -130,13 +130,13 @@ Each item can be **tested** (audio), **exported** and **deleted**.
 
 ![SVG for laser cutting](../icons/svg.svg) **SVG CUT** (laser cutting): SVG at real scale in mm.
 
-Each *line class* (type, color and width) is sent to:
+Each *line class* (type, color and width) is assigned to:
 
 - **Cut** (cut color, red by default).
 - **Mark** (another color, for example folds).
 - **Skip.**
 
-It comes out in two groups, "cut" and "mark". Dimensions, texts, points and fills are not exported.
+The file has two groups, "cut" and "mark". Dimensions, texts, points and fills are not exported.
 
 ---
 

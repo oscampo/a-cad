@@ -34,7 +34,7 @@ A **constraint** is a geometric relationship that is always maintained: horizont
 
 **Automatic ones.** Many are created on their own while drawing: if a line ends up horizontal or tangent because you accepted the soft lock, the constraint is added (see [Drawing](02-dibujar.md)).
 
-**Numbering.** Each constraint carries a number per type (H1, ∥2, T1...), labeled next to its elements and with which it appears in the [element tree](10-estilo-capas-y-vista.md#element-tree); only the points that end up on an element while drawing (●) are not labeled.
+**Numbering.** Each constraint carries a number per type (H1, ∥2, T1...), labeled next to its elements and shown with the same number in the [element tree](10-estilo-capas-y-vista.md#element-tree); only the points that end up on an element while drawing (●) are not labeled.
 
 ## Degrees of freedom
 
@@ -46,7 +46,7 @@ A **constraint** is a geometric relationship that is always maintained: horizont
 
 ### Fully defined
 
-A drawing in which nothing can move without breaking a relationship is **fully defined**. You do not need to get there: in a mechanism, precisely, you leave free the movements you care about. To see what is still free, **drag**: whatever moves still has freedom.
+A drawing in which nothing can move without breaking a relationship is **fully defined**. You do not need to get there: in a mechanism, in fact, you deliberately leave free the movements you care about. To see what is still free, **drag**: whatever moves still has freedom.
 
 ### Typical errors
 
@@ -71,7 +71,7 @@ A **dimension** is a measurement in the drawing: distance, angle, radius or diam
 
 ### Two types
 
-- **Driving**: it rules over the geometry. If you type 40, the drawing adjusts so that distance measures 40. It removes degrees of freedom, like a constraint.
+- **Driving**: it controls the geometry. If you type 40, the drawing adjusts so that distance measures 40. It removes degrees of freedom, like a constraint.
 - **Reference** (read-only, in italics): it only measures. It shows the current value without forcing anything, so it never conflicts. It is useful for reading results, for example how far a point of a mechanism travels.
 
 ### Names and formulas

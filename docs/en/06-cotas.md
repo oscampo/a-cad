@@ -82,10 +82,10 @@ They follow the ANSI standard:
 
 **Changing the unit.** In the dimension's window, **Dimension unit** shows and changes the unit:
 
-- With a number it converts it: `126'in` becomes `3200,4'mm`.
+- With a number it converts it: `126'in` becomes `3200.4'mm`.
 - With a formula it only changes the unit at the end: `D2*2'ft`.
 
-**Formula with no unit at the end.** It says the unit of a dimension in the formula with the same quantity (`D2*2` with D2 in in says in) or the SI one.
+**Formula with no unit at the end.** It uses the unit of a dimension in the formula that has the same quantity (`D2*2` with D2 in inches says in), or else the SI unit.
 
 **Seeing it smaller or larger.** Use the scale: `126'in[*0.1]` draws 320.04 and the dimension still says "126 in", underlined.
 
@@ -196,7 +196,7 @@ The formula of a driving dimension can read a reference dimension, that is, a me
 
 ### How it is solved
 
-Since the measurement depends on the geometry and the geometry on the dimension, the app **solves and recalculates in rounds** until the formula matches the measurement (secant method, and if it does not close, damped repetition).
+Since the measurement depends on the geometry and the geometry on the dimension, the app **solves and recalculates in rounds** until the formula matches the measurement (secant method, and if it does not converge, damped iteration).
 
 This happens when editing a dimension, when creating one and **while you drag**, so the output dimension moves with the drawing.
 
@@ -282,7 +282,7 @@ Arrows and spacing grow with the font. Arrowheads follow the ASME Y14.2 standard
 
 ### Depending on the chosen point
 
-- **Endpoint** of a line, an arc, an elliptical arc or an open spline: **the element itself becomes the leader**. The arrow goes at that endpoint, in the direction of the curve; its color, line type and thickness are the element's (change them in the [Style](10-estilo-capas-y-vista.md#style) panel, with the leader or the element selected), and the element does not appear in the laser-cut SVG.
+- **Endpoint** of a line, an arc, an elliptical arc or an open spline: **the element itself becomes the leader**. The arrow goes at that endpoint, in the direction of the curve; its color, line type and width are the element's (change them in the [Style](10-estilo-capas-y-vista.md#style) panel, with the leader or the element selected), and the element does not appear in the laser-cut SVG.
 - **Center** of a circle or arc, or an **intermediate point**: a straight line of its own is drawn with the arrow at the point and the panel's style.
 
 ### The label

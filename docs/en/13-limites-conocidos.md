@@ -16,7 +16,7 @@ What the app does not do yet or does only under certain conditions. Worth readin
 
 A trimmed spline keeps its number of points and spaces them at equal distances over what remains (if the cut splits it in two, they are spaced according to the length of each piece). It looks very much like the original, but it is not identical.
 
-- If the spline has few points and with them it would drift from the curve (by more than 0.1% of its size), the necessary ones are added.
+- If the spline has few points and, keeping only those, it would drift from the original curve (by more than 0.1% of its size), the necessary ones are added.
 - If it has relationships or any of its points is fixed or used by another element, the points do not move and only a few are added next to the cut.
 
 ## Solver and constraints

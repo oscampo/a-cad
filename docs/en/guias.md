@@ -137,7 +137,7 @@ The cut lines and the marking lines (a fold, for example) are separated by color
 2. Select the cut lines and give them a style (for example, red and continuous) in the [Style](10-estilo-capas-y-vista.md#style) panel.
 3. Select the fold line and give it another style (for example, blue and dashed).
 4. Choose ![SVG for laser cutting](../icons/svg.svg) **SVG for laser cutting** in the [File button](11-archivo-y-exportacion.md#file-button).
-5. Each line class (type, color and width) is sent to **Cut**, **Mark** or **Skip**: assign Cut to the red ones and Mark to the blue one.
+5. Each line class (type, color and width) is assigned to **Cut**, **Mark** or **Skip**: assign Cut to the red ones and Mark to the blue one.
 
 ### What you will see
 

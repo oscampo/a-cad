@@ -37,12 +37,12 @@ Tap their label, or their name in the [element tree](10-estilo-capas-y-vista.md#
 
 ### Simulation
 
-**Simulation** opens the time bar: it plays and moves the drawing by solving the constraints. The MR line cannot be fixed horizontal or vertical, nor its length changed in the ML.
+**Simulation** opens the time bar: it plays and moves the drawing by solving the constraints. The MR line cannot be fixed horizontal or vertical, and the ML line cannot have its length changed.
 
 The player has:
 
 - Step back and step forward.
-- Loop repeat (↻).
+- Loop (↻).
 - Back-and-forth (⇄).
 - Speed from 0.5x to 2.0x.
 
@@ -84,9 +84,9 @@ What you see is what gets sampled: with `x'cm` and the axis from 0 to 900 mm, x 
 
 ### Axes and window
 
-**With no limits on x1 and an x with units**, the graph **focuses itself**: the window goes from 0 to the largest of the measurements with that magnitude that the relation reads, also inside its functions (with a beam of L = 900 mm, from 0 to 900 mm).
+**With no limits on x1 and an x with units**, the graph **fits itself automatically**: the window goes from 0 to the largest of the measurements with that magnitude that the relation reads, also inside its functions (with a beam of L = 900 mm, from 0 to 900 mm).
 
-**If there are no such measurements** (an x without units, or cuts written as numbers, `fsn(x, 0.5, 0)`), the window is the stretch where the curve does something (jumps, kinks or curvature): outside it, the curve is constant or straight.
+**If there are no such measurements** (an x without units, or cuts written as numbers, `fsn(x, 0.5, 0)`), the window is the part of the range where the curve does something (jumps, kinks or curvature): outside it, the curve is constant or straight.
 
 **A curve that does something over the whole range** (`sin(x)/x`, `x^2`) stays from −10 to 10.
 
@@ -220,7 +220,7 @@ Drag the wheel or the point and the other moves with the ratio.
 - **By default,** a tangency, a point on a line or on an arc holds even if the elements are not seen in contact (for the solver, lines and circles are infinite).
 - **With the box checked,** the relation only holds while the elements **touch graphically**: their contact point falls within the limits (the segment between its ends, the sweep of the arc) and the separation is almost zero. Outside that, the elements are left free.
 
-If they cross each other within a step, they are captured.
+If they cross within a single step, the contact is still captured.
 
 ### Stop at edges
 
@@ -267,7 +267,7 @@ In **Settings → Library** check "It is a library" and fill in its card:
 1. Choose **[File](11-archivo-y-exportacion.md#file-button) → Insert library…**.
 2. Choose it and confirm the alias.
 
-A block `▸ UtilidadesFatiga (UF) · v3` remains with a copy of its definitions (it works offline).
+A block `▸ UtilidadesFatiga (UF) · v3` is added, with a copy of its definitions (it works offline).
 
 Its names are used with the alias: `UF.C_(surf)(520'MPa, "machined")=`, `UF.Neuber_(steels)_(1,1)=`. The prefix is drawn in gray.
 

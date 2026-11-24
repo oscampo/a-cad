@@ -12,14 +12,14 @@ Color, line type, width and fills; layers; what the view shows; and the element 
 ![Style](../icons/palette.svg) **Style** sets the color, the line type and the width. It applies to the selection and to new elements.
 
 - **Color.**
-- **Line type:** continuous, hidden, axis, phantom, dashed, dotted, trace and point, or a new one with its own pattern.
+- **Line type:** continuous, hidden, axis, phantom, dashed, dotted, dash-dot, or a new one with its own pattern.
 - **Width:** thin, normal, thick.
 
 ## Fill / hatch
 
-![Fill / hatch](../icons/hatch.svg) **Fill / hatch** is applied on a closed outline (lines, arcs or a circle).
+![Fill / hatch](../icons/hatch.svg) **Fill / hatch** applies to a closed outline (lines, arcs or a circle).
 
-It can be lines, cross-hatch or solid, with angle, spacing and opacity.
+It can be hatching, cross-hatching or solid, with angle, spacing and opacity.
 
 ## Layers
 

@@ -125,7 +125,7 @@ It also trims **ellipses** and **splines**:
 
 ## Fillet (F) and Chamfer
 
-![Fillet](../icons/fillet.svg) ![Chamfer](../icons/chamfer.svg) **Fillet (F) and Chamfer** (button after [Polygon](02-dibujar.md#polygon-g); tap again or press and hold to choose) joins **two stroke elements** with a tangent arc (fillet) or with a line (chamfer).
+![Fillet](../icons/fillet.svg) ![Chamfer](../icons/chamfer.svg) **Fillet (F) and Chamfer** (button after [Polygon](02-dibujar.md#polygon-g); tap again or press and hold to choose) joins **two drawn elements** with a tangent arc (fillet) or with a line (chamfer).
 
 **What can be joined.** Segments, arcs and elliptical arcs, in any combination; construction lines do not count.
 

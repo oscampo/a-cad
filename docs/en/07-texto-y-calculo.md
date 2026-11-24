@@ -41,7 +41,7 @@ Each line of an equation is a statement. The value updates by itself when the dr
 | `x:expr'unidad=` | With `=` the calculated value is shown in that unit. | `a:2*3'm/s^2=` | `a:=2*3=6 m/s²` |
 | `valor'unidad` | Units inside an expression. A compound unit goes in parentheses: `3'(m/s)`. | `L:2'm+30'cm`<br>`L=` | `L:=2 m+30 cm`<br>`L=2.3 m` |
 | `expr='unidad` | Shows the value in the requested unit (of the same magnitude; otherwise ⚠). | `F:2'kN`<br>`F='N` | `F:=2 kN`<br>`F=2000 N` |
-| Automatic unit | With no unit requested, the result comes out in the unit of a text variable in the expression or in the usual one of the document's unit system (**Settings → Units**): in SI mm or m, mm² or m², N or kN, N·mm, N·m or kN·m, MPa; in imperial in or ft, in² or ft², lbf or kip, lbf·in, kip·in or kip·ft, psi or ksi. It moves to the larger unit when the number reaches 1000 and in it stays at 1 or more (3200 mm is 3.2 m; 1963.5 mm² stays in mm²). A dimension with a unit does not decide the unit of the result: D2 of "126 in" gives `D2=3,2004 m` in SI. Moment and energy are shown as moment (N·m); `='J` asks for joules. | `F:5000'N`<br>`A:2'cm^2`<br>`F/A=` | `F:=5000 N`<br>`A:=2 cm²`<br>`F/A=25 MPa` |
+| Automatic unit | With no unit requested, the result comes out in the unit of a text variable in the expression or in the usual one of the document's unit system (**Settings → Units**): in SI mm or m, mm² or m², N or kN, N·mm, N·m or kN·m, MPa; in imperial in or ft, in² or ft², lbf or kip, lbf·in, kip·in or kip·ft, psi or ksi. It moves to the larger unit when the number reaches 1000 and stays in it as long as the value is 1 or more (3200 mm is 3.2 m; 1963.5 mm² stays in mm²). A dimension with a unit does not decide the unit of the result: D2 of "126 in" gives `D2=3,2004 m` in SI. Moment and energy are shown as moment (N·m); `='J` asks for joules. | `F:5000'N`<br>`A:2'cm^2`<br>`F/A=` | `F:=5000 N`<br>`A:=2 cm²`<br>`F/A=25 MPa` |
 | Units that do not match | Adding, subtracting or comparing different magnitudes gives ⚠, just like a number without units added to one with units. The exception is **0**: it is valid with any unit (0 m = 0 kN), so `x>0` with x in in, `x+0` or `[0, x]` work, and a function such as `if(x>a; x-a; 0)` works with or without units. Functions (sin, ln...) require numbers without units; sqrt, abs and round keep them. | `2'N+3=` | `2 N+3=⚠` |
 | Angle with unit | `deg`, `°` and `rad` make an angle. In a dimension, a length with units is converted to mm. | `sin(30'deg)=` | `sin(30 deg)=0.5` |
 | `x:a..b;n` | **Range**: n values from a to b, a row vector. With a decimal point it is also written `x:a..b,n`; with a decimal comma, always with `;`. | `x:1..5;5` | `x:=[1, 2, 3, 4, 5]` |
@@ -67,7 +67,7 @@ A text that starts with `"` (or with a space) is drawn as is, except what goes b
 
 | You type | What it does | Example | What you see |
 |---|---|---|---|
-| `$…$` | Formula inline with the text. | `"Vale $2*3=$ mm` | `Vale 2*3=6 mm` |
+| `$…$` | Inline formula, within the text. | `"Vale $2*3=$ mm` | `Vale 2*3=6 mm` |
 | `$$…$$` | Block formula: each line inside is an equation, centered and at full size. |  |  |
 | `` `…` `` | **Literal**: it is drawn but never calculated or read as an assignment or output. Without the quotes, `f:\RR->\RR` would be an assignment. | `` `f:\RR->\RR` ``<br>`` `x =` 3 `` | `f:\RR->\RR`<br>`x = 3` |
 | `` `… `` unclosed | It is marked with ⚠. | `` `abierto `` | `` `abierto ⚠ `` |

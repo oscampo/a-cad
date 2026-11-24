@@ -6,6 +6,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Nuevo
 
+- Ayuda en inglés: revisión de la prosa de los capítulos (calcos del español como "resolves", "rules", "stroke elements", "focuses itself", frases torpes y nombres que no coincidían con la interfaz). Solo cambia el texto; la estructura y los enlaces siguen igual.
 - Textos: `cross(a, b)` se dibuja **a × b** y `dot(a, b)` **a ⋅ b**, como `norm` se dibuja ‖a‖. Es solo el dibujo: el cálculo no cambia. Un operando compuesto o un `cross` junto a otra cosa lleva paréntesis: `(a + b) × c`, `2 (a × b)`. El `×` que se teclea sigue multiplicando como `*`; entre dos vectores de 3 elementos que no se pueden multiplicar, el error ahora sugiere `cross(a, b)`.
 - Ayuda: nuevo capítulo **Botones desplegables** con todos los grupos de herramientas de la barra (Seleccionar, Línea, Círculo, Arco, Elipse, Rectángulo, Spline, Redondeo, Copiar, Actuadores y Archivo), lo que trae cada uno y dónde se explica cada herramienta. Antes solo estaban los de dibujo, dentro de Dibujar. Los enlaces «desplegable» de todo el manual ahora llevan a su grupo, y una prueba exige que cada botón de la app aparezca en la referencia (en español y en inglés).
 - Al seleccionar un elemento que no trae color, tipo o grosor (un archivo antiguo o hecho a mano) ya no se pierde el estilo actual: lo que dibujes después sigue saliendo con estilo. Los ejemplos de las guías llevan siempre su estilo, y por eso ahora se ve el halo al seleccionar su spline.

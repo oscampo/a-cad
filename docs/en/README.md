@@ -32,8 +32,8 @@ This manual explains every tool and concept in detail, for people who are starti
 | 10 | [Style, layers and view](10-estilo-capas-y-vista.md) | Color, line type, width and fills; layers; what the view shows; and the element tree. |
 | 11 | [File and export](11-archivo-y-exportacion.md) | Saving and opening drawings (also in a GitHub repository) and exporting to PNG, SVG, DXF and SVG for laser cutting. |
 | 12 | [Keyboard shortcuts](12-atajos-de-teclado.md) | The keys for each tool, for working with the keyboard. |
-| 13 | [Known limits](13-limites-conocidos.md) | What the app does not do yet or does with conditions. Worth reading before a large job. |
-| 14 | [About](14-acerca-de.md) | The solver that resolves the constraints, the libraries the app uses and where the version history is. |
+| 13 | [Known limits](13-limites-conocidos.md) | What the app does not do yet or does only under certain conditions. Worth reading before a large job. |
+| 14 | [About](14-acerca-de.md) | The solver that solves the constraints, the libraries the app uses and where the version history is. |
 
 ## More
 

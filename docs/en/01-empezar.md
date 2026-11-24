@@ -52,7 +52,7 @@ With **Finger draws** and Select, holding means aiming: on release, whatever is 
 
 ## Cursor ring
 
-The small circle that accompanies the pencil (over the screen) or the mouse also appears in the ![Select](../icons/select.svg) **Select** tool, at the cursor's real position.
+The small circle that accompanies the pencil (hovering over the screen) or the mouse also appears in the ![Select](../icons/select.svg) **Select** tool, at the cursor's real position.
 
 ## Help and search
 
