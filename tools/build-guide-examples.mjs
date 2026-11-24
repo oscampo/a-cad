@@ -95,6 +95,7 @@ const EXAMPLES = {
       const t = d.texts[d.lines[l].vec.t]; t.anchor = 'bc';
       if (i < 3) t.text = '`F' + (i + 1) + '=`' + t.text; // el texto del vector es «$Dn=$»
       t.valOnly = true;
+      if (i === 3) t.color = '#dc2626'; // el valor de la resultante, del mismo rojo que su vector
     });
     [A, B, C, D].forEach((p, i) => { d.texts[addText(d, p, 'ABCD'[i], { h: 3.5277777777777777, anchor: 'bc' })]; });
     note(d, 0, 90, L.es ? [
