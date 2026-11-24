@@ -11,6 +11,7 @@ import { addGraph } from '../src/graphs.js';
 import { makeVector } from '../src/vectors.js';
 import { circularArray } from '../src/edit.js';
 import { filletCorner } from '../src/corners.js';
+import { libPayload } from '../src/library.js';
 import { settle } from '../src/params.js';
 import { viewNeeds } from '../src/examples.js';
 
@@ -23,6 +24,16 @@ const note = (doc, x, y, lines, h = 3) => lines.forEach((l, i) => txt(doc, x, y 
 const rectangle = (doc, x0, y0, w, h, style) => {
   const p = [addPoint(doc, x0, y0), addPoint(doc, x0 + w, y0), addPoint(doc, x0 + w, y0 + h), addPoint(doc, x0, y0 + h)];
   return { p, l: addRectangle(doc, p, style) };
+};
+
+// La biblioteca de ejemplo (el documento que la define); el dibujo que la usa lleva una copia de lo publico, como la deja «Insertar biblioteca…»
+const geometryLib = (L) => {
+  const d = newDoc(); d.decimal = '.';
+  txt(d, 0, 100, '$AreaCirculo(Dext):pi*Dext^2/4$');
+  txt(d, 0, 90, '$AreaAnillo(Dext; Dint):AreaCirculo(Dext)-AreaCirculo(Dint)$');
+  txt(d, 0, 76, '$ejemplo:AreaAnillo(50; 30)=$'); // un ejemplo: no viaja con la biblioteca
+  d.lib = { on: true, name: L.es ? 'Geometría básica' : 'Basic geometry', alias: 'GEO', author: 'A-CAD', desc: L.es ? 'Áreas de círculos y anillos' : 'Areas of circles and rings', version: 1, exports: ['AreaCirculo', 'AreaAnillo'] };
+  return d;
 };
 
 const EXAMPLES = {
@@ -247,6 +258,34 @@ const EXAMPLES = {
     ] : [
       "eF is 1'mm/kN: each kN is drawn with 1 mm. The dimensions say 30 kN and 45 kN, and the lines measure 30 and 45 mm.",
       "Change eF to 2'mm/kN and both lines double in length; the dimensions still say the same.",
+    ]);
+    return d;
+  },
+  // 14. Una biblioteca de funciones (el documento que la define)
+  'biblioteca-geometria': (L) => {
+    const d = geometryLib(L);
+    note(d, 0, 55, L.es ? [
+      'Este dibujo es una biblioteca: Configuración → Biblioteca marca «Es una biblioteca» (alias GEO).',
+      'Sus funciones AreaCirculo y AreaAnillo son públicas; «ejemplo» es solo una prueba y no viaja.',
+    ] : [
+      'This drawing is a library: Settings → Library has "Is a library" checked (alias GEO).',
+      'Its functions AreaCirculo and AreaAnillo are public; "ejemplo" is only a test and does not travel.',
+    ]);
+    return d;
+  },
+  // 15. Un dibujo que usa una biblioteca ya insertada
+  'usar-biblioteca': (L) => {
+    const d = newDoc(); d.decimal = '.';
+    const blk = addText(d, addPoint(d, 0, 100), '▸ ' + (L.es ? 'Geometría básica' : 'Basic geometry'), { h: 3.2, anchor: 'tl' });
+    d.texts[blk].lib = { ...libPayload(geometryLib(L)), decimal: '.', path: 'MyLibrary/GeometriaBasica.alib.json' }; // sin sha: no existe en GitHub, solo es un ejemplo
+    txt(d, 0, 88, '$GEO.AreaCirculo(10)=$');
+    txt(d, 0, 78, '$GEO.AreaAnillo(50; 30)=$');
+    note(d, 0, 62, L.es ? [
+      'El bloque de arriba es la biblioteca insertada (una copia: funciona sin red). Sus nombres se usan con el alias: GEO.AreaCirculo(…).',
+      'Doble toque en el bloque para ver sus propiedades. Este ejemplo no viene de GitHub, así que «Actualizar» no encontrará nada.',
+    ] : [
+      'The block above is the inserted library (a copy: it works offline). Its names are used with the alias: GEO.AreaCirculo(…).',
+      'Double tap the block to see its properties. This example does not come from GitHub, so "Update" will find nothing.',
     ]);
     return d;
   },

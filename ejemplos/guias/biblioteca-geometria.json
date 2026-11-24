@@ -1,0 +1,116 @@
+{
+ "app": "ipad-cad",
+ "version": "2.9.4",
+ "doc": {
+  "calc": 2,
+  "n": 10,
+  "pts": {
+   "p1": {
+    "x": 0,
+    "y": 100,
+    "fixed": false,
+    "auto": false
+   },
+   "p3": {
+    "x": 0,
+    "y": 90,
+    "fixed": false,
+    "auto": false
+   },
+   "p5": {
+    "x": 0,
+    "y": 76,
+    "fixed": false,
+    "auto": false
+   },
+   "p7": {
+    "x": 0,
+    "y": 55,
+    "fixed": false,
+    "auto": false
+   },
+   "p9": {
+    "x": 0,
+    "y": 50.5,
+    "fixed": false,
+    "auto": false
+   }
+  },
+  "lines": {},
+  "circles": {},
+  "arcs": {},
+  "ellipses": {},
+  "texts": {
+   "t2": {
+    "pt": "p1",
+    "text": "$AreaCirculo(Dext):pi*Dext^2/4$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t4": {
+    "pt": "p3",
+    "text": "$AreaAnillo(Dext; Dint):AreaCirculo(Dext)-AreaCirculo(Dint)$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t6": {
+    "pt": "p5",
+    "text": "$ejemplo:AreaAnillo(50; 30)=$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t8": {
+    "pt": "p7",
+    "text": "Este dibujo es una biblioteca: Configuración → Biblioteca marca «Es una biblioteca» (alias GEO).",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t10": {
+    "pt": "p9",
+    "text": "Sus funciones AreaCirculo y AreaAnillo son públicas; «ejemplo» es solo una prueba y no viaja.",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   }
+  },
+  "splines": {},
+  "traces": {},
+  "cons": {},
+  "hatches": {},
+  "ltypes": {},
+  "cn": {},
+  "layers": {},
+  "curLayer": null,
+  "decimal": ".",
+  "lib": {
+   "on": true,
+   "name": "Geometría básica",
+   "alias": "GEO",
+   "author": "A-CAD",
+   "desc": "Áreas de círculos y anillos",
+   "version": 1,
+   "exports": [
+    "AreaCirculo",
+    "AreaAnillo"
+   ]
+  },
+  "cnd": {}
+ },
+ "view": {
+  "texts": true
+ }
+}

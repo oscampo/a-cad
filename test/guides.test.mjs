@@ -12,6 +12,7 @@ import { laserClasses } from '../src/export.js';
 import { EXAMPLE_NAMES } from '../tools/build-guide-examples.mjs';
 import { viewNeeds } from '../src/examples.js';
 import { dimText, isScaledDim } from '../src/dims.js';
+import { checkLibrary, libClosure } from '../src/library.js';
 
 await initSolver();
 let passed = 0;
@@ -95,6 +96,21 @@ t('corte laser: dos clases de linea (corte rojo continua, marcado azul discontin
   const cl = laserClasses(load('corte-laser'));
   assert.equal(cl.length, 2);
   assert.deepEqual(cl.map((c) => [c.ltype, c.count]), [['continua', 8], ['discontinua', 1]]);
+});
+
+t('biblioteca: la ficha pasa la revision, lo publico viaja (el ejemplo no) y el dibujo que la usa calcula con el alias', () => {
+  const clean = (s) => s.replace(/[-]/g, '');
+  const L = load('biblioteca-geometria');
+  assert.deepEqual(checkLibrary(L), []);
+  assert.deepEqual([...libClosure(L, L.lib.exports).names].sort(), ['AreaAnillo', 'AreaCirculo']); // «ejemplo» no viaja
+  assert.equal(L.lib.alias, 'GEO');
+  const d = load('usar-biblioteca');
+  const blk = Object.values(d.texts).find((x) => x.lib);
+  assert.equal(blk.lib.alias, 'GEO'); assert.deepEqual([...blk.lib.exports].sort(), ['AreaAnillo', 'AreaCirculo']);
+  const out = Object.values(d.texts).map((x) => clean(shownText(d, x).text).replace('color(gray)(GEO.)', 'GEO.')); // el prefijo se dibuja en gris
+  assert.ok(out.includes('$GEO.AreaCirculo(10)=78.54$'), out.join('|'));
+  assert.ok(out.includes('$GEO.AreaAnillo(50; 30)=1256.6$'), out.join('|'));
+  assert.deepEqual(textVarErrors(d), []);
 });
 
 t('placa redondeada: cuatro arcos de radio 8 y R1 manda sobre R2, R3 y R4; el largo y el alto se pueden cambiar', () => {

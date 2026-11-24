@@ -1,0 +1,135 @@
+{
+ "app": "ipad-cad",
+ "version": "2.9.4",
+ "doc": {
+  "calc": 2,
+  "n": 10,
+  "pts": {
+   "p1": {
+    "x": 0,
+    "y": 100,
+    "fixed": false,
+    "auto": false
+   },
+   "p3": {
+    "x": 0,
+    "y": 88,
+    "fixed": false,
+    "auto": false
+   },
+   "p5": {
+    "x": 0,
+    "y": 78,
+    "fixed": false,
+    "auto": false
+   },
+   "p7": {
+    "x": 0,
+    "y": 62,
+    "fixed": false,
+    "auto": false
+   },
+   "p9": {
+    "x": 0,
+    "y": 57.5,
+    "fixed": false,
+    "auto": false
+   }
+  },
+  "lines": {},
+  "circles": {},
+  "arcs": {},
+  "ellipses": {},
+  "texts": {
+   "t2": {
+    "pt": "p1",
+    "text": "▸ Geometría básica",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true,
+    "lib": {
+     "name": "Geometría básica",
+     "alias": "GEO",
+     "version": 1,
+     "exports": [
+      "AreaCirculo",
+      "AreaAnillo"
+     ],
+     "decimal": ".",
+     "angles": "deg",
+     "defs": [
+      {
+       "name": "AreaCirculo",
+       "kind": "fn",
+       "expr": "pi*Dext^2/4",
+       "params": [
+        "Dext"
+       ]
+      },
+      {
+       "name": "AreaAnillo",
+       "kind": "fn",
+       "expr": "AreaCirculo(Dext)-AreaCirculo(Dint)",
+       "params": [
+        "Dext",
+        "Dint"
+       ]
+      }
+     ],
+     "path": "MyLibrary/GeometriaBasica.alib.json"
+    }
+   },
+   "t4": {
+    "pt": "p3",
+    "text": "$GEO.AreaCirculo(10)=$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t6": {
+    "pt": "p5",
+    "text": "$GEO.AreaAnillo(50; 30)=$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t8": {
+    "pt": "p7",
+    "text": "El bloque de arriba es la biblioteca insertada (una copia: funciona sin red). Sus nombres se usan con el alias: GEO.AreaCirculo(…).",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t10": {
+    "pt": "p9",
+    "text": "Doble toque en el bloque para ver sus propiedades. Este ejemplo no viene de GitHub, así que «Actualizar» no encontrará nada.",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   }
+  },
+  "splines": {},
+  "traces": {},
+  "cons": {},
+  "hatches": {},
+  "ltypes": {},
+  "cn": {},
+  "layers": {},
+  "curLayer": null,
+  "decimal": ".",
+  "cnd": {}
+ },
+ "view": {
+  "texts": true
+ }
+}

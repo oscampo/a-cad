@@ -301,6 +301,31 @@ Las cotas dicen «30 kN» y «45 kN», y las líneas miden 30 y 45 mm. A diferen
 - Sin escala, `30'kN` mediría 30000 (en el SI) y la app lo avisa con ⚠. Ver [Escala con unidades](06-cotas.md#escala-con-unidades).
 - Los vectores usan la misma escala: [Polígono de fuerzas](#dibujar-un-polígono-de-fuerzas-con-vectores).
 
+## Crear una biblioteca de funciones y usarla en otro dibujo
+
+Funciones que defines una vez y reutilizas en cualquier dibujo, con un prefijo corto (el alias).
+
+**Ejemplos:** [la biblioteca](../ejemplos/guias/biblioteca-geometria.json) y [un dibujo que la usa](../ejemplos/guias/usar-biblioteca.json). El segundo lleva una copia ya insertada; no viene de GitHub.
+
+### Pasos
+
+1. En un dibujo nuevo, define tus funciones en textos: `$$AreaCirculo(Dext):pi*Dext^2/4$$` y `$$AreaAnillo(Dext; Dint):AreaCirculo(Dext)-AreaCirculo(Dint)$$`. Puedes dejar una prueba, `$$ejemplo:AreaAnillo(50; 30)=$$`: los ejemplos no viajan con la biblioteca.
+2. En **Configuración → Biblioteca** marca «Es una biblioteca» y llena la ficha: nombre, **alias** (`GEO`), autor y descripción (ver [Crear una biblioteca](09-simulaciones-graficas.md#crear-una-biblioteca)).
+3. Revisa lo **público**: por defecto, las funciones y scripts. Lo que esas necesitan viaja también, como privado.
+4. Elige **Guardar en GitHub**: queda en la carpeta `MyLibrary/` con una versión que sube sola (v1, v2…). Antes tienes que [configurar GitHub](11-archivo-y-exportacion.md#github).
+5. En otro dibujo, elige **[Archivo](11-archivo-y-exportacion.md#botón-archivo) → Insertar biblioteca…**, escógela y confirma el alias.
+6. Usa sus nombres con el alias: `$$GEO.AreaAnillo(50; 30)=$$`.
+
+### Qué verás
+
+Un bloque `▸ Geometría básica (GEO) · v1` con una copia de las definiciones, que funciona sin red. El prefijo `GEO.` se dibuja en gris y el cálculo da 1256,6 para el anillo y 78,54 para el círculo de diámetro 10.
+
+### Para seguir
+
+- Si cambias la biblioteca y la guardas de nuevo, los dibujos que la usan muestran `⟳ v2`; en las propiedades del bloque, «Actualizar» trae la versión nueva y antes avisa qué nombres cambian (ver [Actualizar](09-simulaciones-graficas.md#actualizar)).
+- Una biblioteca no debería depender de las cotas ni de las medidas de su dibujo: la revisión antes de guardar te lo avisa.
+- Para escribir el nombre sin acordarte de él, usa las sugerencias `ƒx` ([Texto y cálculo](07-texto-y-calculo.md)).
+
 ## Guardar, abrir y compartir tus dibujos
 
 Tus dibujos se guardan como archivos `.json`, y puedes llevarlos a otro dispositivo con GitHub.
