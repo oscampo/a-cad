@@ -89,6 +89,13 @@ const EXAMPLES = {
     d.pts[A].fixed = true;
     const lines = [addLine(d, A, B), addLine(d, B, C), addLine(d, C, D), addLine(d, A, D)];
     lines.forEach((l) => makeVector(d, l, { h: 3 })); // la cabeza de cada vector, en su extremo final
+    lines.forEach((l, i) => { // lineas gruesas (la resultante en rojo) y la etiqueta «F1=valor» sobre el vector, solo con el valor (valOnly)
+      d.lines[l].w = 2; if (i === 3) d.lines[l].color = '#dc2626';
+      const t = d.texts[d.lines[l].vec.t]; t.anchor = 'bc';
+      if (i < 3) t.text = '`F' + (i + 1) + '=`' + t.text; // el texto del vector es «$Dn=$»
+      t.valOnly = true;
+    });
+    [A, B, C, D].forEach((p, i) => { d.texts[addText(d, p, 'ABCD'[i], { h: 3.5277777777777777, anchor: 'bc' })]; });
     note(d, 0, 90, L.es ? [
       'Polígono de fuerzas: F1, F2 y F3 van punta con cola y el cuarto vector es su resultante (de A al final).',
       'Arrastra B, C o D: las magnitudes (D1…D4) se actualizan. Toca dos veces un vector para ver su magnitud, unidad y escala.',

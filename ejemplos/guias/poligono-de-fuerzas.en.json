@@ -3,7 +3,7 @@
  "version": "2.9.4",
  "doc": {
   "calc": 2,
-  "n": 28,
+  "n": 32,
   "pts": {
    "p1": {
     "x": 0,
@@ -57,13 +57,13 @@
     "auto": true,
     "txOnly": true
    },
-   "p25": {
+   "p29": {
     "x": 0,
     "y": 90,
     "fixed": false,
     "auto": false
    },
-   "p27": {
+   "p31": {
     "x": 0,
     "y": 85.5,
     "fixed": false,
@@ -79,7 +79,8 @@
      "m": "p9",
      "t": "t12",
      "d": "k11"
-    }
+    },
+    "w": 2
    },
    "l6": {
     "a": "p2",
@@ -89,7 +90,8 @@
      "m": "p13",
      "t": "t16",
      "d": "k15"
-    }
+    },
+    "w": 2
    },
    "l7": {
     "a": "p3",
@@ -99,7 +101,8 @@
      "m": "p17",
      "t": "t20",
      "d": "k19"
-    }
+    },
+    "w": 2
    },
    "l8": {
     "a": "p1",
@@ -109,7 +112,9 @@
      "m": "p21",
      "t": "t24",
      "d": "k23"
-    }
+    },
+    "w": 2,
+    "color": "#dc2626"
    }
   },
   "circles": {},
@@ -118,50 +123,90 @@
   "texts": {
    "t12": {
     "pt": "p9",
-    "text": "$D1=$",
+    "text": "`F1=`$D1=$",
     "h": 3,
     "ang": 0,
-    "anchor": "tc",
+    "anchor": "bc",
     "color": "auto",
     "readable": true,
     "vecOf": "l5",
-    "ref": "l5"
+    "ref": "l5",
+    "valOnly": true
    },
    "t16": {
     "pt": "p13",
-    "text": "$D2=$",
+    "text": "`F2=`$D2=$",
     "h": 3,
     "ang": 0,
-    "anchor": "tc",
+    "anchor": "bc",
     "color": "auto",
     "readable": true,
     "vecOf": "l6",
-    "ref": "l6"
+    "ref": "l6",
+    "valOnly": true
    },
    "t20": {
     "pt": "p17",
-    "text": "$D3=$",
+    "text": "`F3=`$D3=$",
     "h": 3,
     "ang": 0,
-    "anchor": "tc",
+    "anchor": "bc",
     "color": "auto",
     "readable": true,
     "vecOf": "l7",
-    "ref": "l7"
+    "ref": "l7",
+    "valOnly": true
    },
    "t24": {
     "pt": "p21",
     "text": "$D4=$",
     "h": 3,
     "ang": 0,
-    "anchor": "tc",
+    "anchor": "bc",
     "color": "auto",
     "readable": true,
     "vecOf": "l8",
-    "ref": "l8"
+    "ref": "l8",
+    "valOnly": true
+   },
+   "t25": {
+    "pt": "p1",
+    "text": "A",
+    "h": 3.5277777777777777,
+    "ang": 0,
+    "anchor": "bc",
+    "color": "auto",
+    "readable": true
    },
    "t26": {
-    "pt": "p25",
+    "pt": "p2",
+    "text": "B",
+    "h": 3.5277777777777777,
+    "ang": 0,
+    "anchor": "bc",
+    "color": "auto",
+    "readable": true
+   },
+   "t27": {
+    "pt": "p3",
+    "text": "C",
+    "h": 3.5277777777777777,
+    "ang": 0,
+    "anchor": "bc",
+    "color": "auto",
+    "readable": true
+   },
+   "t28": {
+    "pt": "p4",
+    "text": "D",
+    "h": 3.5277777777777777,
+    "ang": 0,
+    "anchor": "bc",
+    "color": "auto",
+    "readable": true
+   },
+   "t30": {
+    "pt": "p29",
     "text": "Force polygon: F1, F2 and F3 go head to tail and the fourth vector is their resultant (from A to the end).",
     "h": 3,
     "ang": 0,
@@ -169,8 +214,8 @@
     "color": "auto",
     "readable": true
    },
-   "t28": {
-    "pt": "p27",
+   "t32": {
+    "pt": "p31",
     "text": "Drag B, C or D: the magnitudes (D1…D4) update. Double tap a vector to see its magnitude, unit and scale.",
     "h": 3,
     "ang": 0,
