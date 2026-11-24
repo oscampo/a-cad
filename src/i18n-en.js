@@ -114,6 +114,7 @@ export const EN = {
   "The help could not be loaded": "The help could not be loaded",
   "Capítulos": "Chapters",
   "Chapters": "Chapters",
+  "Mostrar más": "Show more",
   "Distribuir ↔": "Distribute ↔",
   "Distribuir ↕": "Distribute ↕",
   "Punto medio": "Midpoint",

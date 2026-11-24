@@ -13,6 +13,13 @@ t('la ayuda generada (src/help-gen) esta al dia: corre «npm run help»', () => 
   for (const lang of LANGS) assert.equal(norm(readFileSync(new URL(`../src/help-gen/${lang}.js`, import.meta.url), 'utf8')), moduleText(lang), `src/help-gen/${lang}.js quedo viejo`);
 });
 
+t('la ayuda generada no deja marcas de Markdown sin convertir', () => {
+  for (const lang of LANGS) for (const [id, html] of Object.entries(buildLang(lang).html)) {
+    const txt = html.replace(/<code>[^<]*<\/code>/g, '').replace(/<[^>]+>/g, ' ');
+    assert.ok(!/(^|\s)#{2,6}\s|\*\*[^*]+\*\*/.test(txt), lang + '/' + id + ': queda una marca de Markdown (### o **) sin convertir');
+  }
+});
+
 t('los capitulos del manual existen y cada uno tiene su titulo', () => {
   for (const f of MANUAL_FILES) { const md = readDoc('es', f); assert.ok(md, f + ' no existe'); assert.match(md, /^#\s/m, f + ' sin titulo'); }
 });

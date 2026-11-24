@@ -51,6 +51,7 @@ import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr, setSh
 import { localNum, SCI_DEFAULT, sciFrom, decimalMode } from './locale.js';
 import { getLang, setLang, initLang } from './i18n.js';
 import { helpHtml } from './help.js';
+import { search, snippet, wordsOf } from './helpsearch.js';
 import { colorPicker } from './colorpicker.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
 
@@ -501,8 +502,8 @@ $('treeBy').onclick = () => { opts.treeBy = opts.treeBy === 'layer' ? 'type' : '
 // encabezado se pone aqui. Dos niveles: a la izquierda el indice de capitulos (y, del abierto, sus temas) y a la derecha un capitulo a la vez;
 // con el buscador se ven todos los capitulos con lo que coincide. En una pantalla angosta el indice es la primera pantalla y se vuelve a el con ‹.
 const HELP_UI = {
-  es: { title: 'Ayuda', search: 'Buscar en la ayuda', close: 'Cerrar', none: 'Nada en la ayuda coincide con la búsqueda.', home: 'Inicio', index: 'Índice', chapters: 'Capítulos' },
-  en: { title: 'Help', search: 'Search the help', close: 'Close', none: 'Nothing in the help matches the search.', home: 'Start', index: 'Index', chapters: 'Chapters' },
+  es: { title: 'Ayuda', search: 'Buscar en la ayuda', close: 'Cerrar', none: 'Nada en la ayuda coincide con la búsqueda.', home: 'Inicio', index: 'Índice', chapters: 'Capítulos', results: 'Resultados de', more: 'Mostrar más', count: 'resultados' },
+  en: { title: 'Help', search: 'Search the help', close: 'Close', none: 'Nothing in the help matches the search.', home: 'Start', index: 'Index', chapters: 'Chapters', results: 'Results for', more: 'Show more', count: 'results' },
 };
 const HELP_LS = 'a-cad-help-ch';
 let helpCh = 'home', helpUi = HELP_UI.es;
@@ -533,7 +534,7 @@ function helpNavRender() {
   }
 }
 // Muestra un capitulo (o «home», la presentacion con las tarjetas de capitulos). idx: en pantalla angosta, volver al indice.
-function helpShow(id, idx = false) {
+function helpShow(id, idx = false, target = null) {
   const body = $('helpBody'), wrap = $('helpWrap');
   if (id !== 'home' && !body.querySelector(':scope > details[data-ch="' + id + '"]')) id = 'home';
   helpCh = id;
@@ -545,6 +546,12 @@ function helpShow(id, idx = false) {
   $('helpBack').hidden = !(helpNarrow() && !idx);
   helpNavRender();
   body.scrollTop = 0;
+  helpResultsBar();
+  if (target) { // un resultado: sus secciones abiertas, a la vista y destacado un momento
+    for (let d = target.closest('details'); d; d = d.parentElement?.closest('details')) d.open = true;
+    target.scrollIntoView({ block: 'center' });
+    target.classList.add('hflash'); setTimeout(() => target.classList.remove('hflash'), 1800);
+  }
 }
 // La presentacion: el primer parrafo de la ayuda, una tarjeta por capitulo y la version
 function helpHomeBuild() {
@@ -569,7 +576,8 @@ $('tHelp').onclick = async () => {
   helpUi = ui;
   $('dlgH').querySelector('.hhead b').textContent = ui.title;
   $('helpSearch').placeholder = ui.search; $('helpSearch').setAttribute('aria-label', ui.search); $('helpClose').setAttribute('aria-label', ui.close); $('helpBack').setAttribute('aria-label', ui.index); $('helpBack').title = ui.index;
-  $('helpBody').innerHTML = html + `<p id="helpNone" hidden>${ui.none}</p>`;
+  $('helpBody').innerHTML = html + '<div id="helpResults"></div>';
+  helpUnits = null; helpQuery = '';
   fillIconRef();
   $('helpBody').querySelectorAll('details').forEach((d) => { d.dataset.open0 = d.open ? '1' : ''; });
   helpHomeBuild();
@@ -580,41 +588,78 @@ $('tHelp').onclick = async () => {
   helpShow(narrow ? 'home' : last, narrow); // angosta: empieza en el indice
   $('dlgH').showModal();
 };
-$('helpBack').onclick = () => { if ($('helpWrap').classList.contains('searching')) { $('helpSearch').value = ''; filterHelp(''); } helpShow('home', true); };
-// Buscador de la ayuda: sin tildes ni mayusculas, todas las palabras deben aparecer. Deja solo los puntos y parrafos que
-// coinciden (una seccion cuyo titulo coincide se muestra entera) y abre sus secciones; vacio, vuelve a como estaba.
-const helpNorm = (s) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-function filterHelp(q) {
-  const body = $('helpBody'), words = helpNorm(q).split(/\s+/).filter(Boolean);
-  const wrap = $('helpWrap'), searching = words.length > 0;
-  wrap.classList.toggle('searching', searching); body.classList.toggle('nav', !searching);
-  if (searching) { wrap.classList.remove('idx'); $('helpBack').hidden = !helpNarrow(); }
-  const hit = (el) => { const t = helpNorm(el.textContent); return words.every((w) => t.includes(w)); };
-  const units = body.querySelectorAll('li, p:not(#helpNone), tbody tr');
-  for (const el of units) el.hidden = words.length > 0 && !hit(el);
-  body.querySelectorAll('details').forEach((d) => { d.hidden = false; }); // lo oculto en la busqueda anterior no cuenta
-  // de adentro hacia afuera: una seccion anidada se resuelve antes que la que la contiene
-  for (const d of [...body.querySelectorAll('details')].reverse()) {
-    if (!words.length) { d.hidden = false; d.open = d.dataset.open0 === '1'; continue; }
-    if (hit(d.querySelector(':scope > summary'))) {
-      d.querySelectorAll('li, p, tbody tr, details').forEach((el) => { el.hidden = false; if (el.tagName === 'DETAILS') el.open = true; });
+$('helpBack').onclick = () => { helpQuery = ''; clearTimeout(helpTimer); $('helpSearch').value = ''; helpShow('home', true); };
+// Buscador de la ayuda (helpsearch.js): una lista de resultados con la ruta («Capítulo › Tema») y un fragmento con lo que coincide; tocar uno
+// abre su capitulo y salta a el. Las unidades que se buscan son los puntos de lista, los parrafos y las filas de tabla, de todos los capitulos.
+let helpUnits = null, helpQuery = '', helpHits = [], helpShown = 0, helpTimer = 0;
+const HELP_PAGE = 40;
+function helpIndexBuild() {
+  const out = [];
+  for (const d of helpChapters()) {
+    const chTitle = d.querySelector(':scope > summary').textContent.replace(/\s*\(es\)\s*$/, '').trim();
+    for (const el of d.querySelectorAll('li, p, tbody tr')) {
+      if (el.querySelector('li, p, tr')) continue; // solo las hojas: una lista no repite lo de sus puntos
+      if (el.dataset.copy) continue; // las filas de la tabla de iconos (lineas para copiar) no se buscan
+      const text = (el.tagName === 'TR' ? [...el.cells].map((c) => c.textContent.trim()).filter(Boolean).join(' · ') : el.textContent).replace(/\s+/g, ' ').trim();
+      if (!text) continue;
+      const isRow = el.tagName === 'TR';
+      let topic = el.closest('details:not([data-ch])')?.querySelector(':scope > summary')?.textContent.trim() || '';
+      if (isRow && !topic) { let h = el.closest('table')?.previousElementSibling; while (h && h.tagName !== 'H4' && h.previousElementSibling) h = h.previousElementSibling; if (h?.tagName === 'H4') topic = h.textContent.trim(); }
+      out.push({ ch: d.dataset.ch, chTitle, topic, text, key: isRow ? el.cells[0]?.textContent.trim() || '' : '', row: isRow, el });
     }
-    const any = [...d.querySelectorAll('li, p, tbody tr')].some((el) => !el.hidden && !el.closest('details[hidden]'));
-    d.hidden = !any; d.open = any;
   }
-  // una tabla sin filas visibles se oculta con su titulo
-  body.querySelectorAll('table.fref').forEach((tb) => {
-    const none = words.length > 0 && ![...tb.querySelectorAll('tbody tr')].some((tr) => !tr.hidden);
-    tb.hidden = none;
-    const note = tb.previousElementSibling?.tagName === 'P' ? tb.previousElementSibling : null;
-    const h = note ? note.previousElementSibling : tb.previousElementSibling;
-    if (h?.tagName === 'H4') h.hidden = none && (!note || note.hidden); // una nota que coincide conserva su titulo
-  });
-  $('helpNone').hidden = !words.length || !!body.querySelector(':scope > details:not([hidden])');
-  if (!searching) { helpShow(helpCh, false); return; } // sin busqueda: de nuevo el capitulo abierto
+  return out;
+}
+function helpResultsEl() { return $('helpResults'); }
+function helpRenderHits(more = false) {
+  const box = helpResultsEl();
+  if (!more) { box.textContent = ''; helpShown = 0; }
+  const words = wordsOf(helpQuery);
+  if (!helpHits.length) { const p = document.createElement('p'); p.className = 'hr-none'; p.textContent = helpUi.none; box.appendChild(p); return; }
+  if (!more) { const h = document.createElement('p'); h.className = 'hr-count'; h.textContent = helpHits.length + ' ' + helpUi.count; box.appendChild(h); }
+  box.querySelector('.hr-more')?.remove();
+  for (const { u } of helpHits.slice(helpShown, helpShown + HELP_PAGE)) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'hr';
+    const path = document.createElement('span'); path.className = 'hr-path'; path.textContent = u.chTitle + (u.topic && u.topic !== u.chTitle ? ' › ' + u.topic : '');
+    const sn = document.createElement('span'); sn.className = 'hr-snip';
+    for (const p of snippet(u.text, words)) { if (p.m) { const m = document.createElement('mark'); m.textContent = p.t; sn.appendChild(m); } else sn.appendChild(document.createTextNode(p.t)); }
+    b.append(path, sn); b.onclick = () => helpOpenHit(u);
+    box.appendChild(b);
+  }
+  helpShown += HELP_PAGE;
+  if (helpShown < helpHits.length) { const m = document.createElement('button'); m.type = 'button'; m.className = 'hr-more'; m.textContent = helpUi.more; m.onclick = () => helpRenderHits(true); box.appendChild(m); }
+}
+// Hay texto en el buscador: se ven los resultados y no los capitulos
+function helpSearching(q) {
+  const body = $('helpBody'), wrap = $('helpWrap');
+  helpQuery = q;
+  if (!helpUnits) helpUnits = helpIndexBuild();
+  helpHits = search(helpUnits, q).hits;
+  wrap.classList.add('searching'); wrap.classList.remove('idx'); body.classList.remove('nav');
+  $('helpBack').hidden = !helpNarrow();
+  helpRenderHits();
   body.scrollTop = 0;
 }
-$('helpSearch').addEventListener('input', (e) => filterHelp(e.target.value));
+// Sin texto: de nuevo el capitulo abierto
+function helpClearSearch() { helpQuery = ''; clearTimeout(helpTimer); $('helpSearch').value = ''; helpShow(helpCh, false); }
+// Tocar un resultado: su capitulo, con el lugar a la vista y destacado un momento; el buscador conserva el texto («‹ Resultados» vuelve a la lista)
+function helpOpenHit(u) {
+  helpShow(u.ch, false, u.el);
+}
+// En un capitulo abierto desde la lista: una franja para volver a ella
+function helpResultsBar() {
+  $('helpBody').querySelector(':scope > .hr-bar')?.remove();
+  if (!helpQuery) return;
+  const bar = document.createElement('button'); bar.type = 'button'; bar.className = 'hr-bar'; bar.textContent = '‹ ' + helpUi.results + ' «' + helpQuery + '»';
+  bar.onclick = () => helpSearching(helpQuery);
+  $('helpBody').prepend(bar);
+}
+$('helpSearch').addEventListener('input', (e) => {
+  const q = e.target.value;
+  clearTimeout(helpTimer);
+  if (!wordsOf(q).length) { helpClearSearch(); return; }
+  helpTimer = setTimeout(() => helpSearching(q), 120);
+});
 $('helpClose').onclick = () => $('dlgH').close();
 $('treeClose').onclick = () => { opts.tree = false; applyChrome(); persist(); };
 

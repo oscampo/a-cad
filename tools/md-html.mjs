@@ -40,6 +40,8 @@ export function blocks(lines) {
       out.push(`<table class="fref"><thead><tr>${head.map((h) => `<th>${inline(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => '<tr>' + r.map((c) => `<td>${inline(c)}</td>`).join('') + '</tr>').join('')}</tbody></table>`);
       continue;
     }
+    const hd = /^#{3,6}\s+(.*)$/.exec(l); // un subtema («### Cerca de una linea»): un titulo pequeño dentro del tema
+    if (hd) { out.push('<h4>' + inline(hd[1].trim()) + '</h4>'); i++; continue; }
     const li = /^(\s*)([-*]|\d+\.)\s+(.*)$/.exec(l);
     if (li) {
       const ord = /\d/.test(li[2]), items = [];
@@ -54,7 +56,7 @@ export function blocks(lines) {
       continue;
     }
     const para = [];
-    while (i < lines.length && lines[i].trim() && !/^```/.test(lines[i]) && !/^\s*([-*]|\d+\.)\s/.test(lines[i]) && !(/^\s*\|/.test(lines[i]) && i + 1 < lines.length && isSep(lines[i + 1])) && !isNav(lines[i]) && !/^-{3,}\s*$/.test(lines[i].trim())) para.push(lines[i++].trim());
+    while (i < lines.length && lines[i].trim() && !/^#{3,6}\s/.test(lines[i]) && !/^```/.test(lines[i]) && !/^\s*([-*]|\d+\.)\s/.test(lines[i]) && !(/^\s*\|/.test(lines[i]) && i + 1 < lines.length && isSep(lines[i + 1])) && !isNav(lines[i]) && !/^-{3,}\s*$/.test(lines[i].trim())) para.push(lines[i++].trim());
     out.push('<p>' + inline(para.join(' ')) + '</p>');
   }
   return out.join('\n');
