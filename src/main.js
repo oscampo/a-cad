@@ -51,7 +51,7 @@ import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr, setSh
 import { localNum, SCI_DEFAULT, sciFrom, decimalMode } from './locale.js';
 import { getLang, setLang, initLang } from './i18n.js';
 import { helpHtml } from './help.js';
-import { search, snippet, wordsOf } from './helpsearch.js';
+import { search, snippet, wordsOf, norm as helpNorm } from './helpsearch.js';
 import { colorPicker } from './colorpicker.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
 
@@ -502,11 +502,11 @@ $('treeBy').onclick = () => { opts.treeBy = opts.treeBy === 'layer' ? 'type' : '
 // encabezado se pone aqui. Dos niveles: a la izquierda el indice de capitulos (y, del abierto, sus temas) y a la derecha un capitulo a la vez;
 // con el buscador se ven todos los capitulos con lo que coincide. En una pantalla angosta el indice es la primera pantalla y se vuelve a el con ‹.
 const HELP_UI = {
-  es: { title: 'Ayuda', search: 'Buscar en la ayuda', close: 'Cerrar', none: 'Nada en la ayuda coincide con la búsqueda.', home: 'Inicio', index: 'Índice', chapters: 'Capítulos', results: 'Resultados de', more: 'Mostrar más', count: 'resultados' },
-  en: { title: 'Help', search: 'Search the help', close: 'Close', none: 'Nothing in the help matches the search.', home: 'Start', index: 'Index', chapters: 'Chapters', results: 'Results for', more: 'Show more', count: 'results' },
+  es: { title: 'Ayuda', search: 'Buscar en la ayuda', close: 'Cerrar', none: 'Nada en la ayuda coincide con la búsqueda.', home: 'Inicio', index: 'Índice', chapters: 'Capítulos', results: 'Resultados de', more: 'Mostrar más', count: 'resultados', back: 'Volver a' },
+  en: { title: 'Help', search: 'Search the help', close: 'Close', none: 'Nothing in the help matches the search.', home: 'Start', index: 'Index', chapters: 'Chapters', results: 'Results for', more: 'Show more', count: 'results', back: 'Back to' },
 };
 const HELP_LS = 'a-cad-help-ch';
-let helpCh = 'home', helpUi = HELP_UI.es;
+let helpCh = 'home', helpUi = HELP_UI.es, helpPrev = null; // helpPrev: de donde viene quien siguio un enlace interno { id, title, top }
 const helpNarrow = () => window.matchMedia('(max-width: 760px)').matches;
 const helpChapters = () => [...$('helpBody').querySelectorAll(':scope > details[data-ch]')];
 // Una linea de descripcion de un capitulo: su primer parrafo, cortado en una palabra
@@ -521,7 +521,7 @@ function helpNavRender() {
   const items = [['home', helpUi.home], ...helpChapters().map((d) => [d.dataset.ch, d.querySelector(':scope > summary').textContent.trim()])];
   for (const [id, title] of items) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'hn-ch' + (id === helpCh && body.classList.contains('nav') ? ' on' : ''); b.textContent = title;
-    b.onclick = () => helpShow(id);
+    b.onclick = () => { helpPrev = null; helpShow(id); };
     nav.appendChild(b);
     if (id === helpCh && body.classList.contains('nav')) {
       const act = body.querySelector(':scope > details[data-ch="' + id + '"]');
@@ -577,7 +577,7 @@ $('tHelp').onclick = async () => {
   $('dlgH').querySelector('.hhead b').textContent = ui.title;
   $('helpSearch').placeholder = ui.search; $('helpSearch').setAttribute('aria-label', ui.search); $('helpClose').setAttribute('aria-label', ui.close); $('helpBack').setAttribute('aria-label', ui.index); $('helpBack').title = ui.index;
   $('helpBody').innerHTML = html + '<div id="helpResults"></div>';
-  helpUnits = null; helpQuery = '';
+  helpUnits = null; helpQuery = ''; helpPrev = null;
   fillIconRef();
   $('helpBody').querySelectorAll('details').forEach((d) => { d.dataset.open0 = d.open ? '1' : ''; });
   helpHomeBuild();
@@ -646,14 +646,29 @@ function helpClearSearch() { helpQuery = ''; clearTimeout(helpTimer); $('helpSea
 function helpOpenHit(u) {
   helpShow(u.ch, false, u.el);
 }
-// En un capitulo abierto desde la lista: una franja para volver a ella
+// Una franja arriba del capitulo para volver: a la lista de resultados de la que se vino, o al lugar desde donde se siguio un enlace interno
 function helpResultsBar() {
   $('helpBody').querySelector(':scope > .hr-bar')?.remove();
-  if (!helpQuery) return;
-  const bar = document.createElement('button'); bar.type = 'button'; bar.className = 'hr-bar'; bar.textContent = '‹ ' + helpUi.results + ' «' + helpQuery + '»';
-  bar.onclick = () => helpSearching(helpQuery);
-  $('helpBody').prepend(bar);
+  const mk = (txt, fn) => { const bar = document.createElement('button'); bar.type = 'button'; bar.className = 'hr-bar'; bar.textContent = txt; bar.onclick = fn; $('helpBody').prepend(bar); };
+  if (helpQuery) mk('‹ ' + helpUi.results + ' «' + helpQuery + '»', () => helpSearching(helpQuery));
+  else if (helpPrev) mk('‹ ' + helpUi.back + ' «' + helpPrev.title + '»', () => { const p = helpPrev; helpPrev = null; helpShow(p.id); $('helpBody').scrollTop = p.top; });
 }
+const helpTitleOf = (id) => (id === 'home' ? helpUi.home : (helpChapters().find((d) => d.dataset.ch === id)?.querySelector(':scope > summary').textContent.replace(/s*(es)s*$/, '').trim() || id));
+const helpSlug = (x) => helpNorm(x).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+// Un enlace del manual a otro capitulo (o a un tema de el): lo abre en la ayuda y deja la franja para volver
+$('helpBody').addEventListener('click', (e) => {
+  const a = e.target.closest?.('a[data-help]');
+  if (!a) return;
+  e.preventDefault();
+  const id = a.dataset.help, body = $('helpBody');
+  helpPrev = !helpQuery && id !== helpCh ? { id: helpCh, title: helpTitleOf(helpCh), top: body.scrollTop } : helpPrev;
+  let target = null;
+  if (a.dataset.topic) { // un tema: un desplegable del capitulo o, en las referencias que arma la app, el titulo de un grupo (h4)
+    const hit = [...(body.querySelector(':scope > details[data-ch="' + id + '"]')?.querySelectorAll(':scope > details > summary, h4') || [])].find((x) => helpSlug(x.textContent) === helpSlug(a.dataset.topic));
+    target = hit ? (hit.tagName === 'SUMMARY' ? hit.parentElement : hit) : null;
+  }
+  helpShow(id, false, target);
+});
 $('helpSearch').addEventListener('input', (e) => {
   const q = e.target.value;
   clearTimeout(helpTimer);

@@ -1,4 +1,4 @@
-<!-- es: 4510674226 -->
+<!-- es: 6f73b50fbc -->
 # 6. Dimensions
 
 Dimensions: measurements that drive the geometry or only read it, with formulas, names, scale and units.
@@ -19,7 +19,7 @@ The full list of functions and operators, with examples, is in [Functions and op
 
 ## Angle
 
-2 lines. The value has no limit (250°, 400° = one full turn and 40°; see "Angles without limit" below). Where you place it decides which sector is dimensioned (for example 20° or 160°). Drag the dimension to reposition it.
+2 lines. The value has no limit (250°, 400° = one full turn and 40°; see [Angles without limit](#angles-without-limit) below). Where you place it decides which sector is dimensioned (for example 20° or 160°). Drag the dimension to reposition it.
 
 ## Radius / ⌀
 

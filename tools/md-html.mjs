@@ -3,6 +3,9 @@
 const GH = 'https://github.com/oscampo/a-cad/blob/main/'; // los enlaces a archivos del repositorio («../CHANGELOG.md») apuntan a GitHub
 // La carpeta del capitulo que se convierte (docs/ o docs/en/): un enlace «../x» se resuelve desde ella hasta la raiz del repositorio
 let DIR = ['docs'];
+// Los archivos del manual -> el id de su capitulo en la ayuda (lo pone build-help.mjs): un enlace a uno de ellos abre ese capitulo en la app
+let LINKS = {}, CUR = ''; // CUR: el capitulo que se convierte (para los enlaces «#tema»)
+export const setLinks = (m) => { LINKS = m; };
 export const setDir = (d) => { DIR = d; };
 const resolveUp = (u) => { const parts = DIR.slice(); const rest = u.split('/'); while (rest[0] === '..') { rest.shift(); parts.pop(); } return parts.concat(rest).join('/'); };
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -18,7 +21,10 @@ export function inline(src) {
   s = esc(s);
   s = s.replace(/\\([|*_`\\])/g, (_, c) => '\u0003' + c.charCodeAt(0) + '\u0003'); // escapes de Markdown
   s = s.replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?!\w)/g, '$1<i>$2</i>');
-  s = s.replace(/!\[([^\]]*)\]\(([^)]*)\)/g, '$1').replace(/\[([^\]]+)\]\(([^)]*)\)/g, (_, t, u0) => { const u = u0.startsWith('../') ? GH + resolveUp(u0) : u0; return (/^https?:/.test(u) ? `<a href="${attr(u.replace(/&amp;/g, '&'))}" target="_blank" rel="noopener">${t}</a>` : t); });
+  s = s.replace(/!\[([^\]]*)\]\(([^)]*)\)/g, '$1').replace(/\[([^\]]+)\]\(([^)]*)\)/g, (_, t, u0) => { if (u0.startsWith('#') && CUR) return `<a href="#" data-help="${CUR}" data-topic="${attr(u0.slice(1))}">${t}</a>`; // enlace a un tema de este mismo capitulo
+    const hm = /^(?:\.{1,2}\/)*([\w-]+\.md)(?:#(.*))?$/.exec(u0);
+    if (hm && LINKS[hm[1]]) return `<a href="#" data-help="${LINKS[hm[1]]}"${hm[2] ? ` data-topic="${attr(hm[2])}"` : ''}>${t}</a>`; // enlace a otro capitulo del manual
+    const u = u0.startsWith('../') ? GH + resolveUp(u0) : u0; return (/^https?:/.test(u) ? `<a href="${attr(u.replace(/&amp;/g, '&'))}" target="_blank" rel="noopener">${t}</a>` : t); });
   s = s.replace(/\u0001/g, '<br>').replace(/\u0002(\/?)\u0002/g, '<$1u>').replace(/\u0003(\d+)\u0003/g, (_, n) => '&#' + n + ';');
   return s.replace(/\u0000(\d+)\u0000/g, (_, i) => '<code>' + esc(codes[+i]) + '</code>');
 }
@@ -77,6 +83,7 @@ export function parseChapter(md) {
   return { title, intro: blocks(intro), topics: topics.map((t) => ({ h: t.h, html: blocks(t.lines) })) };
 }
 export const chapterHtml = (md, id) => {
+  CUR = id;
   const { title, intro, topics } = parseChapter(md);
   return `<details data-ch="${id}"><summary>${inline(title)}</summary>\n${intro}\n${topics.map((t) => `<details><summary>${inline(t.h)}</summary>\n${t.html}\n</details>`).join('\n')}\n</details>`;
 };

@@ -18,7 +18,7 @@ La lista completa de funciones y operadores, con ejemplos, está en [Funciones y
 
 ## Ángulo
 
-2 líneas. El valor no tiene límite (250°, 400° = una vuelta y 40°; ver «Ángulos sin límite» más abajo). El lugar donde la coloques decide el sector que se acota (por ejemplo 20° o 160°). Arrastra la cota para reubicarla.
+2 líneas. El valor no tiene límite (250°, 400° = una vuelta y 40°; ver [Ángulos sin límite](#ángulos-sin-límite) más abajo). El lugar donde la coloques decide el sector que se acota (por ejemplo 20° o 160°). Arrastra la cota para reubicarla.
 
 ## Radio / ⌀
 

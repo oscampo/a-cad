@@ -115,6 +115,8 @@ export const EN = {
   "Capítulos": "Chapters",
   "Chapters": "Chapters",
   "Mostrar más": "Show more",
+  "Volver a": "Back to",
+  "Back to": "Back to",
   "Distribuir ↔": "Distribute ↔",
   "Distribuir ↕": "Distribute ↕",
   "Punto medio": "Midpoint",

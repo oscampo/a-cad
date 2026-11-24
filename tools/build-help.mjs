@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { chapterHtml, blocks, setDir } from './md-html.mjs';
+import { chapterHtml, blocks, setDir, setLinks } from './md-html.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // Orden de la ayuda: los capitulos del manual; null marca donde la app pone los que arma ella (calc, icons, funcs)
@@ -16,6 +16,8 @@ export const CHAPTERS = [
   ['splines', '08-splines-y-trazados.md'], ['simulaciones', '09-simulaciones-graficas.md'], ['estilo', '10-estilo-capas-y-vista.md'],
   ['archivo', '11-archivo-y-exportacion.md'], ['atajos', '12-atajos-de-teclado.md'], ['limites', '13-limites-conocidos.md'], ['acerca', '14-acerca-de.md'],
 ];
+// Para los enlaces entre capitulos: cada archivo del manual, incluidos los dos que genera el codigo, apunta a su capitulo de la ayuda
+setLinks({ ...Object.fromEntries(CHAPTERS.filter(([, f]) => f).map(([id, f]) => [f, id])), '07-texto-y-calculo.md': 'calc', 'funciones.md': 'funcs' });
 export const MANUAL_FILES = CHAPTERS.filter(([, f]) => f).map(([, f]) => f);
 export const LANGS = ['es', 'en'];
 

@@ -217,7 +217,7 @@ export const FUNC_GROUPS = [
   },
   {
     title: 'Ecuaciones',
-    note: 'Se resuelven numéricamente (Levenberg-Marquardt): desde un valor inicial se busca el valor que cumple la ecuación. Con varias raíces da la más cercana al valor inicial; si no encuentra una, avisa. Para un sistema de ecuaciones, <code>solve(…)=</code> en un texto (ver «Orden de lectura» en Texto y cálculo).',
+    note: 'Se resuelven numéricamente (Levenberg-Marquardt): desde un valor inicial se busca el valor que cumple la ecuación. Con varias raíces da la más cercana al valor inicial; si no encuentra una, avisa. Para un sistema de ecuaciones, <code>solve(…)=</code> en un texto (ver <a href="07-texto-y-calculo.md#orden-de-lectura" data-help="calc" data-topic="Orden de lectura">Orden de lectura</a> en Texto y cálculo).',
     rows: [
       ['<code>fzero(ecuación; x; inicial)</code>', 'El valor de x que cumple la ecuación, escrita con <code>==</code> (<code>x^2 == 2</code>) o como una expresión que vale 0 (<code>x^2-2</code>). El valor inicial lleva las unidades de x; sin él usa el valor de x en ese punto, o 1.', 'fzero(x^2 == 2; x; 1)', '1.4142', 'm'],
       ['', 'Con unidades: la fuerza que da un momento de 30 kN·m con un brazo de 2 m (en kN).', "fzero(F*2'm == 30'kN*'m; F; 1'kN)/(1'kN)", '15', 'm'],
