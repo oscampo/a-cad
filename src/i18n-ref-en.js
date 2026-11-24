@@ -120,7 +120,7 @@ export const REF_EN = {
   "g7a7cff": "Line breaks",
   "zkbjfv7b": "Every line break is a line break, with or without a page (unlike Markdown, consecutive lines are not joined). With the page (Settings → Page), a line that does not fit is wrapped at the margin. A <code>\\</code> at the end of a line is not drawn.",
   "1q09xdjw": "Math notation (AsciiMath)",
-  "c8mx947r": "Formulas follow the syntax of <a href=\"https://asciimath.org/\" target=\"_blank\" rel=\"noopener\">asciimath.org</a>. They are drawn with fractions, roots, subscripts and truth symbols, and they rotate and export (SVG, DXF) like any text. Parentheses grow with what they enclose.",
+  "1cu1hok7t": "Formulas follow the syntax of <a href=\"https://asciimath.org/\" target=\"_blank\" rel=\"noopener\">asciimath.org</a>. They are drawn with fractions, roots, subscripts and mathematical symbols, and they rotate and export (SVG, DXF) like any text. Parentheses grow with what they enclose.",
   "97updc9": "Drawn as",
   "nw0anbeo": "Unlike AsciiMath, without <code>\\</code> a word is converted only if it is <b>entirely</b> a Greek letter, a function, <code>if</code>/<code>and</code>/<code>or</code> or <code>sqrt</code>, <code>abs</code>, <code>norm</code>, <code>floor</code>, <code>ceil</code>, <code>root</code>, <code>frac</code>, <code>text</code>, <code>color</code>; otherwise it is drawn letter by letter: <code>pi r</code> is π r, but <code>pir</code> is three letters, and so is <code>sinx</code> (write <code>sin x</code> or <code>sin(x)</code>).",
   "749p771c": "There is no alignment by <b>=</b> between lines yet.",

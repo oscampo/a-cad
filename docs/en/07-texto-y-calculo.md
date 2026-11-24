@@ -108,7 +108,7 @@ In a plain text (one that starts with `"` or a space), whatever is outside the f
 
 ## Math notation (AsciiMath)
 
-Formulas follow the syntax of [asciimath.org](https://asciimath.org/). They are drawn with fractions, roots, subscripts and truth symbols, and they rotate and export (SVG, DXF) like any text. Parentheses grow with what they enclose.
+Formulas follow the syntax of [asciimath.org](https://asciimath.org/). They are drawn with fractions, roots, subscripts and mathematical symbols, and they rotate and export (SVG, DXF) like any text. Parentheses grow with what they enclose.
 
 | You type | Drawn as |
 |---|---|

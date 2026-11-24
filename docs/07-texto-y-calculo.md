@@ -108,7 +108,7 @@ En un texto normal (el que empieza con `"` o un espacio), lo que va fuera de las
 
 ## Escritura matemática (AsciiMath)
 
-Las fórmulas siguen la sintaxis de [asciimath.org](https://asciimath.org/). Se dibujan con fracciones, raíces, índices y símbolos de verdad, giran y se exportan (SVG, DXF) como cualquier texto. Los paréntesis crecen con lo que encierran.
+Las fórmulas siguen la sintaxis de [asciimath.org](https://asciimath.org/). Se dibujan con fracciones, raíces, índices y símbolos matemáticos, giran y se exportan (SVG, DXF) como cualquier texto. Los paréntesis crecen con lo que encierran.
 
 | Escribes | Se dibuja |
 |---|---|

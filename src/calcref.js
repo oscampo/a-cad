@@ -112,7 +112,7 @@ export const CALC_GROUPS = [
   },
   {
     title: 'Escritura matemática (AsciiMath)',
-    note: 'Las fórmulas siguen la sintaxis de <a href="https://asciimath.org/" target="_blank" rel="noopener">asciimath.org</a>. Se dibujan con fracciones, raíces, índices y símbolos de verdad, giran y se exportan (SVG, DXF) como cualquier texto. Los paréntesis crecen con lo que encierran.',
+    note: 'Las fórmulas siguen la sintaxis de <a href="https://asciimath.org/" target="_blank" rel="noopener">asciimath.org</a>. Se dibujan con fracciones, raíces, índices y símbolos matemáticos, giran y se exportan (SVG, DXF) como cualquier texto. Los paréntesis crecen con lo que encierran.',
     head: ['Escribes', 'Se dibuja'],
     rows: [
       [c('a/b'), 'Fracción (los paréntesis de a y b no se ven).'],
