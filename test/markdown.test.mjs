@@ -147,4 +147,15 @@ t('hasMd reconoce lo nuevo y no el texto comun', () => {
   for (const s of ['Hola mundo, F = 3 N', 'cota [mm] 25', 'a < b > c', 'x = 3']) assert.equal(hasMd(s), false, s);
 });
 
+t('la fuente del texto: un bloque de codigo la sigue si se eligio una; el codigo en linea y el bloque sin fuente elegida, monoespaciada', () => {
+  const m = (s, font) => s.length * (font === 'mono' ? 0.6 : 0.5);
+  const fonts = (src, font) => layoutText(src, (s, f) => m(s, f), font).prims.filter((p) => p.k === 't' && p.s.trim()).map((p) => p.s + ':' + (p.font || ''));
+  assert.deepEqual(fonts('```\nab\n```', ''), ['ab:mono']); // sin fuente elegida: como siempre
+  assert.deepEqual(fonts('```\nab\n```', 'serif'), ['ab:serif']); // elegida: el bloque la sigue (la consola de un juego)
+  assert.deepEqual(fonts('```\nab\n```', 'mono'), ['ab:mono']);
+  assert.ok(fonts('uso `x` y', 'serif').includes('x:mono')); // el codigo en linea sigue siendo monoespaciado
+  const w = (font) => layoutText('```\nabcd\n```', (s, f) => m(s, f), font).w; // el ancho del bloque se mide con la fuente que se dibuja
+  assert.ok(w('serif') < w('mono'));
+});
+
 console.log(`\n${passed} pruebas de Markdown pasaron`);

@@ -465,7 +465,7 @@ function compute(text, measure, font, opt = {}) {
       if (c.t === 'md') mdRows(joinLines(c.lines).join('\n'));
       else if (c.t === 'code') {
         const ls = c.lines.length ? c.lines : [''];
-        ls.forEach((ln, i) => rows.push({ items: ln ? [{ k: 't', runs: [{ s: noIT(ln).replace(/\t/g, '    '), code: true }] }] : [], code: { first: i === 0, last: i === ls.length - 1 } }));
+        ls.forEach((ln, i) => rows.push({ items: ln ? [{ k: 't', runs: [{ s: noIT(ln).replace(/\t/g, '    '), code: true, blk: true }] }] : [], code: { first: i === 0, last: i === ls.length - 1 } }));
       } else {
         const T = { al: c.al, n: c.head.length, colW: [] };
         [c.head, ...c.body].forEach((cs, ri) => rows.push({ tbl: T, hdr: ri === 0, cells: Array.from({ length: T.n }, (_, k) => itemsOf(cs[k] ?? '')), items: [] }));
@@ -481,7 +481,9 @@ function compute(text, measure, font, opt = {}) {
   }
 
   const runSz = (u, sz) => sz * (u.sup ? 0.62 : 1);
-  const runW = (r, sz) => (r.icon ? ICON_W * runSz(r, sz) : measure(r.s, r.code ? 'mono' : font, r.it) * runSz(r, sz) * (r.b ? 1.06 : 1));
+  // el codigo va en monoespaciada; un bloque de codigo (cercado con ```), en la fuente del texto si se eligio una (la consola de un juego, por ejemplo)
+  const runFont = (u) => (u.code ? (u.blk && font ? font : 'mono') : font);
+  const runW = (r, sz) => (r.icon ? ICON_W * runSz(r, sz) : measure(r.s, runFont(r), r.it) * runSz(r, sz) * (r.b ? 1.06 : 1));
   const itemsW = (items, sz) => items.reduce((w, it) => w + (it.k === 't' ? (it.w = it.runs.reduce((s, u) => s + runW(u, sz), 0)) : (it.w = it.box.w)), 0);
   const vert = (items, a, d) => { for (const it of items) if (it.k === 'm') { a = Math.max(a, it.box.a + 0.04); d = Math.max(d, it.box.d + 0.04); } return [a, d]; };
   // Ajuste al ancho (opt.maxW, el de la pagina): una linea de texto mas ancha se parte en los espacios; las siguientes van con la misma
@@ -558,7 +560,7 @@ function compute(text, measure, font, opt = {}) {
           if (u.icon) { // icono de la app: sus trazos de 24x24 escalados a la letra (de la altura de una mayuscula a un poco bajo la linea base)
             const z = runSz(u, sz), S = ICON_BOX * z, x0 = xx + ((ICON_W - ICON_BOX) / 2) * z, y0 = (u.sup ? base - 0.4 * sz : base) - ICON_TOP * z;
             for (const st of iconStrokes(u.icon) || []) prims.push({ k: 'p', pts: st.pts.map(([px, py]) => [x0 + (px / 24) * S, y0 + (py / 24) * S]), lw: (2 / 24) * S, ...(col ? { col } : {}), ...(st.fill ? { fill: true } : {}), ...(st.op < 1 ? { op: st.op } : {}) });
-          } else prims.push({ k: 't', s: u.s, x: xx, y: u.sup ? base - 0.4 * sz : base, sz: runSz(u, sz), w: uw, it: u.it, font: u.code ? 'mono' : font, ...(u.b ? { bold: true } : {}), ...(col ? { col } : {}) });
+          } else prims.push({ k: 't', s: u.s, x: xx, y: u.sup ? base - 0.4 * sz : base, sz: runSz(u, sz), w: uw, it: u.it, font: runFont(u), ...(u.b ? { bold: true } : {}), ...(col ? { col } : {}) });
           if (u.st) prims.push({ k: 'p', pts: [[xx, base - 0.3 * sz], [xx + uw, base - 0.3 * sz]], lw: 0.06 * sz });
           if (u.link) {
             prims.push({ k: 'p', pts: [[xx, base + 0.1 * sz], [xx + uw, base + 0.1 * sz]], lw: 0.05 * sz, col: LINK_COLOR });

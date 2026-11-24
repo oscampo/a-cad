@@ -12,6 +12,10 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 - Textos: un toque sobre un objeto de código colapsado (una biblioteca insertada o un script sin «Mostrar el código») ya no abre la edición en el lugar: el bloque es pequeño y en tablet o celular se abría sin querer. El doble toque sigue abriendo sus propiedades, donde se edita el código; un script con el código a la vista se sigue editando con un toque.
 
+### Corregido
+
+- Textos: la fuente elegida ahora se aplica también a los bloques de código (cercados con tres acentos graves, como la consola de un juego): antes siempre salían en monoespaciada. Sin fuente elegida siguen en monoespaciada, y el código en línea también.
+
 ## v2.9.4 (2026-11-23)
 
 ### Nuevo
