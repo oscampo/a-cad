@@ -256,6 +256,51 @@ Una curva suave que pasa exactamente por cada punto. Abierta, no se curva en los
 - Una curva paralela a distancia fija (el rodillo de una leva): [Equidistante](08-splines-y-trazados.md#equidistante).
 - La trayectoria de un punto que se mueve, convertida en spline: [Trazar punto](08-splines-y-trazados.md#trazar-punto).
 
+## Acotar en pulgadas y ver el dibujo más pequeño
+
+Cotas que dicen una unidad (pulgadas) mientras el dibujo mide lo real, y una cota que se dibuja a escala.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/cotas-en-pulgadas.json).
+
+### Pasos
+
+1. Dibuja la placa y fija una esquina. Da doble toque a la cota del largo y escribe el valor con su unidad: `4'in` (el apóstrofo une el valor y la unidad). Haz lo mismo con el alto: `2'in`.
+2. Dibuja una línea larga y acótala con `126'in`. Es demasiado grande para verla junto a la placa.
+3. Edita esa cota y añade la escala entre corchetes: `126'in[*0.1]` (ver [Cota a escala](06-cotas.md#cota-a-escala)).
+4. Para cambiar solo la unidad con la que se lee una cota, usa **Unidad de la cota** en su ventana (ver [Cota con unidad](06-cotas.md#cota-con-unidad)).
+
+### Qué verás
+
+La placa dice «4 in» y «2 in», y el dibujo (en mm) mide 101,6 por 50,8. La línea larga se dibuja a una décima: mide 320,04 y su cota sigue diciendo «126 in», <u>subrayada</u> para avisar que no está a escala real.
+
+### Para seguir
+
+- Una cota sin unidad entra a las fórmulas como número; para sumarla a una con unidad, dale la unidad en la fórmula (`D1'mm+D2`). Ver [Cotas con unidad en fórmulas](06-cotas.md#cotas-con-unidad-en-fórmulas).
+- En una cota de solo lectura, la unidad solo cambia la etiqueta.
+
+## Dibujar fuerzas a escala
+
+Dos fuerzas en kN dibujadas con una escala de representación que se cambia en un solo lugar.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/escala-de-fuerzas.json).
+
+### Pasos
+
+1. En un texto, define la escala como variable: `$$eF:1'mm/kN$$` (cada kN se dibuja con 1 mm).
+2. Dibuja una línea horizontal y acótala con la fuerza y la escala: `30'kN[*eF]`.
+3. Haz lo mismo con otra línea: `45'kN[*eF]`.
+4. Cambia `eF` a `2'mm/kN`: las dos líneas se alargan al doble.
+
+### Qué verás
+
+Las cotas dicen «30 kN» y «45 kN», y las líneas miden 30 y 45 mm. A diferencia de una escala de reducción, la cota **no** se subraya: está a la escala que declaraste.
+
+### Para seguir
+
+- `eF` se lee en el [orden de lectura](07-texto-y-calculo.md#orden-de-lectura): si la redefines más abajo, las cotas que están antes siguen usando la anterior.
+- Sin escala, `30'kN` mediría 30000 (en el SI) y la app lo avisa con ⚠. Ver [Escala con unidades](06-cotas.md#escala-con-unidades).
+- Los vectores usan la misma escala: [Polígono de fuerzas](#dibujar-un-polígono-de-fuerzas-con-vectores).
+
 ## Guardar, abrir y compartir tus dibujos
 
 Tus dibujos se guardan como archivos `.json`, y puedes llevarlos a otro dispositivo con GitHub.
