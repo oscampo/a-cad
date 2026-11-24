@@ -275,5 +275,9 @@
   "cnd": {
    "D": 4
   }
+ },
+ "view": {
+  "texts": true,
+  "pts": true
  }
 }

@@ -10,6 +10,7 @@ import { simBegin, simStep, simEnd } from '../src/actuators.js';
 import { vecEnds } from '../src/vectors.js';
 import { laserClasses } from '../src/export.js';
 import { EXAMPLE_NAMES } from '../tools/build-guide-examples.mjs';
+import { viewNeeds } from '../src/examples.js';
 
 await initSolver();
 let passed = 0;
@@ -27,6 +28,18 @@ t('cada ejemplo existe en español y en ingles, se abre, se resuelve y no tiene 
     assert.deepEqual(textVarErrors(d), [], `${name} (${lang}) tiene errores de calculo`);
   }
   assert.notEqual(JSON.stringify(load('pieza-parametrica').texts), JSON.stringify(load('pieza-parametrica', 'en').texts)); // el ingles lleva sus textos
+});
+
+t('cada ejemplo declara lo que hay que encender en Vista para ver lo que la guia nombra (cotas, restricciones, textos)', () => {
+  for (const name of EXAMPLE_NAMES) for (const lang of ['es', 'en']) {
+    const j = JSON.parse(readFileSync(new URL(`ejemplos/guias/${name}${lang === 'en' ? '.en' : ''}.json`, root), 'utf8'));
+    const want = viewNeeds(j.doc, { points: !!j.view.pts });
+    assert.deepEqual(j.view, want, `${name} (${lang}): view no coincide con lo que el dibujo muestra`);
+    assert.ok(Object.keys(j.view).every((k) => ['texts', 'dims', 'cons', 'pts'].includes(k)));
+  }
+  assert.deepEqual(viewNeeds({ texts: {}, cons: { k1: { t: 'DIST' }, k2: { t: 'H' }, k3: { t: 'MID', hidden: true } } }), { dims: true, cons: true }); // las ocultas no cuentan, y sin textos no se pide ver textos
+  assert.deepEqual(viewNeeds({ texts: { t1: {} }, cons: {} }), { texts: true });
+  assert.deepEqual(viewNeeds({ texts: {}, cons: {} }, { points: true }), { pts: true });
 });
 
 t('pieza parametrica: el agujero queda en el centro y su diametro sigue al alto (D2/3)', () => {

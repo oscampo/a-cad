@@ -111,5 +111,9 @@
    }
   },
   "tEnd": 4
+ },
+ "view": {
+  "texts": true,
+  "dims": true
  }
 }

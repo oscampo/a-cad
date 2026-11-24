@@ -183,5 +183,11 @@
    "D": 2,
    "O": 1
   }
+ },
+ "view": {
+  "texts": true,
+  "dims": true,
+  "cons": true,
+  "pts": true
  }
 }

@@ -141,5 +141,8 @@
   "layers": {},
   "curLayer": null,
   "cnd": {}
+ },
+ "view": {
+  "texts": true
  }
 }

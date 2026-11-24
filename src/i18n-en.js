@@ -147,6 +147,8 @@ export const EN = {
   "The example could not be opened: ": "The example could not be opened: ",
   "Ejemplo abierto: ": "Example opened: ",
   "Example opened: ": "Example opened: ",
+  ". Se activó en Vista: ": ". Turned on in View: ",
+  ". Turned on in View: ": ". Turned on in View: ",
   "Distribuir ↔": "Distribute ↔",
   "Distribuir ↕": "Distribute ↕",
   "Punto medio": "Midpoint",

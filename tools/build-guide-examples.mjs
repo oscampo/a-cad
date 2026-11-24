@@ -10,6 +10,7 @@ import { addRotary } from '../src/actuators.js';
 import { addGraph } from '../src/graphs.js';
 import { makeVector } from '../src/vectors.js';
 import { settle } from '../src/params.js';
+import { viewNeeds } from '../src/examples.js';
 
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 const DIR = fileURLToPath(new URL('../ejemplos/guias/', import.meta.url));
@@ -133,6 +134,8 @@ const EXAMPLES = {
   },
 };
 export const EXAMPLE_NAMES = Object.keys(EXAMPLES);
+// Los puntos solo se muestran donde la guia pide arrastrar o elegir uno (el resto de lo que hay que ver lo calcula viewNeeds, de src/examples.js)
+const SHOW_POINTS = new Set(['pieza-parametrica', 'poligono-de-fuerzas']);
 
 export async function buildAll() {
   await initSolver();
@@ -145,7 +148,7 @@ export async function buildAll() {
       const r = settle(doc, solve, []);
       if (r && r.ok === false) throw new Error(`${name} (${lang}): no se pudo resolver: ${r.msg || ''}`);
       const file = DIR + name + (lang === 'es' ? '' : '.en') + '.json';
-      writeFileSync(file, JSON.stringify({ app: 'ipad-cad', version: VERSION, doc }, null, 1) + '\n');
+      writeFileSync(file, JSON.stringify({ app: 'ipad-cad', version: VERSION, doc, view: viewNeeds(doc, { points: SHOW_POINTS.has(name) }) }, null, 1) + '\n');
       out[name + (lang === 'es' ? '' : '.en')] = doc;
     }
   }

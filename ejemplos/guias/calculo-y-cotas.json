@@ -191,5 +191,10 @@
   "cnd": {
    "D": 2
   }
+ },
+ "view": {
+  "texts": true,
+  "dims": true,
+  "cons": true
  }
 }

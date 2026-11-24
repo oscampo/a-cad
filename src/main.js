@@ -51,6 +51,7 @@ import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr, setSh
 import { localNum, SCI_DEFAULT, sciFrom, decimalMode } from './locale.js';
 import { getLang, setLang, initLang, tr } from './i18n.js';
 import { helpHtml } from './help.js';
+import { viewNeeds } from './examples.js';
 // Los dibujos de ejemplo de las guias (ejemplos/guias/ y dos de ejemplos/): se cargan solo cuando se abren
 const EXAMPLES = import.meta.glob(['../ejemplos/guias/*.json', '../ejemplos/cicloide-rodando.json'], { query: '?raw', import: 'default' });
 import { search, snippet, wordsOf, norm as helpNorm } from './helpsearch.js';
@@ -667,6 +668,18 @@ function showMeIcon(name) {
   if (el) { mark(el); return true; }
   return false;
 }
+// Lo que un ejemplo necesita ver (cotas, restricciones, textos, puntos): si esta apagado en Vista, se enciende; devuelve los nombres de lo encendido
+const VIEW_BTN = { cons: 'tCons', pts: 'tPts', dims: 'tDims', texts: 'tTexts' };
+function enableView(need) {
+  const on = [];
+  for (const [k, id] of Object.entries(VIEW_BTN)) {
+    if (!need?.[k] || opts[k] !== false) continue;
+    opts[k] = true; $(id).setAttribute('aria-pressed', 'true');
+    on.push($(id).querySelector('span')?.textContent.trim() || k);
+  }
+  if (on.length) persist();
+  return on;
+}
 // Abre un dibujo de ejemplo de las guias (en ingles, el «.en» si existe); pregunta antes si el dibujo actual tiene algo
 async function openExample(name) {
   const base = (n) => Object.keys(EXAMPLES).find((k) => k.endsWith('/' + n + '.json'));
@@ -677,8 +690,11 @@ async function openExample(name) {
   try {
     const j = JSON.parse(await EXAMPLES[key]());
     $('dlgH').close();
-    opts.ghPath = null; loadDoc(j.doc || j); opts.fileBase = name; fitView(); afterChange();
-    toast((getLang() === 'en' ? 'Example opened: ' : 'Ejemplo abierto: ') + name);
+    opts.ghPath = null; loadDoc(j.doc || j); opts.fileBase = name;
+    const on = enableView(j.view || viewNeeds(j.doc || j)); // lo que el ejemplo nombra y estaba oculto en Vista
+    fitView(); afterChange();
+    const en = getLang() === 'en';
+    toast((en ? 'Example opened: ' : 'Ejemplo abierto: ') + name + (on.length ? (en ? '. Turned on in View: ' : '. Se activó en Vista: ') + on.join(', ') : ''));
   } catch (err) { toast((getLang() === 'en' ? 'The example could not be opened: ' : 'No se pudo abrir el ejemplo: ') + err.message); }
 }
 let helpResume = null, helpResumeTimer = 0;

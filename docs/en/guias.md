@@ -1,7 +1,9 @@
-<!-- es: 59ab9a7caf -->
+<!-- es: a1ca434aeb -->
 # Task guides
 
 Each guide solves a concrete task, step by step, with an example drawing that opens in the app. For the detail of each tool, follow the links to the chapter that explains it.
+
+When you open an example, the app **turns on in [View](10-estilo-capas-y-vista.md#view)** what that drawing needs to show (dimensions, constraints, texts or points) and tells you. If you later turn one of those options off, the dimensions, labels or texts of the guides will stop showing: turn it on again in View.
 
 [← 1. Getting started](01-empezar.md) · [Index](README.md) · [2. Drawing →](02-dibujar.md)
 
@@ -24,7 +26,7 @@ A plate with a centered hole: when you change the length or the height, the plat
 
 ### What you will see
 
-Double tap the length dimension or the height dimension and change its value: the plate adjusts, the hole stays at the center and its diameter is recalculated.
+If you do not see the dimensions (D1, D2, O1) or the constraint labels, turn on **Dimensions** and **Constraints** in [View](10-estilo-capas-y-vista.md#view). Double tap the length dimension or the height dimension and change its value: the plate adjusts, the hole stays at the center and its diameter is recalculated.
 
 ### To continue
 

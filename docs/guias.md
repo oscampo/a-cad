@@ -2,6 +2,8 @@
 
 Cada guía resuelve una tarea concreta, paso a paso, con un dibujo de ejemplo que se abre en la app. Para el detalle de cada herramienta, sigue los enlaces al capítulo que la explica.
 
+Al abrir un ejemplo, la app **enciende en [Vista](10-estilo-capas-y-vista.md#vista)** lo que ese dibujo necesita mostrar (cotas, restricciones, textos o puntos) y te avisa. Si más adelante apagas una de esas opciones, las cotas, las etiquetas o los textos de las guías dejarán de verse: vuelve a encenderla en Vista.
+
 [← 1. Empezar](01-empezar.md) · [Índice](README.md) · [2. Dibujar →](02-dibujar.md)
 
 ---
@@ -23,7 +25,7 @@ Una placa con un agujero centrado: al cambiar el largo o el alto, la placa se aj
 
 ### Qué verás
 
-Toca dos veces la cota del largo o la del alto y cambia su valor: la placa se ajusta, el agujero sigue en el centro y su diámetro se recalcula.
+Si no ves las cotas (D1, D2, O1) o las etiquetas de las restricciones, enciende **Cotas** y **Restricciones** en [Vista](10-estilo-capas-y-vista.md#vista). Toca dos veces la cota del largo o la del alto y cambia su valor: la placa se ajusta, el agujero sigue en el centro y su diámetro se recalcula.
 
 ### Para seguir
 
