@@ -210,6 +210,52 @@ Seis agujeros a 60° uno del otro. Cambia la cota de distancia o el radio de uno
 - Para una fila en vez de un círculo: [Matriz lineal](04-dividir-copiar-y-repetir.md#matriz-lineal).
 - Para quitar la relación entre copias: [Sin vincular](04-dividir-copiar-y-repetir.md#sin-vincular).
 
+## Redondear las esquinas de una placa
+
+Una placa rectangular con las cuatro esquinas redondeadas, cuyo radio se gobierna desde una sola cota.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/placa-redondeada.json).
+
+### Pasos
+
+1. Dibuja la placa con ![Rectángulo](icons/rect.svg) y acota su largo y su alto (ver [Acotar (D)](06-cotas.md#acotar-d)). Fija una esquina para que no se mueva.
+2. Selecciona las cuatro esquinas (sus puntos) y elige ![Redondeo](icons/fillet.svg) [Redondeo (F)](03-seleccionar-y-editar.md#redondeo-f-y-chaflán).
+3. Escribe el radio, por ejemplo `8`. Cada esquina queda con un arco tangente y su propia cota de radio (R1 a R4).
+4. Para que las cuatro valgan lo mismo, da doble toque a R2, R3 y R4 y escribe la fórmula `R1`.
+
+### Qué verás
+
+Cuatro arcos de radio 8. Cambia R1 y las cuatro esquinas lo siguen; cambia el largo o el alto y la placa sigue redondeada.
+
+### Para seguir
+
+- Si el radio no cabe en la esquina, la app avisa y te dice el máximo.
+- Para unir con una línea en vez de un arco, usa el chaflán (mismo botón, [Redondeo y Chaflán](03-seleccionar-y-editar.md#redondeo-f-y-chaflán)).
+- Un círculo o una elipse completa no se redondean.
+
+## Dibujar una curva suave por puntos
+
+Un spline que pasa por puntos reales del dibujo y que se deforma al arrastrarlos.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/curva-suave.json).
+
+### Pasos
+
+1. Elige ![Spline](icons/spline.svg) [Spline (S)](02-dibujar.md#spline-s) y toca los puntos por donde debe pasar la curva.
+2. Para terminar, toca otra vez el último punto (o Esc). Tocar el primero la cierra.
+3. Fija los dos extremos con ![Fijar / soltar](icons/lock.svg) [Fijar / soltar](05-restricciones.md#fijar--soltar) si quieres que no se muevan.
+4. Arrastra un punto del medio: la curva se deforma y el resto del dibujo sigue.
+5. Con el spline seleccionado, abre el desplegable de Spline y elige **Cerrar / abrir** (ver [Cerrar / abrir](08-splines-y-trazados.md#cerrar--abrir)).
+
+### Qué verás
+
+Una curva suave que pasa exactamente por cada punto. Abierta, no se curva en los extremos; cerrada, es suave en toda la vuelta, sin esquina en la unión.
+
+### Para seguir
+
+- Una curva paralela a distancia fija (el rodillo de una leva): [Equidistante](08-splines-y-trazados.md#equidistante).
+- La trayectoria de un punto que se mueve, convertida en spline: [Trazar punto](08-splines-y-trazados.md#trazar-punto).
+
 ## Guardar, abrir y compartir tus dibujos
 
 Tus dibujos se guardan como archivos `.json`, y puedes llevarlos a otro dispositivo con GitHub.

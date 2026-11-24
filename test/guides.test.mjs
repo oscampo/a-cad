@@ -96,6 +96,26 @@ t('corte laser: dos clases de linea (corte rojo continua, marcado azul discontin
   assert.deepEqual(cl.map((c) => [c.ltype, c.count]), [['continua', 8], ['discontinua', 1]]);
 });
 
+t('placa redondeada: cuatro arcos de radio 8 y R1 manda sobre R2, R3 y R4; el largo y el alto se pueden cambiar', () => {
+  const d = load('placa-redondeada');
+  assert.deepEqual(Object.values(d.arcs).map((a) => a.r), [8, 8, 8, 8]);
+  const rads = Object.values(d.cons).filter((k) => k.t === 'RAD');
+  assert.deepEqual(rads.map((k) => k.name), ['R1', 'R2', 'R3', 'R4']);
+  assert.deepEqual(rads.slice(1).map((k) => k.expr), ['R1', 'R1', 'R1']);
+  rads[0].v = 12;
+  Object.values(d.cons).find((k) => k.t === 'DIST' && !k.hidden).v = 140;
+  assert.equal(settle(d, solve, []).ok !== false, true);
+  assert.deepEqual(Object.values(d.arcs).map((a) => Math.round(a.r * 1e6) / 1e6), [12, 12, 12, 12]);
+});
+
+t('curva suave: un spline abierto por seis puntos con los extremos fijos', () => {
+  const d = load('curva-suave');
+  const sp = Object.values(d.splines);
+  assert.equal(sp.length, 1);
+  assert.equal(sp[0].pts.length, 6); assert.equal(sp[0].closed, false);
+  assert.deepEqual([d.pts[sp[0].pts[0]].fixed, d.pts[sp[0].pts[5]].fixed], [true, true]);
+});
+
 t('consola: el vector de cadenas se ve como tres lineas, en monoespaciada y con fondo', () => {
   const d = load('consola-de-texto');
   const c = Object.values(d.texts).find((x) => x.valOnly);

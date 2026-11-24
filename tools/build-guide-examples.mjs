@@ -4,12 +4,13 @@
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { initSolver, solve } from '../src/solver.js';
-import { newDoc, addPoint, addLine, addCircle, addCon, addText, ensureNumbers } from '../src/model.js';
+import { newDoc, addPoint, addLine, addCircle, addCon, addText, addSpline, ensureNumbers } from '../src/model.js';
 import { addRectangle, CLINE_STYLE } from '../src/shapes.js';
 import { addRotary } from '../src/actuators.js';
 import { addGraph } from '../src/graphs.js';
 import { makeVector } from '../src/vectors.js';
 import { circularArray } from '../src/edit.js';
+import { filletCorner } from '../src/corners.js';
 import { settle } from '../src/params.js';
 import { viewNeeds } from '../src/examples.js';
 
@@ -174,6 +175,40 @@ const EXAMPLES = {
     ]);
     return d;
   },
+  // 10. Una placa con las esquinas redondeadas (redondeo con cota de radio)
+  'placa-redondeada': (L) => {
+    const d = newDoc(), { p } = rectangle(d, 0, 0, 100, 60);
+    d.pts[p[0]].fixed = true;
+    addCon(d, { t: 'DIST', refs: [p[0], p[1]], v: 100 });
+    addCon(d, { t: 'DIST', refs: [p[1], p[2]], v: 60 });
+    for (const q of p) { const r = filletCorner(d, q, 8); if (!r.ok) throw new Error('redondeo: ' + r.msg); }
+    const rads = Object.values(d.cons).filter((k) => k.t === 'RAD'); // R1 manda: R2, R3 y R4 valen R1 (una formula en la cota)
+    rads.slice(1).forEach((k) => { k.expr = 'R1'; });
+    note(d, 0, 80, L.es ? [
+      'Placa con las cuatro esquinas redondeadas (radio 8). Cada arco lleva su cota de radio (R1…R4).',
+      'Cambia R1 con doble toque: las cuatro esquinas lo siguen, porque R2, R3 y R4 valen R1. Cambia D1 o D2 y la placa sigue redondeada.',
+    ] : [
+      'Plate with its four corners rounded (radius 8). Each arc carries its radius dimension.',
+      'Change R1 with a double tap: the four corners follow, because R2, R3 and R4 equal R1. Change D1 or D2 and the plate stays rounded.',
+    ]);
+    return d;
+  },
+  // 11. Una curva suave por puntos (spline) que se deforma al arrastrar
+  'curva-suave': (L) => {
+    const d = newDoc();
+    const xy = [[0, 0], [20, 25], [45, 32], [70, 12], [95, 22], [120, 0]];
+    const ids = xy.map(([x, y]) => addPoint(d, x, y));
+    d.pts[ids[0]].fixed = true; d.pts[ids[5]].fixed = true;
+    addSpline(d, ids, {});
+    note(d, 0, -15, L.es ? [
+      'Un spline abierto por seis puntos; los extremos están fijos.',
+      'Arrastra un punto del medio: la curva se deforma. Con el spline seleccionado, elige «Cerrar / abrir» en el desplegable de Spline.',
+    ] : [
+      'An open spline through six points; the ends are fixed.',
+      'Drag a middle point: the curve deforms. With the spline selected, choose "Close / open" in the Spline dropdown.',
+    ]);
+    return d;
+  },
   // 9. Un agujero repetido alrededor de un centro (matriz circular con copias vinculadas)
   'patron-circular': (L) => {
     const d = newDoc();
@@ -195,7 +230,7 @@ const EXAMPLES = {
 };
 export const EXAMPLE_NAMES = Object.keys(EXAMPLES);
 // Los puntos solo se muestran donde la guia pide arrastrar o elegir uno (el resto de lo que hay que ver lo calcula viewNeeds, de src/examples.js)
-const SHOW_POINTS = new Set(['pieza-parametrica', 'poligono-de-fuerzas']);
+const SHOW_POINTS = new Set(['pieza-parametrica', 'poligono-de-fuerzas', 'curva-suave']);
 
 export async function buildAll() {
   await initSolver();
@@ -213,6 +248,15 @@ export async function buildAll() {
     }
   }
   return out;
+}
+// El dibujo que genera el script para un ejemplo (sin escribir nada): lo usa examples:diff para compararlo con un archivo guardado desde la app
+export async function buildDoc(name, lang = 'es') {
+  if (!EXAMPLES[name]) throw new Error(`no hay un ejemplo «${name}» (hay: ${EXAMPLE_NAMES.join(', ')})`);
+  await initSolver();
+  const doc = EXAMPLES[name]({ es: lang === 'es' });
+  ensureNumbers(doc);
+  settle(doc, solve, []);
+  return { doc, view: viewNeeds(doc, { points: SHOW_POINTS.has(name) }) };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   buildAll().then((o) => console.log(Object.keys(o).length + ' ejemplos en ejemplos/guias/'));

@@ -1,0 +1,464 @@
+{
+ "app": "ipad-cad",
+ "version": "2.9.4",
+ "doc": {
+  "calc": 2,
+  "n": 58,
+  "pts": {
+   "p1": {
+    "x": 0,
+    "y": 0,
+    "fixed": true,
+    "auto": false
+   },
+   "p2": {
+    "x": 100,
+    "y": 0,
+    "fixed": false,
+    "auto": false
+   },
+   "p3": {
+    "x": 100,
+    "y": 60,
+    "fixed": false,
+    "auto": false
+   },
+   "p4": {
+    "x": 0,
+    "y": 60,
+    "fixed": false,
+    "auto": false
+   },
+   "p16": {
+    "x": 8.000000000000002,
+    "y": 0,
+    "fixed": false,
+    "auto": true
+   },
+   "p17": {
+    "x": 0,
+    "y": 8.000000000000002,
+    "fixed": false,
+    "auto": true
+   },
+   "p18": {
+    "x": 8,
+    "y": 8,
+    "fixed": false,
+    "auto": true
+   },
+   "p26": {
+    "x": 92,
+    "y": 0,
+    "fixed": false,
+    "auto": true
+   },
+   "p27": {
+    "x": 100,
+    "y": 8.000000000000002,
+    "fixed": false,
+    "auto": true
+   },
+   "p28": {
+    "x": 92,
+    "y": 8,
+    "fixed": false,
+    "auto": true
+   },
+   "p36": {
+    "x": 100,
+    "y": 52,
+    "fixed": false,
+    "auto": true
+   },
+   "p37": {
+    "x": 92,
+    "y": 60,
+    "fixed": false,
+    "auto": true
+   },
+   "p38": {
+    "x": 92,
+    "y": 52,
+    "fixed": false,
+    "auto": true
+   },
+   "p46": {
+    "x": 8.000000000000002,
+    "y": 60,
+    "fixed": false,
+    "auto": true
+   },
+   "p47": {
+    "x": 0,
+    "y": 52,
+    "fixed": false,
+    "auto": true
+   },
+   "p48": {
+    "x": 8,
+    "y": 52,
+    "fixed": false,
+    "auto": true
+   },
+   "p55": {
+    "x": 0,
+    "y": 80,
+    "fixed": false,
+    "auto": false
+   },
+   "p57": {
+    "x": 0,
+    "y": 75.5,
+    "fixed": false,
+    "auto": false
+   }
+  },
+  "lines": {
+   "l5": {
+    "a": "p16",
+    "b": "p26"
+   },
+   "l6": {
+    "a": "p27",
+    "b": "p36"
+   },
+   "l7": {
+    "a": "p37",
+    "b": "p46"
+   },
+   "l8": {
+    "a": "p47",
+    "b": "p17"
+   }
+  },
+  "circles": {},
+  "arcs": {
+   "a21": {
+    "c": "p18",
+    "a": "p17",
+    "b": "p16",
+    "r": 8
+   },
+   "a31": {
+    "c": "p28",
+    "a": "p26",
+    "b": "p27",
+    "r": 8
+   },
+   "a41": {
+    "c": "p38",
+    "a": "p36",
+    "b": "p37",
+    "r": 8
+   },
+   "a51": {
+    "c": "p48",
+    "a": "p46",
+    "b": "p47",
+    "r": 8
+   }
+  },
+  "ellipses": {},
+  "texts": {
+   "t56": {
+    "pt": "p55",
+    "text": "Placa con las cuatro esquinas redondeadas (radio 8). Cada arco lleva su cota de radio (R1…R4).",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t58": {
+    "pt": "p57",
+    "text": "Cambia R1 con doble toque: las cuatro esquinas lo siguen, porque R2, R3 y R4 valen R1. Cambia D1 o D2 y la placa sigue redondeada.",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   }
+  },
+  "splines": {},
+  "traces": {},
+  "cons": {
+   "k9": {
+    "t": "H",
+    "refs": [
+     "l5"
+    ],
+    "n": 1
+   },
+   "k10": {
+    "t": "V",
+    "refs": [
+     "l6"
+    ],
+    "n": 1
+   },
+   "k11": {
+    "t": "H",
+    "refs": [
+     "l7"
+    ],
+    "n": 2
+   },
+   "k12": {
+    "t": "V",
+    "refs": [
+     "l8"
+    ],
+    "n": 2
+   },
+   "k13": {
+    "t": "DIST",
+    "refs": [
+     "p1",
+     "p2"
+    ],
+    "v": 100,
+    "name": "D1"
+   },
+   "k14": {
+    "t": "DIST",
+    "refs": [
+     "p2",
+     "p3"
+    ],
+    "v": 60,
+    "name": "D2"
+   },
+   "k19": {
+    "t": "PONL",
+    "refs": [
+     "p1",
+     "l5"
+    ],
+    "hidden": true,
+    "op": "o15"
+   },
+   "k20": {
+    "t": "PONL",
+    "refs": [
+     "p1",
+     "l8"
+    ],
+    "hidden": true,
+    "op": "o15"
+   },
+   "k22": {
+    "t": "TANEP",
+    "refs": [
+     "l5",
+     "a21",
+     "p16"
+    ],
+    "op": "o15",
+    "n": 1
+   },
+   "k23": {
+    "t": "TANEP",
+    "refs": [
+     "l8",
+     "a21",
+     "p17"
+    ],
+    "op": "o15",
+    "n": 2
+   },
+   "k24": {
+    "t": "RAD",
+    "refs": [
+     "a21"
+    ],
+    "v": 8,
+    "op": "o15",
+    "name": "R1"
+   },
+   "k29": {
+    "t": "PONL",
+    "refs": [
+     "p2",
+     "l5"
+    ],
+    "hidden": true,
+    "op": "o25"
+   },
+   "k30": {
+    "t": "PONL",
+    "refs": [
+     "p2",
+     "l6"
+    ],
+    "hidden": true,
+    "op": "o25"
+   },
+   "k32": {
+    "t": "TANEP",
+    "refs": [
+     "l5",
+     "a31",
+     "p26"
+    ],
+    "op": "o25",
+    "n": 3
+   },
+   "k33": {
+    "t": "TANEP",
+    "refs": [
+     "l6",
+     "a31",
+     "p27"
+    ],
+    "op": "o25",
+    "n": 4
+   },
+   "k34": {
+    "t": "RAD",
+    "refs": [
+     "a31"
+    ],
+    "v": 8,
+    "op": "o25",
+    "name": "R2",
+    "expr": "R1"
+   },
+   "k39": {
+    "t": "PONL",
+    "refs": [
+     "p3",
+     "l6"
+    ],
+    "hidden": true,
+    "op": "o35"
+   },
+   "k40": {
+    "t": "PONL",
+    "refs": [
+     "p3",
+     "l7"
+    ],
+    "hidden": true,
+    "op": "o35"
+   },
+   "k42": {
+    "t": "TANEP",
+    "refs": [
+     "l6",
+     "a41",
+     "p36"
+    ],
+    "op": "o35",
+    "n": 5
+   },
+   "k43": {
+    "t": "TANEP",
+    "refs": [
+     "l7",
+     "a41",
+     "p37"
+    ],
+    "op": "o35",
+    "n": 6
+   },
+   "k44": {
+    "t": "RAD",
+    "refs": [
+     "a41"
+    ],
+    "v": 8,
+    "op": "o35",
+    "name": "R3",
+    "expr": "R1"
+   },
+   "k49": {
+    "t": "PONL",
+    "refs": [
+     "p4",
+     "l7"
+    ],
+    "hidden": true,
+    "op": "o45"
+   },
+   "k50": {
+    "t": "PONL",
+    "refs": [
+     "p4",
+     "l8"
+    ],
+    "hidden": true,
+    "op": "o45"
+   },
+   "k52": {
+    "t": "TANEP",
+    "refs": [
+     "l7",
+     "a51",
+     "p46"
+    ],
+    "op": "o45",
+    "n": 7
+   },
+   "k53": {
+    "t": "TANEP",
+    "refs": [
+     "l8",
+     "a51",
+     "p47"
+    ],
+    "op": "o45",
+    "n": 8
+   },
+   "k54": {
+    "t": "RAD",
+    "refs": [
+     "a51"
+    ],
+    "v": 8,
+    "op": "o45",
+    "name": "R4",
+    "expr": "R1"
+   }
+  },
+  "hatches": {},
+  "ltypes": {},
+  "cn": {
+   "H": 2,
+   "V": 2,
+   "TAN": 8
+  },
+  "layers": {},
+  "curLayer": null,
+  "cnd": {
+   "D": 2,
+   "R": 4
+  },
+  "ops": {
+   "o15": {
+    "t": "RED",
+    "n": 1
+   },
+   "o25": {
+    "t": "RED",
+    "n": 2
+   },
+   "o35": {
+    "t": "RED",
+    "n": 3
+   },
+   "o45": {
+    "t": "RED",
+    "n": 4
+   }
+  },
+  "opn": {
+   "RED": 4
+  }
+ },
+ "view": {
+  "texts": true,
+  "dims": true,
+  "cons": true
+ }
+}

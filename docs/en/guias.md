@@ -1,4 +1,4 @@
-<!-- es: 8041c1e6ad -->
+<!-- es: d1fe2d4b11 -->
 # Task guides
 
 Each guide solves a concrete task, step by step, with an example drawing that opens in the app. For the detail of each tool, follow the links to the chapter that explains it.
@@ -210,6 +210,52 @@ Six holes 60° apart. Change the distance dimension or the radius of one and all
 
 - For a row instead of a circle: [Linear array](04-dividir-copiar-y-repetir.md#linear-array).
 - To remove the relation between copies: [Without linking](04-dividir-copiar-y-repetir.md#without-linking).
+
+## Round the corners of a plate
+
+A rectangular plate with its four corners rounded, whose radius is driven from a single dimension.
+
+**Example:** [Open the example](../../ejemplos/guias/placa-redondeada.json).
+
+### Steps
+
+1. Draw the plate with ![Rectangle](../icons/rect.svg) and dimension its length and height (see [Dimension (D)](06-cotas.md#dimension-d)). Fix one corner so it does not move.
+2. Select the four corners (their points) and choose ![Fillet](../icons/fillet.svg) [Fillet (F)](03-seleccionar-y-editar.md#fillet-f-and-chamfer).
+3. Type the radius, for example `8`. Each corner gets a tangent arc and its own radius dimension (R1 to R4).
+4. To make the four equal, double tap R2, R3 and R4 and type the formula `R1`.
+
+### What you will see
+
+Four arcs of radius 8. Change R1 and the four corners follow; change the length or the height and the plate stays rounded.
+
+### To continue
+
+- If the radius does not fit in the corner, the app warns you and tells you the maximum.
+- To join with a line instead of an arc, use the chamfer (same button, [Fillet and Chamfer](03-seleccionar-y-editar.md#fillet-f-and-chamfer)).
+- A full circle or ellipse cannot be rounded.
+
+## Draw a smooth curve through points
+
+A spline that passes through real points of the drawing and deforms when you drag them.
+
+**Example:** [Open the example](../../ejemplos/guias/curva-suave.json).
+
+### Steps
+
+1. Choose ![Spline](../icons/spline.svg) [Spline (S)](02-dibujar.md#spline-s) and tap the points the curve must pass through.
+2. To finish, tap the last point again (or Esc). Tapping the first one closes it.
+3. Fix the two ends with ![Fix / release](../icons/lock.svg) [Fix / release](05-restricciones.md#fix--release) if you want them not to move.
+4. Drag a middle point: the curve deforms and the rest of the drawing follows.
+5. With the spline selected, open the Spline dropdown and choose **Close / open** (see [Close / open](08-splines-y-trazados.md#close--open)).
+
+### What you will see
+
+A smooth curve that passes exactly through every point. Open, it has no curvature at the ends; closed, it is smooth all the way around, with no corner at the join.
+
+### To continue
+
+- A parallel curve at a fixed distance (the roller of a cam): [Offset](08-splines-y-trazados.md#offset).
+- The path of a moving point, turned into a spline: [Trace point](08-splines-y-trazados.md#trace-point).
 
 ## Save, open and share your drawings
 
