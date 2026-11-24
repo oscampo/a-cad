@@ -355,7 +355,7 @@ export const REF_EN = {
   "5fliy8o": "Function of one parameter.",
   "19203exh": "Complex numbers",
   "733wlwiz": "<code>j</code> is the imaginary unit (<code>3+4j</code>); a number can also take the suffix: <code>2.5j</code> or <code>2.5i</code> (the letter <code>i</code> alone is still a variable). The square root of a negative number gives a complex number: <code>sqrt(-4)</code> is <code>2j</code>, <code>ln(-1)</code> is <code>πj</code>, and a negative base with a non-integer exponent gives a complex number. Operations, powers, functions (sin, exp, ln, sqrt…), matrices (inv, det, product) and units (an impedance in Ω) all work. Complex numbers can only be compared with <code>==</code> and <code>!=</code>. A dimension, a graph or the condition of an if needs a real number: abs, angle, real or imag give one.",
-  "nzt0sf7": "Magnitude.",
+  "nzt0sf7": "Modulus (absolute value).",
   "1a89q181e": "Argument (in degrees or radians, depending on the drawing).",
   "818wv0o": "Real and imaginary part.",
   "1vr52jgs": "Conjugate: z·conj(z) = |z|².",

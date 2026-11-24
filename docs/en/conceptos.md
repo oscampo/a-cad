@@ -100,7 +100,7 @@ A mechanism is a drawing with degrees of freedom on purpose: when you drag a lin
 
 1. A ![Rotational actuator](../icons/act-r.svg) ![Linear actuator](../icons/act-l.svg) **actuator** says how a part moves: a rotation (rotational) or a displacement (linear), with an expression of time `t` such as `90*t`, or with a table.
 2. At each instant, the solver solves the drawing with the actuator in its position.
-3. **Graphs** record any measurement (a dimension, a point's coordinate) against time or against another measurement, and **paths** leave the trajectory of a point.
+3. **Graphs** record any measurement (a dimension, a point's coordinate) against time or against another measurement, and **traces** leave the trajectory of a point.
 
 **What else can be simulated.** Gears, rack and pinion, and relationships that hold only while two elements touch (stops, cams) extend what can be simulated.
 

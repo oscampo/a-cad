@@ -912,7 +912,7 @@ export const EN = {
   "Información": "Information",
   "Precaución": "Caution",
   "Atención": "Warning",
-  "Traza y punto": "Trace and point",
+  "Traza y punto": "Dash-dot",
   "función de {0}": "function of {0}",
   "vector de {0}": "vector of {0}",
   "matriz de {0}×{1}": "matrix of {0}×{1}",

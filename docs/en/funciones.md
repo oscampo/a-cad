@@ -186,7 +186,7 @@ They are defined in a text and used in outputs, variables and dimensions. They c
 
 | Function | What it does | Example | Gives |
 |---|---|---|---|
-| `abs(z)` | Magnitude. | `abs(3+4j)` | `5` |
+| `abs(z)` | Modulus (absolute value). | `abs(3+4j)` | `5` |
 | `angle(z)` | Argument (in degrees or radians, depending on the drawing). | `angle(1+1j)` | `45` |
 | `real(z)`, `imag(z)` | Real and imaginary part. | `real((1+2j)*(3-1j))` | `5` |
 |  |  | `imag((1+2j)*(3-1j))` | `5` |

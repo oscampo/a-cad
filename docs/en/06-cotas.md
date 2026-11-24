@@ -292,7 +292,7 @@ The **label is a text of the drawing**: its height is in drawing units, like tha
 In its window (when creating it and with a double tap) you choose:
 
 - The label (plain text, `"texto"`, `$fórmula$` or `$$fórmula$$`).
-- **Where it goes**: on a line, an arc or an elliptical arc, an endpoint or the midpoint (by default, the midpoint, beside the line); on a spline, any of its points.
+- **Placement**: on a line, an arc or an elliptical arc, an endpoint or the midpoint (by default, the midpoint, beside the line); on a spline, any of its points.
 - The **insertion point** of its box (corners, midpoints or center, as in the texts; it is kept a quarter of its height away from the point).
 - The **font** and the **height** (with a page, in points, like the texts; it starts with the font and height of new texts).
 

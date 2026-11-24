@@ -27,7 +27,7 @@ If you cannot find a button, tap its icon in the help: the help closes, the drop
 | [Arc](#arc) | Arc by center and ends, Arc by 3 points and the two construction ones |
 | [Ellipse](#ellipse) | Ellipse and Partial ellipse |
 | [Rectangle](#rectangle) | Rectangle by diagonal and Center rectangle |
-| [Spline and paths](#spline-and-paths) | Spline, paths of a point, close or open and offset |
+| [Spline and paths](#spline-and-paths) | Spline, traces of a point, close or open and offset |
 | [Fillet and chamfer](#fillet-and-chamfer) | Fillet and Chamfer |
 | [Copy and paste](#copy-and-paste) | Copy and Paste |
 | [Actuators and simulation](#actuators-and-simulation) | MR actuator, ML actuator, Graph and Simulation |
@@ -71,9 +71,9 @@ If you cannot find a button, tap its icon in the help: the help closes, the drop
 
 - ![Spline](../icons/spline.svg) **Spline through points (S)**: see [Spline (S)](02-dibujar.md#spline-s).
 - ![Trace point](../icons/trace.svg) **Trace point (turn on or remove)**: see [Trace point](08-splines-y-trazados.md#trace-point).
-- ![Delete path](../icons/trash.svg) **Delete path**: see [Spline button](08-splines-y-trazados.md#spline-button).
+- ![Clear trace](../icons/trash.svg) **Clear trace**: see [Spline button](08-splines-y-trazados.md#spline-button).
 - ![Reset marks](../icons/mark-reset.svg) **Reset marks**: see [Reset marks](05-restricciones.md#reset-marks).
-- ![Path to spline](../icons/spline.svg) **Path to spline…**: turns a path into a spline. See [Trace point](08-splines-y-trazados.md#trace-point).
+- ![Trace to spline](../icons/spline.svg) **Trace to spline…**: turns a trace into a spline. See [Trace point](08-splines-y-trazados.md#trace-point).
 - ![Close or open the spline](../icons/spline-closed.svg) **Close or open the spline**: see [Close / open](08-splines-y-trazados.md#close--open).
 - ![Offset](../icons/spline.svg) **Offset…**: see [Offset](08-splines-y-trazados.md#offset).
 
