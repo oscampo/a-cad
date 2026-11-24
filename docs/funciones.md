@@ -78,7 +78,7 @@ Los ángulos de los **textos de cálculo y las gráficas** van según la opción
 | `rand()`, `rand(n)`, `rand(n; m)` | Números aleatorios uniformes en [0, 1): uno, una matriz de n×n o de n×m (`rand(1; 200)`, una fila). La secuencia es **reproducible**: cada cálculo del dibujo empieza en la misma semilla, para que una salida y su gráfica muestren los mismos valores. | `size(rand(2; 3))` | `[2, 3]` |
 | `randn(…)` | Como rand, con distribución normal estándar (media 0, desviación 1). Para media μ y desviación s: `μ + s*randn(1; n)`. | `numel(randn(1; 5))` | `5` |
 | `randi(imax; …)`, `randi([a, b]; …)` | Enteros aleatorios de 1 a imax, o de a a b; con n y m, una matriz. | `min(randi([4, 4]; 1; 3))` | `4` |
-| `rng(semilla)`, `rng("shuffle")` | Cambia la semilla de rand, randn y randi desde ese punto de la lectura: otra secuencia, también reproducible. Con `"shuffle"`, como en MATLAB, una semilla nueva con cada cambio del dibujo (y con cada paso de `wfile`): para un juego o una simulación que no deba repetirse. Entre cambios se mantiene: la pantalla se redibuja con la misma tirada. Vale la semilla. | `rng(7)` | `7` |
+| `rng(semilla)`, `rng("shuffle")` | Cambia la semilla de rand, randn y randi desde ese punto de la lectura: otra secuencia, también reproducible. Con `"shuffle"`, una semilla nueva con cada cambio del dibujo (y con cada paso de `wfile`): para un juego o una simulación que no deba repetirse. Entre cambios se mantiene: la pantalla se redibuja con la misma tirada. Vale la semilla. | `rng(7)` | `7` |
 
 ## Vectores y matrices
 
@@ -87,7 +87,7 @@ Se escriben entre corchetes: la coma separa los elementos de una fila, el punto 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
 | `[1, 2, 3]`, `[1; 2; 3]` | Vector fila y vector columna. | `[1,2,3]^T` | `[1; 2; 3]` |
-| `[V; M]`, `[A, b]` | Por bloques, como en MATLAB: los elementos pueden ser vectores o matrices. La coma los pone lado a lado (mismo número de filas) y el punto y coma uno debajo del otro (mismo número de columnas). | `V:[2,1]`<br>`M:[1,3]`<br>`F:[5;10]`<br>`[V;M]^(-1)*F=` | `[1; 3]` |
+| `[V; M]`, `[A, b]` | Por bloques: los elementos pueden ser vectores o matrices. La coma los pone lado a lado (mismo número de filas) y el punto y coma uno debajo del otro (mismo número de columnas). | `V:[2,1]`<br>`M:[1,3]`<br>`F:[5;10]`<br>`[V;M]^(-1)*F=` | `[1; 3]` |
 | `a..b;n` | Rango: `n` valores de a hasta b, ambos incluidos. | `x:0..1;5`<br>`x=` | `[0, 0.25, 0.5, 0.75, 1]` |
 | `a..paso..b` | Rango con paso, sin pasar de b (el paso puede ser negativo). | `x:10..-3..1`<br>`x=` | `[10, 7, 4, 1]` |
 | `x_i`, `A_(i,j)` | Elemento, contando desde 1. Los índices pueden ser fórmulas: `x_(i+1)`. | `A:[1,2;3,4]`<br>`A_(2,1)=` | `3` |
@@ -116,7 +116,7 @@ Se escriben entre corchetes: la coma separa los elementos de una fila, el punto 
 
 ## Construir y reordenar matrices
 
-Con los nombres de MATLAB. Las que reordenan conservan las unidades y los complejos.
+Las que reordenan conservan las unidades y los complejos.
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
@@ -128,7 +128,7 @@ Con los nombres de MATLAB. Las que reordenan conservan las unidades y los comple
 | `sort(v)` | Ordena un vector de menor a mayor. | `sort([3,1,2])` | `[1, 2, 3]` |
 | `flip(v)`, `fliplr(A)`, `flipud(A)` | Invierte el orden: un vector; las columnas (izquierda-derecha); las filas (arriba-abajo). | `fliplr([1,2;3,4])` | `[2, 1; 4, 3]` |
 | `repmat(A; n; m)` | Repite A n veces hacia abajo y m hacia la derecha. | `repmat([1,2]; 2; 2)` | `[1, 2, 1, 2; 1, 2, 1, 2]` |
-| `reshape(A; n; m)` | Los mismos elementos en n×m, tomados por columnas (como MATLAB). | `reshape([1,2,3,4,5,6]; 3; 2)` | `[1, 4; 2, 5; 3, 6]` |
+| `reshape(A; n; m)` | Los mismos elementos en n×m, tomados por columnas. | `reshape([1,2,3,4,5,6]; 3; 2)` | `[1, 4; 2, 5; 3, 6]` |
 | `horzcat(A; B; …)`, `vertcat(A; B; …)` | Lado a lado y uno debajo del otro (como [A, B] y [A; B]). | `vertcat([1,2]; [3,4])` | `[1, 2; 3, 4]` |
 | `kron(A; B)` | Producto de Kronecker. | `kron([1,2]; [1;1])` | `[1, 2; 1, 2]` |
 | `any(v)` | 1 si algún elemento no es 0. | `any([0,0,3])` | `1` |
@@ -140,7 +140,7 @@ Con números reales (inv, det, linsolve y eig también con complejos). eig admit
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
-| `linsolve(A; b)` | x tal que A·x = b (como A\b en MATLAB). Si A no es cuadrada, por mínimos cuadrados. | `linsolve([2,1;1,3]; [3;5])` | `[0.8; 1.4]` |
+| `linsolve(A; b)` | x tal que A·x = b. Si A no es cuadrada, por mínimos cuadrados. | `linsolve([2,1;1,3]; [3;5])` | `[0.8; 1.4]` |
 | `rank(A)` | Rango. | `rank([1,2;2,4])` | `1` |
 | `cond(A)` | Número de condición (con valores singulares). | `cond([1,0;0,2])` | `2` |
 | `pinv(A)` | Pseudoinversa (vale con matrices singulares o no cuadradas). | `pinv([1,2;2,4])` | `[0.04, 0.08; 0.08, 0.16]` |
@@ -163,7 +163,7 @@ Un polinomio es el vector de sus coeficientes, del mayor grado al menor: [1, 0, 
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
-| `interp1(xs; ys; x)` | Interpolación lineal en una tabla (x un número o un vector; conserva las unidades de ys). Fuera de la tabla da ⚠; con `interp1(xs; ys; x; "extrap")` extrapola con el primer o el último tramo, como en MATLAB. | `interp1([0,1,2]; [0,10,40]; 1.5)` | `25` |
+| `interp1(xs; ys; x)` | Interpolación lineal en una tabla (x un número o un vector; conserva las unidades de ys). Fuera de la tabla da ⚠; con `interp1(xs; ys; x; "extrap")` extrapola con el primer o el último tramo. | `interp1([0,1,2]; [0,10,40]; 1.5)` | `25` |
 | `polyval(p; x)` | Valor del polinomio en x. | `polyval([1,0,-2]; 3)` | `7` |
 | `roots(p)` | Raíces (columna); complejas si las hay. | `roots([1,-6,11,-6])` | `[3; 2; 1]` |
 |  |  | `roots([1,0,1])=` | `[1j; -1j]` |
@@ -182,7 +182,7 @@ Se definen en un texto y se usan en las salidas, en las variables y en las cotas
 
 ## Números complejos
 
-`j` es la unidad imaginaria (`3+4j`); un número también lleva el sufijo: `2.5j` o `2.5i` (la letra `i` sola sigue siendo una variable). Como en MATLAB, `sqrt(-4)` es `2j`, `ln(-1)` es `πj` y una base negativa con exponente no entero da un complejo. Valen las operaciones, las potencias, las funciones (sin, exp, ln, sqrt…), las matrices (inv, det, producto) y las unidades (una impedancia en Ω). Con complejos solo se compara con `==` y `!=`. Una cota, una gráfica o la condición de un if necesitan un real: abs, angle, real o imag lo dan.
+`j` es la unidad imaginaria (`3+4j`); un número también lleva el sufijo: `2.5j` o `2.5i` (la letra `i` sola sigue siendo una variable). La raíz de un negativo da un complejo: `sqrt(-4)` es `2j`, `ln(-1)` es `πj` y una base negativa con exponente no entero da un complejo. Valen las operaciones, las potencias, las funciones (sin, exp, ln, sqrt…), las matrices (inv, det, producto) y las unidades (una impedancia en Ω). Con complejos solo se compara con `==` y `!=`. Una cota, una gráfica o la condición de un if necesitan un real: abs, angle, real o imag lo dan.
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
@@ -199,7 +199,7 @@ Una cadena va entre comillas: `"Cumple"` (sirven las “ ” del iPad; `""` dent
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
 | `num2str(x; n)`, `string(x)` | Un número como texto, con su unidad y como lo muestra la app (n decimales fijos si se da). | `"Tensión: " + num2str(210.254'MPa)=` | `“Tensión: 210.254 MPa”` |
-| `sprintf(formato; …)` | Formato de MATLAB: %d, %f, %.2f, %e, %g, %s, %%. Sin unidades: divide por la unidad que quieres (F/1'kN). | `sprintf("%.1f kN"; 12.345)=` | `“12.3 kN”` |
+| `sprintf(formato; …)` | Formato: %d, %f, %.2f, %e, %g, %s, %%. Sin unidades: divide por la unidad que quieres (F/1'kN). | `sprintf("%.1f kN"; 12.345)=` | `“12.3 kN”` |
 | `str2double(s)`, `str2num(s)` | El número escrito en una cadena. | `str2double("3.25")*2` | `6.5` |
 | `strcat(a; b; …)` | Une cadenas (como +). | `strcat("A"; "-"; "CAD")=` | `“A-CAD”` |
 | `upper`, `lower`, `strtrim`, `reverse` | Mayúsculas, minúsculas, sin espacios en los extremos, al revés. | `upper("abc")=` | `“ABC”` |
@@ -211,11 +211,11 @@ Una cadena va entre comillas: `"Cumple"` (sirven las “ ” del iPad; `""` dent
 | `strfind(s; patrón)` | Posiciones (desde 1) donde aparece el patrón; 0 si no aparece. | `strfind("abcabc"; "bc")` | `[2, 5]` |
 | `strcmp(a; b)`, `strcmpi(a; b)` | 1 si son iguales (strcmpi, sin distinguir mayúsculas). | `strcmpi("Abc"; "aBC")` | `1` |
 | `extractBefore`, `extractAfter`, `extractBetween` | Lo que hay antes o después de un patrón (o de una posición), o entre dos; con dos números, entre esas posiciones (incluidas). | `extractAfter("x=10"; "=")=` | `“10”` |
-|  | Entre dos posiciones (como `substr` de SMath). | `extractBetween("abcdef"; 2; 4)=` | `“bcd”` |
+|  | Entre dos posiciones. | `extractBetween("abcdef"; 2; 4)=` | `“bcd”` |
 
 ## Programas
 
-Pasos en orden y ciclos dentro de una fórmula, como en SMath. Dentro, `s:valor` asigna una variable **local**: vale solo en esa fórmula (no crea variables del documento ni cambia las de afuera). Se pueden escribir en varias líneas, con sangría, y se dibujan como se escribieron. Un ciclo tiene un tope de 100 000 vueltas y 1,5 s: si lo pasa, avisa en vez de congelar la app.
+Pasos en orden y ciclos dentro de una fórmula. Dentro, `s:valor` asigna una variable **local**: vale solo en esa fórmula (no crea variables del documento ni cambia las de afuera). Se pueden escribir en varias líneas, con sangría, y se dibujan como se escribieron. Un ciclo tiene un tope de 100 000 vueltas y 1,5 s: si lo pasa, avisa en vez de congelar la app.
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
@@ -224,7 +224,7 @@ Pasos en orden y ciclos dentro de una fórmula, como en SMath. Dentro, `s:valor`
 | `while(condición; cuerpo)` | Repite el cuerpo mientras la condición se cumpla. Para varios pasos en el cuerpo, `line(…)`. | `line(k:0; while(k^2<50; k:k+1); k)` | `8` |
 | `break()`, `continue()` | Dentro de un for o un while: `break()` sale del ciclo; `continue()` pasa a la vuelta siguiente. En un script se escriben solos en su línea: `break`, `continue`. | `line(s:0; for(i; 1..10; line(if(i > 3; break(); 0); s:s + i)); s)` | `6` |
 | `return(x)` | Termina la función (o el script) con el valor x, sin seguir. En un script, `return x`. | `line(return(5); 7)` | `5` |
-| `v_i:valor`, `A_(i,j):valor` | Asigna un elemento de un vector o de una matriz (o de un vector de cadenas) dentro de un programa, sobre una copia local: la variable del documento no cambia afuera. Como en MATLAB, un índice más allá del final agranda el vector con ceros (sirve para armar un vector en un `for`). El valor lleva la magnitud del vector; un vector de ceros sin unidades toma la del primer valor. | `line(p:[1,2,3]; p_2:7; sum(p))` | `11` |
+| `v_i:valor`, `A_(i,j):valor` | Asigna un elemento de un vector o de una matriz (o de un vector de cadenas) dentro de un programa, sobre una copia local: la variable del documento no cambia afuera. Un índice más allá del final agranda el vector con ceros (sirve para armar un vector en un `for`). El valor lleva la magnitud del vector; un vector de ceros sin unidades toma la del primer valor. | `line(p:[1,2,3]; p_2:7; sum(p))` | `11` |
 
 ## Ecuaciones
 
@@ -237,13 +237,13 @@ Se resuelven numéricamente (Levenberg-Marquardt): desde un valor inicial se bus
 
 ## Datos entre dibujos
 
-Como en SMath: guardan un valor para leerlo después o desde otro dibujo. Los datos viven en este navegador, en este dispositivo (Archivo → Datos los muestra, exporta e importa). Se escriben al confirmar un cambio del dibujo, no al arrastrar ni en la simulación; rfile lee siempre lo guardado, así con `c:rfile(n)` y `wfile(c+1; n)` cada cambio suma 1 y se ve lo último guardado.
+Guardan un valor para leerlo después o desde otro dibujo. Los datos viven en este navegador, en este dispositivo (Archivo → Datos los muestra, exporta e importa). Se escriben al confirmar un cambio del dibujo, no al arrastrar ni en la simulación; rfile lee siempre lo guardado, así con `c:rfile(n)` y `wfile(c+1; n)` cada cambio suma 1 y se ve lo último guardado.
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
 | `wfile(valor; Nombre)` | Guarda el valor (un número con su unidad, un vector, una matriz o una cadena) en el archivo de datos <i>Nombre</i> y vale 1. El nombre no se evalúa: es el de una variable (no importa su valor, ni si existe) o una cadena con extensión, `"datos.txt"`. El archivo es texto con la sintaxis de A-CAD y punto decimal: `12'kN`, `[1, 2; 3, 4]'mm`, `"texto"`. | `a:12'kN`<br>`wfile(a; MiVariable)=` | `1` |
 | `rfile(Nombre)` | El valor guardado con `wfile`, con sus unidades: `q:rfile(MiVariable)` da 12 kN. Si no hay datos con ese nombre, da ⚠. |  |  |
-| `rfile(Nombre; inicial)` | Lo guardado o, si todavía no hay datos con ese nombre, <i>inicial</i> (que solo se calcula entonces): sirve para empezar, `c:rfile(n; 0)`. Extensión de A-CAD: en SMath el segundo argumento es una ruta. | `rfile(NoExiste; 42)` | `42` |
+| `rfile(Nombre; inicial)` | Lo guardado o, si todavía no hay datos con ese nombre, <i>inicial</i> (que solo se calcula entonces): sirve para empezar, `c:rfile(n; 0)`. Es una extensión de A-CAD. | `rfile(NoExiste; 42)` | `42` |
 | `entered(nombre)` | Vale 1 en el paso que inició un Enter sobre el texto que define <i>nombre</i> (en la edición en el lugar, también sin cambiarlo) y 0 en cualquier otro paso: abrir el dibujo, mover algo, editar otro texto. Para ejecutar una orden al confirmarla: `wfile(si(entered(orden); hacer(x; orden); x); Estado)`. | `entered(x)` | `0` |
 
 ## Sonidos

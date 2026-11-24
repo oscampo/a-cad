@@ -74,7 +74,7 @@ export const FUNC_GROUPS = [
       ['<code>rand()</code>, <code>rand(n)</code>, <code>rand(n; m)</code>', 'Números aleatorios uniformes en [0, 1): uno, una matriz de n×n o de n×m (<code>rand(1; 200)</code>, una fila). La secuencia es <b>reproducible</b>: cada cálculo del dibujo empieza en la misma semilla, para que una salida y su gráfica muestren los mismos valores.', 'size(rand(2; 3))', '[2, 3]', 'm'],
       ['<code>randn(…)</code>', 'Como rand, con distribución normal estándar (media 0, desviación 1). Para media μ y desviación s: <code>μ + s*randn(1; n)</code>.', 'numel(randn(1; 5))', '5', 'n'],
       ['<code>randi(imax; …)</code>, <code>randi([a, b]; …)</code>', 'Enteros aleatorios de 1 a imax, o de a a b; con n y m, una matriz.', 'min(randi([4, 4]; 1; 3))', '4', 'n'],
-      ['<code>rng(semilla)</code>, <code>rng("shuffle")</code>', 'Cambia la semilla de rand, randn y randi desde ese punto de la lectura: otra secuencia, también reproducible. Con <code>"shuffle"</code>, como en MATLAB, una semilla nueva con cada cambio del dibujo (y con cada paso de <code>wfile</code>): para un juego o una simulación que no deba repetirse. Entre cambios se mantiene: la pantalla se redibuja con la misma tirada. Vale la semilla.', 'rng(7)', '7', 'n'],
+      ['<code>rng(semilla)</code>, <code>rng("shuffle")</code>', 'Cambia la semilla de rand, randn y randi desde ese punto de la lectura: otra secuencia, también reproducible. Con <code>"shuffle"</code>, una semilla nueva con cada cambio del dibujo (y con cada paso de <code>wfile</code>): para un juego o una simulación que no deba repetirse. Entre cambios se mantiene: la pantalla se redibuja con la misma tirada. Vale la semilla.', 'rng(7)', '7', 'n'],
     ],
   },
   {
@@ -82,7 +82,7 @@ export const FUNC_GROUPS = [
     note: 'Se escriben entre corchetes: la coma separa los elementos de una fila, el punto y coma empieza otra fila, y los decimales llevan punto. Se usan en los textos (<code>A:[1,2;3,4]</code>, <code>A=</code>); una cota puede leer un elemento (<code>D1 = x_2</code>).',
     rows: [
       ['<code>[1, 2, 3]</code>, <code>[1; 2; 3]</code>', 'Vector fila y vector columna.', '[1,2,3]^T', '[1; 2; 3]', 'm'],
-      ['<code>[V; M]</code>, <code>[A, b]</code>', 'Por bloques, como en MATLAB: los elementos pueden ser vectores o matrices. La coma los pone lado a lado (mismo número de filas) y el punto y coma uno debajo del otro (mismo número de columnas).', 'V:[2,1]\nM:[1,3]\nF:[5;10]\n[V;M]^(-1)*F=', '[1; 3]', 't'],
+      ['<code>[V; M]</code>, <code>[A, b]</code>', 'Por bloques: los elementos pueden ser vectores o matrices. La coma los pone lado a lado (mismo número de filas) y el punto y coma uno debajo del otro (mismo número de columnas).', 'V:[2,1]\nM:[1,3]\nF:[5;10]\n[V;M]^(-1)*F=', '[1; 3]', 't'],
       ['<code>a..b;n</code>', 'Rango: <code>n</code> valores de a hasta b, ambos incluidos.', 'x:0..1;5\nx=', '[0, 0.25, 0.5, 0.75, 1]', 't'],
       ['<code>a..paso..b</code>', 'Rango con paso, sin pasar de b (el paso puede ser negativo).', 'x:10..-3..1\nx=', '[10, 7, 4, 1]', 't'],
       ['<code>x_i</code>, <code>A_(i,j)</code>', 'Elemento, contando desde 1. Los índices pueden ser fórmulas: <code>x_(i+1)</code>.', 'A:[1,2;3,4]\nA_(2,1)=', '3', 't'],
@@ -112,7 +112,7 @@ export const FUNC_GROUPS = [
   },
   {
     title: 'Construir y reordenar matrices',
-    note: 'Con los nombres de MATLAB. Las que reordenan conservan las unidades y los complejos.',
+    note: 'Las que reordenan conservan las unidades y los complejos.',
     rows: [
       ['<code>zeros(n; m)</code>, <code>ones(n; m)</code>', 'Matriz de ceros o de unos (de n×n con un solo valor).', 'zeros(2; 3)', '[0, 0, 0; 0, 0, 0]', 'm'],
       ['<code>linspace(a; b; n)</code>', 'n valores igualmente espaciados de a a b (100 si se omite n).', 'linspace(0; 1; 5)', '[0, 0.25, 0.5, 0.75, 1]', 'm'],
@@ -122,7 +122,7 @@ export const FUNC_GROUPS = [
       ['<code>sort(v)</code>', 'Ordena un vector de menor a mayor.', 'sort([3,1,2])', '[1, 2, 3]', 'm'],
       ['<code>flip(v)</code>, <code>fliplr(A)</code>, <code>flipud(A)</code>', 'Invierte el orden: un vector; las columnas (izquierda-derecha); las filas (arriba-abajo).', 'fliplr([1,2;3,4])', '[2, 1; 4, 3]', 'm'],
       ['<code>repmat(A; n; m)</code>', 'Repite A n veces hacia abajo y m hacia la derecha.', 'repmat([1,2]; 2; 2)', '[1, 2, 1, 2; 1, 2, 1, 2]', 'm'],
-      ['<code>reshape(A; n; m)</code>', 'Los mismos elementos en n×m, tomados por columnas (como MATLAB).', 'reshape([1,2,3,4,5,6]; 3; 2)', '[1, 4; 2, 5; 3, 6]', 'm'],
+      ['<code>reshape(A; n; m)</code>', 'Los mismos elementos en n×m, tomados por columnas.', 'reshape([1,2,3,4,5,6]; 3; 2)', '[1, 4; 2, 5; 3, 6]', 'm'],
       ['<code>horzcat(A; B; …)</code>, <code>vertcat(A; B; …)</code>', 'Lado a lado y uno debajo del otro (como [A, B] y [A; B]).', 'vertcat([1,2]; [3,4])', '[1, 2; 3, 4]', 'm'],
       ['<code>kron(A; B)</code>', 'Producto de Kronecker.', 'kron([1,2]; [1;1])', '[1, 2; 1, 2]', 'm'],
       ['<code>any(v)</code>', '1 si algún elemento no es 0.', 'any([0,0,3])', '1', 'n'],
@@ -133,7 +133,7 @@ export const FUNC_GROUPS = [
     title: 'Álgebra lineal',
     note: 'Con números reales (inv, det, linsolve y eig también con complejos). eig admite hasta 12×12.',
     rows: [
-      ['<code>linsolve(A; b)</code>', 'x tal que A·x = b (como A\\b en MATLAB). Si A no es cuadrada, por mínimos cuadrados.', 'linsolve([2,1;1,3]; [3;5])', '[0.8; 1.4]', 'm'],
+      ['<code>linsolve(A; b)</code>', 'x tal que A·x = b. Si A no es cuadrada, por mínimos cuadrados.', 'linsolve([2,1;1,3]; [3;5])', '[0.8; 1.4]', 'm'],
       ['<code>rank(A)</code>', 'Rango.', 'rank([1,2;2,4])', '1', 'n'],
       ['<code>cond(A)</code>', 'Número de condición (con valores singulares).', 'cond([1,0;0,2])', '2', 'n'],
       ['<code>pinv(A)</code>', 'Pseudoinversa (vale con matrices singulares o no cuadradas).', 'pinv([1,2;2,4])', '[0.04, 0.08; 0.08, 0.16]', 'm'],
@@ -155,7 +155,7 @@ export const FUNC_GROUPS = [
     title: 'Interpolación y polinomios',
     note: 'Un polinomio es el vector de sus coeficientes, del mayor grado al menor: [1, 0, -2] es x² − 2.',
     rows: [
-      ['<code>interp1(xs; ys; x)</code>', 'Interpolación lineal en una tabla (x un número o un vector; conserva las unidades de ys). Fuera de la tabla da ⚠; con <code>interp1(xs; ys; x; "extrap")</code> extrapola con el primer o el último tramo, como en MATLAB.', 'interp1([0,1,2]; [0,10,40]; 1.5)', '25', 'n'],
+      ['<code>interp1(xs; ys; x)</code>', 'Interpolación lineal en una tabla (x un número o un vector; conserva las unidades de ys). Fuera de la tabla da ⚠; con <code>interp1(xs; ys; x; "extrap")</code> extrapola con el primer o el último tramo.', 'interp1([0,1,2]; [0,10,40]; 1.5)', '25', 'n'],
       ['<code>polyval(p; x)</code>', 'Valor del polinomio en x.', 'polyval([1,0,-2]; 3)', '7', 'n'],
       ['<code>roots(p)</code>', 'Raíces (columna); complejas si las hay.', 'roots([1,-6,11,-6])', '[3; 2; 1]', 'm'],
       ['', '', 'roots([1,0,1])=', '[1j; -1j]', 't'],
@@ -174,7 +174,7 @@ export const FUNC_GROUPS = [
   },
   {
     title: 'Números complejos',
-    note: '<code>j</code> es la unidad imaginaria (<code>3+4j</code>); un número también lleva el sufijo: <code>2.5j</code> o <code>2.5i</code> (la letra <code>i</code> sola sigue siendo una variable). Como en MATLAB, <code>sqrt(-4)</code> es <code>2j</code>, <code>ln(-1)</code> es <code>πj</code> y una base negativa con exponente no entero da un complejo. Valen las operaciones, las potencias, las funciones (sin, exp, ln, sqrt…), las matrices (inv, det, producto) y las unidades (una impedancia en Ω). Con complejos solo se compara con <code>==</code> y <code>!=</code>. Una cota, una gráfica o la condición de un if necesitan un real: abs, angle, real o imag lo dan.',
+    note: '<code>j</code> es la unidad imaginaria (<code>3+4j</code>); un número también lleva el sufijo: <code>2.5j</code> o <code>2.5i</code> (la letra <code>i</code> sola sigue siendo una variable). La raíz de un negativo da un complejo: <code>sqrt(-4)</code> es <code>2j</code>, <code>ln(-1)</code> es <code>πj</code> y una base negativa con exponente no entero da un complejo. Valen las operaciones, las potencias, las funciones (sin, exp, ln, sqrt…), las matrices (inv, det, producto) y las unidades (una impedancia en Ω). Con complejos solo se compara con <code>==</code> y <code>!=</code>. Una cota, una gráfica o la condición de un if necesitan un real: abs, angle, real o imag lo dan.',
     rows: [
       ['<code>abs(z)</code>', 'Módulo.', 'abs(3+4j)', '5', 'n'],
       ['<code>angle(z)</code>', 'Argumento (en grados o radianes, según el dibujo).', 'angle(1+1j)', '45', 'n'],
@@ -188,7 +188,7 @@ export const FUNC_GROUPS = [
     note: 'Una cadena va entre comillas: <code>"Cumple"</code> (sirven las “ ” del iPad; <code>""</code> dentro es una comilla). Se unen con <code>+</code> y se comparan con <code>==</code> y <code>!=</code>; un número se convierte con <code>num2str</code> (con su unidad). <code>["a", "b"]</code> es un vector de cadenas (<code>v_2</code> es la segunda). En el resultado se muestran entre comillas tipográficas. Para un mensaje de verificación: <code>if(σ&lt;Sy, "Cumple", "No cumple")</code>.',
     rows: [
       ['<code>num2str(x; n)</code>, <code>string(x)</code>', 'Un número como texto, con su unidad y como lo muestra la app (n decimales fijos si se da).', '"Tensión: " + num2str(210.254\'MPa)=', '“Tensión: 210.254 MPa”', 't'],
-      ['<code>sprintf(formato; …)</code>', 'Formato de MATLAB: %d, %f, %.2f, %e, %g, %s, %%. Sin unidades: divide por la unidad que quieres (F/1\'kN).', 'sprintf("%.1f kN"; 12.345)=', '“12.3 kN”', 't'],
+      ['<code>sprintf(formato; …)</code>', 'Formato: %d, %f, %.2f, %e, %g, %s, %%. Sin unidades: divide por la unidad que quieres (F/1\'kN).', 'sprintf("%.1f kN"; 12.345)=', '“12.3 kN”', 't'],
       ['<code>str2double(s)</code>, <code>str2num(s)</code>', 'El número escrito en una cadena.', 'str2double("3.25")*2', '6.5', 'n'],
       ['<code>strcat(a; b; …)</code>', 'Une cadenas (como +).', 'strcat("A"; "-"; "CAD")=', '“A-CAD”', 't'],
       ['<code>upper</code>, <code>lower</code>, <code>strtrim</code>, <code>reverse</code>', 'Mayúsculas, minúsculas, sin espacios en los extremos, al revés.', 'upper("abc")=', '“ABC”', 't'],
@@ -200,19 +200,19 @@ export const FUNC_GROUPS = [
       ['<code>strfind(s; patrón)</code>', 'Posiciones (desde 1) donde aparece el patrón; 0 si no aparece.', 'strfind("abcabc"; "bc")', '[2, 5]', 'm'],
       ['<code>strcmp(a; b)</code>, <code>strcmpi(a; b)</code>', '1 si son iguales (strcmpi, sin distinguir mayúsculas).', 'strcmpi("Abc"; "aBC")', '1', 'n'],
       ['<code>extractBefore</code>, <code>extractAfter</code>, <code>extractBetween</code>', 'Lo que hay antes o después de un patrón (o de una posición), o entre dos; con dos números, entre esas posiciones (incluidas).', 'extractAfter("x=10"; "=")=', '“10”', 't'],
-      ['', 'Entre dos posiciones (como <code>substr</code> de SMath).', 'extractBetween("abcdef"; 2; 4)=', '“bcd”', 't'],
+      ['', 'Entre dos posiciones.', 'extractBetween("abcdef"; 2; 4)=', '“bcd”', 't'],
     ],
   },
   {
     title: 'Programas',
-    note: 'Pasos en orden y ciclos dentro de una fórmula, como en SMath. Dentro, <code>s:valor</code> asigna una variable <b>local</b>: vale solo en esa fórmula (no crea variables del documento ni cambia las de afuera). Se pueden escribir en varias líneas, con sangría, y se dibujan como se escribieron. Un ciclo tiene un tope de 100 000 vueltas y 1,5 s: si lo pasa, avisa en vez de congelar la app.',
+    note: 'Pasos en orden y ciclos dentro de una fórmula. Dentro, <code>s:valor</code> asigna una variable <b>local</b>: vale solo en esa fórmula (no crea variables del documento ni cambia las de afuera). Se pueden escribir en varias líneas, con sangría, y se dibujan como se escribieron. Un ciclo tiene un tope de 100 000 vueltas y 1,5 s: si lo pasa, avisa en vez de congelar la app.',
     rows: [
       ['<code>line(a; b; …; r)</code>', 'Hace los pasos en orden y vale el último.', 'line(a:2; b:a^2; a+b)', '6', 'n'],
       ['<code>for(i; inicio..fin; cuerpo)</code>', 'Repite el cuerpo con i = inicio, inicio+1, … hasta fin (si fin < inicio, ninguna vez). Con un vector en lugar del rango, i toma cada elemento.', 'suma2(n):line(s:0; for(i; 1..n; s:s+i^2); s)\nsuma2(10)=', '385', 't'],
       ['<code>while(condición; cuerpo)</code>', 'Repite el cuerpo mientras la condición se cumpla. Para varios pasos en el cuerpo, <code>line(…)</code>.', 'line(k:0; while(k^2<50; k:k+1); k)', '8', 'n'],
       ['<code>break()</code>, <code>continue()</code>', 'Dentro de un for o un while: <code>break()</code> sale del ciclo; <code>continue()</code> pasa a la vuelta siguiente. En un script se escriben solos en su línea: <code>break</code>, <code>continue</code>.', 'line(s:0; for(i; 1..10; line(if(i > 3; break(); 0); s:s + i)); s)', '6', 'n'],
       ['<code>return(x)</code>', 'Termina la función (o el script) con el valor x, sin seguir. En un script, <code>return x</code>.', 'line(return(5); 7)', '5', 'n'],
-      ['<code>v_i:valor</code>, <code>A_(i,j):valor</code>', 'Asigna un elemento de un vector o de una matriz (o de un vector de cadenas) dentro de un programa, sobre una copia local: la variable del documento no cambia afuera. Como en MATLAB, un índice más allá del final agranda el vector con ceros (sirve para armar un vector en un <code>for</code>). El valor lleva la magnitud del vector; un vector de ceros sin unidades toma la del primer valor.', 'line(p:[1,2,3]; p_2:7; sum(p))', '11', 'n'],
+      ['<code>v_i:valor</code>, <code>A_(i,j):valor</code>', 'Asigna un elemento de un vector o de una matriz (o de un vector de cadenas) dentro de un programa, sobre una copia local: la variable del documento no cambia afuera. Un índice más allá del final agranda el vector con ceros (sirve para armar un vector en un <code>for</code>). El valor lleva la magnitud del vector; un vector de ceros sin unidades toma la del primer valor.', 'line(p:[1,2,3]; p_2:7; sum(p))', '11', 'n'],
     ],
   },
   {
@@ -225,11 +225,11 @@ export const FUNC_GROUPS = [
   },
   {
     title: 'Datos entre dibujos',
-    note: 'Como en SMath: guardan un valor para leerlo después o desde otro dibujo. Los datos viven en este navegador, en este dispositivo (Archivo → Datos los muestra, exporta e importa). Se escriben al confirmar un cambio del dibujo, no al arrastrar ni en la simulación; rfile lee siempre lo guardado, así con <code>c:rfile(n)</code> y <code>wfile(c+1; n)</code> cada cambio suma 1 y se ve lo último guardado.',
+    note: 'Guardan un valor para leerlo después o desde otro dibujo. Los datos viven en este navegador, en este dispositivo (Archivo → Datos los muestra, exporta e importa). Se escriben al confirmar un cambio del dibujo, no al arrastrar ni en la simulación; rfile lee siempre lo guardado, así con <code>c:rfile(n)</code> y <code>wfile(c+1; n)</code> cada cambio suma 1 y se ve lo último guardado.',
     rows: [
       ['<code>wfile(valor; Nombre)</code>', 'Guarda el valor (un número con su unidad, un vector, una matriz o una cadena) en el archivo de datos <i>Nombre</i> y vale 1. El nombre no se evalúa: es el de una variable (no importa su valor, ni si existe) o una cadena con extensión, <code>"datos.txt"</code>. El archivo es texto con la sintaxis de A-CAD y punto decimal: <code>12\'kN</code>, <code>[1, 2; 3, 4]\'mm</code>, <code>"texto"</code>.', "a:12'kN\nwfile(a; MiVariable)=", '1', 't'],
       ['<code>rfile(Nombre)</code>', 'El valor guardado con <code>wfile</code>, con sus unidades: <code>q:rfile(MiVariable)</code> da 12 kN. Si no hay datos con ese nombre, da ⚠.', '', '', ''],
-      ['<code>rfile(Nombre; inicial)</code>', 'Lo guardado o, si todavía no hay datos con ese nombre, <i>inicial</i> (que solo se calcula entonces): sirve para empezar, <code>c:rfile(n; 0)</code>. Extensión de A-CAD: en SMath el segundo argumento es una ruta.', 'rfile(NoExiste; 42)', '42', 'n'],
+      ['<code>rfile(Nombre; inicial)</code>', 'Lo guardado o, si todavía no hay datos con ese nombre, <i>inicial</i> (que solo se calcula entonces): sirve para empezar, <code>c:rfile(n; 0)</code>. Es una extensión de A-CAD.', 'rfile(NoExiste; 42)', '42', 'n'],
       ['<code>entered(nombre)</code>', 'Vale 1 en el paso que inició un Enter sobre el texto que define <i>nombre</i> (en la edición en el lugar, también sin cambiarlo) y 0 en cualquier otro paso: abrir el dibujo, mover algo, editar otro texto. Para ejecutar una orden al confirmarla: <code>wfile(si(entered(orden); hacer(x; orden); x); Estado)</code>.', 'entered(x)', '0', 'n'],
     ],
   },

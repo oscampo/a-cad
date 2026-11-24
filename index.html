@@ -475,7 +475,7 @@ body.nopanel #panel { display: none; }
 </div>
 <dialog id="dlgData"><form method="dialog" style="width:min(560px,calc(100vw - 48px))">
   <p style="margin:0 0 6px"><b>Datos</b> <span id="dataCount" style="color:var(--muted);font-size:13px"></span></p>
-  <small>La carpeta de datos de este dispositivo, común a todos los dibujos (como la carpeta «user» de SMath): los textos que guarda <code>wfile(valor, Nombre)</code> y lee <code>rfile(Nombre)</code>, y los archivos de audio (se reducen al importarlos: un canal, 16 kHz, 8 bits) que suenan con <code>play("nombre")</code> al confirmar un paso. Un dibujo lleva consigo los audios que nombra entre comillas y los restaura al abrirse si faltan aquí. Para llevar los demás datos a otro equipo, expórtalos e impórtalos allí.</small>
+  <small>La carpeta de datos de este dispositivo, común a todos los dibujos: los textos que guarda <code>wfile(valor, Nombre)</code> y lee <code>rfile(Nombre)</code>, y los archivos de audio (se reducen al importarlos: un canal, 16 kHz, 8 bits) que suenan con <code>play("nombre")</code> al confirmar un paso. Un dibujo lleva consigo los audios que nombra entre comillas y los restaura al abrirse si faltan aquí. Para llevar los demás datos a otro equipo, expórtalos e impórtalos allí.</small>
   <div id="dataList" style="margin:8px 0;max-height:45vh;overflow:auto"></div>
   <input type="file" id="dataIn" multiple hidden>
   <div class="actions"><button type="button" id="dataImport">Importar…</button><button class="on">Cerrar</button></div>
@@ -571,7 +571,7 @@ body.nopanel #panel { display: none; }
 <dialog id="dlgGraph"><form method="dialog">
   <b>Gráfica</b>
   <label>Título (opcional) <input id="grTitle" autocomplete="off"></label>
-  <label>Relaciones, una por línea: «variable1 vs variable2» (la 1.ª va en el eje vertical). Admiten operaciones, p. ej. «p1.x/p1.y vs t»; al final, «@y2», «@x2» o «@x2 y2» las lleva a los ejes secundarios; un estilo entre comillas, como en MATLAB, elige color, línea y símbolo: «σ vs N "rx"», «Y vs X "o"» (o elígelo abajo)<textarea id="grSeries" rows="4" placeholder="MR1 vs t&#10;ML1.d-p1.x vs t @y2"></textarea></label>
+  <label>Relaciones, una por línea: «variable1 vs variable2» (la 1.ª va en el eje vertical). Admiten operaciones, p. ej. «p1.x/p1.y vs t»; al final, «@y2», «@x2» o «@x2 y2» las lleva a los ejes secundarios; un estilo entre comillas elige color, línea y símbolo: «σ vs N "rx"», «Y vs X "o"» (o elígelo abajo)<textarea id="grSeries" rows="4" placeholder="MR1 vs t&#10;ML1.d-p1.x vs t @y2"></textarea></label>
   <div id="grStyles"></div>
   <div id="grVars" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
   <div id="grAxes"></div>
