@@ -1,4 +1,4 @@
-<!-- es: d1fe2d4b11 -->
+<!-- es: efaf821237 -->
 # Task guides
 
 Each guide solves a concrete task, step by step, with an example drawing that opens in the app. For the detail of each tool, follow the links to the chapter that explains it.
@@ -256,6 +256,51 @@ A smooth curve that passes exactly through every point. Open, it has no curvatur
 
 - A parallel curve at a fixed distance (the roller of a cam): [Offset](08-splines-y-trazados.md#offset).
 - The path of a moving point, turned into a spline: [Trace point](08-splines-y-trazados.md#trace-point).
+
+## Dimension in inches and see the drawing smaller
+
+Dimensions that say a unit (inches) while the drawing measures the real thing, and a dimension drawn to scale.
+
+**Example:** [Open the example](../../ejemplos/guias/cotas-en-pulgadas.json).
+
+### Steps
+
+1. Draw the plate and fix one corner. Double tap the length dimension and type the value with its unit: `4'in` (the apostrophe joins the value and the unit). Do the same with the height: `2'in`.
+2. Draw a long line and dimension it with `126'in`. It is too big to see next to the plate.
+3. Edit that dimension and add the scale in brackets: `126'in[*0.1]` (see [Scaled dimension](06-cotas.md#scaled-dimension)).
+4. To change only the unit a dimension is read in, use **Dimension unit** in its window (see [Dimension with unit](06-cotas.md#dimension-with-unit)).
+
+### What you will see
+
+The plate says "4 in" and "2 in", and the drawing (in mm) measures 101.6 by 50.8. The long line is drawn at one tenth: it measures 320.04 and its dimension still says "126 in", <u>underlined</u> to warn that it is not at real scale.
+
+### To continue
+
+- A dimension without a unit enters formulas as a number; to add it to one with a unit, give it the unit in the formula (`D1'mm+D2`). See [Dimensions with unit in formulas](06-cotas.md#dimensions-with-unit-in-formulas).
+- In a read-only dimension, the unit only changes the label.
+
+## Draw forces to scale
+
+Two forces in kN drawn with a representation scale that you change in a single place.
+
+**Example:** [Open the example](../../ejemplos/guias/escala-de-fuerzas.json).
+
+### Steps
+
+1. In a text, define the scale as a variable: `$$eF:1'mm/kN$$` (each kN is drawn with 1 mm).
+2. Draw a horizontal line and dimension it with the force and the scale: `30'kN[*eF]`.
+3. Do the same with another line: `45'kN[*eF]`.
+4. Change `eF` to `2'mm/kN`: both lines double in length.
+
+### What you will see
+
+The dimensions say "30 kN" and "45 kN", and the lines measure 30 and 45 mm. Unlike a reduction scale, the dimension is **not** underlined: it is at the scale you declared.
+
+### To continue
+
+- `eF` is read in the [reading order](07-texto-y-calculo.md#reading-order): if you redefine it further down, the dimensions above it keep using the previous one.
+- Without a scale, `30'kN` would measure 30000 (in SI) and the app warns you with ⚠. See [Scale with units](06-cotas.md#scale-with-units).
+- Vectors use the same scale: [Force polygon](#draw-a-force-polygon-with-vectors).
 
 ## Save, open and share your drawings
 

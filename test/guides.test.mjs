@@ -11,6 +11,7 @@ import { vecEnds } from '../src/vectors.js';
 import { laserClasses } from '../src/export.js';
 import { EXAMPLE_NAMES } from '../tools/build-guide-examples.mjs';
 import { viewNeeds } from '../src/examples.js';
+import { dimText, isScaledDim } from '../src/dims.js';
 
 await initSolver();
 let passed = 0;
@@ -106,6 +107,28 @@ t('placa redondeada: cuatro arcos de radio 8 y R1 manda sobre R2, R3 y R4; el la
   Object.values(d.cons).find((k) => k.t === 'DIST' && !k.hidden).v = 140;
   assert.equal(settle(d, solve, []).ok !== false, true);
   assert.deepEqual(Object.values(d.arcs).map((a) => Math.round(a.r * 1e6) / 1e6), [12, 12, 12, 12]);
+});
+
+t("cotas en pulgadas: 4'in y 2'in miden 101,6 y 50,8 (mm) y dicen in; 126'in[*0.1] mide 320,04 y sigue diciendo 126 in", () => {
+  const d = load('cotas-en-pulgadas');
+  const len = (k) => { const [a, b] = k.refs.map((r) => d.pts[r]); return Math.hypot(b.x - a.x, b.y - a.y); };
+  const ks = Object.values(d.cons).filter((k) => k.t === 'DIST');
+  assert.deepEqual(ks.map((k) => dimText(d, k)), ['4 in', '2 in', '126 in']);
+  assert.deepEqual(ks.map((k) => Math.round(len(k) * 1e3) / 1e3), [101.6, 50.8, 320.04]);
+  assert.equal(isScaledDim(ks[2]), true); assert.equal(isScaledDim(ks[0]), false);
+});
+
+t('escala de fuerzas: eF = 1 mm/kN da 30 y 45 mm con cotas «30 kN» y «45 kN»; con eF = 2 mm/kN las lineas se duplican', () => {
+  const d = load('escala-de-fuerzas');
+  const len = (k) => { const [a, b] = k.refs.map((r) => d.pts[r]); return Math.hypot(b.x - a.x, b.y - a.y); };
+  const ks = Object.values(d.cons).filter((k) => k.t === 'DIST');
+  assert.deepEqual(ks.map((k) => dimText(d, k)), ['30 kN', '45 kN']);
+  assert.deepEqual(ks.map((k) => Math.round(len(k) * 1e3) / 1e3), [30, 45]);
+  assert.equal(isScaledDim(ks[0]), false); // a la escala declarada, no subrayada
+  Object.values(d.texts).find((x) => x.text.includes('eF:')).text = "$$eF:2'mm/kN$$";
+  assert.equal(settle(d, solve, []).ok !== false, true);
+  assert.deepEqual(ks.map((k) => Math.round(len(k) * 1e3) / 1e3), [60, 90]);
+  assert.deepEqual(ks.map((k) => dimText(d, k)), ['30 kN', '45 kN']);
 });
 
 t('curva suave: un spline abierto por seis puntos con los extremos fijos', () => {

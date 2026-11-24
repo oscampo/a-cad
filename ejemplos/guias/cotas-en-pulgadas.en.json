@@ -1,0 +1,185 @@
+{
+ "app": "ipad-cad",
+ "version": "2.9.4",
+ "doc": {
+  "calc": 2,
+  "n": 22,
+  "pts": {
+   "p1": {
+    "x": 0,
+    "y": 0,
+    "fixed": true,
+    "auto": false
+   },
+   "p2": {
+    "x": 101.6,
+    "y": 0,
+    "fixed": false,
+    "auto": false
+   },
+   "p3": {
+    "x": 101.6,
+    "y": 50.8,
+    "fixed": false,
+    "auto": false
+   },
+   "p4": {
+    "x": 0,
+    "y": 50.8,
+    "fixed": false,
+    "auto": false
+   },
+   "p15": {
+    "x": 0,
+    "y": -30,
+    "fixed": true,
+    "auto": false
+   },
+   "p16": {
+    "x": 320.04,
+    "y": -30,
+    "fixed": false,
+    "auto": false
+   },
+   "p19": {
+    "x": 0,
+    "y": 90,
+    "fixed": false,
+    "auto": false
+   },
+   "p21": {
+    "x": 0,
+    "y": 85.5,
+    "fixed": false,
+    "auto": false
+   }
+  },
+  "lines": {
+   "l5": {
+    "a": "p1",
+    "b": "p2"
+   },
+   "l6": {
+    "a": "p2",
+    "b": "p3"
+   },
+   "l7": {
+    "a": "p3",
+    "b": "p4"
+   },
+   "l8": {
+    "a": "p4",
+    "b": "p1"
+   },
+   "l17": {
+    "a": "p15",
+    "b": "p16"
+   }
+  },
+  "circles": {},
+  "arcs": {},
+  "ellipses": {},
+  "texts": {
+   "t20": {
+    "pt": "p19",
+    "text": "The plate is 4'in by 2'in: the dimension says it in inches and the drawing (in mm) measures 101.6 by 50.8.",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t22": {
+    "pt": "p21",
+    "text": "The line below is 126'in but is drawn at 1:10 with [*0.1]: it measures 320.04 and its dimension still says \"126 in\", underlined.",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   }
+  },
+  "splines": {},
+  "traces": {},
+  "cons": {
+   "k9": {
+    "t": "H",
+    "refs": [
+     "l5"
+    ],
+    "n": 1
+   },
+   "k10": {
+    "t": "V",
+    "refs": [
+     "l6"
+    ],
+    "n": 1
+   },
+   "k11": {
+    "t": "H",
+    "refs": [
+     "l7"
+    ],
+    "n": 2
+   },
+   "k12": {
+    "t": "V",
+    "refs": [
+     "l8"
+    ],
+    "n": 2
+   },
+   "k13": {
+    "t": "DIST",
+    "refs": [
+     "p1",
+     "p2"
+    ],
+    "v": 101.6,
+    "expr": "4'in",
+    "name": "D1",
+    "du": "in"
+   },
+   "k14": {
+    "t": "DIST",
+    "refs": [
+     "p2",
+     "p3"
+    ],
+    "v": 50.8,
+    "expr": "2'in",
+    "name": "D2",
+    "du": "in"
+   },
+   "k18": {
+    "t": "DIST",
+    "refs": [
+     "p15",
+     "p16"
+    ],
+    "v": 320.04,
+    "expr": "126'in",
+    "scale": 0.1,
+    "name": "D3",
+    "du": "in"
+   }
+  },
+  "hatches": {},
+  "ltypes": {},
+  "cn": {
+   "H": 2,
+   "V": 2
+  },
+  "layers": {},
+  "curLayer": null,
+  "cnd": {
+   "D": 3
+  }
+ },
+ "view": {
+  "texts": true,
+  "dims": true,
+  "cons": true
+ }
+}

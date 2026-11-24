@@ -95,6 +95,7 @@ const EXAMPLES = {
       const t = d.texts[d.lines[l].vec.t]; t.anchor = 'bc';
       if (i < 3) t.text = '`F' + (i + 1) + '=`' + t.text; // el texto del vector es «$Dn=$»
       t.valOnly = true;
+      if (i === 3) t.color = '#dc2626'; // el valor de la resultante, del mismo rojo que su vector
     });
     [A, B, C, D].forEach((p, i) => { d.texts[addText(d, p, 'ABCD'[i], { h: 3.5277777777777777, anchor: 'bc' })]; });
     note(d, 0, 90, L.es ? [
@@ -206,6 +207,46 @@ const EXAMPLES = {
     ] : [
       'An open spline through six points; the ends are fixed.',
       'Drag a middle point: the curve deforms. With the spline selected, choose "Close / open" in the Spline dropdown.',
+    ]);
+    return d;
+  },
+  // 12. Cotas con unidad (pulgadas) y vista a escala
+  'cotas-en-pulgadas': (L) => {
+    const d = newDoc(), { p } = rectangle(d, 0, 0, 100, 50);
+    d.pts[p[0]].fixed = true;
+    addCon(d, { t: 'DIST', refs: [p[0], p[1]], v: 100, expr: "4'in" }); // la cota lo dice en pulgadas; el dibujo mide 101,6 (mm)
+    addCon(d, { t: 'DIST', refs: [p[1], p[2]], v: 50, expr: "2'in" });
+    const a = addPoint(d, 0, -30), b = addPoint(d, 320, -30);
+    d.pts[a].fixed = true;
+    addLine(d, a, b);
+    addCon(d, { t: 'DIST', refs: [a, b], v: 320, expr: "126'in", scale: 0.1 }); // 126 in dibujadas a 1:10 (320,04 mm); la cota sigue diciendo 126 in
+    note(d, 0, 90, L.es ? [
+      "La placa mide 4'in por 2'in: la cota lo dice en pulgadas y el dibujo (en mm) mide 101,6 por 50,8.",
+      "La línea de abajo vale 126'in pero se dibuja a 1:10 con [*0.1]: mide 320,04 y su cota sigue diciendo «126 in», subrayada.",
+    ] : [
+      "The plate is 4'in by 2'in: the dimension says it in inches and the drawing (in mm) measures 101.6 by 50.8.",
+      "The line below is 126'in but is drawn at 1:10 with [*0.1]: it measures 320.04 and its dimension still says \"126 in\", underlined.",
+    ]);
+    return d;
+  },
+  // 13. Fuerzas dibujadas a escala con una escala de representacion en una variable
+  'escala-de-fuerzas': (L) => {
+    const d = newDoc();
+    txt(d, 0, 40, "$eF:1'mm/kN$");
+    const mk = (y, kN) => {
+      const a = addPoint(d, 0, y), b = addPoint(d, kN, y);
+      d.pts[a].fixed = true;
+      const l = addLine(d, a, b);
+      addCon(d, { t: 'H', refs: [l] });
+      addCon(d, { t: 'DIST', refs: [a, b], v: kN, expr: kN + "'kN", scaleExpr: 'eF' });
+    };
+    mk(10, 30); mk(-5, 45);
+    note(d, 0, -25, L.es ? [
+      "eF vale 1'mm/kN: cada kN se dibuja con 1 mm. Las cotas dicen 30 kN y 45 kN, y las líneas miden 30 y 45 mm.",
+      "Cambia eF a 2'mm/kN y las dos líneas se alargan al doble; las cotas siguen diciendo lo mismo.",
+    ] : [
+      "eF is 1'mm/kN: each kN is drawn with 1 mm. The dimensions say 30 kN and 45 kN, and the lines measure 30 and 45 mm.",
+      "Change eF to 2'mm/kN and both lines double in length; the dimensions still say the same.",
     ]);
     return d;
   },
