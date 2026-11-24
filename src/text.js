@@ -147,8 +147,17 @@ function textValue1(doc, t) {
   // numerador entero. Se marca como los nombres con subindice (NM0/NM1). No se tocan: lo que va entre comillas, lo ya marcado, los
   // simbolos con «\», las unidades («'mm»), text(...) y color(...), las palabras de AsciiMath o del calculo (sin, pi, mean…), un nombre
   // pegado a un numero («2e5»), a un punto («p1.x»), seguido de «_» (subindice de AsciiMath) ni el texto de un subindice «_(texto)».
-  const PLAIN_ID = /("[^"]*")|(\uE004[^\uE005]*\uE005)|(\uE002[^\uE003]*\uE003)|((?:color|text)\([^()]*\))|(\\[A-Za-z]+)|('\s*[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*)|(?:_\([^(){}\n]*\))|((?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_.\\])[A-Za-z][A-Za-z0-9]+(?![A-Za-z0-9_]))/g;
-  const wrapPlain = (seg) => seg.replace(PLAIN_ID, (m, ...g) => (g[6] && !isWord(g[6]) ? NM0 + g[6] + NM1 : m));
+  const PLAIN_ID = /("[^"]*")|(\uE004[^\uE005]*\uE005)|(\uE002[^\uE003]*\uE003)|((?:color|text)\([^()]*\))|(\\[A-Za-z]+)|('\s*[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*)|(?:_\([^(){}\n]*\))|((?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_.\\])[A-Za-z][A-Za-z0-9]*(?![A-Za-z0-9_]))(?=(\()?)/g;
+  // Las funciones del documento («f(x):…», «area(r):…», las de una biblioteca): su nombre, seguido de «(», se marca como llamada (\uE006) para que
+  // «1/f(x)» tome f(x) entero como denominador; un nombre que no es funcion seguido de «(» es un producto.
+  let userFns = null;
+  const isUserFn = (n) => (userFns ||= new Set([...(st ||= textVars(doc)).defs.filter((d) => d.params).map((d) => d.name), ...Object.values(doc.texts || {}).flatMap((x) => (x.lib?.defs || []).filter((d) => d.params).map((d) => d.name))])).has(n);
+  const wrapPlain = (seg) => seg.replace(PLAIN_ID, (m, ...g) => {
+    const nm = g[6];
+    if (!nm || isWord(nm)) return m;
+    const call = !!g[7] && isUserFn(nm);
+    return nm.length < 2 && !call ? m : NM0 + nm + (call ? '\uE006' : '') + NM1;
+  });
   const wrapNames = (seg0) => {
     const seg = wrapPlain(seg0);
     if (!seg.includes('_(')) return seg;

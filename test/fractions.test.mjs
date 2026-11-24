@@ -34,6 +34,25 @@ t('parse: lo que no es una llamada no cambia (sin(x) a secas, x(y+z), a/b, (a+b)
   assert.equal(parse('x(y+z)').c.length, 2); // sin barra, no se agrupa
 });
 
+t('el denominador: «1/cos(z)» toma cos(z) entero; un nombre que no es funcion («a/b(c)») sigue siendo un producto', () => {
+  const f = frac('1/cos(z)');
+  assert.equal(f.b.t, 'row'); assert.equal(f.b.c[0].t, 'fn'); assert.equal(f.b.c[1].t, 'group');
+  assert.ok(parse('1/sin^2(x)').c.find((n) => n.t === 'frac').b.t === 'row'); // con exponente en la funcion
+  assert.equal(frac('a/b(c)').b.s, 'b'); // b no es una funcion: «a/b» y luego «(c)»
+  // el caso de la captura: la funcion del documento con sus dos fracciones
+  const d = newDoc(), P = addPoint(d, 0, 0);
+  const pieces = (txt) => { const L = layoutText(shownText(d, d.texts[addText(d, P, txt)]).text, (s) => s.length * 0.5, ''); const bar = L.prims.filter((q) => q.k === 'p'); return { ts: L.prims.filter((q) => q.k === 't'), bar }; };
+  const base = (r) => r.ts.find((q) => q.s === ':=').y; // la linea base: lo de abajo es denominador, lo de arriba, numerador
+  const r = pieces('$$LaFuncion(x;y;z):sin(x)/y+1/cos(z)$$');
+  assert.equal(r.bar.length, 2);
+  const abajo = (r2) => r2.ts.filter((q) => q.y > base(r2) + 0.1).map((q) => q.s);
+  assert.deepEqual(abajo(r), ['y', 'cos', '(', 'z', ')']); // y y cos(z): los dos denominadores, con su parentesis
+  // una funcion definida en el documento: «1/g(x)» toma g(x) entero; un nombre que no es funcion (a/b(c)) es un producto
+  addText(d, P, '$$g(t):t^2$$');
+  assert.deepEqual(abajo(pieces('$$h:1/g(x)$$')), ['g', '(', 'x', ')']);
+  assert.deepEqual(abajo(pieces('$$q:1/cos(z)$$')), ['cos', '(', 'z', ')']);
+});
+
 t('un nombre de varias letras es una sola variable: «ancho/2» dibuja «ancho» sobre «2»', () => {
   const g = draw('$$alto:ancho/2$$');
   const num = g.ts.find((q) => q.s === 'ancho'), den = g.ts.find((q) => q.s === '2');

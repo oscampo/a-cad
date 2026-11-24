@@ -84,7 +84,7 @@ t('fase 2: una biblioteca insertada vale desde su lugar, atada a sus propias tab
   assert.equal(show(5), '$$T_(st)_2=2$$'); assert.equal(show(6), '$$PR.T_(st)_2=200$$');
   assert.match(show(7), /⚠/); assert.match(show(9), /⚠/); // el ejemplo no viaja; tras clear(all) ya no vale
   assert.match(textVarErrors(d).map((e) => e.msg).join('|'), /«PR» es una biblioteca que está más abajo/);
-  const gris = (k) => shownText(d, T[k]).text.replace(/\uE004PR\uE005/g, 'PR'); // \u00ABPR\u00BB (varias letras) va marcado como una sola variable: aqui no cuenta
+  const gris = (k) => shownText(d, T[k]).text.replace(/\uE004PR\uE005/g, 'PR').replace(/\uE004h\uE006\uE005/g, 'h'); // \u00ABPR\u00BB (varias letras) y \u00ABh(\u00BB (una funcion de la biblioteca) van marcados: aqui no cuentan
   assert.match(gris(3), /color\(gray\)\(PR\.\)h/); // el prefijo, en gris
   assert.match(gris(6), /color\(gray\)\(PR\.\)\uE004T_\(st\)\uE005_2=/); // el nombre con subindice de la biblioteca se marca como nombre, igual que uno propio (no se ve «_(…)»)
 });

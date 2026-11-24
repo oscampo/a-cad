@@ -115,7 +115,7 @@ export function tokenize(s) {
     const ch = s[i];
     if (/\s/.test(ch)) { i++; continue; }
     if (ch === '\\' && s[i + 1] === ' ') { out.push({ t: 'space', w: 0.28 }); i += 2; continue; }
-    if (ch === '\uE004') { let j = s.indexOf('\uE005', i + 1); if (j < 0) j = n; out.push({ t: 'name', v: s.slice(i + 1, j) }); i = j + 1; continue; } // nombre con subindice de texto
+    if (ch === '\uE004') { let j = s.indexOf('\uE005', i + 1); if (j < 0) j = n; let v = s.slice(i + 1, j); const call = v.endsWith('\uE006'); if (call) v = v.slice(0, -1); out.push({ t: 'name', v, ...(call ? { call: true } : {}) }); i = j + 1; continue; } // nombre con subindice de texto (call: es una funcion del documento)
     if (ch === '\uE002') { let j = s.indexOf('\uE003', i + 1); if (j < 0) j = n; out.push({ t: 'vec', v: s.slice(i + 1, j) }); i = j + 1; continue; } // vector de un texto (salida x=)
     if (ch === '"') { let j = s.indexOf('"', i + 1); if (j < 0) j = n; out.push({ t: 'str', v: s.slice(i + 1, j) }); i = j + 1; continue; }
     if (ch === "'") {
@@ -227,7 +227,7 @@ function parseS(p) {
     case 'sym': return { t: 'sym', s: k.v };
     case 'name': { // «var_(texto)»: el nombre en cursiva y el subindice como texto
       const m = /^(.*?)_\((.*)\)$/.exec(k.v);
-      return m ? { t: 'ss', base: { t: 'v', s: m[1] }, sub: { t: 'txt', s: m[2] }, sup: null, nm: true } : { t: 'v', s: k.v };
+      return m ? { t: 'ss', base: { t: 'v', s: m[1] }, sub: { t: 'txt', s: m[2] }, sup: null, nm: true } : { t: 'v', s: k.v, ...(k.call ? { call: true } : {}) };
     }
     case 'vec': { // «[1, 2, 3]», «[1; 2]», «[1, 2; 3, 4]» (viene de una salida x=): matriz sin comas
       const rows = k.v.trim().replace(/^\[/, '').replace(/\]$/, '').split(rowChar()).map((r) => r.split(elemChar()).map((e) => parse(e.trim())).filter((c) => c.c.length)).filter((r) => r.length);
@@ -294,6 +294,8 @@ function parseI(p) {
   return { t: 'ss', base, sub, sup };
 }
 
+// ¿Es una llamada a funcion (una funcion de AsciiMath o del calculo, o una del documento)? Un nombre cualquiera seguido de «(» puede ser un producto.
+const isCall = (n) => n.t === 'fn' || !!n.call || (n.t === 'ss' && (n.base?.t === 'fn' || !!n.base?.call));
 function parseE(p) {
   let left = parseI(p);
   // «sin(x)/x», «f(x)/2», «area(r)/2»: una funcion (o un nombre) seguida de su parentesis y de «/» es el numerador entero de la fraccion
@@ -306,7 +308,12 @@ function parseE(p) {
   while (p.toks[p.i]?.t === 'slash') {
     const ew = !!p.toks[p.i].ew;
     p.i++;
-    const right = parseI(p);
+    let right = parseI(p);
+    // «1/cos(z)», «1/f(x)»: una funcion con su parentesis es el denominador entero (un nombre que no es funcion, «a/b(c)», es un producto: no)
+    if (isCall(right) && p.toks[p.i]?.t === 'open') {
+      const save = p.i, g = parseI(p);
+      if (g.t === 'group' || (g.t === 'ss' && g.base?.t === 'group')) right = { t: 'row', c: [right, g] }; else p.i = save;
+    }
     left = { t: 'frac', a: unwrap(left), b: unwrap(right), ...(ew ? { ew } : {}) };
   }
   return left;

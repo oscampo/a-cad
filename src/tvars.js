@@ -19,8 +19,8 @@ export const IT0 = '', IT1 = '';
 export const VB0 = '', VB1 = '';
 // Nombre de variable con subindice dentro de una formula: lo que va entre NM0 y NM1 se dibuja como nombre (cursiva) con el subindice como texto.
 export const NM0 = '', NM1 = '';
-const MARKS = /[-]/g;
-const VBM = /[-]/g;
+const MARKS = /[-]/g; // IT0 a NM1 y la marca de llamada a funcion (E006, ver text.js)
+const VBM = /[-]/g;
 export const plainText = (s) => String(s).replace(MARKS, '');
 // Tramos de una linea: [{ s, it }] (it: cursiva).
 export function runsOf(line) {
