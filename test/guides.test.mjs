@@ -13,6 +13,7 @@ import { EXAMPLE_NAMES } from '../tools/build-guide-examples.mjs';
 import { viewNeeds } from '../src/examples.js';
 import { dimText, isScaledDim } from '../src/dims.js';
 import { checkLibrary, libClosure } from '../src/library.js';
+import { blobClear, blobHas, blobGet, blobPut, takeEmbedded, restoreEmbedded, referencedBlobs } from '../src/blobs.js';
 
 await initSolver();
 let passed = 0;
@@ -158,6 +159,28 @@ t('escala de fuerzas: eF = 1 mm/kN da 30 y 45 mm con cotas «30 kN» y «45 kN»
   assert.equal(settle(d, solve, []).ok !== false, true);
   assert.deepEqual(ks.map((k) => Math.round(len(k) * 1e3) / 1e3), [60, 90]);
   assert.deepEqual(ks.map((k) => dimText(d, k)), ['30 kN', '45 kN']);
+});
+
+t('contador: el ejemplo trae el sonido ding (en es y en); al abrirlo pasa a Datos sin pisar un ding distinto, y al guardar vuelve a incrustarse', () => {
+  for (const lang of ['es', 'en']) {
+    const d = load('contador-y-sonido', lang);
+    const s = d.sounds?.ding, url = d.assets?.[s?.a];
+    assert.ok(s && url && url.startsWith('data:audio/wav;base64,'), `${lang}: el sonido ding no esta incrustado`);
+    assert.equal(s.ms, 1200);
+    assert.ok(url.length < 40000, 'el sonido reducido (mono, 16 kHz, 8 bits) pesa poco');
+    const emb = takeEmbedded(d); // lo que hace la app al abrir el dibujo
+    assert.deepEqual(emb.map((e) => e.name), ['ding']);
+    assert.equal(d.sounds, undefined); assert.equal(d.assets, undefined); // en memoria el dibujo no lleva el audio
+    blobClear();
+    assert.deepEqual(restoreEmbedded(emb), { added: ['ding'], differs: [] });
+    assert.ok(blobHas('ding', 'audio'));
+    assert.deepEqual(referencedBlobs(d), ['ding']); // play("ding") lo nombra: se incrusta de nuevo al guardar
+    // ya hay un ding distinto en el dispositivo: queda el del dispositivo
+    blobClear(); blobPut('ding', { kind: 'audio', url: 'data:audio/wav;base64,AAAA', ms: 1 }, false);
+    assert.deepEqual(restoreEmbedded(emb), { added: [], differs: ['ding'] });
+    assert.equal(blobGet('ding').url, 'data:audio/wav;base64,AAAA');
+    blobClear();
+  }
 });
 
 t('curva suave: un spline abierto por seis puntos con los extremos fijos', () => {

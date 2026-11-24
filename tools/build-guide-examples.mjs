@@ -12,11 +12,20 @@ import { makeVector } from '../src/vectors.js';
 import { circularArray } from '../src/edit.js';
 import { filletCorner } from '../src/corners.js';
 import { libPayload } from '../src/library.js';
+import { parseWav, reduceSound, addSound } from '../src/sounds.js';
 import { settle } from '../src/params.js';
 import { viewNeeds } from '../src/examples.js';
 
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 const DIR = fileURLToPath(new URL('../ejemplos/guias/', import.meta.url));
+
+// El sonido del ejemplo del contador: el WAV original (ejemplos/guias/aditional-files/ding.wav) reducido como lo hace la app al importar un audio
+// (un canal, 16 kHz, 8 bits) e incrustado en el dibujo; al abrir el ejemplo la app lo copia a Archivo → Datos si no hay uno con ese nombre.
+const dingSound = () => {
+  const b = readFileSync(new URL('../ejemplos/guias/aditional-files/ding.wav', import.meta.url));
+  const w = parseWav(new Uint8Array(b.buffer, b.byteOffset, b.byteLength));
+  return reduceSound(w.chs, w.rate);
+};
 
 // Un texto suelto: esquina superior izquierda en (x, y) (el eje y sube)
 const txt = (doc, x, y, text, h = 3.2) => addText(doc, addPoint(doc, x, y), text, { h, anchor: 'tl' });
@@ -195,8 +204,10 @@ const EXAMPLES = {
       ? 'c lee el dato «contador» (0 si no existe) y wfile lo guarda sumándole 1 cada vez que confirmas un cambio.'
       : 'c reads the data "contador" (0 if missing) and wfile stores it plus 1 each time you confirm a change.', 3);
     txt(d, 0, 59.11286254728878, L.es
-      ? 'Para oír «ding», importa un sonido llamado ding en Archivo → Datos. \nArrastra el punto debajo de B para provocar un cambio.'
-      : 'To hear "ding", import a sound named ding in File → Data. \nDrag the point below B to trigger a change.', 3);
+      ? 'El ejemplo ya trae el sonido «ding» (al abrirlo pasa a Archivo → Datos). \nArrastra el punto debajo de B para provocar un cambio.'
+      : 'The example already includes the "ding" sound (opening it copies it to File → Data). \nDrag the point below B to trigger a change.', 3);
+    const ding = dingSound();
+    addSound(d, 'ding', ding.url, { ms: ding.ms });
     return d;
   },
   // 10. Una placa con las esquinas redondeadas (redondeo con cota de radio)

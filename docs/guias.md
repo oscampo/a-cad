@@ -168,7 +168,7 @@ Tres líneas de texto normal: «ESTADO», «Vidas: 3» y «Puntos: 300», sobre 
 
 Un contador que no se pierde al cerrar el dibujo, y un sonido que suena cuando algo cambia.
 
-**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/contador-y-sonido.json). Al abrirlo escribe el dato `contador` en este dispositivo.
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/contador-y-sonido.json). Al abrirlo escribe el dato `contador` y copia el sonido `ding` a este dispositivo (si ya tienes otro `ding`, se queda el tuyo).
 
 ### Pasos
 
@@ -176,7 +176,7 @@ Un contador que no se pierde al cerrar el dibujo, y un sonido que suena cuando a
 2. Escribe `$$wfile(c+1; contador)=$$`: guarda ese valor más 1. El resultado es 1 y solo importa que se ejecute.
 3. Escribe `$$c=$$` para ver el valor que se leyó.
 4. Abre ![Datos](icons/folder-open.svg) **Archivo → Datos…**: ya aparece `contador` (ver [Datos del dispositivo](11-archivo-y-exportacion.md#datos-del-dispositivo)).
-5. Con **Importar…** agrega un audio y llámalo `ding`. Escribe `$$play("ding")=$$` para reproducirlo (ver [Sonidos](funciones.md#sonidos)).
+5. Un audio se agrega con **Importar…** y se le da un nombre; el ejemplo ya trae uno llamado `ding`. Escribe `$$play("ding")=$$` para reproducirlo (ver [Sonidos](funciones.md#sonidos)).
 
 ### Qué verás
 

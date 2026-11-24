@@ -1,4 +1,4 @@
-<!-- es: 090ece1505 -->
+<!-- es: e2622097ac -->
 # Task guides
 
 Each guide solves a concrete task, step by step, with an example drawing that opens in the app. For the detail of each tool, follow the links to the chapter that explains it.
@@ -169,7 +169,7 @@ Three lines of normal text: "ESTADO", "Vidas: 3" and "Puntos: 300", on the backg
 
 A counter that is not lost when you close the drawing, and a sound that plays when something changes.
 
-**Example:** [Open the example](../../ejemplos/guias/contador-y-sonido.json). When opened it writes the `contador` data on this device.
+**Example:** [Open the example](../../ejemplos/guias/contador-y-sonido.json). When opened it writes the `contador` data and copies the `ding` sound to this device (if you already have a different `ding`, yours stays).
 
 ### Steps
 
@@ -177,7 +177,7 @@ A counter that is not lost when you close the drawing, and a sound that plays wh
 2. Type `$$wfile(c+1; contador)=$$`: it stores that value plus 1. The result is 1 and all that matters is that it runs.
 3. Type `$$c=$$` to see the value that was read.
 4. Open ![Data](../icons/folder-open.svg) **File → Data…**: `contador` is already there (see [Device data](11-archivo-y-exportacion.md#device-data)).
-5. With **Import…** add an audio file and name it `ding`. Type `$$play("ding")=$$` to play it (see [Sounds](funciones.md#sounds)).
+5. An audio file is added with **Import…** and given a name; the example already includes one called `ding`. Type `$$play("ding")=$$` to play it (see [Sounds](funciones.md#sounds)).
 
 ### What you will see
 
