@@ -1965,7 +1965,10 @@ function selectAt(p) {
     lastTxTap = dblTx ? null : { id: h.id, t: now, x: p.x, y: p.y };
     if (dblTx) { sel = [h]; lastTap = null; afterChange(); openProps(h); return; }
     if (textLinkAt(doc, doc.texts[h.id], toModel(p.x, p.y), measureRel, 4 / view.s)) { sel = [h]; afterChange(); return; }
-    if (!doc.texts[h.id].lib && !sim) { sel = []; afterChange(); startTextEdit(h.id, p); return; } // un toque lo edita en el lugar (el cursor donde se toco)
+    // un toque lo edita en el lugar (el cursor donde se toco), salvo un objeto de codigo colapsado (biblioteca o script sin su codigo a la vista):
+    // es un bloque pequeño y apretado, un toque ahi (mas en tablet o celular) lo abria sin querer; se edita con doble toque (propiedades)
+    const tt = doc.texts[h.id], codeObj = tt.lib || (isScript(tt.text) && !tt.open);
+    if (!codeObj && !sim) { sel = []; afterChange(); startTextEdit(h.id, p); return; }
     if (!txTapHint) { txTapHint = true; toast('Para seleccionar un texto, enciérralo con un cuadro (arrastra desde él o desde un lugar vacío); doble toque abre sus propiedades'); }
     h = hitTest(p.x, p.y, true);
   }
@@ -2755,6 +2758,7 @@ function endTextLive() { const ed = txState?.edit; txState = null; txLiveBox.hid
 // ---- edicion en el lugar: un toque sobre un texto abre la misma entrada encima de el, con su fuente (la ecuacion sin «$$», el texto
 // normal tal cual, el script con su codigo) y el cursor donde se toco. Enter (Shift+Enter en un script) o tocar fuera lo guardan;
 // Esc lo deja como estaba. Mientras se edita, el texto no se dibuja (la entrada ocupa su lugar). El doble toque sigue abriendo sus propiedades.
+// Un objeto de codigo colapsado (biblioteca o script sin «Mostrar el código») no se edita con un toque: se abre con doble toque.
 function textEditSrc(t) {
   if (isScript(t.text)) return { kind: 'script', src: t.text };
   const m = /^\$\$([\s\S]*)\$\$$/.exec(t.text);

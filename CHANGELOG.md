@@ -8,6 +8,10 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 - Sonidos: **`play("nombre")`** hace sonar un sonido del dibujo, y **Archivo → Datos…** los importa, prueba, exporta y borra. Los sonidos viven en la carpeta de datos del dispositivo (IndexedDB), común a todos los dibujos y junto a los textos de wfile/rfile; un dibujo lleva incrustados, al guardarlo, los que nombra entre comillas (`play("warp")`, también dentro de una biblioteca) y al abrirse restaura los que faltan sin pisar uno que ya exista con ese nombre (si es distinto, avisa). Un nombre armado con una variable no se detecta y no viaja con el dibujo. Al importar un archivo de audio (WAV, MP3, OGG, M4A…) se reduce a un canal, 16 kHz y 8 bits, unos 16 KB por segundo, para que el .json y GitHub no pesen. `play` suena una sola vez, en el paso que confirma un cambio (un Enter en un texto, el mismo paso en que se ejecuta `wfile`); no suena al redibujar, al arrastrar, al abrir el dibujo ni en la simulación. Vale 1 si el dibujo tiene ese sonido y 0 si no (un sonido que falta no rompe el cálculo), y se puede usar dentro de una función o de una biblioteca. Los navegadores solo dejan sonar después de un toque o una tecla. Pruebas en `test/sounds.test.mjs`.
 
+### Cambia el comportamiento
+
+- Textos: un toque sobre un objeto de código colapsado (una biblioteca insertada o un script sin «Mostrar el código») ya no abre la edición en el lugar: el bloque es pequeño y en tablet o celular se abría sin querer. El doble toque sigue abriendo sus propiedades, donde se edita el código; un script con el código a la vista se sigue editando con un toque.
+
 ## v2.9.4 (2026-11-23)
 
 ### Nuevo
