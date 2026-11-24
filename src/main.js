@@ -4076,11 +4076,11 @@ function syncPanel() {
   const txt = sel.map((s) => (s.k === 'tx' ? doc.texts[s.id] : null)).find(Boolean);
   // una linea constructiva se muestra en el panel sin cambiar el estilo de lo que se dibuje despues
   const csel = first && first.ltype === 'constructiva' ? { color: first.color, ltype: first.ltype, w: first.w, ls: first.ls ?? 1 } : null;
-  if (first && !csel) { cur.color = first.color; cur.ltype = first.ltype; cur.w = first.w; cur.ls = first.ls ?? 1; }
+  if (first && !csel) { cur.color = first.color ?? cur.color; cur.ltype = first.ltype ?? cur.ltype; cur.w = first.w ?? cur.w; cur.ls = first.ls ?? 1; } // un elemento sin estilo (archivo antiguo o hecho a mano) no borra el estilo actual
   else if (hat) cur.color = hat.color;
   else if (txt) cur.color = txt.color;
   else if (sel.some((s) => s.k === 'co' && doc.cons[s.id]?.t === 'LEAD')) { const ld0 = doc.cons[sel.find((s) => s.k === 'co' && doc.cons[s.id]?.t === 'LEAD').id], ld = leadBody(doc, ld0) || ld0; cur.color = ld.color ?? cur.color; cur.ltype = ld.ltype ?? cur.ltype; cur.w = ld.w ?? cur.w; cur.ls = ld.ls ?? 1; } // línea indicativa: su estilo
-  else if (sel.some((s) => s.k === 'pt' && doc.traces[s.id])) { const tr = doc.traces[sel.find((s) => s.k === 'pt' && doc.traces[s.id]).id]; cur.color = tr.color; cur.ltype = tr.ltype; cur.w = tr.w; cur.ls = tr.ls ?? 1; }
+  else if (sel.some((s) => s.k === 'pt' && doc.traces[s.id])) { const tr = doc.traces[sel.find((s) => s.k === 'pt' && doc.traces[s.id]).id]; cur.color = tr.color ?? cur.color; cur.ltype = tr.ltype ?? cur.ltype; cur.w = tr.w ?? cur.w; cur.ls = tr.ls ?? 1; }
   const sv = csel || cur;
   $('ltEl').value = String(sv.ls ?? 1);
   fillLtypes(sv.ltype);
