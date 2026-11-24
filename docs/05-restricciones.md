@@ -50,11 +50,11 @@ Puntos, líneas o círculos. Un punto fijo no se mueve al arrastrar.
 
 ## Indicadores
 
-Cada relación se rotula con su letra y número junto a los elementos que involucra (los mismos número y letra en todos): una de un punto con un línea, círculo o arco, junto al punto y al elemento; una horizontal o vertical entre 2 puntos, junto a los dos. Las de engranaje se marcan con **G** y las de rueda y cremallera con **Cr**.
+Cada relación se rotula con su letra y número junto a los elementos que involucra (los mismos número y letra en todos): una de un punto con una línea, un círculo o un arco, junto al punto y al elemento; una horizontal o vertical entre 2 puntos, junto a los dos. Las de engranaje se marcan con **G** y las de rueda y cremallera con **Cr**.
 
 ## Restricciones redundantes
 
-Una restricción redundante no agrega información (otras ya implican lo mismo) y hace más lento cada cálculo, porque el solver resuelve dos veces y las diagnostica. El botón «Redundantes» (grupo Restricciones) las lista y ofrece quitarlas; al abrir un archivo que las tenga aparece un aviso. Las cotas con nombre no se quitan solas (pueden alimentar fórmulas). Al arrastrar un mecanismo con fórmulas que leen medidas, un punto sobre un círculo que el mouse no puede alcanzar exactamente se atrae solo en la primera vuelta de cálculo.
+Una restricción redundante no agrega información (otras ya implican lo mismo) y hace más lento cada cálculo, porque el solver resuelve dos veces y las diagnostica. El botón «Redundantes» (grupo Restricciones) las lista y ofrece quitarlas; al abrir un archivo que las tenga aparece un aviso. Las cotas con nombre no se quitan solas (pueden alimentar fórmulas).
 
 ## Numeración
 

@@ -1,4 +1,4 @@
-<!-- es: d036756caf -->
+<!-- es: 1a1ee19af3 -->
 # 5. Constraints
 
 The geometric relations the solver always maintains: horizontal, parallel, tangent, coincident and the rest, with their numbering in the drawing.
@@ -55,7 +55,7 @@ Each relation is labeled with its letter and number next to the elements it invo
 
 ## Redundant constraints
 
-A redundant constraint adds no information (others already imply the same thing) and slows down every calculation, because the solver solves twice and diagnoses them. The "Redundant" button (Constraints group) lists them and offers to remove them; when you open a file that has them, a notice appears. Named dimensions are not removed automatically (they may feed formulas). When you drag a mechanism with formulas that read measurements, a point on a circle that the mouse cannot reach exactly is pulled in on its own in the first calculation pass.
+A redundant constraint adds no information (others already imply the same thing) and slows down every calculation, because the solver solves twice and diagnoses them. The "Redundant" button (Constraints group) lists them and offers to remove them; when you open a file that has them, a notice appears. Named dimensions are not removed automatically (they may feed formulas).
 
 ## Numbering
 

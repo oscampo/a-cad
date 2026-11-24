@@ -1,4 +1,4 @@
-<!-- es: 28ef7e91de -->
+<!-- es: 5af73dd3fb -->
 # 12. Keyboard shortcuts
 
 The keys for each tool, for working with the keyboard.
@@ -7,7 +7,20 @@ The keys for each tool, for working with the keyboard.
 
 ---
 
-V select, P point, L line, K construction line, C circle, B rectangle, G polygon, F fillet, O ellipse, Ctrl/Cmd+C copy, Ctrl/Cmd+V paste, R arc by center, A arc by 3 points, S spline, T text, D dimension, I intersection, X trim, E extend. Ctrl/Cmd+Z undo, Ctrl/Cmd+Y (or Ctrl/Cmd+Shift+Z) redo, Del or Backspace deletes, Esc cancels or finishes.
+Tools (one letter, without Ctrl):
+
+- **V** select, **P** point, **I** intersection.
+- **L** line, **K** construction line, **M** midpoint line, **W** vector.
+- **C** circle, **O** ellipse, **R** arc by center, **A** arc by 3 points, **S** spline.
+- **B** rectangle, **G** polygon.
+- **T** text, **D** dimension.
+- **X** trim, **E** extend, **F** fillet.
+
+Editing:
+
+- **Ctrl/Cmd+C** copy and **Ctrl/Cmd+V** paste.
+- **Ctrl/Cmd+Z** undo, **Ctrl/Cmd+Y** (or **Ctrl/Cmd+Shift+Z**) redo.
+- **Del** or **Backspace** deletes the selection; **Esc** cancels or finishes what you are doing.
 
 ---
 

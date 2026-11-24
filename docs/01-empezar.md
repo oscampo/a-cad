@@ -23,6 +23,7 @@ Rueda = zoom; botón central, botón derecho o Espacio + arrastrar = desplazar.
 Muestra u oculta el panel de herramientas de la derecha. El primer botón de la barra abre el **árbol de elementos**.
 
 - La barra inferior explica la herramienta activa y muestra los datos del elemento seleccionado.
+- Deshacer, rehacer, borrar selección y ajustar vista están a la derecha de la barra.
 - Seleccionar: toca un elemento (toca varios para sumar). Los botones del panel solo se activan si la selección les sirve.
 
 ## Lupa del dedo
@@ -31,9 +32,7 @@ Toca y **sostén** (un cuarto de segundo, sin mover) y aparece un círculo con u
 
 ## Aro del cursor
 
-El circulito que acompaña al lápiz (sobre la pantalla) o al ratón ahora también aparece en Seleccionar, en la posición real del cursor.
-
-- Deshacer, rehacer, borrar selección y ajustar vista están a la derecha de la barra.
+El circulito que acompaña al lápiz (sobre la pantalla) o al ratón también aparece en la herramienta Seleccionar, en la posición real del cursor.
 
 ---
 

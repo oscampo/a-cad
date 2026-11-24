@@ -1,4 +1,4 @@
-<!-- es: 54d3966327 -->
+<!-- es: 2d08ad7e69 -->
 # 1. Getting started
 
 How to use the app: gestures with the pencil, finger and mouse, the parts of the screen, and how to select.
@@ -24,6 +24,7 @@ Wheel = zoom; middle button, right button or Space + drag = pan.
 Shows or hides the tools panel on the right. The first button on the bar opens the **element tree**.
 
 - The bottom bar explains the active tool and shows the data of the selected element.
+- Undo, redo, delete selection and fit view are on the right of the bar.
 - Selecting: tap an element (tap several to add). The panel buttons are only enabled if the selection suits them.
 
 ## Finger magnifier
@@ -32,9 +33,7 @@ Touch and **hold** (a quarter of a second, without moving) and a circle appears 
 
 ## Cursor ring
 
-The small circle that accompanies the pencil (over the screen) or the mouse now also appears in Select, at the cursor's real position.
-
-- Undo, redo, delete selection and fit view are on the right of the bar.
+The small circle that accompanies the pencil (over the screen) or the mouse also appears in the Select tool, at the cursor's real position.
 
 ---
 
