@@ -1,4 +1,4 @@
-<!-- es: 9736995815 -->
+<!-- es: 628ebc32b7 -->
 # 2. Drawing
 
 The tools that create geometry (points, lines, circles, arcs, ellipses, splines, rectangles and polygons) and the drawing aids: the soft lock and the intersection magnet.
@@ -9,17 +9,7 @@ The tools that create geometry (points, lines, circles, arcs, ellipses, splines,
 
 ## Dropdown buttons
 
-Buttons with a marked corner are **dropdowns**: they show the last tool used from the group.
-
-Tap the corner, tap the button again when it is already active, or press and hold it to see the others.
-
-### Groups mentioned in this chapter
-
-- **Line**: ![Vector](../icons/vector.svg) Vector (W), ![Midpoint line](../icons/mline.svg) Midpoint line (M) and ![Construction line](../icons/cline.svg) Construction line (K).
-- **Circle**: ![Circle through 3 points](../icons/circle3.svg) Circle through 3 points and ![Construction circle](../icons/ccircle.svg) construction circle.
-- **Ellipse**: ![Partial ellipse](../icons/earc.svg) Partial ellipse.
-- **Arc**: ![Arc by 3 points](../icons/arc-3.svg) Arc by 3 points (A) and ![Construction arcs](../icons/carcc.svg) construction arcs.
-- **Rectangle**: ![Center rectangle](../icons/rect-c.svg) Center rectangle.
+Buttons with a marked corner are **dropdowns**: they show the last tool used from the group. All the groups, with what each one contains, are gathered in [Dropdown buttons](desplegables.md).
 
 ## Point (P)
 
@@ -33,7 +23,7 @@ Esc or [Select](03-seleccionar-y-editar.md#select-v) ends it.
 
 ## Vector (W)
 
-![Vector](../icons/vector.svg) **Vector (W)** (in the [Line dropdown](02-dibujar.md#dropdown-buttons)): drawn like a line, but it has an **arrowhead at the end point** (the tail is the start) and its **magnitude** written as text at the midpoint.
+![Vector](../icons/vector.svg) **Vector (W)** (in the [Line dropdown](desplegables.md#line)): drawn like a line, but it has an **arrowhead at the end point** (the tail is the start) and its **magnitude** written as text at the midpoint.
 
 ### Magnitude text
 
@@ -83,13 +73,13 @@ You can choose the line and the end in any order, or select them before choosing
 
 ## Midpoint line (M)
 
-![Midpoint line](../icons/mline.svg) **Midpoint line (M)** (in the [Line dropdown](02-dibujar.md#dropdown-buttons)): tap the start point, which will be the *midpoint*, and then an end (or drag); the line grows equally to the other side.
+![Midpoint line](../icons/mline.svg) **Midpoint line (M)** (in the [Line dropdown](desplegables.md#line)): tap the start point, which will be the *midpoint*, and then an end (or drag); the line grows equally to the other side.
 
 It gets a [midpoint](05-restricciones.md#midpoint) (M) constraint and the soft lock works as it does for lines.
 
 ## Construction line (K)
 
-![Construction line](../icons/cline.svg) **Construction line (K)** (in the [Line dropdown](02-dibujar.md#dropdown-buttons)): gray (#C3C3C3), "thin" weight, with a continuous stroke in the middle and a point at each end, separated by a gap; the points look like those of the "dash-dot" type.
+![Construction line](../icons/cline.svg) **Construction line (K)** (in the [Line dropdown](desplegables.md#line)): gray (#C3C3C3), "thin" weight, with a continuous stroke in the middle and a point at each end, separated by a gap; the points look like those of the "dash-dot" type.
 
 It is drawn like a normal line, with soft lock.
 
@@ -101,7 +91,7 @@ It does not appear in the laser-cut SVG unless you change its class to Cut or Ma
 
 ## Circle through 3 points
 
-![Circle through 3 points](../icons/circle3.svg) **Circle through 3 points** (in the [Circle dropdown](02-dibujar.md#dropdown-buttons)): tap 3 non-collinear points; the points end up on the circumference.
+![Circle through 3 points](../icons/circle3.svg) **Circle through 3 points** (in the [Circle dropdown](desplegables.md#circle)): tap 3 non-collinear points; the points end up on the circumference.
 
 ## Ellipse (O)
 
@@ -121,7 +111,7 @@ It is an element of its own:
 
 ## Partial ellipse
 
-![Partial ellipse](../icons/earc.svg) **Partial ellipse** (in the [Ellipse dropdown](02-dibujar.md#dropdown-buttons)): creates an elliptical arc.
+![Partial ellipse](../icons/earc.svg) **Partial ellipse** (in the [Ellipse dropdown](desplegables.md#ellipse)): creates an elliptical arc.
 
 **First steps.** The first three steps are those of the ellipse (center, end of the first axis and point of the second axis); a dotted reference ellipse remains.
 
@@ -139,7 +129,7 @@ It is an element of its own:
 
 ## Construction circle and arcs
 
-![Construction circle](../icons/ccircle.svg) **Construction circle and arcs** (in the [Circle and Arc dropdowns](02-dibujar.md#dropdown-buttons)): they use the color and weight of the construction line.
+![Construction circle](../icons/ccircle.svg) **Construction circle and arcs** (in the [Circle and Arc dropdowns](desplegables.md)): they use the color and weight of the construction line.
 
 The circle looks "dash-dot"; the arcs have a point at each end.
 
@@ -147,7 +137,7 @@ You can also *convert* any chosen element to the "Construction" type in the [Sty
 
 ## Arc by 3 points (A)
 
-![Arc by 3 points](../icons/arc-3.svg) **Arc by 3 points (A)** (in the [Arc dropdown](02-dibujar.md#dropdown-buttons)): start, intermediate point and end.
+![Arc by 3 points](../icons/arc-3.svg) **Arc by 3 points (A)** (in the [Arc dropdown](desplegables.md#arc)): start, intermediate point and end.
 
 ## Spline (S)
 
@@ -163,7 +153,7 @@ It gets horizontal and vertical constraints, so it stays a rectangle when you mo
 
 ## Center rectangle
 
-![Center rectangle](../icons/rect-c.svg) **Center rectangle** (in the [Rectangle dropdown](02-dibujar.md#dropdown-buttons)): tap the center and a corner (or drag from the center to the corner).
+![Center rectangle](../icons/rect-c.svg) **Center rectangle** (in the [Rectangle dropdown](desplegables.md#rectangle)): tap the center and a corner (or drag from the center to the corner).
 
 The center is the midpoint of the diagonal.
 

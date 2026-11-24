@@ -8,7 +8,7 @@ Guardar y abrir dibujos (también en un repositorio de GitHub) y exportar a PNG,
 
 ## Botón Archivo
 
-![Archivo](icons/save.svg) **Botón Archivo** (barra, entre el menú y la ayuda) abre el [desplegable](02-dibujar.md#botones-desplegables) con:
+![Archivo](icons/save.svg) **Botón Archivo** (barra, entre el menú y la ayuda) abre el [desplegable](desplegables.md#archivo) con:
 
 - ![Nuevo dibujo](icons/file-plus.svg) **Nuevo**
 - **Guardar**

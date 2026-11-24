@@ -10,7 +10,7 @@ import { chapterHtml, blocks, setDir, setLinks } from './md-html.mjs';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // Orden de la ayuda: los capitulos del manual; null marca donde la app pone los que arma ella (calc, icons, funcs)
 export const CHAPTERS = [
-  ['conceptos', 'conceptos.md'], ['empezar', '01-empezar.md'], ['guias', 'guias.md'], ['dibujar', '02-dibujar.md'], ['seleccionar', '03-seleccionar-y-editar.md'],
+  ['conceptos', 'conceptos.md'], ['empezar', '01-empezar.md'], ['guias', 'guias.md'], ['desplegables', 'desplegables.md'], ['dibujar', '02-dibujar.md'], ['seleccionar', '03-seleccionar-y-editar.md'],
   ['dividir', '04-dividir-copiar-y-repetir.md'], ['restricciones', '05-restricciones.md'], ['cotas', '06-cotas.md'],
   ['calc', null], ['icons', null], ['funcs', null],
   ['splines', '08-splines-y-trazados.md'], ['simulaciones', '09-simulaciones-graficas.md'], ['estilo', '10-estilo-capas-y-vista.md'],

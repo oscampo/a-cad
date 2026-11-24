@@ -24,7 +24,7 @@ Con **varios elementos seleccionados**, arrastrar cualquiera de ellos mueve todo
 
 ## Filtrar
 
-![Filtrar](icons/filter.svg) **Filtrar** (en el [desplegable](02-dibujar.md#botones-desplegables) de Seleccionar) elige qué se puede seleccionar.
+![Filtrar](icons/filter.svg) **Filtrar** (en el [desplegable](desplegables.md#seleccionar) de Seleccionar) elige qué se puede seleccionar.
 
 - **Por entidades:** puntos, líneas, círculos, arcos, elipses, splines, textos, rellenos, cotas.
 - **Por tipo de línea.**
@@ -92,7 +92,7 @@ Los cambios se aplican al momento y se pueden deshacer.
 
 ## Copiar / Pegar
 
-![Copiar](icons/copy.svg) ![Pegar](icons/paste.svg) **Copiar / Pegar** (en el [desplegable](02-dibujar.md#botones-desplegables); Ctrl+C y Ctrl+V): el botón muestra Copiar, y después de copiar pasa a mostrar Pegar (para copiar de nuevo usa Ctrl+C o el desplegable).
+![Copiar](icons/copy.svg) ![Pegar](icons/paste.svg) **Copiar / Pegar** (en el [desplegable](desplegables.md#copiar-y-pegar); Ctrl+C y Ctrl+V): el botón muestra Copiar, y después de copiar pasa a mostrar Pegar (para copiar de nuevo usa Ctrl+C o el desplegable).
 
 **Copiar** guarda la selección con sus restricciones internas.
 

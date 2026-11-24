@@ -1,4 +1,4 @@
-<!-- es: 792d5068b4 -->
+<!-- es: bc1f2b4212 -->
 # 8. Splines and paths (cams and trajectories)
 
 Free curves that pass through points of the drawing, the path of a moving point and offset curves, the basis of cams and trajectories.
@@ -33,7 +33,7 @@ Dragging a point of the spline, or a point attached to it, deforms the curve and
 
 ![Spline](../icons/spline.svg) **Spline button** (toolbar): tap to draw a spline.
 
-**Dropdown.** Tap again or press and hold to open the [dropdown](02-dibujar.md#dropdown-buttons), which contains:
+**Dropdown.** Tap again or press and hold to open the [dropdown](desplegables.md#spline-and-paths), which contains:
 
 - Trace point
 - Clear trace

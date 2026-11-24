@@ -8,17 +8,7 @@ Las herramientas que crean geometría (puntos, líneas, círculos, arcos, elipse
 
 ## Botones desplegables
 
-Los botones con una esquina marcada son **desplegables**: muestran la última herramienta usada del grupo.
-
-Toca la esquina, vuelve a tocar el botón cuando ya está activo, o mantenlo presionado para ver las demás.
-
-### Grupos que menciona este capítulo
-
-- **Línea**: ![Vector](icons/vector.svg) Vector (W), ![Línea de punto medio](icons/mline.svg) Línea de punto medio (M) y ![Línea constructiva](icons/cline.svg) Línea constructiva (K).
-- **Círculo**: ![Círculo perimetral](icons/circle3.svg) Círculo perimetral y ![Círculo constructivo](icons/ccircle.svg) círculo constructivo.
-- **Elipse**: ![Elipse parcial](icons/earc.svg) Elipse parcial.
-- **Arco**: ![Arco por 3 puntos](icons/arc-3.svg) Arco por 3 puntos (A) y ![Arcos constructivos](icons/carcc.svg) arcos constructivos.
-- **Rectángulo**: ![Rectángulo de centro](icons/rect-c.svg) Rectángulo de centro.
+Los botones con una esquina marcada son **desplegables**: muestran la última herramienta usada del grupo. Todos los grupos, con lo que trae cada uno, están reunidos en [Botones desplegables](desplegables.md).
 
 ## Punto (P)
 
@@ -32,7 +22,7 @@ Esc o [Seleccionar](03-seleccionar-y-editar.md#seleccionar-v) termina.
 
 ## Vector (W)
 
-![Vector](icons/vector.svg) **Vector (W)** (en el [desplegable de Línea](02-dibujar.md#botones-desplegables)): se dibuja igual que una línea, pero lleva una **cabeza de flecha en el punto final** (la cola es el inicio) y su **magnitud** escrita como texto en el punto medio.
+![Vector](icons/vector.svg) **Vector (W)** (en el [desplegable de Línea](desplegables.md#línea)): se dibuja igual que una línea, pero lleva una **cabeza de flecha en el punto final** (la cola es el inicio) y su **magnitud** escrita como texto en el punto medio.
 
 ### Texto de la magnitud
 
@@ -82,13 +72,13 @@ Puedes elegir la línea y el extremo en cualquier orden, o seleccionarlos antes 
 
 ## Línea de punto medio (M)
 
-![Línea de punto medio](icons/mline.svg) **Línea de punto medio (M)** (en el [desplegable de Línea](02-dibujar.md#botones-desplegables)): toca el punto inicial, que será el *punto medio*, y luego un extremo (o arrastra); la línea crece igual hacia el otro lado.
+![Línea de punto medio](icons/mline.svg) **Línea de punto medio (M)** (en el [desplegable de Línea](desplegables.md#línea)): toca el punto inicial, que será el *punto medio*, y luego un extremo (o arrastra); la línea crece igual hacia el otro lado.
 
 Queda con una restricción de [punto medio](05-restricciones.md#punto-medio) (M) y el bloqueo suave funciona como en las líneas.
 
 ## Línea constructiva (K)
 
-![Línea constructiva](icons/cline.svg) **Línea constructiva (K)** (en el [desplegable de Línea](02-dibujar.md#botones-desplegables)): gris (#C3C3C3), del grosor «fino» y con un trazo continuo en el medio y un punto en cada extremo, separados por un hueco; los puntos se ven como los del tipo «traza y punto».
+![Línea constructiva](icons/cline.svg) **Línea constructiva (K)** (en el [desplegable de Línea](desplegables.md#línea)): gris (#C3C3C3), del grosor «fino» y con un trazo continuo en el medio y un punto en cada extremo, separados por un hueco; los puntos se ven como los del tipo «traza y punto».
 
 Se dibuja como una línea normal, con bloqueo suave.
 
@@ -100,7 +90,7 @@ No sale en el SVG de corte láser salvo que cambies su clase a Corte o Marcado.
 
 ## Círculo perimetral
 
-![Círculo perimetral](icons/circle3.svg) **Círculo perimetral** (en el [desplegable de Círculo](02-dibujar.md#botones-desplegables)): toca 3 puntos no colineales; los puntos quedan sobre la circunferencia.
+![Círculo perimetral](icons/circle3.svg) **Círculo perimetral** (en el [desplegable de Círculo](desplegables.md#círculo)): toca 3 puntos no colineales; los puntos quedan sobre la circunferencia.
 
 ## Elipse (O)
 
@@ -120,7 +110,7 @@ Es un elemento propio:
 
 ## Elipse parcial
 
-![Elipse parcial](icons/earc.svg) **Elipse parcial** (en el [desplegable de Elipse](02-dibujar.md#botones-desplegables)): crea un arco elíptico.
+![Elipse parcial](icons/earc.svg) **Elipse parcial** (en el [desplegable de Elipse](desplegables.md#elipse)): crea un arco elíptico.
 
 **Primeros pasos.** Los tres primeros pasos son los de la elipse (centro, extremo del primer eje y punto del segundo eje); queda una elipse punteada de referencia.
 
@@ -138,7 +128,7 @@ Es un elemento propio:
 
 ## Círculo y arcos constructivos
 
-![Círculo constructivo](icons/ccircle.svg) **Círculo y arcos constructivos** (en los [desplegables](02-dibujar.md#botones-desplegables) de Círculo y Arco): usan el color y el grosor de la línea constructiva.
+![Círculo constructivo](icons/ccircle.svg) **Círculo y arcos constructivos** (en los [desplegables](desplegables.md) de Círculo y Arco): usan el color y el grosor de la línea constructiva.
 
 El círculo se ve en «traza y punto»; los arcos llevan un punto en cada extremo.
 
@@ -146,7 +136,7 @@ También puedes *convertir* cualquier elemento elegido el tipo «Constructiva» 
 
 ## Arco por 3 puntos (A)
 
-![Arco por 3 puntos](icons/arc-3.svg) **Arco por 3 puntos (A)** (en el [desplegable de Arco](02-dibujar.md#botones-desplegables)): inicio, punto intermedio y fin.
+![Arco por 3 puntos](icons/arc-3.svg) **Arco por 3 puntos (A)** (en el [desplegable de Arco](desplegables.md#arco)): inicio, punto intermedio y fin.
 
 ## Spline (S)
 
@@ -162,7 +152,7 @@ Queda con restricciones horizontal y vertical, así que sigue siendo rectángulo
 
 ## Rectángulo de centro
 
-![Rectángulo de centro](icons/rect-c.svg) **Rectángulo de centro** (en el [desplegable de Rectángulo](02-dibujar.md#botones-desplegables)): toca el centro y una esquina (o arrastra del centro a la esquina).
+![Rectángulo de centro](icons/rect-c.svg) **Rectángulo de centro** (en el [desplegable de Rectángulo](desplegables.md#rectángulo)): toca el centro y una esquina (o arrastra del centro a la esquina).
 
 El centro queda como punto medio de la diagonal.
 

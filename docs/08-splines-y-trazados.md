@@ -32,7 +32,7 @@ Arrastrar un punto del spline, o un punto ligado a él, deforma la curva y el re
 
 ![Spline](icons/spline.svg) **Botón Spline** (barra): toca para dibujar un spline.
 
-**Desplegable.** Toca de nuevo o mantén presionado para abrir el [desplegable](02-dibujar.md#botones-desplegables), que trae:
+**Desplegable.** Toca de nuevo o mantén presionado para abrir el [desplegable](desplegables.md#spline-y-trazados), que trae:
 
 - Trazar punto
 - Borrar trayectoria

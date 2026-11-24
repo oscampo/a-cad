@@ -1,4 +1,4 @@
-<!-- es: 22d87b376f -->
+<!-- es: 560be6b3e1 -->
 # 11. File and export
 
 Saving and opening drawings (also in a GitHub repository) and exporting to PNG, SVG, DXF and SVG for laser cutting.
@@ -9,7 +9,7 @@ Saving and opening drawings (also in a GitHub repository) and exporting to PNG, 
 
 ## File button
 
-![File](../icons/save.svg) **File button** (bar, between the menu and help) opens the [dropdown](02-dibujar.md#dropdown-buttons) with:
+![File](../icons/save.svg) **File button** (bar, between the menu and help) opens the [dropdown](desplegables.md#file) with:
 
 - ![New drawing](../icons/file-plus.svg) **New**
 - **Save**

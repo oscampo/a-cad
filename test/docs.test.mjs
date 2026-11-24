@@ -46,4 +46,17 @@ t('las traducciones al ingles siguen al español: mismo resumen y misma estructu
   console.log(`    ingles: ${done} de ${MANUAL_FILES.length} capitulos traducidos` + (missing.length ? `; faltan: ${missing.join(', ')}` : ''));
 });
 
+t('Botones desplegables: cada boton de cada desplegable de la app (GROUPS en main.js) aparece en la referencia, en español y en ingles', () => {
+  const src = norm(readFileSync(new URL('../src/main.js', import.meta.url), 'utf8'));
+  const i = src.indexOf('const GROUPS = {'), j = src.indexOf('\n};', i);
+  assert.ok(i > 0 && j > i, 'no encuentro GROUPS en main.js');
+  const groups = Function('return (' + src.slice(i + 'const GROUPS = '.length, j + 2) + ')')();
+  assert.ok(Object.keys(groups).length >= 11);
+  for (const file of ['docs/desplegables.md', 'docs/en/desplegables.md']) {
+    const md = norm(readFileSync(new URL('../' + file, import.meta.url), 'utf8'));
+    const used = new Set([...md.matchAll(/icons\/([\w-]+)\.svg/g)].map((m) => m[1]));
+    for (const [g, items] of Object.entries(groups)) for (const [id, icon] of items) assert.ok(used.has(icon), `${file}: falta el boton «${id}» (icono ${icon}) del grupo «${g}»`);
+  }
+});
+
 console.log(`\n${passed} pruebas del manual pasaron`);

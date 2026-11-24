@@ -1,4 +1,4 @@
-<!-- es: a652ce3773 -->
+<!-- es: bdea79bab4 -->
 # 3. Selecting and editing
 
 Selecting (by tap, box or filter), viewing and changing an element's properties, and the tools that modify what you drew: copy, trim, extend, fillet and chamfer.
@@ -25,7 +25,7 @@ With **several elements selected**, dragging any one of them moves all of them t
 
 ## Filter
 
-![Filter](../icons/filter.svg) **Filter** (in the Select [dropdown](02-dibujar.md#dropdown-buttons)) chooses what can be selected.
+![Filter](../icons/filter.svg) **Filter** (in the Select [dropdown](desplegables.md#select)) chooses what can be selected.
 
 - **By entity:** points, lines, circles, arcs, ellipses, splines, texts, fills, dimensions.
 - **By line type.**
@@ -93,7 +93,7 @@ Changes apply immediately and can be undone.
 
 ## Copy / Paste
 
-![Copy](../icons/copy.svg) ![Paste](../icons/paste.svg) **Copy / Paste** (in the [dropdown](02-dibujar.md#dropdown-buttons); Ctrl+C and Ctrl+V): the button shows Copy, and after copying it switches to showing Paste (to copy again, use Ctrl+C or the dropdown).
+![Copy](../icons/copy.svg) ![Paste](../icons/paste.svg) **Copy / Paste** (in the [dropdown](desplegables.md#copy-and-paste); Ctrl+C and Ctrl+V): the button shows Copy, and after copying it switches to showing Paste (to copy again, use Ctrl+C or the dropdown).
 
 **Copy** stores the selection with its internal constraints.
 

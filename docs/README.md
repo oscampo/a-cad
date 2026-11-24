@@ -18,6 +18,7 @@ Este manual explica cada herramienta y concepto en detalle, para quien empieza o
 |---|---|---|
 | | [Conceptos básicos](conceptos.md) | Dibujo paramétrico, restricciones, grados de libertad, cotas conductoras y de referencia, el solver y la simulación. |
 | | [Guías por tarea](guias.md) | Tareas concretas paso a paso, cada una con un dibujo de ejemplo que se abre en la app: una pieza paramétrica, textos que calculan, ecuaciones, vectores, simulación y gráficas, corte láser y guardar. |
+| | [Botones desplegables](desplegables.md) | Todos los grupos de herramientas de la barra (Seleccionar, Línea, Círculo, Spline, Archivo…), con lo que trae cada uno y dónde se explica cada herramienta. |
 | 1 | [Empezar](01-empezar.md) | Cómo se maneja la app: gestos con el lápiz, el dedo y el ratón, las partes de la pantalla y cómo seleccionar. |
 | 2 | [Dibujar](02-dibujar.md) | Las herramientas que crean geometría (puntos, líneas, círculos, arcos, elipses, splines, rectángulos y polígonos) y las ayudas al dibujar: el bloqueo suave y el imán a intersecciones. |
 | 3 | [Seleccionar y editar](03-seleccionar-y-editar.md) | Seleccionar (con toque, cuadro o filtro), ver y cambiar las propiedades de un elemento, y las herramientas que modifican lo dibujado: copiar, recortar, extender, redondeo y chaflán. |
