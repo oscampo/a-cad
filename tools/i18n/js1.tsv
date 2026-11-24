@@ -224,4 +224,5 @@ Punto de intersección creado	Intersection point created
 Ángulos ({0})	Angles ({0})
 (ninguna de este tipo)	(none of this type)
 La escala [*k] solo vale en distancias, radios y diámetros	The [*k] scale only applies to distances, radii and diameters
-. «×» multiplica como «*»: el producto vectorial de dos vectores es cross(a{0} b)	. «×» multiplies like «*»: the cross product of two vectors is cross(a{0} b)
+«×» entre matrices no es el producto matricial: usa «*» (y cross(a{0} b) para el producto vectorial de dos vectores)	«×» between matrices is not the matrix product: use «*» (and cross(a{0} b) for the cross product of two vectors)
+Precedencia ambigua: «{0}» seguido de «{1}» con otro vector se lee distinto según el orden; usa paréntesis, por ejemplo a·(b×c) o (a×b)×c	Ambiguous precedence: «{0}» followed by «{1}» with another vector reads differently depending on the order; use parentheses, for example a·(b×c) or (a×b)×c

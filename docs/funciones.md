@@ -12,7 +12,7 @@ Sirven en cotas, textos (`x:…` y `expr=`), actuadores y gráficas.
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
-| `+ - * /` | Suma, resta, multiplicación y división. También `×`, `·` y `÷`. | `2+3*4` | `14` |
+| `+ - * /` | Suma, resta, multiplicación y división. También `÷`; entre dos vectores, `·` es `dot` y `×` es `cross` (ver abajo). | `2+3*4` | `14` |
 | `^` (`**`) | Potencia. | `2^10` | `1024` |
 | Implícita | Un número pegado a un paréntesis, a π o a un nombre multiplica. | `3(4+1)` | `15` |
 | `√` | Raíz cuadrada de lo que sigue. | `√16` | `4` |
@@ -110,8 +110,8 @@ Se escriben entre corchetes: la coma separa los elementos de una fila, el punto 
 | `norm` | Norma euclidiana (de Frobenius en una matriz). | `norm([3,4])` | `5` |
 | `min(x)`, `max(x)` | Con un solo vector: su menor y su mayor elemento. | `max([4,1,9])` | `9` |
 | `cumsum`, `cumprod` | Suma y producto acumulados. | `cumsum([1,2,3])` | `[1, 3, 6]` |
-| `dot(a; b)` | Producto punto. | `dot([1,2,3]; [4,5,6])` | `32` |
-| `cross(a; b)` | Producto cruz de vectores de 3 elementos. | `cross([1,0,0]; [0,1,0])` | `[0, 0, 1]` |
+| `dot(a; b)` | Producto punto. También se escribe `a · b` (o `a ⋅ b`), en cualquier orientación. | `dot([1,2,3]; [4,5,6])` | `32` |
+| `cross(a; b)` | Producto cruz de vectores de 3 elementos. También se escribe `a × b`. Con tres vectores, `a×b×c` y `a·b×c` son ambiguos y dan error: usa paréntesis. | `cross([1,0,0]; [0,1,0])` | `[0, 0, 1]` |
 | `dist(p; q)` | Distancia entre dos puntos (vectores del mismo tamaño, con sus unidades). | `dist([0,0]; [3,4])` | `5` |
 
 ## Construir y reordenar matrices

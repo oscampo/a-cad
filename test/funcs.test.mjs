@@ -68,12 +68,29 @@ t('acumuladas y entre dos vectores: cumsum, cumprod, dot, cross', () => {
   assert.deepEqual(mat('cross([1,2,3]; [4,5,6])'), [[-3, 6, -3]]);
   fails('cross([1,2]; [3,4])', /3 elementos/);
   assert.equal(num('dot(cross([1,2,3];[4,5,6]); [1,2,3])'), 0); // el producto vectorial es perpendicular
-  // «×» tecleado multiplica como «*» (no es el producto vectorial); entre dos vectores de 3 que no se pueden multiplicar, el error da la pista
+  // «·» y «×» tecleados (y la barra invertida con cdot o times, y ⋅) significan lo mismo que dot() y cross(), en cualquier orientacion
   assert.equal(num('2×3'), 6);
   assert.deepEqual(mat('[1,2,3]×2'), [[2, 4, 6]]);
-  assert.equal(num('[1,2,3]×[4;5;6]'), 32); // fila por columna: multiplicacion de matrices, sin error
-  fails('[1,0,0]×[0,1,0]', /«×» multiplica como «\*»: el producto vectorial de dos vectores es cross\(a[,;] b\)/);
-  fails('[1,0,0]*[0,1,0]', /^((?!producto vectorial).)*$/s); // con «*» no hay pista: es lo que se pidio
+  assert.equal(num('[1,2,3]·[4;5;6]'), 32);
+  assert.equal(num('[1;2;3]·[4;5;6]'), 32); // columna por columna: igual que dot()
+  assert.equal(num('[1;2;3]⋅[4;5;6]'), 32);
+  assert.equal(num(String.raw`[1;2;3]\cdot[4;5;6]`), 32);
+  assert.deepEqual(mat('[1,0,0]×[0,1,0]'), [[0, 0, 1]]);
+  assert.deepEqual(mat('[1;2;3]×[4;5;6]'), [[-3], [6], [-3]]);
+  assert.deepEqual(mat(String.raw`[1;2;3]\times[4;5;6]`), [[-3], [6], [-3]]);
+  assert.deepEqual(mat('2·[1,2]'), [[2, 4]]);
+  assert.deepEqual(mat('[1,2;3,4]·[1,2;3,4]'), [[7, 10], [15, 22]]); // entre matrices «·» es el producto matricial
+  fails('[1,2;3,4]×[1,2;3,4]', /«×» entre matrices no es el producto matricial: usa «\*»/);
+  fails('[1,2]×[3,4]', /3 elementos/);
+  assert.equal(num('[1,2,3]×[4,5,6]·[1,2,3]'), 0); // (a×b)·a: triple producto, sin ambiguedad
+  assert.equal(num('[1,0,0]·([0,1,0]×[0,0,1])'), 1);
+  assert.deepEqual(mat('2×[1,0,0]×[0,1,0]'), [[0, 0, 2]]); // (2a)×b
+  // precedencia ambigua: a×b×c y a·b seguido de «×» o «·» con otro vector piden parentesis
+  fails('[1,0,0]×[0,1,0]×[0,0,1]', /Precedencia ambigua: «a×b» seguido de «×»/);
+  fails('[1,0,0]·[0,1,0]×[0,0,1]', /Precedencia ambigua: «a·b» seguido de «×»/);
+  fails('[1,0,0]·[0,1,0]·[0,0,1]', /Precedencia ambigua: «a·b» seguido de «·»/);
+  assert.equal(num('[1,0,0]·[0,1,0]*2'), 0); // con un escalar no hay ambiguedad
+  assert.deepEqual(mat('([1,0,0]×[0,1,0])×[0,0,1]'), [[0, 0, 0]]); // con parentesis, sin error
 });
 
 const IV = { A: { mat: [[1, 2, 3], [4, 5, 6]] }, v: { vec: [7, 8, 9] }, i: { v: 2, r: false }, w: { mat: [[1], [2], [3]] } };

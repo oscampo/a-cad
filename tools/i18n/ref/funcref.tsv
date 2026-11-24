@@ -7,7 +7,7 @@ od2yra2	Da	Gives
 y7tvq91t	[Índice](README.md) · [7. Texto y cálculo](07-texto-y-calculo.md)	[Index](README.md) · [7. Text and calculation](07-texto-y-calculo.md)
 1y1nzg1a	Operadores	Operators
 wvoma62f	Sirven en cotas, textos (<code>x:…</code> y <code>expr=</code>), actuadores y gráficas.	They work in Dimensions, Texts (<code>x:…</code> and <code>expr=</code>), actuators and Graphs.
-1i0xm1i2o	Suma, resta, multiplicación y división. También <code>×</code>, <code>·</code> y <code>÷</code>.	Addition, subtraction, multiplication and division. Also <code>×</code>, <code>·</code> and <code>÷</code>.
+10g0v9q4q	Suma, resta, multiplicación y división. También <code>÷</code>; entre dos vectores, <code>·</code> es <code>dot</code> y <code>×</code> es <code>cross</code> (ver abajo).	Addition, subtraction, multiplication and division. Also <code>÷</code>; between two vectors, <code>·</code> is <code>dot</code> and <code>×</code> is <code>cross</code> (see below).
 1m1r8v89	Potencia.	Power.
 53g1ld9	Implícita	Implicit
 hle37c1r	Un número pegado a un paréntesis, a π o a un nombre multiplica.	A number next to a parenthesis, π or a name multiplies.
@@ -85,8 +85,8 @@ urjgq21i	Desviación estándar y varianza muestrales (entre n−1).	Sample stand
 rok4j81a	Norma euclidiana (de Frobenius en una matriz).	Euclidean norm (Frobenius for a matrix).
 14k5wg11d	Con un solo vector: su menor y su mayor elemento.	With a single vector: its smallest and largest element.
 u6pu12r	Suma y producto acumulados.	Cumulative sum and product.
-1rmw89bf	Producto punto.	Dot product.
-4jo0hx15	Producto cruz de vectores de 3 elementos.	Cross product of 3-element vectors.
+zqag532v	Producto punto. También se escribe <code>a · b</code> (o <code>a ⋅ b</code>), en cualquier orientación.	Dot product. Also written <code>a · b</code> (or <code>a ⋅ b</code>), in any orientation.
+kk22hl51	Producto cruz de vectores de 3 elementos. También se escribe <code>a × b</code>. Con tres vectores, <code>a×b×c</code> y <code>a·b×c</code> son ambiguos y dan error: usa paréntesis.	Cross product of 3-element vectors. Also written <code>a × b</code>. With three vectors, <code>a×b×c</code> and <code>a·b×c</code> are ambiguous and give an error: use parentheses.
 1x590bb21	Distancia entre dos puntos (vectores del mismo tamaño, con sus unidades).	Distance between two points (vectors of the same size, with their units).
 g8za6ru	Construir y reordenar matrices	Building and reordering matrices
 a327qx1l	Las que reordenan conservan las unidades y los complejos.	Those that reorder keep the units and the complex numbers.

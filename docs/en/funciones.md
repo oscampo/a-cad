@@ -12,7 +12,7 @@ They work in Dimensions, Texts (`x:…` and `expr=`), actuators and Graphs.
 
 | Function | What it does | Example | Gives |
 |---|---|---|---|
-| `+ - * /` | Addition, subtraction, multiplication and division. Also `×`, `·` and `÷`. | `2+3*4` | `14` |
+| `+ - * /` | Addition, subtraction, multiplication and division. Also `÷`; between two vectors, `·` is `dot` and `×` is `cross` (see below). | `2+3*4` | `14` |
 | `^` (`**`) | Power. | `2^10` | `1024` |
 | Implicit | A number next to a parenthesis, π or a name multiplies. | `3(4+1)` | `15` |
 | `√` | Square root of what follows. | `√16` | `4` |
@@ -110,8 +110,8 @@ They are written in square brackets: the comma separates the elements of a row, 
 | `norm` | Euclidean norm (Frobenius for a matrix). | `norm([3,4])` | `5` |
 | `min(x)`, `max(x)` | With a single vector: its smallest and largest element. | `max([4,1,9])` | `9` |
 | `cumsum`, `cumprod` | Cumulative sum and product. | `cumsum([1,2,3])` | `[1, 3, 6]` |
-| `dot(a; b)` | Dot product. | `dot([1,2,3]; [4,5,6])` | `32` |
-| `cross(a; b)` | Cross product of 3-element vectors. | `cross([1,0,0]; [0,1,0])` | `[0, 0, 1]` |
+| `dot(a; b)` | Dot product. Also written `a · b` (or `a ⋅ b`), in any orientation. | `dot([1,2,3]; [4,5,6])` | `32` |
+| `cross(a; b)` | Cross product of 3-element vectors. Also written `a × b`. With three vectors, `a×b×c` and `a·b×c` are ambiguous and give an error: use parentheses. | `cross([1,0,0]; [0,1,0])` | `[0, 0, 1]` |
 | `dist(p; q)` | Distance between two points (vectors of the same size, with their units). | `dist([0,0]; [3,4])` | `5` |
 
 ## Building and reordering matrices

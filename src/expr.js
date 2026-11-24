@@ -226,7 +226,11 @@ function tokenize(src, vars = null, loose = false) {
     if (c === '*' && src[i + 1] === '*') { toks.push({ t: 'op', v: '^', i, j: i + 2 }); i += 2; continue; }
     if (c === '.' && '*/^'.includes(src[i + 1] ?? ' ')) { toks.push({ t: 'op', v: '.' + src[i + 1], i, j: i + 2 }); i += 2; continue; } // elemento a elemento: .* ./ .^
     if (c === '[') depth++; else if (c === ']') depth = Math.max(0, depth - 1);
-    if ('+-*/^()[]×÷·−'.includes(c)) { toks.push({ t: 'op', v: c === '×' || c === '·' ? '*' : c === '÷' ? '/' : c === '−' ? '-' : c, ...(c === '×' ? { x: true } : {}), i, j: i + 1 }); i++; continue; }
+    { // la barra invertida + cdot o times (como en las fórmulas de doble dólar) vale «⋅» o «×»
+      const lx = c === '\\' ? /^\\(cdot|times)(?![A-Za-z])/.exec(src.slice(i)) : null;
+      if (lx) { toks.push({ t: 'op', v: '*', ...(lx[1] === 'times' ? { x: true } : { d: true }), i, j: i + lx[0].length }); i += lx[0].length; continue; }
+    }
+    if ('+-*/^()[]×÷·⋅−'.includes(c)) { toks.push({ t: 'op', v: c === '×' || c === '·' || c === '⋅' ? '*' : c === '÷' ? '/' : c === '−' ? '-' : c, ...(c === '×' ? { x: true } : c === '·' || c === '⋅' ? { d: true } : {}), i, j: i + 1 }); i++; continue; }
     if (c === ',' && decimalMode() === ',') throw new Error('Con coma decimal los argumentos se separan con «;» (la coma es el decimal)');
     throw new Error(`Carácter no válido «${c}»`);
   }
@@ -298,13 +302,13 @@ function addM(a, b, s) {
   if (a.m.length !== b.m.length || a.m[0].length !== b.m[0].length) throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} ${nameM(a)} y ${nameM(b)}: deben tener el mismo tamaño`);
   return { m: a.m.map((r, i) => r.map((x, k) => x + s * b.m[i][k])) };
 }
-// «×» tecleado entre dos vectores de 3 elementos: multiplica como «*» (no es el producto vectorial); si no se pueden multiplicar, la pista es cross.
-const vec3 = (a) => isM(a) && (a.m.length === 1 || a.m[0].length === 1) && a.m.flat().length === 3;
-function timesM(a, b) {
-  try { return mulM(a, b); } catch (e) {
-    if (vec3(a) && vec3(b)) e.message += `. «×» multiplica como «*»: el producto vectorial de dos vectores es cross(a${argText()} b)`;
-    throw e;
-  }
+// «·» y «×» tecleados significan lo mismo que dot() y cross() (ver el apartado de cálculo): con dos vectores son el producto escalar y el vectorial
+// (en cualquier orientación); con un escalar multiplican; entre matrices, «·» es el producto matricial y «×» da error con la pista «*».
+const isVec = (a) => isM(a) && (a.m.length === 1 || a.m[0].length === 1) && a.m.flat().length > 1;
+function dotTimes(kind, a, b) { // kind: 'd' (·) o 'x' (×); devuelve el valor
+  if (isVec(a) && isVec(b)) return matFn(kind === 'd' ? 'dot' : 'cross', [a, b]);
+  if (kind === 'x' && isM(a) && isM(b)) throw new Error(`«×» entre matrices no es el producto matricial: usa «*» (y cross(a${argText()} b) para el producto vectorial de dos vectores)`);
+  return mulM(a, b);
 }
 function mulM(a, b) {
   if (!isM(a)) return mapM(b, (x) => a.v * x);
@@ -1540,8 +1544,9 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     return wd(celementwise(a, b, s > 0 ? cmul : cdiv, s > 0 ? 'multiplicar elemento a elemento' : 'dividir elemento a elemento'), d);
   }
   function term() {
-    let a = unary();
+    let a = unary(), last = null; // last: «d» o «x» si «a» salió de un «·» o un «×» entre dos vectores de esta misma cadena (sin paréntesis)
     for (;;) {
+      if (!(isOp('*') && (peek().x || peek().d))) last = null; // cualquier otro operador rompe la cadena
       if (isOp('.*') || isOp('./')) { // elemento a elemento
         const o = toks[p++].v, b = unary();
         if (isS(a) || isS(b)) throw new Error('Una cadena no se multiplica ni se divide');
@@ -1551,7 +1556,13 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
         const ot = toks[p++], o = ot.v, asUnit = peek()?.t === 'unit'; const b = unary();
         if (isS(a) || isS(b)) throw new Error('Una cadena no se multiplica ni se divide');
         if (isC(a) || isC(b)) { a = cMulDiv(a, b, o); continue; }
-        if (o === '*' && ot.x) { a = isM(a) || isM(b) ? wd(timesM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit); continue; } // «×» tecleado
+        if (o === '*' && (ot.x || ot.d)) { // «×» y «·» tecleados: ver dotTimes
+          const kind = ot.x ? 'x' : 'd', bv = isVec(b), av = isVec(a);
+          if (bv && ((kind === 'x' && last === 'x') || last === 'd')) throw new Error(`Precedencia ambigua: «${last === 'd' ? 'a·b' : 'a×b'}» seguido de «${kind === 'x' ? '×' : '·'}» con otro vector se lee distinto según el orden; usa paréntesis, por ejemplo a·(b×c) o (a×b)×c`);
+          const v = isM(a) || isM(b) ? wd(dotTimes(kind, a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit);
+          last = av && bv ? kind : null; a = v; continue;
+        }
+        last = null;
         if (o === '/') {
           if (isM(b)) throw new Error('No se puede dividir entre un vector o una matriz');
           if (b.v === 0) throw rt('División entre cero');
