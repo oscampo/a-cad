@@ -16,6 +16,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Corregido
 
+- Textos: las fracciones con un nombre de varias letras o una llamada a función ya se dibujan bien. `alto:ancho/2` mostraba «anch» y luego «o sobre 2», y `sin(x)/x` mostraba «sin» y «x sobre x»: ahora el numerador es `ancho` o `sin(x)` entero, sin tener que escribir `(ancho)/2` ni `(sin(x))/x`. Un nombre de varias letras (o con dígitos, como D1) se dibuja como una sola variable.
 - Textos: la fuente elegida ahora se aplica también a los bloques de código (cercados con tres acentos graves, como la consola de un juego): antes siempre salían en monoespaciada. Sin fuente elegida siguen en monoespaciada, y el código en línea también.
 
 ## v2.9.4 (2026-11-23)

@@ -9,6 +9,7 @@ import { parseUnit, sameDim, autoUnit } from './units.js';
 export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
 import { hasMath, layoutText, splitMath } from './mathlayout.js';
+import { isWord } from './asciimath.js';
 import { hasMd } from './markdown.js';
 import { localNum, elemChar, rowChar, argText, sciFrom, sciText } from './locale.js';
 export { hasMath } from './mathlayout.js';
@@ -142,7 +143,14 @@ function textValue1(doc, t) {
     if (libRe === undefined) { const al = [...new Set(Object.values(doc.texts || {}).map((x) => x.lib?.alias).filter((a) => /^[A-Za-z][A-Za-z0-9]{0,11}$/.test(a || '')))]; libRe = al.length ? new RegExp(`(?<![A-Za-z0-9_.'])(${al.join('|')})\\.(?=[A-Za-zα-ωΑ-Ωϑϕϖɛ_])`, 'g') : null; }
     return libRe ? seg.replace(libRe, 'color(gray)($1.)') : seg;
   };
-  const wrapNames = (seg) => {
+  // Un nombre de varias letras («ancho», «D1», «area») es una sola variable, no letras sueltas: dentro de una fraccion («ancho/2») es el
+  // numerador entero. Se marca como los nombres con subindice (NM0/NM1). No se tocan: lo que va entre comillas, lo ya marcado, los
+  // simbolos con «\», las unidades («'mm»), text(...) y color(...), las palabras de AsciiMath o del calculo (sin, pi, mean…), un nombre
+  // pegado a un numero («2e5»), a un punto («p1.x») o seguido de «_» (subindice de AsciiMath).
+  const PLAIN_ID = /("[^"]*")|(\uE004[^\uE005]*\uE005)|(\uE002[^\uE003]*\uE003)|((?:color|text)\([^()]*\))|(\\[A-Za-z]+)|('\s*[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*)|((?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_.\\])[A-Za-z][A-Za-z0-9]+(?![A-Za-z0-9_]))/g;
+  const wrapPlain = (seg) => seg.replace(PLAIN_ID, (m, ...g) => (g[6] && !isWord(g[6]) ? NM0 + g[6] + NM1 : m));
+  const wrapNames = (seg0) => {
+    const seg = wrapPlain(seg0);
     if (!seg.includes('_(')) return seg;
     subNames ||= new Set([...(st ||= textVars(doc)).names, ...Object.values(doc.texts || {}).flatMap((x) => (x.lib?.defs || []).map((d) => d.name))].filter((n) => n.includes('_('))); // tambien los de las bibliotecas insertadas (UF.Neuber_(steels)_(1,1) como Neuber_(steels)_(1,1))
     if (!subNames.size) return seg;

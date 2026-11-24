@@ -2849,7 +2849,7 @@ t('textos con salidas: $expresion=$ usa los nombres de las cotas y las funciones
   addCon(d, { t: 'RAD', refs: [ci], v: 5 });                                    // O1 (diametro 10)
   addCon(d, { t: 'ANG', refs: [l1, l2], s1: 1, s2: 1, sg: 1, cur: 720, v: 0 }); // A1 = 720° = 4π rad
   const P = addPoint(d, 1, 1);
-  const T = (txt) => textValue(d, d.texts[addText(d, P, txt, {})]);
+  const T = (txt) => plainText(textValue(d, d.texts[addText(d, P, txt, {})])); // sin las marcas invisibles (un nombre de varias letras va marcado para dibujarlo como una variable)
   assert.equal(T('El diámetro es $O1=$ cm'), 'El diámetro es $O1=10$ cm');
   assert.equal(T('El área es $D1*D2=$ mm^2'), 'El área es $D1*D2=12$ mm^2');
   assert.equal(T('vueltas: $A1/(2π)=$'), 'vueltas: $A1/(2π)=2$');

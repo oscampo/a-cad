@@ -71,6 +71,8 @@ export function addCalcFns(names) {
   for (const k of names) if (/^[A-Za-z]{2,}[A-Za-z0-9]*$/.test(k) && !PLAIN.has(k)) { PLAIN.add(k); CALC_FN.add(k); } // tambien con digitos: interp1, num2str
 }
 const CALC_FN = new Set();
+// ¿Es una palabra de AsciiMath o del calculo que se dibuja como tal (sin, pi, alpha, sqrt, mean…)? Cualquier otro nombre es una variable.
+export const isWord = (w) => PLAIN.has(w);
 const plainTok = (k) => (CALC_FN.has(k) ? { t: 'fn', v: k } : { ...WORDS.get(k) });
 // Palabras que piden «\» para ser simbolo (el editor las usa para no convertir «\i» en ι al teclear «\in»).
 export const symbolWords = () => [...WORDS.keys()].filter((k) => (!PLAIN.has(k) || (CALC_FN.has(k) && WORDS.get(k)?.t !== 'fn')) && /^[A-Za-z]/.test(k)) // una funcion del calculo que tambien es simbolo con «\» (angle: ∠) sigue contando.concat(SYMS.map(([w]) => w).filter((w) => /^[A-Za-z]/.test(w)));
@@ -294,6 +296,13 @@ function parseI(p) {
 
 function parseE(p) {
   let left = parseI(p);
+  // «sin(x)/x», «f(x)/2», «area(r)/2»: una funcion (o un nombre) seguida de su parentesis y de «/» es el numerador entero de la fraccion
+  // (sin esto, la fraccion tomaba solo el parentesis: «sin» y luego «x sobre x»)
+  const callable = (n) => n.t === 'fn' || n.t === 'v' || (n.t === 'ss' && (n.base?.t === 'fn' || n.base?.t === 'v'));
+  if (callable(left) && p.toks[p.i]?.t === 'open') {
+    const save = p.i, g = parseI(p);
+    if (p.toks[p.i]?.t === 'slash' && (g.t === 'group' || (g.t === 'ss' && g.base?.t === 'group'))) left = { t: 'row', c: [left, g] }; else p.i = save; // tambien «sin(x)^2/x»
+  }
   while (p.toks[p.i]?.t === 'slash') {
     const ew = !!p.toks[p.i].ew;
     p.i++;
