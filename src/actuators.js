@@ -1,5 +1,5 @@
-// Actuadores (motores): «MR» rotacional sobre una linea (uno de sus extremos es el centro de giro) y «ML» lineal entre dos
-// puntos (el primero es la cola). Sin DOM.
+// Actuadores (motores): «MR» rotacional sobre una linea (uno de sus extremos es el centro de giro) y «ML» lineal sobre una linea
+// (el extremo elegido es la cabeza y el otro la cola; se guarda como dos puntos). Sin DOM.
 // doc.acts[id] = { kind, n, mode, src, expr, table, ... }
 //   MR: { line, c (punto centro, extremo de la linea), cw (horario; por defecto antihorario) }
 //   ML: { p1, p2 }
@@ -32,6 +32,12 @@ export function addRotary(doc, lid, cid, o = {}) {
 export function addLinear(doc, p1, p2, o = {}) {
   if (!doc.pts[p1] || !doc.pts[p2] || p1 === p2) return null;
   return addAct(doc, { kind: 'ML', p1, p2, ...(o.mode ? { mode: o.mode } : {}), ...(o.expr !== undefined ? { expr: o.expr } : {}) });
+}
+// ML sobre una linea: la cabeza es el extremo elegido y la cola, el otro (igual que el vector y la linea indicativa). null si no es un extremo.
+export function addLinearOnLine(doc, lid, head, o = {}) {
+  const l = doc.lines[lid];
+  if (!l || (head !== l.a && head !== l.b)) return null;
+  return addLinear(doc, head === l.a ? l.b : l.a, head, o);
 }
 // Referencias que siguen existiendo: un actuador cuya linea o puntos ya no estan se elimina.
 export function pruneActs(doc) {

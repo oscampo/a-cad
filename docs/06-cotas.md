@@ -277,7 +277,7 @@ Las flechas y las separaciones crecen con la letra. Las cabezas de flecha siguen
 
 ## Líneas indicativas
 
-**Líneas indicativas** (anotaciones): con la herramienta de cota (o el botón ![Distancia](icons/dim-dist.svg) Distancia), elige **un punto y el elemento al que pertenece**; se abre su ventana.
+**Líneas indicativas** (anotaciones): con la herramienta de cota (o el botón ![Distancia](icons/dim-dist.svg) Distancia), elige **un punto y el elemento al que pertenece**; se abre su ventana. Con una línea, es el mismo gesto del vector y del actuador lineal: el extremo elegido es la **cabeza** (ver [Cabeza y cola](02-dibujar.md#cabeza-y-cola-un-solo-gesto)).
 
 ### Según el punto elegido
 
@@ -291,7 +291,7 @@ La **etiqueta es un texto del dibujo**: su altura va en unidades del dibujo, com
 En su ventana (al crearla y con doble toque) eliges:
 
 - La etiqueta (texto suelto, `"texto"`, `$fórmula$` o `$$fórmula$$`).
-- **Dónde va**: en una recta, un arco o un arco elíptico, un extremo o el punto medio; en un spline, cualquiera de sus puntos.
+- **Dónde va**: en una recta, un arco o un arco elíptico, un extremo o el punto medio (por defecto, el punto medio, al lado de la línea); en un spline, cualquiera de sus puntos.
 - El **punto de inserción** de su caja (esquinas, medios o centro, como en los textos; queda separada del punto un cuarto de altura).
 - La **fuente** y la **altura** (con hoja, en puntos, como los textos; nace con la fuente y la altura de los textos nuevos).
 

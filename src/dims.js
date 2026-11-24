@@ -267,7 +267,13 @@ export function leadAtDefault(doc, k) {
 export function leadAnchorDefault(doc, k) {
   if (!k.on) return 'mc';
   const poly = bodyPath(doc, k); if (!poly) return 'bl';
-  const S = [...poly].reverse(), u = outDir(S); // en unidades del dibujo (y hacia arriba)
+  const S = [...poly].reverse();
+  let u = outDir(S); // en unidades del dibujo (y hacia arriba)
+  if (k.at === 'm') { // en el punto medio el texto va al lado de la recta (arriba, o a la derecha si es vertical), no sobre ella
+    let n = { x: -u.y, y: u.x };
+    if (n.y < -1e-9 || (Math.abs(n.y) <= 1e-9 && n.x < 0)) n = { x: -n.x, y: -n.y };
+    u = n;
+  }
   return (u.y > 0.38 ? 'b' : u.y < -0.38 ? 't' : 'm') + (u.x > 0.38 ? 'l' : u.x < -0.38 ? 'r' : 'c');
 }
 const SX = { l: 1, c: 0, r: -1 }, SY = { b: 1, m: 0, t: -1 };

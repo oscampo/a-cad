@@ -1,4 +1,4 @@
-<!-- es: f58a6f77e4 -->
+<!-- es: c8dbca2c69 -->
 # 6. Dimensions
 
 Dimensions: measurements that drive the geometry or only read it, with formulas, names, scale and units.
@@ -278,7 +278,7 @@ Arrows and spacing grow with the font. Arrowheads follow the ASME Y14.2 standard
 
 ## Leaders
 
-**Leaders** (annotations): with the dimension tool (or the ![Distance](../icons/dim-dist.svg) Distance button), choose **a point and the element it belongs to**; its window opens.
+**Leaders** (annotations): with the dimension tool (or the ![Distance](../icons/dim-dist.svg) Distance button), choose **a point and the element it belongs to**; its window opens. With a line, it is the same gesture as for the vector and the linear actuator: the chosen end is the **head** (see [Head and tail](02-dibujar.md#head-and-tail-one-gesture)).
 
 ### Depending on the chosen point
 
@@ -292,7 +292,7 @@ The **label is a text of the drawing**: its height is in drawing units, like tha
 In its window (when creating it and with a double tap) you choose:
 
 - The label (plain text, `"texto"`, `$fórmula$` or `$$fórmula$$`).
-- **Where it goes**: on a line, an arc or an elliptical arc, an endpoint or the midpoint; on a spline, any of its points.
+- **Where it goes**: on a line, an arc or an elliptical arc, an endpoint or the midpoint (by default, the midpoint, beside the line); on a spline, any of its points.
 - The **insertion point** of its box (corners, midpoints or center, as in the texts; it is kept a quarter of its height away from the point).
 - The **font** and the **height** (with a page, in points, like the texts; it starts with the font and height of new texts).
 

@@ -124,3 +124,12 @@ Toca el ícono de una herramienta para ver dónde está en la pantalla.	Tap a to
 Back to the help	Back to the help
 That button is not in view on this screen	That button is not in view on this screen
 Tap a tool icon to see where it is on the screen.	Tap a tool icon to see where it is on the screen.
+
+Actuador lineal (ML): toca la línea y su extremo que será la cabeza (o selecciónalos antes); define su desplazamiento o velocidad respecto al tiempo (t).	Linear actuator (ML): tap the line and its end that will be the head (or select them first); it defines its displacement or velocity over time (t).
+Actuador lineal (ML): toca la línea y su extremo que será la cabeza (o selecciónalos antes)	Linear actuator (ML): tap the line and its end that will be the head (or select them first)
+Vector: como Línea, con cabeza de flecha en el punto final y su magnitud como texto en el punto medio. Con una línea (y uno de sus extremos, que será la cabeza) seleccionada, pulsar Vector la convierte en vector.	Vector: like Line, with an arrowhead at the end point and its magnitude as text at the midpoint. With a line selected (and one of its ends, which will be the head), pressing Vector turns it into a vector.
+Toca el extremo de la línea que será la cabeza del actuador	Tap the end of the line that will be the actuator head
+Toca la línea del actuador	Tap the actuator line
+Toca la línea del actuador y su extremo que será la cabeza (en cualquier orden)	Tap the actuator line and its end that will be the head (in any order)
+La línea no termina en ese punto: toca el extremo que será la cabeza del actuador	The line does not end at that point: tap the end that will be the actuator head
+La cabeza debe ser un extremo de la línea	The head must be an end of the line

@@ -58,7 +58,7 @@ Esc o [Seleccionar](03-seleccionar-y-editar.md#seleccionar-v) termina.
 
 ### Convertir entre línea y vector
 
-**Línea a vector.** Con una línea seleccionada, y uno de sus extremos (será la cola; si no eliges ninguno, la cola es el inicio), elige Vector en el desplegable y la línea pasa a ser vector.
+**Línea a vector.** Con una línea seleccionada, y uno de sus extremos (será la **cabeza**; si no eliges ninguno, la cabeza es el final), elige Vector en el desplegable y la línea pasa a ser vector. Es el mismo gesto de la [línea indicativa y el actuador lineal](#cabeza-y-cola-un-solo-gesto).
 
 **Vector a línea.** Con un vector seleccionado, elige Línea y deja de serlo (se quitan la flecha, el texto y la cota).
 
@@ -67,6 +67,18 @@ Esc o [Seleccionar](03-seleccionar-y-editar.md#seleccionar-v) termina.
 **Borrar y copiar.** Borrar el vector borra también su texto; copiar y matrices lo copian con su propio texto y su propia magnitud.
 
 **Exportar.** La flecha sale en el SVG y el DXF (no en el SVG de corte láser, que lo trata como una línea).
+
+## Cabeza y cola: un solo gesto
+
+El **vector**, la **línea indicativa** y el **actuador lineal** se definen igual: eliges **una línea y uno de sus extremos**, y ese extremo es la **cabeza** (donde va la punta de la flecha); el otro extremo es la cola.
+
+- ![Vector](icons/vector.svg) **Vector**: la línea pasa a ser vector (ver [Vector (W)](#vector-w)).
+- **Línea indicativa**: la flecha va en el extremo elegido (ver [Líneas indicativas](06-cotas.md#líneas-indicativas)).
+- ![Actuador lineal](icons/act-l.svg) **Actuador lineal (ML)**: el desplazamiento se mide de la cola a la cabeza (ver [Actuadores](09-simulaciones-graficas.md#actuadores)).
+
+El texto de cada uno (la magnitud del vector, la etiqueta de la línea indicativa y el nombre del actuador) queda, por defecto, en el **punto medio** de la línea; después puedes cambiarlo en sus propiedades.
+
+Puedes elegir la línea y el extremo en cualquier orden, o seleccionarlos antes de elegir la herramienta.
 
 ## Línea de punto medio (M)
 

@@ -1,4 +1,4 @@
-<!-- es: 47153ac9e2 -->
+<!-- es: b15f5501fa -->
 # 2. Drawing
 
 The tools that create geometry (points, lines, circles, arcs, ellipses, splines, rectangles and polygons) and the drawing aids: the soft lock and the intersection magnet.
@@ -59,7 +59,7 @@ Esc or [Select](03-seleccionar-y-editar.md#select-v) ends it.
 
 ### Converting between line and vector
 
-**Line to vector.** With a line selected, and one of its ends (it will be the tail; if you choose none, the tail is the start), choose Vector in the dropdown and the line becomes a vector.
+**Line to vector.** With a line selected, and one of its ends (it will be the **head**; if you choose none, the head is the end), choose Vector in the dropdown and the line becomes a vector. It is the same gesture as for the [leader and the linear actuator](#head-and-tail-one-gesture).
 
 **Vector to line.** With a vector selected, choose Line and it stops being one (the arrow, the text and the dimension are removed).
 
@@ -68,6 +68,18 @@ Esc or [Select](03-seleccionar-y-editar.md#select-v) ends it.
 **Deleting and copying.** Deleting the vector also deletes its text; copies and arrays copy it with its own text and its own magnitude.
 
 **Exporting.** The arrow appears in the SVG and the DXF (not in the laser-cut SVG, which treats it as a line).
+
+## Head and tail: one gesture
+
+The **vector**, the **leader** and the **linear actuator** are defined the same way: you choose **a line and one of its ends**, and that end is the **head** (where the arrow tip goes); the other end is the tail.
+
+- ![Vector](../icons/vector.svg) **Vector**: the line becomes a vector (see [Vector (W)](#vector-w)).
+- **Leader**: the arrow goes at the chosen end (see [Leaders](06-cotas.md#leaders)).
+- ![Linear actuator](../icons/act-l.svg) **Linear actuator (ML)**: the displacement is measured from the tail to the head (see [Actuators](09-simulaciones-graficas.md#actuators)).
+
+The text of each one (the vector magnitude, the leader label and the actuator name) goes, by default, at the **midpoint** of the line; afterwards you can change it in its properties.
+
+You can choose the line and the end in any order, or select them before choosing the tool.
 
 ## Midpoint line (M)
 

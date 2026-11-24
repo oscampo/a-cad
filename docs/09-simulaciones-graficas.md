@@ -19,7 +19,7 @@ Se define eligiendo la línea y su extremo que será el centro de giro.
 
 ### ML (lineal)
 
-Se define con la cola y la cabeza: toca los dos puntos, o selecciónalos antes (el primero es la cola).
+Se define con **una línea y uno de sus extremos**: toca la línea y el extremo que será la **cabeza** (en cualquier orden), o selecciónalos antes de elegir la herramienta. La cola es el otro extremo, y el nombre del actuador queda en el punto medio de la línea (ver [Cabeza y cola](02-dibujar.md#cabeza-y-cola-un-solo-gesto)).
 
 ### Valor del movimiento
 

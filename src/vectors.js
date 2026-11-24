@@ -19,6 +19,10 @@ export function vecArrow(doc, l) {
   return L < 1e-9 ? null : { tip: { x: h.x, y: h.y }, dir: { x: (h.x - t.x) / L, y: (h.y - t.y) / L }, len: L };
 }
 
+// Al convertir una linea en vector, el extremo elegido es la CABEZA (igual que en la linea indicativa y en el actuador lineal): rev si es
+// el punto a. Sin elegir ninguno (o los dos), la cabeza es el final de la linea (b).
+export const revForHead = (l, picked) => picked.includes(l.a) && !picked.includes(l.b);
+
 // Convierte una linea en vector. rev: la cola es el extremo b. h: altura del texto de la magnitud.
 export function makeVector(doc, lid, { rev = false, h = 4 } = {}) {
   const l = doc.lines[lid];

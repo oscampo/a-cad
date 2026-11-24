@@ -18,8 +18,8 @@ import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamfe
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, dimH, ARROW, ARROW_HW, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
-import { makeVector, unmakeVector, syncVectors, vecArrow } from './vectors.js';
-import { addRotary, addLinear, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
+import { makeVector, unmakeVector, syncVectors, vecArrow, revForHead } from './vectors.js';
+import { addRotary, addLinearOnLine, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
 import { parseLineSpec, splitSpec, withSpec, addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, genericRange, GEN_X, AXES } from './graphs.js';
 import { panStep, zoomStep, setWindow, clearWindow, saveHome, homeWin, forgetHome, resetAxis } from './graphview.js';
@@ -3857,7 +3857,7 @@ function splitSelected() {
 // el medio o un punto del spline. Al crearla y con doble toque se abre su ventana.
 async function addLeader(pt, el) {
   const k = { t: 'LEAD', refs: [pt, el], h: cur.tx.h ?? niceHeight(), ...(cur.tx.font ? { font: cur.tx.font } : {}) }; // la altura y la fuente de los textos nuevos
-  if (endOfElement(doc, pt, el)) k.on = 1;
+  if (endOfElement(doc, pt, el)) { k.on = 1; if (leadSpots(doc, k).some((x) => x.key === 'm')) k.at = 'm'; } // la etiqueta, por defecto, en el punto medio (como la magnitud del vector y el nombre del actuador)
   else { const st = style(); Object.assign(k, { color: st.color ?? 'auto', ltype: st.ltype || 'continua', w: st.w ?? 2, ...(st.ls && st.ls !== 1 ? { ls: st.ls } : {}) }); }
   const r = await askLeader(k, true);
   if (!r) return;
@@ -4089,8 +4089,8 @@ const HINTS = {
   mline: 'Línea de punto medio: toca el punto medio y luego un extremo (o arrastra); la línea crece igual hacia el otro lado. Hay bloqueo suave.',
   graph: 'Gráfica: toca donde va su esquina inferior izquierda. Escribe las relaciones como «variable1 vs variable2» (una por línea): t, actuadores (MR1, MR1.v), cotas, variables y vectores de rangos.',
   mr: 'Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes); define su desplazamiento o velocidad angular respecto al tiempo (t).',
-  ml: 'Actuador lineal (ML): toca el punto de la cola y el de la cabeza; define su desplazamiento o velocidad respecto al tiempo (t).',
-  vector: 'Vector: como Línea, con cabeza de flecha en el punto final y su magnitud como texto en el punto medio. Con una línea (y uno de sus extremos, que será la cola) seleccionada, pulsar Vector la convierte en vector.',
+  ml: 'Actuador lineal (ML): toca la línea y su extremo que será la cabeza (o selecciónalos antes); define su desplazamiento o velocidad respecto al tiempo (t).',
+  vector: 'Vector: como Línea, con cabeza de flecha en el punto final y su magnitud como texto en el punto medio. Con una línea (y uno de sus extremos, que será la cabeza) seleccionada, pulsar Vector la convierte en vector.',
   cline: 'Línea constructiva (gris, fina, con un punto en cada extremo): toca inicio y fin, o arrastra. No sale en el SVG de corte láser salvo que lo elijas.',
   circle3: 'Círculo perimetral: toca 3 puntos no colineales por donde pasa la circunferencia.',
   rect: 'Rectángulo: toca (o arrastra entre) dos esquinas opuestas de la diagonal.',
@@ -4313,10 +4313,13 @@ function setTool(t) {
     else if (els.length === 2 && els.length === sel.length) roundTool(els[0], els[1]); // dos elementos ya seleccionados
   }
   if (t === 'dim') startDimTool();
-  if (t === 'ml') { // con dos puntos ya seleccionados (el primero es la cola), se crea el actuador entre ellos
-    const pts = sel.filter((x) => x.k === 'pt' && doc.pts[x.id]);
-    if (pts.length === 2 && pts.length === sel.length) { pushUndo(); const id = addLinear(doc, pts[0].id, pts[1].id); sel = []; afterChange(); editAct(id, true); return; }
-    if (pts.length === 1 && sel.length === 1) { pushUndo(); pending = { act1: pts[0].id }; toast('Cola elegida: toca el punto de la cabeza del actuador'); }
+  if (t === 'ml') { // con una linea (y uno de sus extremos, que sera la cabeza) ya seleccionados, se crea el actuador sobre ellos
+    const lns = sel.filter((x) => x.k === 'ln' && doc.lines[x.id]), pts = sel.filter((x) => x.k === 'pt' && doc.pts[x.id]);
+    if (lns.length === 1) {
+      const l = doc.lines[lns[0].id], ends = pts.filter((x) => x.id === l.a || x.id === l.b);
+      if (ends.length === 1 && pts.length === 1) { mlMake(lns[0].id, ends[0].id); return; }
+      if (!pts.length) { pending = { ml: { line: lns[0].id } }; toast('Toca el extremo de la línea que será la cabeza del actuador'); }
+    } else if (lns.length === 0 && pts.length === 1) { pending = { ml: { pt: pts[0].id } }; toast('Toca la línea del actuador'); }
   }
   if (t === 'mr') { // con una linea (y uno de sus extremos) ya seleccionados, se crea el actuador sobre ellos
     const lns = sel.filter((x) => x.k === 'ln' && doc.lines[x.id]), pts = sel.filter((x) => x.k === 'pt' && doc.pts[x.id]);
@@ -4341,7 +4344,7 @@ const GROUPS = {
   arc: [['arcc', 'arc-c', 'Arco por centro y extremos (R)'], ['arc3', 'arc-3', 'Arco por 3 puntos (A)'], ['carcc', 'carcc', 'Arco constructivo por centro y extremos'], ['carc3', 'carc3', 'Arco constructivo por 3 puntos']],
   ellipse: [['ellipse', 'ellipse', 'Elipse: centro y dos ejes (O)'], ['earc', 'earc', 'Elipse parcial (arco elíptico)']],
   rect: [['rect', 'rect', 'Rectángulo por diagonal (B)'], ['rectc', 'rect-c', 'Rectángulo de centro']],
-  act: [['mr', 'act-r', 'Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes)', 'Actuador MR'], ['ml', 'act-l', 'Actuador lineal (ML): toca el punto de la cola y el de la cabeza', 'Actuador ML'], ['graph', 'graph', 'Gráfica: toca donde va su esquina inferior izquierda; muestra «variable1 vs variable2»', 'Gráfica'], ['sim', 'play', 'Simulación: barra de tiempo para mover los actuadores', 'Simulación']],
+  act: [['mr', 'act-r', 'Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes)', 'Actuador MR'], ['ml', 'act-l', 'Actuador lineal (ML): toca la línea y su extremo que será la cabeza (o selecciónalos antes)', 'Actuador ML'], ['graph', 'graph', 'Gráfica: toca donde va su esquina inferior izquierda; muestra «variable1 vs variable2»', 'Gráfica'], ['sim', 'play', 'Simulación: barra de tiempo para mover los actuadores', 'Simulación']],
   corner: [['fillet', 'fillet', 'Redondeo (F): toca una esquina, o dos elementos, y teclea el radio'], ['chamfer', 'chamfer', 'Chaflán: toca una esquina y teclea la distancia']],
   clip: [['copy', 'copy', 'Copiar la selección (Ctrl+C)'], ['paste', 'paste', 'Pegar: toca el punto donde va el centro de lo copiado (Ctrl+V)']],
 };
@@ -4350,7 +4353,7 @@ const GROUPS = {
 const ACT_IDS = new Set(['ghSave', 'ghOpen', 'ghCfg', 'fNew', 'fSave', 'fLoad', 'fImg', 'libIns', 'dataMgr','fPng', 'fSvg', 'fLaser', 'fDxf', 'trTrace', 'trClear', 'mkReset', 'trSpline', 'spClose', 'spOffset']);
 const MENU_ONLY = new Set(['file']); // el boton solo abre el desplegable (nunca ejecuta algo, p. ej. "Nuevo")
 const isAct = (id) => id === 'filter' || id === 'sim' || ACT_IDS.has(id);
-// Vector <-> linea con lo seleccionado: con una linea (y uno de sus extremos, la cola) seleccionada, «Vector» la convierte;
+// Vector <-> linea con lo seleccionado: con una linea (y uno de sus extremos, la cabeza) seleccionada, «Vector» la convierte;
 // con un vector seleccionado, «Línea» lo convierte en linea. Sin eso, el boton elige la herramienta.
 function selectedLines(wantVec) { return sel.filter((x) => x.k === 'ln' && doc.lines[x.id] && !!doc.lines[x.id].vec === wantVec).map((x) => x.id); }
 function convertToVector() {
@@ -4358,7 +4361,7 @@ function convertToVector() {
   if (!ids.length) return false;
   const pts = sel.filter((x) => x.k === 'pt').map((x) => x.id);
   pushUndo();
-  for (const id of ids) { const l = doc.lines[id]; makeVector(doc, id, { rev: pts.includes(l.b) && !pts.includes(l.a), h: niceHeight() }); }
+  for (const id of ids) { const l = doc.lines[id]; makeVector(doc, id, { rev: revForHead(l, pts), h: niceHeight() }); }
   afterChange(); toast(ids.length === 1 ? 'Convertida en vector' : `${ids.length} líneas convertidas en vectores`);
   return true;
 }
@@ -4939,7 +4942,8 @@ function editGraph(id, nuevo) {
   $('grCancel').onclick = cancel; dlg.oncancel = cancel;
   dlg.showModal();
 }
-// Herramientas MR y ML: MR toca una linea (el extremo mas cercano al toque es el centro); ML toca la cola y luego la cabeza.
+// Herramientas MR y ML: las dos se definen con una linea y uno de sus extremos (en cualquier orden): en MR el extremo es el centro de giro;
+// en ML es la cabeza (la cola es el otro extremo), como en el vector y la linea indicativa.
 function actTool(p) {
   const ah = actAt(p.x, p.y);
   if (ah) { editAct(ah, false); return; }
@@ -4949,12 +4953,30 @@ function actTool(p) {
     mrPick(h);
     return;
   }
-  const s = snapAt(p.x, p.y, { press: true });
-  if (!pending?.act1) { pushUndo(); const a1 = pointFrom(s); pending = { act1: a1 }; sel = [{ k: 'pt', id: a1 }]; draw(); toast('Cola elegida: toca el punto de la cabeza del actuador'); return; }
-  const first = pending.act1, second = pointFrom(s);
-  if (first === second) { rollback(); pending = null; sel = []; draw(); return; }
+  const h = hitTest(p.x, p.y);
+  if (!h || (h.k !== 'ln' && h.k !== 'pt')) { toast('Toca la línea del actuador y su extremo que será la cabeza (en cualquier orden)'); return; }
+  mlPick(h);
+}
+// ML: la linea y su extremo que sera la cabeza se eligen en cualquier orden, o vienen de la seleccion; la cola es el otro extremo.
+function mlPick(h) {
+  const ml = { ...(pending?.ml || {}) };
+  if (h.k === 'ln') ml.line = h.id; else ml.pt = h.id;
+  const l = ml.line && doc.lines[ml.line];
+  if (l && ml.pt && ml.pt !== l.a && ml.pt !== l.b) {
+    if (h.k === 'pt') { toast('Ese punto no es un extremo de la línea: toca uno de sus extremos'); ml.pt = null; } // el punto nuevo no vale: se conserva la linea
+    else { ml.pt = null; toast('La línea no termina en ese punto: toca el extremo que será la cabeza del actuador'); }
+  }
+  if (ml.line && ml.pt) { mlMake(ml.line, ml.pt); return; }
+  pending = { ml };
+  sel = [...(ml.line ? [{ k: 'ln', id: ml.line }] : []), ...(ml.pt ? [{ k: 'pt', id: ml.pt }] : [])];
+  toast(ml.line ? 'Toca el extremo de la línea que será la cabeza del actuador' : 'Toca la línea del actuador');
+  draw();
+}
+function mlMake(line, head) {
   pending = null; sel = [];
-  const id = addLinear(doc, first, second);
+  pushUndo();
+  const id = addLinearOnLine(doc, line, head);
+  if (!id) { rollback(); toast('La cabeza debe ser un extremo de la línea'); draw(); return; }
   afterChange(); editAct(id, true);
 }
 // MR: la linea y el punto de giro (uno de sus extremos) se eligen en cualquier orden, o vienen de la seleccion.
