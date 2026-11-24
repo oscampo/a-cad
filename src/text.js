@@ -146,8 +146,8 @@ function textValue1(doc, t) {
   // Un nombre de varias letras («ancho», «D1», «area») es una sola variable, no letras sueltas: dentro de una fraccion («ancho/2») es el
   // numerador entero. Se marca como los nombres con subindice (NM0/NM1). No se tocan: lo que va entre comillas, lo ya marcado, los
   // simbolos con «\», las unidades («'mm»), text(...) y color(...), las palabras de AsciiMath o del calculo (sin, pi, mean…), un nombre
-  // pegado a un numero («2e5»), a un punto («p1.x») o seguido de «_» (subindice de AsciiMath).
-  const PLAIN_ID = /("[^"]*")|(\uE004[^\uE005]*\uE005)|(\uE002[^\uE003]*\uE003)|((?:color|text)\([^()]*\))|(\\[A-Za-z]+)|('\s*[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*)|((?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_.\\])[A-Za-z][A-Za-z0-9]+(?![A-Za-z0-9_]))/g;
+  // pegado a un numero («2e5»), a un punto («p1.x»), seguido de «_» (subindice de AsciiMath) ni el texto de un subindice «_(texto)».
+  const PLAIN_ID = /("[^"]*")|(\uE004[^\uE005]*\uE005)|(\uE002[^\uE003]*\uE003)|((?:color|text)\([^()]*\))|(\\[A-Za-z]+)|('\s*[A-Za-zµμΩ°%áéíóúñÑ_][A-Za-zµμΩ°%áéíóúñÑ_0-9]*)|(?:_\([^(){}\n]*\))|((?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_.\\])[A-Za-z][A-Za-z0-9]+(?![A-Za-z0-9_]))/g;
   const wrapPlain = (seg) => seg.replace(PLAIN_ID, (m, ...g) => (g[6] && !isWord(g[6]) ? NM0 + g[6] + NM1 : m));
   const wrapNames = (seg0) => {
     const seg = wrapPlain(seg0);

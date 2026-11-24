@@ -10,7 +10,7 @@ import { textVars } from '../src/params.js';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
-const clean = (s) => s.replace(/[\u0000-\u001f]/g, '');
+const clean = (s) => s.replace(/[\u0000-\u001f-]/g, ''); // las marcas internas de las salidas (uso privado), tambien las de un nombre de varias letras
 let store = new Map();
 const fresh = () => { store = new Map(); setDataBackend(store); clearDataWrites(); };
 // Un dibujo con esas lineas (cada una un texto, de arriba abajo): lo que se ve, los errores y lo que quedo por escribir (se graba en el almacen).

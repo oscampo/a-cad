@@ -46,10 +46,11 @@ t('parser: operadores de varios signos y funciones', () => {
 
 t('parser: operadores elemento a elemento en notacion matematica', () => {
   // ./ es una fraccion marcada (ew): se dibuja con un punto antes de la raya
-  const ew = parse('sin(x)./x'), fr = parse('sin(x)/x');
-  assert.equal(ew.c[1].ew, true);
-  assert.equal(fr.c[1].ew, undefined);
-  assert.deepEqual({ ...ew.c[1], ew: undefined }, { ...fr.c[1], ew: undefined });
+  const ew = parse('sin(x)./x').c[0], fr = parse('sin(x)/x').c[0]; // la funcion con su parentesis es el numerador entero (una sola fraccion)
+  assert.equal(ew.t, 'frac'); assert.equal(fr.t, 'frac');
+  assert.equal(ew.ew, true);
+  assert.equal(fr.ew, undefined);
+  assert.deepEqual({ ...ew, ew: undefined }, { ...fr, ew: undefined });
   assert.deepEqual(parse('x.^2'), parse('x^2')); // .^ es una potencia normal
   assert.equal(parse('a.*b').c[1].s, '.⋅'); // .*: el punto antes del ⋅ del producto
   assert.equal(parse('2./3').c[0].a.s, '2'); // el punto no se pega al numero
