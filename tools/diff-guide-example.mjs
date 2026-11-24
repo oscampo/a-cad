@@ -32,5 +32,10 @@ for (const col of COLS) {
   }
   for (const id of Object.keys(A)) if (!(id in B)) out(`- ${col}.${id}  ${brief(A[id])}`);
 }
+// el resto de campos del dibujo (pagina, altura de las cotas, contador de ids…); n es el contador de ids y cambia solo
+for (const k of new Set([...Object.keys(mine.doc), ...Object.keys(saved.doc || {})])) {
+  if (COLS.includes(k) || k === 'n') continue;
+  if (!same(mine.doc[k], saved.doc?.[k])) out('~ ' + k + '  ' + brief(mine.doc[k]) + ' -> ' + brief(saved.doc?.[k]));
+}
 if (!same(mine.view, saved.view)) out(`~ view  ${brief(mine.view)} -> ${brief(saved.view)}${saved.view ? '' : '   (el guardado no lleva «view»: la app no sabe que encender; el script lo calcula)'}`);
 console.log(n ? `\n${n} diferencias en «${name}» (${lang}). + lo que agregaste, - lo que quitaste, ~ lo que cambiaste.` : `Sin diferencias con lo que genera el script para «${name}» (${lang}).`);

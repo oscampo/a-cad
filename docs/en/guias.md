@@ -1,4 +1,4 @@
-<!-- es: efaf821237 -->
+<!-- es: a1f3b8f46b -->
 # Task guides
 
 Each guide solves a concrete task, step by step, with an example drawing that opens in the app. For the detail of each tool, follow the links to the chapter that explains it.
@@ -266,13 +266,13 @@ Dimensions that say a unit (inches) while the drawing measures the real thing, a
 ### Steps
 
 1. Draw the plate and fix one corner. Double tap the length dimension and type the value with its unit: `4'in` (the apostrophe joins the value and the unit). Do the same with the height: `2'in`.
-2. Draw a long line and dimension it with `126'in`. It is too big to see next to the plate.
-3. Edit that dimension and add the scale in brackets: `126'in[*0.1]` (see [Scaled dimension](06-cotas.md#scaled-dimension)).
+2. Draw a long line and dimension it with `126'in`. At real size (3200.4 mm) it does not fit on a letter sheet, which leaves 165.9 mm usable with 25 mm margins.
+3. Edit that dimension and add the scale in brackets: `126'in[*0.05]` (see [Scaled dimension](06-cotas.md#scaled-dimension)).
 4. To change only the unit a dimension is read in, use **Dimension unit** in its window (see [Dimension with unit](06-cotas.md#dimension-with-unit)).
 
 ### What you will see
 
-The plate says "4 in" and "2 in", and the drawing (in mm) measures 101.6 by 50.8. The long line is drawn at one tenth: it measures 320.04 and its dimension still says "126 in", <u>underlined</u> to warn that it is not at real scale.
+The plate says "4 in" and "2 in", and the drawing (in mm) measures 101.6 by 50.8. The long line is drawn at 1:20: it measures 160.02, fits on the sheet and its dimension still says "126 in", <u>underlined</u> to warn that it is not at real scale.
 
 ### To continue
 
@@ -301,6 +301,31 @@ The dimensions say "30 kN" and "45 kN", and the lines measure 30 and 45 mm. Unli
 - `eF` is read in the [reading order](07-texto-y-calculo.md#reading-order): if you redefine it further down, the dimensions above it keep using the previous one.
 - Without a scale, `30'kN` would measure 30000 (in SI) and the app warns you with ⚠. See [Scale with units](06-cotas.md#scale-with-units).
 - Vectors use the same scale: [Force polygon](#draw-a-force-polygon-with-vectors).
+
+## Create a function library and use it in another drawing
+
+Functions you define once and reuse in any drawing, with a short prefix (the alias).
+
+**Examples:** [the library](../../ejemplos/guias/biblioteca-geometria.json) and [a drawing that uses it](../../ejemplos/guias/usar-biblioteca.json). The second one carries an already inserted copy; it does not come from GitHub.
+
+### Steps
+
+1. In a new drawing, define your functions in texts: `$$AreaCirculo(Dext):pi*Dext^2/4$$` and `$$AreaAnillo(Dext; Dint):AreaCirculo(Dext)-AreaCirculo(Dint)$$`. You can leave a test, `$$ejemplo:AreaAnillo(50; 30)=$$`: examples do not travel with the library.
+2. In **Settings → Library** check "It is a library" and fill in the card: name, **alias** (`GEO`), author and description (see [Create a library](09-simulaciones-graficas.md#creating-a-library)).
+3. Review what is **public**: by default, the functions and scripts. What those need travels too, as private.
+4. Choose **Save to GitHub**: it goes in the `MyLibrary/` folder with a version that goes up by itself (v1, v2…). First you have to [set up GitHub](11-archivo-y-exportacion.md#github).
+5. In another drawing, choose **[File](11-archivo-y-exportacion.md#file-button) → Insert library…**, pick it and confirm the alias.
+6. Use its names with the alias: `$$GEO.AreaAnillo(50; 30)=$$`.
+
+### What you will see
+
+A block `▸ Basic geometry (GEO) · v1` with a copy of the definitions, which works offline. The `GEO.` prefix is drawn in gray and the calculation gives 1256.6 for the ring and 78.54 for the circle of diameter 10.
+
+### To continue
+
+- If you change the library and save it again, the drawings that use it show `⟳ v2`; in the block's properties, "Update" brings the new version and first warns you which names change (see [Update](09-simulaciones-graficas.md#updating)).
+- A library should not depend on the dimensions or measurements of its drawing: the check before saving warns you.
+- To type a name without remembering it, use the `ƒx` suggestions ([Text and calculation](07-texto-y-calculo.md)).
 
 ## Save, open and share your drawings
 

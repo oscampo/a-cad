@@ -84,35 +84,40 @@
     "b": "p2",
     "color": "#e11d48",
     "ltype": "continua",
-    "w": 1
+    "w": 1,
+    "ls": 1
    },
    "l6": {
     "a": "p2",
     "b": "p3",
     "color": "#e11d48",
     "ltype": "continua",
-    "w": 1
+    "w": 1,
+    "ls": 1
    },
    "l7": {
     "a": "p3",
     "b": "p4",
     "color": "#e11d48",
     "ltype": "continua",
-    "w": 1
+    "w": 1,
+    "ls": 1
    },
    "l8": {
     "a": "p4",
     "b": "p1",
     "color": "#e11d48",
     "ltype": "continua",
-    "w": 1
+    "w": 1,
+    "ls": 1
    },
    "l23": {
     "a": "p21",
     "b": "p22",
     "color": "#2563eb",
     "ltype": "discontinua",
-    "w": 1
+    "w": 1,
+    "ls": 1
    }
   },
   "circles": {
@@ -121,28 +126,32 @@
     "r": 3,
     "color": "#e11d48",
     "ltype": "continua",
-    "w": 1
+    "w": 1,
+    "ls": 1
    },
    "c16": {
     "c": "p15",
     "r": 3,
     "color": "#e11d48",
     "ltype": "continua",
-    "w": 1
+    "w": 1,
+    "ls": 1
    },
    "c18": {
     "c": "p17",
     "r": 3,
     "color": "#e11d48",
     "ltype": "continua",
-    "w": 1
+    "w": 1,
+    "ls": 1
    },
    "c20": {
     "c": "p19",
     "r": 3,
     "color": "#e11d48",
     "ltype": "continua",
-    "w": 1
+    "w": 1,
+    "ls": 1
    }
   },
   "arcs": {},

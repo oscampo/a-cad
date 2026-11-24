@@ -64,31 +64,59 @@
   "circles": {
    "c2": {
     "c": "p1",
-    "r": 60
+    "r": 60,
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "c4": {
     "c": "p3",
-    "r": 5
+    "r": 5,
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "c9": {
     "c": "p8",
-    "r": 5
+    "r": 5,
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "c14": {
     "c": "p13",
-    "r": 5
+    "r": 5,
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "c19": {
     "c": "p18",
-    "r": 5
+    "r": 5,
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "c24": {
     "c": "p23",
-    "r": 5
+    "r": 5,
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "c29": {
     "c": "p28",
-    "r": 5
+    "r": 5,
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    }
   },
   "arcs": {},

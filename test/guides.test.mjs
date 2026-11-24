@@ -12,6 +12,7 @@ import { laserClasses } from '../src/export.js';
 import { EXAMPLE_NAMES } from '../tools/build-guide-examples.mjs';
 import { viewNeeds } from '../src/examples.js';
 import { dimText, isScaledDim } from '../src/dims.js';
+import { checkLibrary, libClosure } from '../src/library.js';
 
 await initSolver();
 let passed = 0;
@@ -19,6 +20,15 @@ const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
 const root = new URL('../', import.meta.url);
 const load = (name, lang = 'es') => { const d = JSON.parse(readFileSync(new URL(`ejemplos/guias/${name}${lang === 'en' ? '.en' : ''}.json`, root), 'utf8')).doc; ensureNumbers(d); return d; };
 const dims = (d) => Object.values(d.cons).filter((k) => k.t === 'DIST' || k.t === 'RAD');
+
+t('lineas, circulos, arcos y splines de cada ejemplo llevan color, tipo y grosor (sin w la app no pinta el halo de seleccion)', () => {
+  for (const name of EXAMPLE_NAMES) for (const lang of ['es', 'en']) {
+    const d = load(name, lang);
+    for (const key of ['lines', 'circles', 'arcs', 'splines', 'ellipses']) for (const [id, o] of Object.entries(d[key] || {})) {
+      assert.ok(typeof o.w === 'number' && o.w > 0 && o.color != null && o.ltype != null, `${name} (${lang}) ${key}.${id} sin estilo`);
+    }
+  }
+});
 
 t('cada ejemplo existe en español y en ingles, se abre, se resuelve y no tiene errores de calculo', () => {
   assert.ok(EXAMPLE_NAMES.length >= 6);
@@ -97,6 +107,21 @@ t('corte laser: dos clases de linea (corte rojo continua, marcado azul discontin
   assert.deepEqual(cl.map((c) => [c.ltype, c.count]), [['continua', 8], ['discontinua', 1]]);
 });
 
+t('biblioteca: la ficha pasa la revision, lo publico viaja (el ejemplo no) y el dibujo que la usa calcula con el alias', () => {
+  const clean = (s) => s.replace(/[-]/g, '');
+  const L = load('biblioteca-geometria');
+  assert.deepEqual(checkLibrary(L), []);
+  assert.deepEqual([...libClosure(L, L.lib.exports).names].sort(), ['AreaAnillo', 'AreaCirculo']); // «ejemplo» no viaja
+  assert.equal(L.lib.alias, 'GEO');
+  const d = load('usar-biblioteca');
+  const blk = Object.values(d.texts).find((x) => x.lib);
+  assert.equal(blk.lib.alias, 'GEO'); assert.deepEqual([...blk.lib.exports].sort(), ['AreaAnillo', 'AreaCirculo']);
+  const out = Object.values(d.texts).map((x) => clean(shownText(d, x).text).replace('color(gray)(GEO.)', 'GEO.')); // el prefijo se dibuja en gris
+  assert.ok(out.includes('$GEO.AreaCirculo(10)=78.54$'), out.join('|'));
+  assert.ok(out.includes('$GEO.AreaAnillo(50; 30)=1256.6$'), out.join('|'));
+  assert.deepEqual(textVarErrors(d), []);
+});
+
 t('placa redondeada: cuatro arcos de radio 8 y R1 manda sobre R2, R3 y R4; el largo y el alto se pueden cambiar', () => {
   const d = load('placa-redondeada');
   assert.deepEqual(Object.values(d.arcs).map((a) => a.r), [8, 8, 8, 8]);
@@ -109,12 +134,14 @@ t('placa redondeada: cuatro arcos de radio 8 y R1 manda sobre R2, R3 y R4; el la
   assert.deepEqual(Object.values(d.arcs).map((a) => Math.round(a.r * 1e6) / 1e6), [12, 12, 12, 12]);
 });
 
-t("cotas en pulgadas: 4'in y 2'in miden 101,6 y 50,8 (mm) y dicen in; 126'in[*0.1] mide 320,04 y sigue diciendo 126 in", () => {
+t("cotas en pulgadas: 4'in y 2'in miden 101,6 y 50,8 (mm) y dicen in; 126'in[*0.05] mide 160,02 (cabe en la hoja carta) y sigue diciendo 126 in", () => {
   const d = load('cotas-en-pulgadas');
   const len = (k) => { const [a, b] = k.refs.map((r) => d.pts[r]); return Math.hypot(b.x - a.x, b.y - a.y); };
   const ks = Object.values(d.cons).filter((k) => k.t === 'DIST');
   assert.deepEqual(ks.map((k) => dimText(d, k)), ['4 in', '2 in', '126 in']);
-  assert.deepEqual(ks.map((k) => Math.round(len(k) * 1e3) / 1e3), [101.6, 50.8, 320.04]);
+  assert.deepEqual(ks.map((k) => Math.round(len(k) * 1e3) / 1e3), [101.6, 50.8, 160.02]);
+  assert.ok(d.page && d.page.w === 215.9 && 160.02 <= d.page.w - 2 * d.page.m, 'la linea larga cabe en el area util de la hoja');
+  assert.equal(ks[2].scale, 0.05);
   assert.equal(isScaledDim(ks[2]), true); assert.equal(isScaledDim(ks[0]), false);
 });
 

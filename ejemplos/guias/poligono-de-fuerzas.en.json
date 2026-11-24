@@ -80,7 +80,10 @@
      "t": "t12",
      "d": "k11"
     },
-    "w": 2
+    "w": 2,
+    "color": "auto",
+    "ltype": "continua",
+    "ls": 1
    },
    "l6": {
     "a": "p2",
@@ -91,7 +94,10 @@
      "t": "t16",
      "d": "k15"
     },
-    "w": 2
+    "w": 2,
+    "color": "auto",
+    "ltype": "continua",
+    "ls": 1
    },
    "l7": {
     "a": "p3",
@@ -102,7 +108,10 @@
      "t": "t20",
      "d": "k19"
     },
-    "w": 2
+    "w": 2,
+    "color": "auto",
+    "ltype": "continua",
+    "ls": 1
    },
    "l8": {
     "a": "p1",
@@ -114,7 +123,9 @@
      "d": "k23"
     },
     "w": 2,
-    "color": "#dc2626"
+    "color": "#dc2626",
+    "ltype": "continua",
+    "ls": 1
    }
   },
   "circles": {},

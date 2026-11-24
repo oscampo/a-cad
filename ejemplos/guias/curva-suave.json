@@ -88,7 +88,11 @@
      "p5",
      "p6"
     ],
-    "closed": false
+    "closed": false,
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    }
   },
   "traces": {},

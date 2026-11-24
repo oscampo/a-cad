@@ -11,6 +11,7 @@ import { addGraph } from '../src/graphs.js';
 import { makeVector } from '../src/vectors.js';
 import { circularArray } from '../src/edit.js';
 import { filletCorner } from '../src/corners.js';
+import { libPayload } from '../src/library.js';
 import { settle } from '../src/params.js';
 import { viewNeeds } from '../src/examples.js';
 
@@ -23,6 +24,27 @@ const note = (doc, x, y, lines, h = 3) => lines.forEach((l, i) => txt(doc, x, y 
 const rectangle = (doc, x0, y0, w, h, style) => {
   const p = [addPoint(doc, x0, y0), addPoint(doc, x0 + w, y0), addPoint(doc, x0 + w, y0 + h), addPoint(doc, x0, y0 + h)];
   return { p, l: addRectangle(doc, p, style) };
+};
+
+// Como lo deja la app al dibujar (cur en main.js): lineas, circulos, arcos y splines siempre llevan color, tipo y grosor. Sin ellos la app los dibuja
+// con grosor indefinido y no pinta el halo de seleccion (un spline sin w no se veia seleccionado).
+const withStyle = (doc) => {
+  for (const key of ['lines', 'circles', 'arcs', 'splines', 'ellipses']) for (const o of Object.values(doc[key] || {})) {
+    if (o.color == null) o.color = 'auto';
+    if (o.ltype == null) o.ltype = 'continua';
+    if (o.w == null) o.w = 2;
+    if (o.ls == null) o.ls = 1;
+  }
+  return doc;
+};
+// La biblioteca de ejemplo (el documento que la define); el dibujo que la usa lleva una copia de lo publico, como la deja «Insertar biblioteca…»
+const geometryLib = (L) => {
+  const d = newDoc(); d.decimal = '.';
+  txt(d, 0, 100, '$AreaCirculo(Dext):pi*Dext^2/4$');
+  txt(d, 0, 90, '$AreaAnillo(Dext; Dint):AreaCirculo(Dext)-AreaCirculo(Dint)$');
+  txt(d, 0, 76, '$ejemplo:AreaAnillo(50; 30)=$'); // un ejemplo: no viaja con la biblioteca
+  d.lib = { on: true, name: L.es ? 'Geometría básica' : 'Basic geometry', alias: 'GEO', author: 'A-CAD', desc: L.es ? 'Áreas de círculos y anillos' : 'Areas of circles and rings', version: 1, exports: ['AreaCirculo', 'AreaAnillo'] };
+  return d;
 };
 
 const EXAMPLES = {
@@ -214,19 +236,20 @@ const EXAMPLES = {
   'cotas-en-pulgadas': (L) => {
     const d = newDoc(), { p } = rectangle(d, 0, 0, 100, 50);
     d.pts[p[0]].fixed = true;
+    d.page = { w: 215.9, h: 279.4, m: 25, x0: -25, y0: 115 }; // hoja tamaño carta: la linea larga tiene que caber en su area util (165,9 mm)
+    d.dimText = true; d.dimH = 4.2333333333333325; // cotas en puntos (12 pt), como las deja la app con pagina
     addCon(d, { t: 'DIST', refs: [p[0], p[1]], v: 100, expr: "4'in" }); // la cota lo dice en pulgadas; el dibujo mide 101,6 (mm)
     addCon(d, { t: 'DIST', refs: [p[1], p[2]], v: 50, expr: "2'in" });
-    const a = addPoint(d, 0, -30), b = addPoint(d, 320, -30);
+    const a = addPoint(d, 0, -30), b = addPoint(d, 160.02, -30);
     d.pts[a].fixed = true;
     addLine(d, a, b);
-    addCon(d, { t: 'DIST', refs: [a, b], v: 320, expr: "126'in", scale: 0.1 }); // 126 in dibujadas a 1:10 (320,04 mm); la cota sigue diciendo 126 in
-    note(d, 0, 90, L.es ? [
-      "La placa mide 4'in por 2'in: la cota lo dice en pulgadas y el dibujo (en mm) mide 101,6 por 50,8.",
-      "La línea de abajo vale 126'in pero se dibuja a 1:10 con [*0.1]: mide 320,04 y su cota sigue diciendo «126 in», subrayada.",
-    ] : [
-      "The plate is 4'in by 2'in: the dimension says it in inches and the drawing (in mm) measures 101.6 by 50.8.",
-      "The line below is 126'in but is drawn at 1:10 with [*0.1]: it measures 320.04 and its dimension still says \"126 in\", underlined.",
-    ]);
+    addCon(d, { t: 'DIST', refs: [a, b], v: 160.02, expr: "126'in", scale: 0.05 }); // 126 in dibujadas a 1:20 (160,02 mm); la cota sigue diciendo 126 in
+    txt(d, 0.29899257688229375, 89.31808059384942, L.es
+      ? "En esta hoja tamaño carta, se tiene dibujada una placa que mide 4'in por 2'in: la cota lo dice en pulgadas y el dibujo (en mm) mide 101,6 por 50,8."
+      : "On this letter-size sheet, a plate that measures 4'in by 2'in is drawn: the dimension says it in inches and the drawing (in mm) measures 101.6 by 50.8.", 3);
+    txt(d, 0.29899257688229375, 78.17852598091197, L.es
+      ? "La línea de abajo mide 126'in pero se dibuja a 1:20 con [*0.05], para que quepa dentro de la hoja: mide 160,02 mm y su cota sigue diciendo «126 in», subrayada."
+      : "The line below measures 126'in but is drawn at 1:20 with [*0.05], so that it fits inside the sheet: it measures 160.02 mm and its dimension still says \"126 in\", underlined.", 3);
     return d;
   },
   // 13. Fuerzas dibujadas a escala con una escala de representacion en una variable
@@ -247,6 +270,34 @@ const EXAMPLES = {
     ] : [
       "eF is 1'mm/kN: each kN is drawn with 1 mm. The dimensions say 30 kN and 45 kN, and the lines measure 30 and 45 mm.",
       "Change eF to 2'mm/kN and both lines double in length; the dimensions still say the same.",
+    ]);
+    return d;
+  },
+  // 14. Una biblioteca de funciones (el documento que la define)
+  'biblioteca-geometria': (L) => {
+    const d = geometryLib(L);
+    note(d, 0, 55, L.es ? [
+      'Este dibujo es una biblioteca: Configuración → Biblioteca marca «Es una biblioteca» (alias GEO).',
+      'Sus funciones AreaCirculo y AreaAnillo son públicas; «ejemplo» es solo una prueba y no viaja.',
+    ] : [
+      'This drawing is a library: Settings → Library has "Is a library" checked (alias GEO).',
+      'Its functions AreaCirculo and AreaAnillo are public; "ejemplo" is only a test and does not travel.',
+    ]);
+    return d;
+  },
+  // 15. Un dibujo que usa una biblioteca ya insertada
+  'usar-biblioteca': (L) => {
+    const d = newDoc(); d.decimal = '.';
+    const blk = addText(d, addPoint(d, 0, 100), '▸ ' + (L.es ? 'Geometría básica' : 'Basic geometry'), { h: 3.2, anchor: 'tl' });
+    d.texts[blk].lib = { ...libPayload(geometryLib(L)), decimal: '.', path: 'MyLibrary/GeometriaBasica.alib.json' }; // sin sha: no existe en GitHub, solo es un ejemplo
+    txt(d, 0, 88, '$GEO.AreaCirculo(10)=$');
+    txt(d, 0, 78, '$GEO.AreaAnillo(50; 30)=$');
+    note(d, 0, 62, L.es ? [
+      'El bloque de arriba es la biblioteca insertada (una copia: funciona sin red). Sus nombres se usan con el alias: GEO.AreaCirculo(…).',
+      'Doble toque en el bloque para ver sus propiedades. Este ejemplo no viene de GitHub, así que «Actualizar» no encontrará nada.',
+    ] : [
+      'The block above is the inserted library (a copy: it works offline). Its names are used with the alias: GEO.AreaCirculo(…).',
+      'Double tap the block to see its properties. This example does not come from GitHub, so "Update" will find nothing.',
     ]);
     return d;
   },
@@ -279,7 +330,7 @@ export async function buildAll() {
   const out = {};
   for (const [name, make] of Object.entries(EXAMPLES)) {
     for (const lang of ['es', 'en']) {
-      const doc = make({ es: lang === 'es' });
+      const doc = withStyle(make({ es: lang === 'es' }));
       ensureNumbers(doc);
       const r = settle(doc, solve, []);
       if (r && r.ok === false) throw new Error(`${name} (${lang}): no se pudo resolver: ${r.msg || ''}`);
@@ -294,7 +345,7 @@ export async function buildAll() {
 export async function buildDoc(name, lang = 'es') {
   if (!EXAMPLES[name]) throw new Error(`no hay un ejemplo «${name}» (hay: ${EXAMPLE_NAMES.join(', ')})`);
   await initSolver();
-  const doc = EXAMPLES[name]({ es: lang === 'es' });
+  const doc = withStyle(EXAMPLES[name]({ es: lang === 'es' }));
   ensureNumbers(doc);
   settle(doc, solve, []);
   return { doc, view: viewNeeds(doc, { points: SHOW_POINTS.has(name) }) };

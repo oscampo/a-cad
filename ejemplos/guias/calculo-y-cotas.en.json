@@ -63,19 +63,35 @@
   "lines": {
    "l11": {
     "a": "p7",
-    "b": "p8"
+    "b": "p8",
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "l12": {
     "a": "p8",
-    "b": "p9"
+    "b": "p9",
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "l13": {
     "a": "p9",
-    "b": "p10"
+    "b": "p10",
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "l14": {
     "a": "p10",
-    "b": "p7"
+    "b": "p7",
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    }
   },
   "circles": {},
