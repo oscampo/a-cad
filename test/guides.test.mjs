@@ -134,12 +134,14 @@ t('placa redondeada: cuatro arcos de radio 8 y R1 manda sobre R2, R3 y R4; el la
   assert.deepEqual(Object.values(d.arcs).map((a) => Math.round(a.r * 1e6) / 1e6), [12, 12, 12, 12]);
 });
 
-t("cotas en pulgadas: 4'in y 2'in miden 101,6 y 50,8 (mm) y dicen in; 126'in[*0.1] mide 320,04 y sigue diciendo 126 in", () => {
+t("cotas en pulgadas: 4'in y 2'in miden 101,6 y 50,8 (mm) y dicen in; 126'in[*0.05] mide 160,02 (cabe en la hoja carta) y sigue diciendo 126 in", () => {
   const d = load('cotas-en-pulgadas');
   const len = (k) => { const [a, b] = k.refs.map((r) => d.pts[r]); return Math.hypot(b.x - a.x, b.y - a.y); };
   const ks = Object.values(d.cons).filter((k) => k.t === 'DIST');
   assert.deepEqual(ks.map((k) => dimText(d, k)), ['4 in', '2 in', '126 in']);
-  assert.deepEqual(ks.map((k) => Math.round(len(k) * 1e3) / 1e3), [101.6, 50.8, 320.04]);
+  assert.deepEqual(ks.map((k) => Math.round(len(k) * 1e3) / 1e3), [101.6, 50.8, 160.02]);
+  assert.ok(d.page && d.page.w === 215.9 && 160.02 <= d.page.w - 2 * d.page.m, 'la linea larga cabe en el area util de la hoja');
+  assert.equal(ks[2].scale, 0.05);
   assert.equal(isScaledDim(ks[2]), true); assert.equal(isScaledDim(ks[0]), false);
 });
 

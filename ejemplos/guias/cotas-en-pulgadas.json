@@ -36,20 +36,20 @@
     "auto": false
    },
    "p16": {
-    "x": 320.04,
+    "x": 160.02,
     "y": -30,
     "fixed": false,
     "auto": false
    },
    "p19": {
-    "x": 0,
-    "y": 90,
+    "x": 0.29899257688229375,
+    "y": 89.31808059384942,
     "fixed": false,
     "auto": false
    },
    "p21": {
-    "x": 0,
-    "y": 85.5,
+    "x": 0.29899257688229375,
+    "y": 78.17852598091197,
     "fixed": false,
     "auto": false
    }
@@ -102,7 +102,7 @@
   "texts": {
    "t20": {
     "pt": "p19",
-    "text": "La placa mide 4'in por 2'in: la cota lo dice en pulgadas y el dibujo (en mm) mide 101,6 por 50,8.",
+    "text": "En esta hoja tamaño carta, se tiene dibujada una placa que mide 4'in por 2'in: la cota lo dice en pulgadas y el dibujo (en mm) mide 101,6 por 50,8.",
     "h": 3,
     "ang": 0,
     "anchor": "tl",
@@ -111,7 +111,7 @@
    },
    "t22": {
     "pt": "p21",
-    "text": "La línea de abajo vale 126'in pero se dibuja a 1:10 con [*0.1]: mide 320,04 y su cota sigue diciendo «126 in», subrayada.",
+    "text": "La línea de abajo mide 126'in pero se dibuja a 1:20 con [*0.05], para que quepa dentro de la hoja: mide 160,02 mm y su cota sigue diciendo «126 in», subrayada.",
     "h": 3,
     "ang": 0,
     "anchor": "tl",
@@ -178,9 +178,9 @@
      "p15",
      "p16"
     ],
-    "v": 320.04,
+    "v": 160.02,
     "expr": "126'in",
-    "scale": 0.1,
+    "scale": 0.05,
     "name": "D3",
     "du": "in"
    }
@@ -193,6 +193,15 @@
   },
   "layers": {},
   "curLayer": null,
+  "page": {
+   "w": 215.9,
+   "h": 279.4,
+   "m": 25,
+   "x0": -25,
+   "y0": 115
+  },
+  "dimText": true,
+  "dimH": 4.2333333333333325,
   "cnd": {
    "D": 3
   }

@@ -1,4 +1,4 @@
-<!-- es: 9f55b6be26 -->
+<!-- es: a1f3b8f46b -->
 # Task guides
 
 Each guide solves a concrete task, step by step, with an example drawing that opens in the app. For the detail of each tool, follow the links to the chapter that explains it.
@@ -266,13 +266,13 @@ Dimensions that say a unit (inches) while the drawing measures the real thing, a
 ### Steps
 
 1. Draw the plate and fix one corner. Double tap the length dimension and type the value with its unit: `4'in` (the apostrophe joins the value and the unit). Do the same with the height: `2'in`.
-2. Draw a long line and dimension it with `126'in`. It is too big to see next to the plate.
-3. Edit that dimension and add the scale in brackets: `126'in[*0.1]` (see [Scaled dimension](06-cotas.md#scaled-dimension)).
+2. Draw a long line and dimension it with `126'in`. At real size (3200.4 mm) it does not fit on a letter sheet, which leaves 165.9 mm usable with 25 mm margins.
+3. Edit that dimension and add the scale in brackets: `126'in[*0.05]` (see [Scaled dimension](06-cotas.md#scaled-dimension)).
 4. To change only the unit a dimension is read in, use **Dimension unit** in its window (see [Dimension with unit](06-cotas.md#dimension-with-unit)).
 
 ### What you will see
 
-The plate says "4 in" and "2 in", and the drawing (in mm) measures 101.6 by 50.8. The long line is drawn at one tenth: it measures 320.04 and its dimension still says "126 in", <u>underlined</u> to warn that it is not at real scale.
+The plate says "4 in" and "2 in", and the drawing (in mm) measures 101.6 by 50.8. The long line is drawn at 1:20: it measures 160.02, fits on the sheet and its dimension still says "126 in", <u>underlined</u> to warn that it is not at real scale.
 
 ### To continue
 

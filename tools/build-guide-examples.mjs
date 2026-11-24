@@ -236,19 +236,20 @@ const EXAMPLES = {
   'cotas-en-pulgadas': (L) => {
     const d = newDoc(), { p } = rectangle(d, 0, 0, 100, 50);
     d.pts[p[0]].fixed = true;
+    d.page = { w: 215.9, h: 279.4, m: 25, x0: -25, y0: 115 }; // hoja tamaño carta: la linea larga tiene que caber en su area util (165,9 mm)
+    d.dimText = true; d.dimH = 4.2333333333333325; // cotas en puntos (12 pt), como las deja la app con pagina
     addCon(d, { t: 'DIST', refs: [p[0], p[1]], v: 100, expr: "4'in" }); // la cota lo dice en pulgadas; el dibujo mide 101,6 (mm)
     addCon(d, { t: 'DIST', refs: [p[1], p[2]], v: 50, expr: "2'in" });
-    const a = addPoint(d, 0, -30), b = addPoint(d, 320, -30);
+    const a = addPoint(d, 0, -30), b = addPoint(d, 160.02, -30);
     d.pts[a].fixed = true;
     addLine(d, a, b);
-    addCon(d, { t: 'DIST', refs: [a, b], v: 320, expr: "126'in", scale: 0.1 }); // 126 in dibujadas a 1:10 (320,04 mm); la cota sigue diciendo 126 in
-    note(d, 0, 90, L.es ? [
-      "La placa mide 4'in por 2'in: la cota lo dice en pulgadas y el dibujo (en mm) mide 101,6 por 50,8.",
-      "La línea de abajo vale 126'in pero se dibuja a 1:10 con [*0.1]: mide 320,04 y su cota sigue diciendo «126 in», subrayada.",
-    ] : [
-      "The plate is 4'in by 2'in: the dimension says it in inches and the drawing (in mm) measures 101.6 by 50.8.",
-      "The line below is 126'in but is drawn at 1:10 with [*0.1]: it measures 320.04 and its dimension still says \"126 in\", underlined.",
-    ]);
+    addCon(d, { t: 'DIST', refs: [a, b], v: 160.02, expr: "126'in", scale: 0.05 }); // 126 in dibujadas a 1:20 (160,02 mm); la cota sigue diciendo 126 in
+    txt(d, 0.29899257688229375, 89.31808059384942, L.es
+      ? "En esta hoja tamaño carta, se tiene dibujada una placa que mide 4'in por 2'in: la cota lo dice en pulgadas y el dibujo (en mm) mide 101,6 por 50,8."
+      : "On this letter-size sheet, a plate that measures 4'in by 2'in is drawn: the dimension says it in inches and the drawing (in mm) measures 101.6 by 50.8.", 3);
+    txt(d, 0.29899257688229375, 78.17852598091197, L.es
+      ? "La línea de abajo mide 126'in pero se dibuja a 1:20 con [*0.05], para que quepa dentro de la hoja: mide 160,02 mm y su cota sigue diciendo «126 in», subrayada."
+      : "The line below measures 126'in but is drawn at 1:20 with [*0.05], so that it fits inside the sheet: it measures 160.02 mm and its dimension still says \"126 in\", underlined.", 3);
     return d;
   },
   // 13. Fuerzas dibujadas a escala con una escala de representacion en una variable

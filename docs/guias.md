@@ -265,13 +265,13 @@ Cotas que dicen una unidad (pulgadas) mientras el dibujo mide lo real, y una cot
 ### Pasos
 
 1. Dibuja la placa y fija una esquina. Da doble toque a la cota del largo y escribe el valor con su unidad: `4'in` (el apóstrofo une el valor y la unidad). Haz lo mismo con el alto: `2'in`.
-2. Dibuja una línea larga y acótala con `126'in`. Es demasiado grande para verla junto a la placa.
-3. Edita esa cota y añade la escala entre corchetes: `126'in[*0.1]` (ver [Cota a escala](06-cotas.md#cota-a-escala)).
+2. Dibuja una línea larga y acótala con `126'in`. A tamaño real (3200,4 mm) no cabe en una hoja carta, que deja 165,9 mm útiles con márgenes de 25 mm.
+3. Edita esa cota y añade la escala entre corchetes: `126'in[*0.05]` (ver [Cota a escala](06-cotas.md#cota-a-escala)).
 4. Para cambiar solo la unidad con la que se lee una cota, usa **Unidad de la cota** en su ventana (ver [Cota con unidad](06-cotas.md#cota-con-unidad)).
 
 ### Qué verás
 
-La placa dice «4 in» y «2 in», y el dibujo (en mm) mide 101,6 por 50,8. La línea larga se dibuja a una décima: mide 320,04 y su cota sigue diciendo «126 in», <u>subrayada</u> para avisar que no está a escala real.
+La placa dice «4 in» y «2 in», y el dibujo (en mm) mide 101,6 por 50,8. La línea larga se dibuja a 1:20: mide 160,02, cabe en la hoja y su cota sigue diciendo «126 in», <u>subrayada</u> para avisar que no está a escala real.
 
 ### Para seguir
 
