@@ -212,6 +212,31 @@ function toMatrix(g) {
   return { t: 'mat', l: g.l, r: g.r, rows: rows.map((r) => keep.map((k) => r[k])), bars };
 }
 
+// «cross(a, b)» se dibuja «a × b» y «dot(a, b)» «a ⋅ b» (solo el dibujo: el calculo sigue siendo la funcion). Con «;» entre los argumentos
+// en el modo de coma decimal (aqui valen las dos). Si no son exactamente dos argumentos, se dibuja como funcion. Devuelve null (sin consumir nada) si no aplica.
+const BARE_OK = (n) => n.t === 'space' || (n.t === 'o' && (n.k === 'rel' || n.k === 'punct')) || (n.t === 'sym' && (n.s === '‖' || n.s === '|')); // tambien las barras: ‖cross(a,b)‖
+const paren = (body) => ({ t: 'group', l: '(', r: ')', body: body.t === 'row' ? body : { t: 'row', c: [body] } });
+function vecProduct(p, name) {
+  if (p.toks[p.i]?.t !== 'open') return null;
+  const save = p.i;
+  p.i++; p.depth++;
+  const body = parseSeq(p);
+  p.depth--;
+  if (p.toks[p.i]?.t !== 'close') { p.i = save; return null; }
+  p.i++;
+  const isSep = (n) => isComma(n) || isSemi(n); // los dos valen (el calculo acepta «,» y «;»; con coma decimal solo «;»)
+  const args = [[]];
+  for (const n of body.c) { if (isSep(n)) args.push([]); else args.at(-1).push(n); }
+  const real = args.map((a) => a.filter((n) => n.t !== 'space'));
+  if (args.length !== 2 || real.some((a) => !a.length)) { p.i = save; return null; }
+  // un operando compuesto (a+b, -a seguido de mas, otro cross) lleva parentesis; un solo elemento o un producto de factores, no
+  const operand = (a) => {
+    const node = a.length === 1 ? a[0] : { t: 'row', c: a };
+    return a.some((n, i) => n.cx || (i > 0 && n.t === 'o' && (n.k === 'bin' || n.k === 'rel'))) ? paren(node) : node;
+  };
+  return { t: 'row', c: [operand(real[0]), { t: 'o', s: name === 'cross' ? '×' : '⋅', k: 'bin' }, operand(real[1])], cx: true };
+}
+
 function parseS(p) {
   const k = p.toks[p.i];
   if (!k) return EMPTY();
@@ -234,7 +259,7 @@ function parseS(p) {
       return rows.length && rows.every((r) => r.length === rows[0].length) ? { t: 'mat', l: '[', r: ']', rows, bars: [] } : EMPTY();
     }
     case 'str': return { t: 'txt', s: k.v };
-    case 'fn': return { t: 'fn', s: k.v };
+    case 'fn': return (k.v === 'cross' || k.v === 'dot') && vecProduct(p, k.v) || { t: 'fn', s: k.v };
     case 'op': return { t: 'o', s: k.v, k: k.k };
     case 'punct': return { t: 'o', s: k.v, k: 'punct' };
     case 'space': return { t: 'space', w: k.w };
@@ -288,6 +313,7 @@ function parseI(p) {
     if (k?.t === 'sub' && !sub) { p.i++; sub = unwrap(parseS(p)); } else if (k?.t === 'sup' && !sup) { p.i++; sup = unwrap(parseS(p)); } else break;
   }
   if (!sub && !sup) return base;
+  if (base.cx) return { t: 'ss', base: paren(base), sub, sup }; // (a × b)^2
   if (base.nm && sup && !sub && !base.sup) return { ...base, sup }; // var_(texto)^2: el exponente va junto al subindice
   if (base.t === 'mat' && !sub && isT(sup)) return transpose(base); // v^T, M^T: la transpuesta se dibuja transpuesta (fila <-> columna)
   if (base.t === 'big' || base.t === 'brace') return { ...base, sub, sup };
@@ -324,6 +350,12 @@ function parseSeq(p) {
   while (p.i < p.toks.length) {
     if (p.toks[p.i].t === 'close' && p.depth > 0) break;
     c.push(parseE(p));
+  }
+  // «a × b» o «a ⋅ b» (de cross y dot) junto a otra cosa que no sea una relacion o una coma lleva parentesis: «2 (a × b)», «(a × b)²»
+  for (let i = 0; i < c.length; i++) {
+    if (!c[i].cx || c.length === 1) continue;
+    const prev = c.slice(0, i).reverse().find((n) => n.t !== 'space'), next = c.slice(i + 1).find((n) => n.t !== 'space');
+    if ((prev && !BARE_OK(prev)) || (next && !BARE_OK(next))) c[i] = paren(c[i]);
   }
   return { t: 'row', c };
 }

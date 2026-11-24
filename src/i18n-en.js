@@ -588,6 +588,7 @@ export const EN = {
   "Ángulos ({0})": "Angles ({0})",
   "(ninguna de este tipo)": "(none of this type)",
   "La escala [*k] solo vale en distancias, radios y diámetros": "The [*k] scale only applies to distances, radii and diameters",
+  ". «×» multiplica como «*»: el producto vectorial de dos vectores es cross(a{0} b)": ". «×» multiplies like «*»: the cross product of two vectors is cross(a{0} b)",
   "Cota «{0}» (subrayada) · medida {1} ÷ {2}": "Dimension «{0}» (underlined) · measured {1} ÷ {2}",
   "Cota «{0}» (subrayada) · dibujo = {1} × {2} = {3}": "Dimension «{0}» (underlined) · drawing = {1} × {2} = {3}",
   "Selecciona líneas o 2 puntos": "Select lines or 2 points",

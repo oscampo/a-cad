@@ -268,4 +268,26 @@ t("parser: «'in^2» es la unidad (no ∈ con prima), «'(x)» sigue siendo prim
   assert.ok(!JSON.stringify(parse("A='in")).includes('∈'));
 });
 
+t('cross(a, b) se dibuja «a × b» y dot(a, b) «a ⋅ b»; con operandos compuestos o junto a otras cosas, con parentesis', () => {
+  const ops = (s) => JSON.stringify(parse(s), (k, v) => (k === 'cx' ? undefined : v));
+  const flat = (n) => (n.t === 'row' ? n.c.map(flat).join('') : n.t === 'group' ? n.l + flat(n.body) + n.r : n.t === 'ss' ? flat(n.base) + '^' + flat(n.sup) : n.s ?? '?');
+  assert.equal(flat(parse('cross(a, b)')), 'a×b');
+  assert.equal(flat(parse('cross(a; b)')), 'a×b'); // con «;» (coma decimal) tambien
+  assert.equal(flat(parse('dot(a, b)')), 'a⋅b');
+  assert.equal(flat(parse('area := ‖cross(ab, ac)‖')), 'area:=‖ab×ac‖'); // dentro de norm, sin parentesis
+  assert.equal(flat(parse('‖cross(ab, ac)‖')), '‖ab×ac‖');
+  assert.equal(flat(parse('norm(cross(ab, ac))')), '‖ab×ac‖'); // como se teclea normalmente
+  assert.equal(flat(parse('x := cross(a, b)')), 'x:=a×b'); // junto a una relacion: sin parentesis
+  assert.equal(flat(parse('cross(a+b, c)')), '(a+b)×c');
+  assert.equal(flat(parse('cross(cross(a, b), c)')), '(a×b)×c');
+  assert.equal(flat(parse('2 cross(a, b)')), '2(a×b)');
+  assert.equal(flat(parse('a + cross(b, c)')), 'a+(b×c)');
+  assert.equal(flat(parse('cross(a, b)^2')), '(a×b)^2');
+  assert.equal(flat(parse('cross([1,0,0], [0,1,0])')), '[1,0,0]×[0,1,0]'); // los vectores literales no se vuelven una matriz
+  assert.equal(parse('cross(a)').c[0].t, 'fn'); // un solo argumento: se dibuja como funcion, sin romper
+  assert.equal(parse('cross(a, b, c)').c[0].t, 'fn');
+  assert.doesNotThrow(() => { parse('cross('); parse('cross(a,'); parse('dot(,)'); parse('cross(a, )'); }, 'incompleto no rompe');
+  assert.ok(ops('\\dot x').includes('dot'), '\\dot sigue siendo el acento');
+});
+
 console.log(`\n${passed} pruebas de matematica pasaron`);

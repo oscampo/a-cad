@@ -226,7 +226,7 @@ function tokenize(src, vars = null, loose = false) {
     if (c === '*' && src[i + 1] === '*') { toks.push({ t: 'op', v: '^', i, j: i + 2 }); i += 2; continue; }
     if (c === '.' && '*/^'.includes(src[i + 1] ?? ' ')) { toks.push({ t: 'op', v: '.' + src[i + 1], i, j: i + 2 }); i += 2; continue; } // elemento a elemento: .* ./ .^
     if (c === '[') depth++; else if (c === ']') depth = Math.max(0, depth - 1);
-    if ('+-*/^()[]×÷·−'.includes(c)) { toks.push({ t: 'op', v: c === '×' || c === '·' ? '*' : c === '÷' ? '/' : c === '−' ? '-' : c, i, j: i + 1 }); i++; continue; }
+    if ('+-*/^()[]×÷·−'.includes(c)) { toks.push({ t: 'op', v: c === '×' || c === '·' ? '*' : c === '÷' ? '/' : c === '−' ? '-' : c, ...(c === '×' ? { x: true } : {}), i, j: i + 1 }); i++; continue; }
     if (c === ',' && decimalMode() === ',') throw new Error('Con coma decimal los argumentos se separan con «;» (la coma es el decimal)');
     throw new Error(`Carácter no válido «${c}»`);
   }
@@ -297,6 +297,14 @@ function addM(a, b, s) {
   if (!isM(a) || !isM(b)) return isM(a) ? mapM(a, (x) => x + s * b.v) : mapM(b, (y) => a.v + s * y); // un numero se suma a (o se resta de) cada elemento
   if (a.m.length !== b.m.length || a.m[0].length !== b.m[0].length) throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} ${nameM(a)} y ${nameM(b)}: deben tener el mismo tamaño`);
   return { m: a.m.map((r, i) => r.map((x, k) => x + s * b.m[i][k])) };
+}
+// «×» tecleado entre dos vectores de 3 elementos: multiplica como «*» (no es el producto vectorial); si no se pueden multiplicar, la pista es cross.
+const vec3 = (a) => isM(a) && (a.m.length === 1 || a.m[0].length === 1) && a.m.flat().length === 3;
+function timesM(a, b) {
+  try { return mulM(a, b); } catch (e) {
+    if (vec3(a) && vec3(b)) e.message += `. «×» multiplica como «*»: el producto vectorial de dos vectores es cross(a${argText()} b)`;
+    throw e;
+  }
 }
 function mulM(a, b) {
   if (!isM(a)) return mapM(b, (x) => a.v * x);
@@ -1540,9 +1548,10 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
         if (isC(a) || isC(b)) { a = cMulDiv(a, b, o); continue; }
         if (!isM(a) && !isM(b)) { if (o === './' && b.v === 0) throw rt('División entre cero'); a = mulU(a, b, o === '.*' ? 1 : -1, o === '.*' ? a.v * b.v : a.v / b.v); } else a = wd(o === '.*' ? elementwise(a, b, (x, y) => x * y, 'multiplicar elemento a elemento') : elementwise(a, b, divEl, 'dividir elemento a elemento'), mulDim(a.d, b.d, o === '.*' ? 1 : -1));
       } else if (isOp('*') || isOp('/')) {
-        const o = toks[p++].v, asUnit = peek()?.t === 'unit'; const b = unary();
+        const ot = toks[p++], o = ot.v, asUnit = peek()?.t === 'unit'; const b = unary();
         if (isS(a) || isS(b)) throw new Error('Una cadena no se multiplica ni se divide');
         if (isC(a) || isC(b)) { a = cMulDiv(a, b, o); continue; }
+        if (o === '*' && ot.x) { a = isM(a) || isM(b) ? wd(timesM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit); continue; } // «×» tecleado
         if (o === '/') {
           if (isM(b)) throw new Error('No se puede dividir entre un vector o una matriz');
           if (b.v === 0) throw rt('División entre cero');

@@ -68,6 +68,12 @@ t('acumuladas y entre dos vectores: cumsum, cumprod, dot, cross', () => {
   assert.deepEqual(mat('cross([1,2,3]; [4,5,6])'), [[-3, 6, -3]]);
   fails('cross([1,2]; [3,4])', /3 elementos/);
   assert.equal(num('dot(cross([1,2,3];[4,5,6]); [1,2,3])'), 0); // el producto vectorial es perpendicular
+  // «×» tecleado multiplica como «*» (no es el producto vectorial); entre dos vectores de 3 que no se pueden multiplicar, el error da la pista
+  assert.equal(num('2×3'), 6);
+  assert.deepEqual(mat('[1,2,3]×2'), [[2, 4, 6]]);
+  assert.equal(num('[1,2,3]×[4;5;6]'), 32); // fila por columna: multiplicacion de matrices, sin error
+  fails('[1,0,0]×[0,1,0]', /«×» multiplica como «\*»: el producto vectorial de dos vectores es cross\(a[,;] b\)/);
+  fails('[1,0,0]*[0,1,0]', /^((?!producto vectorial).)*$/s); // con «*» no hay pista: es lo que se pidio
 });
 
 const IV = { A: { mat: [[1, 2, 3], [4, 5, 6]] }, v: { vec: [7, 8, 9] }, i: { v: 2, r: false }, w: { mat: [[1], [2], [3]] } };
