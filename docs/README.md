@@ -1,5 +1,7 @@
 # Manual de A-CAD
 
+*[English](en/README.md)*
+
 A-CAD es un editor de dibujo 2D **paramétrico** para iOS, Android y el navegador. Dibujas puntos, líneas, círculos, arcos, elipses y splines, los relacionas con **restricciones** (horizontal, paralela, tangente...) y **cotas**, y un solver geométrico mantiene todo consistente: si mueves un punto o cambias una medida, el resto del dibujo se reacomoda. Los textos del dibujo **calculan** (variables, fórmulas, vectores y matrices) y pueden gobernar las cotas, y los mecanismos se mueven a mano o con **simulaciones gráficas** en el tiempo, con actuadores y gráficas. Sirve para croquis, geometría descriptiva, estática gráfica, mecanismos y piezas para corte láser.
 
 Este manual explica cada herramienta y concepto en detalle, para quien empieza o quiere entender cómo funciona algo. La ayuda dentro de la app (botón **?**) tiene la misma información en forma compacta y con buscador.
@@ -30,6 +32,16 @@ Este manual explica cada herramienta y concepto en detalle, para quien empieza o
 | 12 | [Atajos de teclado](12-atajos-de-teclado.md) | Las teclas de cada herramienta, para trabajar con teclado. |
 | 13 | [Límites conocidos](13-limites-conocidos.md) | Lo que la app todavía no hace o hace con condiciones. Conviene leerlo antes de un trabajo grande. |
 | 14 | [Acerca de](14-acerca-de.md) | El solver que resuelve las restricciones, las bibliotecas que usa la app y dónde está el historial de versiones. |
+
+## Cómo se mantiene este manual
+
+La ayuda de la app (botón **?**) se genera desde estos mismos archivos, así que hay una sola fuente: lo que se escribe aquí es lo que ve el usuario en la app y en GitHub.
+
+- **Español**: los capítulos de esta carpeta. **Inglés**: los mismos archivos en [en/](en/README.md), con el mismo nombre.
+- Los capítulos [Texto y cálculo](07-texto-y-calculo.md) y [Funciones y operadores](funciones.md) no se editan a mano: salen de `src/calcref.js` y `src/funcref.js` (`npm run docs`), y en la app llevan ejemplos que se calculan.
+- Cada traducción empieza con una línea `<!-- es: ... -->` con el resumen del español al que corresponde. Si cambias un capítulo en español, el test (`npm test`) avisa que su traducción quedó vieja: actualízala y corre `npm run help:sync` para registrar que ya la revisaste.
+- `npm run help` regenera la ayuda de la app (`src/help-gen/`); `node tools/shape.mjs <capítulo>.md` compara la estructura de una traducción con la del original.
+- Una función o una opción nueva no está terminada hasta que aparece en el capítulo que le toca (y en su traducción).
 
 ## Más
 

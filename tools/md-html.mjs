@@ -74,3 +74,14 @@ export const chapterHtml = (md, id) => {
   const { title, intro, topics } = parseChapter(md);
   return `<details data-ch="${id}"><summary>${inline(title)}</summary>\n${intro}\n${topics.map((t) => `<details><summary>${inline(t.h)}</summary>\n${t.html}\n</details>`).join('\n')}\n</details>`;
 };
+
+// La estructura de un capitulo (para comprobar que una traduccion lo sigue): temas, filas de tabla, puntos de lista y bloques de codigo
+export const shape = (md) => {
+  const lines = md.replace(/\r\n/g, '\n').split('\n');
+  return {
+    topics: lines.filter((l) => /^## /.test(l)).length,
+    rows: lines.filter((l) => /^\s*\|/.test(l)).length,
+    items: lines.filter((l) => /^\s*([-*]|\d+\.)\s/.test(l)).length,
+    codes: (md.match(/^```/gm) || []).length,
+  };
+};

@@ -2,20 +2,12 @@
 // actual en español y lo sigue en estructura (mismos temas, tablas y listas).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { shape } from '../tools/md-html.mjs';
 import { MANUAL_FILES, LANGS, moduleText, readDoc, esHash, srcOf, buildLang } from '../tools/build-help.mjs';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
 const norm = (s) => s.replace(/\r\n/g, '\n');
-const shape = (md) => {
-  const lines = md.split('\n');
-  return {
-    topics: lines.filter((l) => /^## /.test(l)).length,
-    rows: lines.filter((l) => /^\s*\|/.test(l)).length,
-    items: lines.filter((l) => /^\s*([-*]|\d+\.)\s/.test(l)).length,
-    codes: (md.match(/^```/gm) || []).length,
-  };
-};
 
 t('la ayuda generada (src/help-gen) esta al dia: corre «npm run help»', () => {
   for (const lang of LANGS) assert.equal(norm(readFileSync(new URL(`../src/help-gen/${lang}.js`, import.meta.url), 'utf8')), moduleText(lang), `src/help-gen/${lang}.js quedo viejo`);

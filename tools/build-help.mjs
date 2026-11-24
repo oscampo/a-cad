@@ -29,7 +29,7 @@ export const srcOf = (md) => /^<!--\s*es:\s*([0-9a-f]{6,})\s*-->/.exec(md)?.[1] 
 export function introOf(lang) {
   const md = readDoc(lang, 'README.md') || readDoc('es', 'README.md');
   const lines = md.split('\n');
-  const i = lines.findIndex((l, k) => k > 0 && l.trim() && !l.startsWith('#') && !l.startsWith('<!--'));
+  const i = lines.findIndex((l, k) => k > 0 && l.trim() && !/^(#|<!--|\*\[)/.test(l)); // sin el titulo ni la linea que enlaza al otro idioma
   return blocks([lines[i]]);
 }
 
