@@ -51,11 +51,19 @@
   "lines": {
    "l5": {
     "a": "p3",
-    "b": "p4"
+    "b": "p4",
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "l10": {
     "a": "p8",
-    "b": "p9"
+    "b": "p9",
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    }
   },
   "circles": {},

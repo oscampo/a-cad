@@ -33,7 +33,11 @@
   "lines": {
    "l3": {
     "a": "p1",
-    "b": "p2"
+    "b": "p2",
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    }
   },
   "circles": {},

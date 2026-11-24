@@ -21,6 +21,15 @@ const root = new URL('../', import.meta.url);
 const load = (name, lang = 'es') => { const d = JSON.parse(readFileSync(new URL(`ejemplos/guias/${name}${lang === 'en' ? '.en' : ''}.json`, root), 'utf8')).doc; ensureNumbers(d); return d; };
 const dims = (d) => Object.values(d.cons).filter((k) => k.t === 'DIST' || k.t === 'RAD');
 
+t('lineas, circulos, arcos y splines de cada ejemplo llevan color, tipo y grosor (sin w la app no pinta el halo de seleccion)', () => {
+  for (const name of EXAMPLE_NAMES) for (const lang of ['es', 'en']) {
+    const d = load(name, lang);
+    for (const key of ['lines', 'circles', 'arcs', 'splines', 'ellipses']) for (const [id, o] of Object.entries(d[key] || {})) {
+      assert.ok(typeof o.w === 'number' && o.w > 0 && o.color != null && o.ltype != null, `${name} (${lang}) ${key}.${id} sin estilo`);
+    }
+  }
+});
+
 t('cada ejemplo existe en español y en ingles, se abre, se resuelve y no tiene errores de calculo', () => {
   assert.ok(EXAMPLE_NAMES.length >= 6);
   for (const name of EXAMPLE_NAMES) for (const lang of ['es', 'en']) {

@@ -26,6 +26,17 @@ const rectangle = (doc, x0, y0, w, h, style) => {
   return { p, l: addRectangle(doc, p, style) };
 };
 
+// Como lo deja la app al dibujar (cur en main.js): lineas, circulos, arcos y splines siempre llevan color, tipo y grosor. Sin ellos la app los dibuja
+// con grosor indefinido y no pinta el halo de seleccion (un spline sin w no se veia seleccionado).
+const withStyle = (doc) => {
+  for (const key of ['lines', 'circles', 'arcs', 'splines', 'ellipses']) for (const o of Object.values(doc[key] || {})) {
+    if (o.color == null) o.color = 'auto';
+    if (o.ltype == null) o.ltype = 'continua';
+    if (o.w == null) o.w = 2;
+    if (o.ls == null) o.ls = 1;
+  }
+  return doc;
+};
 // La biblioteca de ejemplo (el documento que la define); el dibujo que la usa lleva una copia de lo publico, como la deja «Insertar biblioteca…»
 const geometryLib = (L) => {
   const d = newDoc(); d.decimal = '.';
@@ -318,7 +329,7 @@ export async function buildAll() {
   const out = {};
   for (const [name, make] of Object.entries(EXAMPLES)) {
     for (const lang of ['es', 'en']) {
-      const doc = make({ es: lang === 'es' });
+      const doc = withStyle(make({ es: lang === 'es' }));
       ensureNumbers(doc);
       const r = settle(doc, solve, []);
       if (r && r.ok === false) throw new Error(`${name} (${lang}): no se pudo resolver: ${r.msg || ''}`);
@@ -333,7 +344,7 @@ export async function buildAll() {
 export async function buildDoc(name, lang = 'es') {
   if (!EXAMPLES[name]) throw new Error(`no hay un ejemplo «${name}» (hay: ${EXAMPLE_NAMES.join(', ')})`);
   await initSolver();
-  const doc = EXAMPLES[name]({ es: lang === 'es' });
+  const doc = withStyle(EXAMPLES[name]({ es: lang === 'es' }));
   ensureNumbers(doc);
   settle(doc, solve, []);
   return { doc, view: viewNeeds(doc, { points: SHOW_POINTS.has(name) }) };

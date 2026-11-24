@@ -117,19 +117,35 @@
   "lines": {
    "l5": {
     "a": "p16",
-    "b": "p26"
+    "b": "p26",
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "l6": {
     "a": "p27",
-    "b": "p36"
+    "b": "p36",
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "l7": {
     "a": "p37",
-    "b": "p46"
+    "b": "p46",
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "l8": {
     "a": "p47",
-    "b": "p17"
+    "b": "p17",
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    }
   },
   "circles": {},
@@ -138,25 +154,41 @@
     "c": "p18",
     "a": "p17",
     "b": "p16",
-    "r": 8
+    "r": 8,
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "a31": {
     "c": "p28",
     "a": "p26",
     "b": "p27",
-    "r": 8
+    "r": 8,
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "a41": {
     "c": "p38",
     "a": "p36",
     "b": "p37",
-    "r": 8
+    "r": 8,
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    },
    "a51": {
     "c": "p48",
     "a": "p46",
     "b": "p47",
-    "r": 8
+    "r": 8,
+    "color": "auto",
+    "ltype": "continua",
+    "w": 2,
+    "ls": 1
    }
   },
   "ellipses": {},
