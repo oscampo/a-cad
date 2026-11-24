@@ -1,0 +1,195 @@
+{
+ "app": "ipad-cad",
+ "version": "2.9.4",
+ "doc": {
+  "calc": 2,
+  "n": 24,
+  "pts": {
+   "p1": {
+    "x": 0,
+    "y": 150,
+    "fixed": false,
+    "auto": false
+   },
+   "p3": {
+    "x": 0,
+    "y": 140,
+    "fixed": false,
+    "auto": false
+   },
+   "p5": {
+    "x": 0,
+    "y": 130,
+    "fixed": false,
+    "auto": false
+   },
+   "p7": {
+    "x": 0,
+    "y": 0,
+    "fixed": true,
+    "auto": false
+   },
+   "p8": {
+    "x": 120,
+    "y": 0,
+    "fixed": false,
+    "auto": false
+   },
+   "p9": {
+    "x": 120,
+    "y": 60,
+    "fixed": false,
+    "auto": false
+   },
+   "p10": {
+    "x": 0,
+    "y": 60,
+    "fixed": false,
+    "auto": false
+   },
+   "p21": {
+    "x": 0,
+    "y": -20,
+    "fixed": false,
+    "auto": false
+   },
+   "p23": {
+    "x": 0,
+    "y": -24.5,
+    "fixed": false,
+    "auto": false
+   }
+  },
+  "lines": {
+   "l11": {
+    "a": "p7",
+    "b": "p8"
+   },
+   "l12": {
+    "a": "p8",
+    "b": "p9"
+   },
+   "l13": {
+    "a": "p9",
+    "b": "p10"
+   },
+   "l14": {
+    "a": "p10",
+    "b": "p7"
+   }
+  },
+  "circles": {},
+  "arcs": {},
+  "ellipses": {},
+  "texts": {
+   "t2": {
+    "pt": "p1",
+    "text": "$$ancho:120$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t4": {
+    "pt": "p3",
+    "text": "$$alto:ancho/2$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t6": {
+    "pt": "p5",
+    "text": "$$area:ancho*alto=$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t22": {
+    "pt": "p21",
+    "text": "Los textos de arriba definen variables (ancho:120, alto:ancho/2) y calculan el área (area:ancho*alto=).",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t24": {
+    "pt": "p23",
+    "text": "Las cotas del rectángulo leen esas variables. Toca «ancho», escribe otro valor y Enter: todo se recalcula.",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   }
+  },
+  "splines": {},
+  "traces": {},
+  "cons": {
+   "k15": {
+    "t": "H",
+    "refs": [
+     "l11"
+    ],
+    "n": 1
+   },
+   "k16": {
+    "t": "V",
+    "refs": [
+     "l12"
+    ],
+    "n": 1
+   },
+   "k17": {
+    "t": "H",
+    "refs": [
+     "l13"
+    ],
+    "n": 2
+   },
+   "k18": {
+    "t": "V",
+    "refs": [
+     "l14"
+    ],
+    "n": 2
+   },
+   "k19": {
+    "t": "DIST",
+    "refs": [
+     "p7",
+     "p8"
+    ],
+    "v": 120,
+    "expr": "ancho",
+    "name": "D1"
+   },
+   "k20": {
+    "t": "DIST",
+    "refs": [
+     "p8",
+     "p9"
+    ],
+    "v": 60,
+    "expr": "alto",
+    "name": "D2"
+   }
+  },
+  "hatches": {},
+  "ltypes": {},
+  "cn": {
+   "H": 2,
+   "V": 2
+  },
+  "layers": {},
+  "curLayer": null,
+  "cnd": {
+   "D": 2
+  }
+ }
+}

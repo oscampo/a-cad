@@ -1,0 +1,187 @@
+{
+ "app": "ipad-cad",
+ "version": "2.9.4",
+ "doc": {
+  "calc": 2,
+  "n": 23,
+  "pts": {
+   "p1": {
+    "x": 0,
+    "y": 0,
+    "fixed": true,
+    "auto": false
+   },
+   "p2": {
+    "x": 100,
+    "y": 0,
+    "fixed": false,
+    "auto": false
+   },
+   "p3": {
+    "x": 100,
+    "y": 60,
+    "fixed": false,
+    "auto": false
+   },
+   "p4": {
+    "x": 0,
+    "y": 60,
+    "fixed": false,
+    "auto": false
+   },
+   "p13": {
+    "x": 50,
+    "y": 30,
+    "fixed": false,
+    "auto": false
+   },
+   "p20": {
+    "x": 0,
+    "y": 100,
+    "fixed": false,
+    "auto": false
+   },
+   "p22": {
+    "x": 0,
+    "y": 95.5,
+    "fixed": false,
+    "auto": false
+   }
+  },
+  "lines": {
+   "l5": {
+    "a": "p1",
+    "b": "p2"
+   },
+   "l6": {
+    "a": "p2",
+    "b": "p3"
+   },
+   "l7": {
+    "a": "p3",
+    "b": "p4"
+   },
+   "l8": {
+    "a": "p4",
+    "b": "p1"
+   },
+   "l15": {
+    "a": "p1",
+    "b": "p3",
+    "color": "#C3C3C3",
+    "ltype": "constructiva",
+    "w": 1,
+    "ls": 1
+   }
+  },
+  "circles": {
+   "c14": {
+    "c": "p13",
+    "r": 10
+   }
+  },
+  "arcs": {},
+  "ellipses": {},
+  "texts": {
+   "t21": {
+    "pt": "p20",
+    "text": "Placa con agujero. Cambia la cota D1 (largo) o D2 (alto) con doble toque:",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t23": {
+    "pt": "p22",
+    "text": "la placa se ajusta, el agujero sigue en el centro y su diámetro vale un tercio del alto (O1 = D2/3).",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   }
+  },
+  "splines": {},
+  "traces": {},
+  "cons": {
+   "k9": {
+    "t": "H",
+    "refs": [
+     "l5"
+    ],
+    "n": 1
+   },
+   "k10": {
+    "t": "V",
+    "refs": [
+     "l6"
+    ],
+    "n": 1
+   },
+   "k11": {
+    "t": "H",
+    "refs": [
+     "l7"
+    ],
+    "n": 2
+   },
+   "k12": {
+    "t": "V",
+    "refs": [
+     "l8"
+    ],
+    "n": 2
+   },
+   "k16": {
+    "t": "MID",
+    "refs": [
+     "p1",
+     "p3",
+     "p13"
+    ],
+    "n": 1
+   },
+   "k17": {
+    "t": "DIST",
+    "refs": [
+     "p1",
+     "p2"
+    ],
+    "v": 100,
+    "name": "D1"
+   },
+   "k18": {
+    "t": "DIST",
+    "refs": [
+     "p2",
+     "p3"
+    ],
+    "v": 60,
+    "name": "D2"
+   },
+   "k19": {
+    "t": "RAD",
+    "refs": [
+     "c14"
+    ],
+    "v": 10,
+    "expr": "D2/3",
+    "name": "O1"
+   }
+  },
+  "hatches": {},
+  "ltypes": {},
+  "cn": {
+   "H": 2,
+   "V": 2,
+   "MID": 1
+  },
+  "layers": {},
+  "curLayer": null,
+  "cnd": {
+   "D": 2,
+   "O": 1
+  }
+ }
+}

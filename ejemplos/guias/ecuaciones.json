@@ -1,0 +1,145 @@
+{
+ "app": "ipad-cad",
+ "version": "2.9.4",
+ "doc": {
+  "calc": 2,
+  "n": 16,
+  "pts": {
+   "p1": {
+    "x": 0,
+    "y": 100,
+    "fixed": false,
+    "auto": false
+   },
+   "p3": {
+    "x": 0,
+    "y": 92,
+    "fixed": false,
+    "auto": false
+   },
+   "p5": {
+    "x": 0,
+    "y": 84,
+    "fixed": false,
+    "auto": false
+   },
+   "p7": {
+    "x": 0,
+    "y": 66,
+    "fixed": false,
+    "auto": false
+   },
+   "p9": {
+    "x": 0,
+    "y": 58,
+    "fixed": false,
+    "auto": false
+   },
+   "p11": {
+    "x": 0,
+    "y": 50,
+    "fixed": false,
+    "auto": false
+   },
+   "p13": {
+    "x": 0,
+    "y": 30,
+    "fixed": false,
+    "auto": false
+   },
+   "p15": {
+    "x": 0,
+    "y": 25.5,
+    "fixed": false,
+    "auto": false
+   }
+  },
+  "lines": {},
+  "circles": {},
+  "arcs": {},
+  "ellipses": {},
+  "texts": {
+   "t2": {
+    "pt": "p1",
+    "text": "$$x:1$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t4": {
+    "pt": "p3",
+    "text": "$$y:1$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t6": {
+    "pt": "p5",
+    "text": "$$solve(x+y==10; x-y==2; x; y)=$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t8": {
+    "pt": "p7",
+    "text": "$$a:2$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t10": {
+    "pt": "p9",
+    "text": "$$b:2$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t12": {
+    "pt": "p11",
+    "text": "$$solve(a*b==12; a+b==7; a; b)=$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t14": {
+    "pt": "p13",
+    "text": "Cada incógnita (x, y, a, b) se define antes con un valor inicial; solve(…)= da la solución.",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t16": {
+    "pt": "p15",
+    "text": "Cambia las ecuaciones o el valor inicial (en el segundo sistema hay dos soluciones: 3 y 4, o 4 y 3).",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   }
+  },
+  "splines": {},
+  "traces": {},
+  "cons": {},
+  "hatches": {},
+  "ltypes": {},
+  "cn": {},
+  "layers": {},
+  "curLayer": null,
+  "cnd": {}
+ }
+}

@@ -7,7 +7,7 @@ import { funcRefHtml } from './funcref.js';
 import { calcRefHtml } from './calcref.js';
 import { hashStr } from './images.js';
 
-const ORDER = ['conceptos', 'empezar', 'dibujar', 'seleccionar', 'dividir', 'restricciones', 'cotas', 'calc', 'icons', 'funcs', 'splines', 'simulaciones', 'estilo', 'archivo', 'atajos', 'limites', 'acerca'];
+const ORDER = ['conceptos', 'empezar', 'guias', 'dibujar', 'seleccionar', 'dividir', 'restricciones', 'cotas', 'calc', 'icons', 'funcs', 'splines', 'simulaciones', 'estilo', 'archivo', 'atajos', 'limites', 'acerca'];
 // Los textos de esos capitulos que no estan en calcref.js ni en funcref.js (para el catalogo en ingles)
 const TEXT = {
   icons: '<p>Un texto puede mostrar el ícono de una herramienta, para referirse a ella en un tutorial o una nota: <code>![Línea](icon:line)</code> lo dibuja dentro de la línea, a la altura de la letra y con el color del texto (en un enlace, en azul). Lo que va entre corchetes es el texto alternativo: se usa si el nombre no existe y en otros visores de Markdown. Sale también al exportar (SVG y DXF, como trazos). <b>Toca una fila para copiarla</b> y pégala en el texto.</p>',

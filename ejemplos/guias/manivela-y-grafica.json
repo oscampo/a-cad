@@ -1,0 +1,115 @@
+{
+ "app": "ipad-cad",
+ "version": "2.9.4",
+ "doc": {
+  "calc": 2,
+  "n": 10,
+  "pts": {
+   "p1": {
+    "x": 0,
+    "y": 0,
+    "fixed": true,
+    "auto": false
+   },
+   "p2": {
+    "x": 30,
+    "y": 0,
+    "fixed": false,
+    "auto": false
+   },
+   "p7": {
+    "x": -5,
+    "y": 45,
+    "fixed": false,
+    "auto": false
+   },
+   "p9": {
+    "x": -5,
+    "y": 41.1,
+    "fixed": false,
+    "auto": false
+   }
+  },
+  "lines": {
+   "l3": {
+    "a": "p1",
+    "b": "p2"
+   }
+  },
+  "circles": {},
+  "arcs": {},
+  "ellipses": {},
+  "texts": {
+   "t8": {
+    "pt": "p7",
+    "text": "Manivela: el actuador MR1 gira la línea alrededor de O con 90*t (grados, un cuarto de vuelta por segundo).",
+    "h": 2.6,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t10": {
+    "pt": "p9",
+    "text": "Toca Simulación y ▶: A da vueltas y la gráfica dibuja su altura (p2.y) y su posición horizontal (p2.x) contra el tiempo.",
+    "h": 2.6,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   }
+  },
+  "splines": {},
+  "traces": {},
+  "cons": {
+   "k4": {
+    "t": "DIST",
+    "refs": [
+     "p1",
+     "p2"
+    ],
+    "v": 30,
+    "name": "D1"
+   }
+  },
+  "hatches": {},
+  "ltypes": {},
+  "cn": {},
+  "layers": {},
+  "curLayer": null,
+  "cnd": {
+   "D": 1
+  },
+  "acts": {
+   "m5": {
+    "mode": "disp",
+    "src": "expr",
+    "expr": "90*t",
+    "table": [],
+    "kind": "MR",
+    "line": "l3",
+    "c": "p1",
+    "cw": false,
+    "n": 1
+   }
+  },
+  "cnAct": {
+   "MR": 1
+  },
+  "graphs": {
+   "g6": {
+    "x": 45,
+    "y": 25,
+    "w": 90,
+    "h": 50,
+    "title": "",
+    "series": [
+     "p2.y vs t",
+     "p2.x vs t"
+    ],
+    "n": 100
+   }
+  },
+  "tEnd": 4
+ }
+}

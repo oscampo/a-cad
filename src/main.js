@@ -51,6 +51,8 @@ import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr, setSh
 import { localNum, SCI_DEFAULT, sciFrom, decimalMode } from './locale.js';
 import { getLang, setLang, initLang, tr } from './i18n.js';
 import { helpHtml } from './help.js';
+// Los dibujos de ejemplo de las guias (ejemplos/guias/ y dos de ejemplos/): se cargan solo cuando se abren
+const EXAMPLES = import.meta.glob(['../ejemplos/guias/*.json', '../ejemplos/cicloide-rodando.json'], { query: '?raw', import: 'default' });
 import { search, snippet, wordsOf, norm as helpNorm } from './helpsearch.js';
 import { colorPicker } from './colorpicker.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
@@ -665,6 +667,20 @@ function showMeIcon(name) {
   if (el) { mark(el); return true; }
   return false;
 }
+// Abre un dibujo de ejemplo de las guias (en ingles, el «.en» si existe); pregunta antes si el dibujo actual tiene algo
+async function openExample(name) {
+  const base = (n) => Object.keys(EXAMPLES).find((k) => k.endsWith('/' + n + '.json'));
+  const key = (getLang() === 'en' && base(name + '.en')) || base(name);
+  if (!key) { toast(getLang() === 'en' ? 'That example is not available' : 'Ese ejemplo no está disponible'); return; }
+  const filled = Object.keys(doc.lines).length + Object.keys(doc.circles).length + Object.keys(doc.texts).length + Object.keys(doc.arcs || {}).length > 0;
+  if (filled && !confirm(getLang() === 'en' ? 'Opening the example replaces the current drawing (what is not saved is lost). Continue?' : 'Abrir el ejemplo reemplaza el dibujo actual (se pierde lo no guardado). ¿Continuar?')) return;
+  try {
+    const j = JSON.parse(await EXAMPLES[key]());
+    $('dlgH').close();
+    opts.ghPath = null; loadDoc(j.doc || j); opts.fileBase = name; fitView(); afterChange();
+    toast((getLang() === 'en' ? 'Example opened: ' : 'Ejemplo abierto: ') + name);
+  } catch (err) { toast((getLang() === 'en' ? 'The example could not be opened: ' : 'No se pudo abrir el ejemplo: ') + err.message); }
+}
 let helpResume = null, helpResumeTimer = 0;
 // Un toque en un icono de la ayuda: se cierra la ayuda, se resalta el boton y queda un boton para volver
 function helpShowMe(name) {
@@ -750,6 +766,8 @@ const helpSlug = (x) => helpNorm(x).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g
 $('helpBody').addEventListener('click', (e) => {
   const hi = e.target.closest?.('.hi');
   if (hi) { helpShowMe(hi.dataset.icon); return; }
+  const ex = e.target.closest?.('a[data-example]');
+  if (ex) { e.preventDefault(); openExample(ex.dataset.example); return; }
   const a = e.target.closest?.('a[data-help]');
   if (!a) return;
   e.preventDefault();

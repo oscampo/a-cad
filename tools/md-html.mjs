@@ -22,6 +22,8 @@ export function inline(src) {
   s = s.replace(/\\([|*_`\\])/g, (_, c) => '\u0003' + c.charCodeAt(0) + '\u0003'); // escapes de Markdown
   s = s.replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?!\w)/g, '$1<i>$2</i>');
   s = s.replace(/!\[([^\]]*)\]\(([^)]*)\)/g, (_, alt, src) => { const im = /(?:^|\/)icons\/([\w-]+)\.svg$/.exec(src); return im ? `<span class="hi" data-icon="${im[1]}" title="${attr(alt)}"></span>` : alt; }).replace(/\[([^\]]+)\]\(([^)]*)\)/g, (_, t, u0) => { if (u0.startsWith('#') && CUR) return `<a href="#" data-help="${CUR}" data-topic="${attr(u0.slice(1))}">${t}</a>`; // enlace a un tema de este mismo capitulo
+    const ex = /(?:^|\/)ejemplos\/(?:guias\/)?([\w-]+)\.json$/.exec(u0);
+    if (ex) return `<a href="#" data-example="${ex[1]}">${t}</a>`; // un dibujo de ejemplo: la app lo abre
     const hm = /^(?:\.{1,2}\/)*([\w-]+\.md)(?:#(.*))?$/.exec(u0);
     if (hm && LINKS[hm[1]]) return `<a href="#" data-help="${LINKS[hm[1]]}"${hm[2] ? ` data-topic="${attr(hm[2])}"` : ''}>${t}</a>`; // enlace a otro capitulo del manual
     const u = u0.startsWith('../') ? GH + resolveUp(u0) : u0; return (/^https?:/.test(u) ? `<a href="${attr(u.replace(/&amp;/g, '&'))}" target="_blank" rel="noopener">${t}</a>` : t); });

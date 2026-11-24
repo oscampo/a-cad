@@ -17,6 +17,7 @@ This manual explains every tool and concept in detail, for people who are starti
 | # | Chapter | What it covers |
 |---|---|---|
 | | [Basic concepts](conceptos.md) | Parametric drawing, constraints, degrees of freedom, driving and reference dimensions, the solver and the simulation. |
+| | [Task guides](guias.md) | Concrete tasks step by step, each with an example drawing that opens in the app: a parametric part, texts that calculate, equations, vectors, simulation and graphs, laser cutting and saving. |
 | 1 | [Getting started](01-empezar.md) | How to use the app: gestures with the pencil, the finger and the mouse, the parts of the screen and how to select. |
 | 2 | [Drawing](02-dibujar.md) | The tools that create geometry (points, lines, circles, arcs, ellipses, splines, rectangles and polygons) and the drawing aids: soft lock and intersection snap. |
 | 3 | [Selecting and editing](03-seleccionar-y-editar.md) | Selecting (by tap, box or filter), viewing and changing the properties of an element, and the tools that modify what is drawn: copy, trim, extend, fillet and chamfer. |

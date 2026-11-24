@@ -1,0 +1,160 @@
+# Guías por tarea
+
+Cada guía resuelve una tarea concreta, paso a paso, con un dibujo de ejemplo que se abre en la app. Para el detalle de cada herramienta, sigue los enlaces al capítulo que la explica.
+
+[← 1. Empezar](01-empezar.md) · [Índice](README.md) · [2. Dibujar →](02-dibujar.md)
+
+---
+
+## Dibujar una pieza que se adapta a sus medidas
+
+Una placa con un agujero centrado: al cambiar el largo o el alto, la placa se ajusta y el agujero se mantiene en el centro con un diámetro proporcional.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/pieza-parametrica.json).
+
+### Pasos
+
+1. Dibuja la placa con ![Rectángulo](icons/rect.svg) [Rectángulo](02-dibujar.md#rectángulo-b): toca dos esquinas opuestas. Queda con restricciones horizontal y vertical.
+2. Selecciona una esquina y toca ![Fijar / soltar](icons/lock.svg) [Fijar / soltar](05-restricciones.md#fijar--soltar): así la placa no se desplaza al cambiar sus medidas.
+3. Dibuja el agujero con ![Círculo](icons/circle.svg) [Círculo](02-dibujar.md#círculo-c), y una diagonal con ![Línea constructiva](icons/cline.svg) [Línea constructiva](02-dibujar.md#línea-constructiva-k) entre esquinas opuestas.
+4. Selecciona el centro del círculo y la diagonal, y aplica ![Punto medio](icons/con-mid.svg) [Punto medio](05-restricciones.md#punto-medio): el agujero queda en el centro de la placa.
+5. Con ![Acotar](icons/dim-dist.svg) [Acotar (D)](06-cotas.md#acotar-d), toca los dos extremos de un lado para acotar el largo, y los de otro para el alto. Toca el círculo para acotar su diámetro.
+6. Toca dos veces la cota del diámetro y escribe una fórmula con otra cota, por ejemplo `D2/3` (el diámetro es un tercio del alto). Ver [Fórmulas](06-cotas.md#fórmulas).
+
+### Qué verás
+
+Toca dos veces la cota del largo o la del alto y cambia su valor: la placa se ajusta, el agujero sigue en el centro y su diámetro se recalcula.
+
+### Para seguir
+
+- Qué hace cada tipo de cota: [Cotas](06-cotas.md).
+- Todas las relaciones geométricas: [Restricciones](05-restricciones.md).
+
+## Calcular con textos y gobernar una cota
+
+Un texto puede guardar un valor y hacer cuentas, y una cota puede leer ese valor: cambias un número y el dibujo se recalcula.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/calculo-y-cotas.json).
+
+### Pasos
+
+1. Con ![Texto](icons/text.svg) [Texto (T)](07-texto-y-calculo.md#escribir-un-texto-t), toca arriba del dibujo y escribe `ancho:120`; Enter. Lo que escribes es una ecuación: `ancho:120` define la variable.
+2. En la entrada de abajo escribe `alto:ancho/2` y Enter, y después `area:ancho*alto=` y Enter: el `=` al final muestra el resultado (7200).
+3. Dibuja un rectángulo y acota un lado horizontal y uno vertical (ver [Acotar (D)](06-cotas.md#acotar-d)).
+4. Toca dos veces cada cota y, en lugar de un número, escribe `ancho` en la primera y `alto` en la segunda.
+5. Para cambiar el dibujo, toca el texto `ancho:120`, escribe otro valor y Enter.
+
+### Qué verás
+
+Todo lo que depende de `ancho` se recalcula: el alto, el área y las dos cotas del rectángulo.
+
+### Importante: el orden de lectura
+
+Una variable vale desde el lugar de la página donde se define, leyendo de arriba a abajo. Por eso los textos que definen variables van **arriba** de lo que las usa. Ver [Orden de lectura](07-texto-y-calculo.md#orden-de-lectura).
+
+### Para seguir
+
+- Todo lo que se puede escribir en un texto: [Texto y cálculo](07-texto-y-calculo.md).
+- Las funciones disponibles: [Funciones y operadores](funciones.md).
+
+## Resolver ecuaciones
+
+Un sistema de ecuaciones se resuelve en un texto, sin salir del dibujo.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/ecuaciones.json).
+
+### Pasos
+
+1. Con ![Texto](icons/text.svg) Texto (T), define cada incógnita con un valor inicial: `x:1` y `y:1`.
+2. Escribe `solve(x+y==10; x-y==2; x; y)=` y Enter. Las ecuaciones llevan `==`; los nombres sueltos son las incógnitas.
+3. El texto muestra la solución: `x=6; y=4`.
+4. Prueba un sistema que no es lineal: `a:2`, `b:2` y `solve(a*b==12; a+b==7; a; b)=`.
+
+### Qué verás
+
+El segundo sistema tiene dos soluciones (3 y 4, o 4 y 3): la que aparece depende del valor inicial que le diste a `a` y `b`.
+
+### Para seguir
+
+- Todas las formas de `solve`: [Ecuaciones](funciones.md#ecuaciones).
+
+## Dibujar un polígono de fuerzas con vectores
+
+Tres fuerzas puestas punta con cola y su resultante: al mover un punto, las magnitudes se actualizan.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/poligono-de-fuerzas.json).
+
+### Pasos
+
+1. Dibuja con ![Línea](icons/line.svg) Línea (L) tres líneas encadenadas (el final de una es el inicio de la siguiente) y una cuarta del primer punto al último.
+2. Convierte cada línea en vector: selecciona la línea y **uno de sus extremos**, que será la **cabeza** (el extremo hacia donde apunta la fuerza), y elige ![Vector](icons/vector.svg) [Vector (W)](02-dibujar.md#vector-w) en el desplegable de Línea. Es el mismo gesto de la [línea indicativa y el actuador lineal](02-dibujar.md#cabeza-y-cola-un-solo-gesto).
+3. Cada vector muestra su magnitud como texto en el punto medio. El cuarto, de la cola del primero a la cabeza del último, es la resultante.
+4. Arrastra un punto: las magnitudes se actualizan solas.
+
+### Qué verás
+
+Las magnitudes (D1, D2…) son cotas de referencia con nombre, así que puedes usarlas en fórmulas y en textos.
+
+### Para seguir
+
+- Unidad y escala de un vector (por ejemplo, kN): [Vector (W)](02-dibujar.md#vector-w).
+
+## Mover un mecanismo y graficar su movimiento
+
+Una manivela que gira con un actuador, y una gráfica de la altura y la posición horizontal de su extremo.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/manivela-y-grafica.json).
+
+### Pasos
+
+1. Dibuja una línea desde un punto (O) hasta otro (A), fija O con ![Fijar / soltar](icons/lock.svg) [Fijar / soltar](05-restricciones.md#fijar--soltar) y acota la longitud (ver [Acotar (D)](06-cotas.md#acotar-d)).
+2. Con ![Actuador rotacional](icons/act-r.svg) [Actuador MR](09-simulaciones-graficas.md#actuadores), toca la línea y su extremo O, que será el centro de giro.
+3. En su ventana escribe el desplazamiento respecto al tiempo: `90*t` (grados; un cuarto de vuelta por segundo).
+4. Con ![Gráfica](icons/graph.svg) [Gráficas](09-simulaciones-graficas.md#gráficas), toca donde va la esquina de la gráfica y escribe una relación por línea: `p2.y vs t` y `p2.x vs t` (`p2` es el nombre de A, que ves en el [árbol de elementos](10-estilo-capas-y-vista.md#árbol-de-elementos)).
+5. Toca ![Simulación](icons/play.svg) Simulación y ▶ para reproducir.
+
+### Qué verás
+
+A da vueltas alrededor de O, y la gráfica traza dos ondas desfasadas: altura y posición horizontal contra el tiempo. Al detener, el dibujo vuelve a como estaba.
+
+### Para seguir
+
+- Rodadura, engranajes y cremallera: [Simulaciones gráficas](09-simulaciones-graficas.md).
+- Una rueda que rueda sin deslizar: [Abrir el ejemplo de la cicloide](../ejemplos/cicloide-rodando.json).
+
+## Preparar una pieza para corte láser
+
+Las líneas de corte y las de marcado (un pliegue, por ejemplo) se separan por color y tipo de línea.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/corte-laser.json).
+
+### Pasos
+
+1. Dibuja la pieza: el contorno, los agujeros y la línea de pliegue.
+2. Selecciona las líneas de corte y dales un estilo (por ejemplo, rojo y continua) en el panel [Estilo](10-estilo-capas-y-vista.md#estilo).
+3. Selecciona la línea de pliegue y dale otro estilo (por ejemplo, azul y discontinua).
+4. Elige ![SVG para corte láser](icons/svg.svg) **SVG para corte láser** en el [botón Archivo](11-archivo-y-exportacion.md#botón-archivo).
+5. Cada clase de línea (tipo, color y grosor) se manda a **Corte**, **Marcado** u **Omitir**: asigna Corte a las rojas y Marcado a la azul.
+
+### Qué verás
+
+Un SVG a escala real en milímetros, con dos grupos, «corte» y «marcado». No salen cotas, textos, puntos ni rellenos. Más detalle en [SVG CUT](11-archivo-y-exportacion.md#svg-cut).
+
+## Guardar, abrir y compartir tus dibujos
+
+Tus dibujos se guardan como archivos `.json`, y puedes llevarlos a otro dispositivo con GitHub.
+
+### Pasos
+
+1. Abre el ![Archivo](icons/save.svg) [botón Archivo](11-archivo-y-exportacion.md#botón-archivo) y elige **Guardar (.json)**: te pide un nombre y descarga el archivo.
+2. Para abrirlo, elige **Abrir…** y selecciona el archivo.
+3. Para tenerlo en otro dispositivo y con historial, configura [GitHub](11-archivo-y-exportacion.md#github) una vez (repositorio, rama, carpeta y un token) y usa **Guardar en GitHub** y **Abrir de GitHub**.
+4. Los datos que guardan `wfile` y `rfile`, y los audios, están en [Datos del dispositivo](11-archivo-y-exportacion.md#datos-del-dispositivo).
+
+### Qué verás
+
+La app también recuerda el último dibujo en este navegador, pero ese guardado es solo local: guarda un archivo para tener un respaldo.
+
+---
+
+[← 1. Empezar](01-empezar.md) · [Índice](README.md) · [2. Dibujar →](02-dibujar.md)

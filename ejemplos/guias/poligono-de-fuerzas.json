@@ -1,0 +1,279 @@
+{
+ "app": "ipad-cad",
+ "version": "2.9.4",
+ "doc": {
+  "calc": 2,
+  "n": 28,
+  "pts": {
+   "p1": {
+    "x": 0,
+    "y": 0,
+    "fixed": true,
+    "auto": false
+   },
+   "p2": {
+    "x": 40,
+    "y": 10,
+    "fixed": false,
+    "auto": false
+   },
+   "p3": {
+    "x": 70,
+    "y": 40,
+    "fixed": false,
+    "auto": false
+   },
+   "p4": {
+    "x": 100,
+    "y": 20,
+    "fixed": false,
+    "auto": false
+   },
+   "p9": {
+    "x": 20,
+    "y": 5,
+    "fixed": false,
+    "auto": true,
+    "txOnly": true
+   },
+   "p13": {
+    "x": 55,
+    "y": 25,
+    "fixed": false,
+    "auto": true,
+    "txOnly": true
+   },
+   "p17": {
+    "x": 85,
+    "y": 30,
+    "fixed": false,
+    "auto": true,
+    "txOnly": true
+   },
+   "p21": {
+    "x": 50,
+    "y": 10,
+    "fixed": false,
+    "auto": true,
+    "txOnly": true
+   },
+   "p25": {
+    "x": 0,
+    "y": 90,
+    "fixed": false,
+    "auto": false
+   },
+   "p27": {
+    "x": 0,
+    "y": 85.5,
+    "fixed": false,
+    "auto": false
+   }
+  },
+  "lines": {
+   "l5": {
+    "a": "p1",
+    "b": "p2",
+    "vec": {
+     "rev": false,
+     "m": "p9",
+     "t": "t12",
+     "d": "k11"
+    }
+   },
+   "l6": {
+    "a": "p2",
+    "b": "p3",
+    "vec": {
+     "rev": false,
+     "m": "p13",
+     "t": "t16",
+     "d": "k15"
+    }
+   },
+   "l7": {
+    "a": "p3",
+    "b": "p4",
+    "vec": {
+     "rev": false,
+     "m": "p17",
+     "t": "t20",
+     "d": "k19"
+    }
+   },
+   "l8": {
+    "a": "p1",
+    "b": "p4",
+    "vec": {
+     "rev": false,
+     "m": "p21",
+     "t": "t24",
+     "d": "k23"
+    }
+   }
+  },
+  "circles": {},
+  "arcs": {},
+  "ellipses": {},
+  "texts": {
+   "t12": {
+    "pt": "p9",
+    "text": "$D1=$",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tc",
+    "color": "auto",
+    "readable": true,
+    "vecOf": "l5",
+    "ref": "l5"
+   },
+   "t16": {
+    "pt": "p13",
+    "text": "$D2=$",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tc",
+    "color": "auto",
+    "readable": true,
+    "vecOf": "l6",
+    "ref": "l6"
+   },
+   "t20": {
+    "pt": "p17",
+    "text": "$D3=$",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tc",
+    "color": "auto",
+    "readable": true,
+    "vecOf": "l7",
+    "ref": "l7"
+   },
+   "t24": {
+    "pt": "p21",
+    "text": "$D4=$",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tc",
+    "color": "auto",
+    "readable": true,
+    "vecOf": "l8",
+    "ref": "l8"
+   },
+   "t26": {
+    "pt": "p25",
+    "text": "Polígono de fuerzas: F1, F2 y F3 van punta con cola y el cuarto vector es su resultante (de A al final).",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t28": {
+    "pt": "p27",
+    "text": "Arrastra B, C o D: las magnitudes (D1…D4) se actualizan. Toca dos veces un vector para ver su magnitud, unidad y escala.",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   }
+  },
+  "splines": {},
+  "traces": {},
+  "cons": {
+   "k10": {
+    "t": "MID",
+    "refs": [
+     "p1",
+     "p2",
+     "p9"
+    ],
+    "hidden": true
+   },
+   "k11": {
+    "t": "DIST",
+    "refs": [
+     "p1",
+     "p2"
+    ],
+    "v": 41.23105625617661,
+    "ref": true,
+    "hidden": true,
+    "vec": "l5",
+    "name": "D1"
+   },
+   "k14": {
+    "t": "MID",
+    "refs": [
+     "p2",
+     "p3",
+     "p13"
+    ],
+    "hidden": true
+   },
+   "k15": {
+    "t": "DIST",
+    "refs": [
+     "p2",
+     "p3"
+    ],
+    "v": 42.42640687119285,
+    "ref": true,
+    "hidden": true,
+    "vec": "l6",
+    "name": "D2"
+   },
+   "k18": {
+    "t": "MID",
+    "refs": [
+     "p3",
+     "p4",
+     "p17"
+    ],
+    "hidden": true
+   },
+   "k19": {
+    "t": "DIST",
+    "refs": [
+     "p3",
+     "p4"
+    ],
+    "v": 36.05551275463989,
+    "ref": true,
+    "hidden": true,
+    "vec": "l7",
+    "name": "D3"
+   },
+   "k22": {
+    "t": "MID",
+    "refs": [
+     "p1",
+     "p4",
+     "p21"
+    ],
+    "hidden": true
+   },
+   "k23": {
+    "t": "DIST",
+    "refs": [
+     "p1",
+     "p4"
+    ],
+    "v": 101.9803902718557,
+    "ref": true,
+    "hidden": true,
+    "vec": "l8",
+    "name": "D4"
+   }
+  },
+  "hatches": {},
+  "ltypes": {},
+  "cn": {},
+  "layers": {},
+  "curLayer": null,
+  "cnd": {
+   "D": 4
+  }
+ }
+}
