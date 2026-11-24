@@ -1,4 +1,4 @@
-<!-- es: 5af73dd3fb -->
+<!-- es: c07bbd4175 -->
 # 12. Keyboard shortcuts
 
 The keys for each tool, for working with the keyboard.
@@ -7,20 +7,23 @@ The keys for each tool, for working with the keyboard.
 
 ---
 
-Tools (one letter, without Ctrl):
+## Tools
 
-- **V** select, **P** point, **I** intersection.
-- **L** line, **K** construction line, **M** midpoint line, **W** vector.
-- **C** circle, **O** ellipse, **R** arc by center, **A** arc by 3 points, **S** spline.
-- **B** rectangle, **G** polygon.
-- **T** text, **D** dimension.
-- **X** trim, **E** extend, **F** fillet.
+One letter, without Ctrl.
 
-Editing:
+- **V** ![Select](../icons/select.svg) select, **P** ![Point](../icons/point.svg) point, **I** ![Intersection](../icons/intersect.svg) intersection.
+- **L** ![Line](../icons/line.svg) line, **K** ![Construction line](../icons/cline.svg) construction line, **M** ![Midpoint line](../icons/mline.svg) midpoint line, **W** ![Vector](../icons/vector.svg) vector.
+- **C** ![Circle](../icons/circle.svg) circle, **O** ![Ellipse](../icons/ellipse.svg) ellipse, **R** ![Arc by center](../icons/arc-c.svg) arc by center, **A** ![Arc by 3 points](../icons/arc-3.svg) arc by 3 points, **S** ![Spline](../icons/spline.svg) spline.
+- **B** ![Rectangle](../icons/rect.svg) rectangle, **G** ![Polygon](../icons/polygon.svg) polygon.
+- **T** ![Text](../icons/text.svg) text, **D** ![Dimension](../icons/dim-dist.svg) dimension.
+- **X** ![Trim](../icons/trim.svg) trim, **E** ![Extend](../icons/extend.svg) extend, **F** ![Fillet](../icons/fillet.svg) fillet.
+
+## Editing
 
 - **Ctrl/Cmd+C** copy and **Ctrl/Cmd+V** paste.
 - **Ctrl/Cmd+Z** undo, **Ctrl/Cmd+Y** (or **Ctrl/Cmd+Shift+Z**) redo.
-- **Del** or **Backspace** deletes the selection; **Esc** cancels or finishes what you are doing.
+- **Del** or **Backspace** deletes the selection.
+- **Esc** cancels or finishes what you are doing.
 
 ---
 

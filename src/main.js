@@ -584,6 +584,7 @@ $('tHelp').onclick = async () => {
   $('helpBody').innerHTML = html + '<div id="helpResults"></div>';
   helpUnits = null; helpQuery = ''; helpPrev = null;
   fillIconRef();
+  $('helpBody').querySelectorAll('.hi').forEach((s) => { if (ICONS[s.dataset.icon]) s.innerHTML = ICONS[s.dataset.icon]; }); // los iconos del manual (![Vector](icons/vector.svg))
   $('helpBody').querySelectorAll('details').forEach((d) => { d.dataset.open0 = d.open ? '1' : ''; });
   helpHomeBuild();
   $('helpSearch').value = '';

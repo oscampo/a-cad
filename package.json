@@ -9,6 +9,7 @@
     "dev": "vite --host",
     "build": "vite build",
     "docs": "node scripts/funcref-docs.mjs",
+    "docs:icons": "node tools/build-doc-icons.mjs",
     "help": "node tools/build-help.mjs",
     "ref:sync": "node tools/ref-i18n.mjs",
     "i18n": "node tools/build-catalog.mjs",

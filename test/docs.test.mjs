@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { shape } from '../tools/md-html.mjs';
+import { problems as linkProblems } from '../tools/check-doc-links.mjs';
 import { MANUAL_FILES, LANGS, moduleText, readDoc, esHash, srcOf, buildLang } from '../tools/build-help.mjs';
 
 let passed = 0;
@@ -18,6 +19,10 @@ t('la ayuda generada no deja marcas de Markdown sin convertir', () => {
     const txt = html.replace(/<code>[^<]*<\/code>/g, '').replace(/<[^>]+>/g, ' ');
     assert.ok(!/(^|\s)#{2,6}\s|\*\*[^*]+\*\*/.test(txt), lang + '/' + id + ': queda una marca de Markdown (### o **) sin convertir');
   }
+});
+
+t('los enlaces del manual (a otros temas) y sus iconos existen', () => {
+  assert.deepEqual(linkProblems(), []);
 });
 
 t('los capitulos del manual existen y cada uno tiene su titulo', () => {
