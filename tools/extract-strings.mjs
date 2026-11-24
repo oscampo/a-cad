@@ -4,7 +4,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { parseAst } from 'rolldown/parseAst';
 
-const SKIP = new Set(['help.js', 'calcref.js', 'funcref.js', 'iconpaths.js', 'icons.js', 'i18n-en.js', 'i18n.js']);
+const SKIP = new Set(['help.js', 'calcref.js', 'funcref.js', 'iconpaths.js', 'icons.js', 'i18n-en.js', 'i18n-ref-en.js', 'i18n.js']);
 const STOP = new Set('de la el en para los las con que una un no se del al por o y solo sin más como cada hay ya es son este esta estos esas ese esa todo todas nuevo nueva primero luego antes después entre sobre desde hasta si tiene tienen puede pueden'.split(' '));
 const ES_CHAR = /[áéíóúñÁÉÍÓÚÑ¿¡]/;
 

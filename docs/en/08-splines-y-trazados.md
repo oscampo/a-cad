@@ -3,7 +3,7 @@
 
 Free curves that pass through points of the drawing, the path of a moving point and offset curves, the basis of cams and trajectories.
 
-[← 7. Text and calculation](../07-texto-y-calculo.md) · [Index](README.md) · [9. Graphical simulations →](09-simulaciones-graficas.md)
+[← 7. Text and calculation](07-texto-y-calculo.md) · [Index](README.md) · [9. Graphical simulations →](09-simulaciones-graficas.md)
 
 ---
 
@@ -42,4 +42,4 @@ A curve parallel to a spline at a given distance (for example the roller radius 
 
 ---
 
-[← 7. Text and calculation](../07-texto-y-calculo.md) · [Index](README.md) · [9. Graphical simulations →](09-simulaciones-graficas.md)
+[← 7. Text and calculation](07-texto-y-calculo.md) · [Index](README.md) · [9. Graphical simulations →](09-simulaciones-graficas.md)

@@ -246,17 +246,33 @@ export const CALC_GROUPS = [
 const exampleHtml = (ex) => ex.split('\n').map((l) => `<code>${esc(l)}</code>`).join('<br>');
 const HEAD = ['Escribes', 'Qué hace', 'Ejemplo', 'Se ve'];
 
-// Seccion de la ayuda (HTML): por grupo, una nota, una tabla y, si hay, una lista de reglas.
-export function calcRefHtml() {
+// Los textos fijos del capitulo del manual (titulo, presentacion y navegacion)
+const FIXED = {
+  title: '7. Texto y cálculo',
+  intro: 'Textos que calculan: asignaciones, salidas, fórmulas con AsciiMath, vectores y matrices, funciones propias y el orden de lectura de la página. Los ejemplos con resultado se comprueban con el motor de la app en las pruebas automáticas (`test/calcref.test.mjs`).',
+  funcs: 'La lista completa de funciones y operadores, con ejemplos, está en [Funciones y operadores](funciones.md).',
+  nav: '[← 6. Cotas](06-cotas.md) · [Índice](README.md) · [8. Splines y trazados (levas y trayectorias) →](08-splines-y-trazados.md)',
+};
+const hasText = (s) => /[A-Za-zÁÉÍÓÚáéíóúñÑ]{3,}/.test(String(s).replace(/<code>[^<]*<\/code>/g, '').replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/`[^`]*`/g, ' '));
+// Todos los textos que se traducen (para el catalogo en ingles y su prueba), sin repetir
+export const calcRefStrings = () => {
+  const out = new Set([...HEAD, ...Object.values(FIXED)]);
+  for (const g of CALC_GROUPS) for (const s of [g.title, g.note, ...(g.head || []), ...(g.rules || []), ...g.rows.flatMap((r) => [r[0], r[1]])]) if (s && hasText(s)) out.add(s);
+  return [...out];
+};
+
+const id = (s) => s;
+// Seccion de la ayuda (HTML): por grupo, una nota, una tabla y, si hay, una lista de reglas. T traduce un texto (en español, la identidad).
+export function calcRefHtml(T = id) {
   return CALC_GROUPS.map((g) => {
     const head = g.head || HEAD;
-    const rows = g.rows.map((r) => '<tr>' + head.map((_, i) => `<td>${i < 2 ? r[i] : r[i] ? exampleHtml(r[i]) : ''}</td>`).join('') + '</tr>').join('');
-    const rules = g.rules ? `<ul>${g.rules.map((x) => `<li>${x}</li>`).join('')}</ul>` : '';
-    return `<h4>${g.title}</h4>${g.note ? `<p>${g.note}</p>` : ''}<table class="fref"><thead><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>${rules}`;
+    const rows = g.rows.map((r) => '<tr>' + head.map((_, i) => `<td>${i < 2 ? T(r[i]) : r[i] ? exampleHtml(r[i]) : ''}</td>`).join('') + '</tr>').join('');
+    const rules = g.rules ? `<ul>${g.rules.map((x) => `<li>${T(x)}</li>`).join('')}</ul>` : '';
+    return `<h4>${T(g.title)}</h4>${g.note ? `<p>${T(g.note)}</p>` : ''}<table class="fref"><thead><tr>${head.map((h) => `<th>${T(h)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>${rules}`;
   }).join('\n');
 }
 
-// Capitulo del manual (Markdown). Se regenera con «npm run docs»; test/calcref.test.mjs avisa si quedo viejo.
+// Capitulo del manual (Markdown: docs/07-texto-y-calculo.md y docs/en/07-texto-y-calculo.md). Se regenera con «npm run docs»; test/calcref.test.mjs avisa si quedo viejo.
 const unesc = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const mdCode = (s, cell) => {
   const t = cell ? s.replace(/\|/g, '\\|') : s;
@@ -266,21 +282,13 @@ const md = (h, cell) => h.replace(/<code>([^<]*)<\/code>/g, (_, x) => mdCode(une
   .replace(/<b>([^<]*)<\/b>/g, '**$1**').replace(/<i>([^<]*)<\/i>/g, '*$1*')
   .replace(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g, '[$2]($1)');
 const mdExample = (ex) => ex.split('\n').map((l) => mdCode(l, true)).join('<br>');
-const NAV = '[← 6. Cotas](06-cotas.md) · [Índice](README.md) · [8. Splines y trazados (levas y trayectorias) →](08-splines-y-trazados.md)';
-export function calcRefMarkdown() {
-  const head = `# 7. Texto y cálculo
-
-Textos que calculan: asignaciones, salidas, fórmulas con AsciiMath, vectores y matrices, funciones propias y el orden de lectura de la página. Los ejemplos con resultado se comprueban con el motor de la app en las pruebas automáticas (\`test/calcref.test.mjs\`).
-
-La lista completa de funciones y operadores, con ejemplos, está en [Funciones y operadores](funciones.md).
-
-${NAV}
-`;
+export function calcRefMarkdown(T = id) {
+  const head = `# ${T(FIXED.title)}\n\n${T(FIXED.intro)}\n\n${T(FIXED.funcs)}\n\n${T(FIXED.nav)}\n`;
   const body = CALC_GROUPS.map((g) => {
-    const h = g.head || HEAD;
-    const rows = g.rows.map((r) => '| ' + h.map((_, i) => (i < 2 ? md(r[i], true) : r[i] ? mdExample(r[i]) : '')).join(' | ') + ' |').join('\n');
-    const rules = g.rules ? '\n\n' + g.rules.map((x) => '- ' + md(x)).join('\n') : '';
-    return `## ${g.title}\n\n${g.note ? md(g.note) + '\n\n' : ''}| ${h.join(' | ')} |\n|${h.map(() => '---').join('|')}|\n${rows}${rules}`;
+    const h = (g.head || HEAD).map(T);
+    const rows = g.rows.map((r) => '| ' + h.map((_, i) => (i < 2 ? md(T(r[i]), true) : r[i] ? mdExample(r[i]) : '')).join(' | ') + ' |').join('\n');
+    const rules = g.rules ? '\n\n' + g.rules.map((x) => '- ' + md(T(x))).join('\n') : '';
+    return `## ${T(g.title)}\n\n${g.note ? md(T(g.note)) + '\n\n' : ''}| ${h.join(' | ')} |\n|${h.map(() => '---').join('|')}|\n${rows}${rules}`;
   }).join('\n\n');
-  return `${head}\n---\n\n${body}\n\n---\n\n${NAV}\n`;
+  return `${head}\n---\n\n${body}\n\n---\n\n${T(FIXED.nav)}\n`;
 }

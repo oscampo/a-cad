@@ -1,0 +1,185 @@
+1j18cwf7	Función	Function
+n1v6258	Qué hace	What it does
+1pc1vv17	Ejemplo	Example
+od2yra2	Da	Gives
+1yrdzo4m	Funciones y operadores	Functions and operators
+17g1zzman	Todo lo que acepta una fórmula, en las cotas, los textos (`x:…` y `expr=`), los actuadores y las gráficas. Cada ejemplo muestra lo que da; todos se comprueban con el motor de la app en las pruebas automáticas (`test/funcref.test.mjs`). Cómo se usan las fórmulas, las variables y el orden de lectura se explica en [6. Cotas](06-cotas.md) y [7. Texto y cálculo](07-texto-y-calculo.md).	Everything a formula accepts, in Dimensions, Texts (`x:…` and `expr=`), actuators and Graphs. Each example shows what it gives; all are checked against the app's engine in the automated tests (`test/funcref.test.mjs`). How formulas, variables and the reading order work is explained in [6. Dimensions](06-cotas.md) and [7. Text and calculation](07-texto-y-calculo.md).
+y7tvq91t	[Índice](README.md) · [7. Texto y cálculo](07-texto-y-calculo.md)	[Index](README.md) · [7. Text and calculation](07-texto-y-calculo.md)
+1y1nzg1a	Operadores	Operators
+wvoma62f	Sirven en cotas, textos (<code>x:…</code> y <code>expr=</code>), actuadores y gráficas.	They work in Dimensions, Texts (<code>x:…</code> and <code>expr=</code>), actuators and Graphs.
+1i0xm1i2o	Suma, resta, multiplicación y división. También <code>×</code>, <code>·</code> y <code>÷</code>.	Addition, subtraction, multiplication and division. Also <code>×</code>, <code>·</code> and <code>÷</code>.
+1m1r8v89	Potencia.	Power.
+53g1ld9	Implícita	Implicit
+hle37c1r	Un número pegado a un paréntesis, a π o a un nombre multiplica.	A number next to a parenthesis, π or a name multiplies.
+l1giwmu	Raíz cuadrada de lo que sigue.	Square root of what follows.
+1fkchjo2k	Separan los valores de una función de varios. <code>2,5</code> sin espacio es el número 2,5.	They separate the values of a multi-argument function. <code>2,5</code> without a space is the number 2.5.
+k8bet13e	Comparan: dan 1 si se cumple y 0 si no. También <code>≤ ≥ ≠</code>. <code>==</code> y <code>!=</code> toleran el redondeo.	They compare: give 1 if true and 0 if not. Also <code>≤ ≥ ≠</code>. <code>==</code> and <code>!=</code> tolerate rounding.
+wuw2w633	Si la condición <code>c</code> no es 0 vale <code>a</code>, si no <code>b</code>. Solo calcula la rama elegida.	If the condition <code>c</code> is not 0 the value is <code>a</code>, otherwise <code>b</code>. It only calculates the chosen branch.
+1pey2qr6g	Casi igual: 1 si |a − b| ≤ tolerancia × máx(1, |a|, |b|), si no 0. La tolerancia (1e-12 por defecto) se cambia en <b>Configuración</b>. Sirve para comparar resultados con redondeo; <code>==</code> sigue siendo la igualdad de la app.	Almost equal: 1 if |a − b| ≤ tolerance × max(1, |a|, |b|), otherwise 0. The tolerance (1e-12 by default) is changed in <b>Settings</b>. Use it to compare rounded results; <code>==</code> remains the app's equality.
+16nga95a	Constantes	Constants
+dkxv4916	Pi. Un valor que lleva π está en radianes.	Pi. A value that carries π is in radians.
+kze3isg	Número de Euler.	Euler's number.
+13ctuwhd	Trigonometría	Trigonometry
+1p97g1sf1	Los ángulos de los <b>textos de cálculo y las gráficas</b> van según la opción del dibujo <b>Configuración → Ángulos en</b>: en <b>radianes</b> (los dibujos nuevos: <code>sin(π/2)</code> da 1) o en <b>grados</b> (los dibujos anteriores, que no tienen la opción: <code>sin(30)</code> da 0.5). En grados, si el argumento lleva π o es un ángulo del dibujo (una cota angular como <code>A1</code> o <code>l3.ang</code>) va en radianes. Las <b>cotas</b> y los actuadores siempre van en grados; en una cota angular en radianes, todo va en radianes.	The angles in <b>calculation texts and Graphs</b> follow the drawing option <b>Settings → Angles in</b>: in <b>radians</b> (new drawings: <code>sin(π/2)</code> gives 1) or in <b>degrees</b> (older drawings, which do not have the option: <code>sin(30)</code> gives 0.5). In degrees, if the argument carries π or is a drawing angle (an angular dimension such as <code>A1</code> or <code>l3.ang</code>) it is in radians. <b>Dimensions</b> and actuators always use degrees; in an angular dimension in radians, everything is in radians.
+ej0pdao	Seno, coseno y tangente.	Sine, cosine and tangent.
+wk7zp5j	Con π, en radianes.	With π, in radians.
+7byiaf1g	Secante, cosecante y cotangente, con la misma regla.	Secant, cosecant and cotangent, with the same rule.
+u8ykmn1w	Inversas: devuelven grados (radianes si el dibujo está en radianes).	Inverses: return degrees (radians if the drawing is in radians).
+lavbfz1d	Ángulo del punto (x, y) en grados, de −180 a 180.	Angle of the point (x, y) in degrees, from −180 to 180.
+1kjjihgv	Hiperbólicas (no usan ángulos).	Hyperbolic (they do not use angles).
+qta7i0l	De radianes a grados.	From radians to degrees.
+w9i24ql	De grados a radianes.	From degrees to radians.
+10tud3w2g	Como sin, cos y tan, pero el ángulo siempre en grados (sin importar el modo del dibujo).	Like sin, cos and tan, but the angle is always in degrees (regardless of the drawing's mode).
+jozl3219	Inversas, con el resultado siempre en grados.	Inverses, with the result always in degrees.
+bsckmsu	Raíces, potencias y logaritmos	Roots, powers and logarithms
+vq09j8e	Raíz cuadrada.	Square root.
+1jwai9ne	e elevado a x.	e raised to x.
+w11jnsi	Logaritmo natural.	Natural logarithm.
+nygyhul	Logaritmo en base 10.	Base-10 logarithm.
+q3erl6f	Valor absoluto.	Absolute value.
+1os4oz2h	Signo: −1, 0 o 1.	Sign: −1, 0 or 1.
+10qwpsix	Raíz de la suma de los cuadrados.	Square root of the sum of squares.
+1j03h073j	Raíz n-ésima real: con x negativo y n impar da un negativo (x^(1/n) daría un complejo). Con unidades: nthroot(27'm^3; 3) = 3 m.	Real n-th root: with negative x and odd n it gives a negative (x^(1/n) would give a complex number). With units: nthroot(27'm^3; 3) = 3 m.
+vdcq7hk	Logaritmo en base 2.	Base-2 logarithm.
+729o1sr	Redondeo, mínimos y máximos	Rounding, minimums and maximums
+4laeyk28	Redondea a <code>n</code> decimales (0 si se omite). La mitad se aleja del cero.	Rounds to <code>n</code> decimals (0 if omitted). Halves round away from zero.
+1xf0dwlj	Entero hacia abajo.	Integer rounded down.
+12lewhnk	Entero hacia arriba.	Integer rounded up.
+100au7ak	Quita los decimales.	Removes the decimals.
+zawdas12	Resto de a entre b, con el signo de b.	Remainder of a divided by b, with the sign of b.
+ysg2l412	El menor y el mayor de varios valores.	The smallest and the largest of several values.
+4maz7on	Recorta x al intervalo.	Clamps x to the interval.
+1j9znl6r	Hacia el cero (como trunc).	Toward zero (like trunc).
+3h5mtu1m	Resto de a entre b, con el signo de a (mod lleva el de b).	Remainder of a divided by b, with the sign of a (mod takes the sign of b).
+38ctr41j	Máximo común divisor y mínimo común múltiplo (enteros).	Greatest common divisor and least common multiple (integers).
+yxvbo0p	n! (n entero de 0 a 170).	n! (n an integer from 0 to 170).
+l856r8o	Combinaciones de n en k.	Combinations of n taken k at a time.
+1lf541y7a	Números aleatorios uniformes en [0, 1): uno, una matriz de n×n o de n×m (<code>rand(1; 200)</code>, una fila). La secuencia es <b>reproducible</b>: cada cálculo del dibujo empieza en la misma semilla, para que una salida y su gráfica muestren los mismos valores.	Uniform random numbers in [0, 1): one, an n×n or n×m matrix (<code>rand(1; 200)</code>, a row). The sequence is <b>reproducible</b>: each calculation of the drawing starts from the same seed, so an output and its graph show the same values.
+1xhn3b3l	Como rand, con distribución normal estándar (media 0, desviación 1). Para media μ y desviación s: <code>μ + s*randn(1; n)</code>.	Like rand, with a standard normal distribution (mean 0, deviation 1). For mean μ and deviation s: <code>μ + s*randn(1; n)</code>.
+1i1b8ls1u	Enteros aleatorios de 1 a imax, o de a a b; con n y m, una matriz.	Random integers from 1 to imax, or from a to b; with n and m, a matrix.
+vv2wqga6	Cambia la semilla de rand, randn y randi desde ese punto de la lectura: otra secuencia, también reproducible. Con <code>"shuffle"</code>, una semilla nueva con cada cambio del dibujo (y con cada paso de <code>wfile</code>): para un juego o una simulación que no deba repetirse. Entre cambios se mantiene: la pantalla se redibuja con la misma tirada. Vale la semilla.	Changes the seed of rand, randn and randi from that point of the reading: another sequence, also reproducible. With <code>"shuffle"</code>, a new seed with each change of the drawing (and with each step of <code>wfile</code>): for a game or a simulation that must not repeat. Between changes it is kept: the screen is redrawn with the same draw. The seed is what counts.
+1mqan1zj	Vectores y matrices	Vectors and matrices
+hy7dxx77	Se escriben entre corchetes: la coma separa los elementos de una fila, el punto y coma empieza otra fila, y los decimales llevan punto. Se usan en los textos (<code>A:[1,2;3,4]</code>, <code>A=</code>); una cota puede leer un elemento (<code>D1 = x_2</code>).	They are written in square brackets: the comma separates the elements of a row, the semicolon starts another row, and decimals use a point. They are used in Texts (<code>A:[1,2;3,4]</code>, <code>A=</code>); a dimension can read an element (<code>D1 = x_2</code>).
+188ch3ft	Vector fila y vector columna.	Row vector and column vector.
+uu9shy4x	Por bloques: los elementos pueden ser vectores o matrices. La coma los pone lado a lado (mismo número de filas) y el punto y coma uno debajo del otro (mismo número de columnas).	By blocks: the elements can be vectors or matrices. The comma puts them side by side (same number of rows) and the semicolon one below the other (same number of columns).
+s7irq61o	Rango: <code>n</code> valores de a hasta b, ambos incluidos.	Range: <code>n</code> values from a to b, both included.
+1plt3y1o	Rango con paso, sin pasar de b (el paso puede ser negativo).	Range with step, not going past b (the step can be negative).
+1skk9s32a	Elemento, contando desde 1. Los índices pueden ser fórmulas: <code>x_(i+1)</code>.	Element, counting from 1. The indices can be formulas: <code>x_(i+1)</code>.
+1nezbemj	Fila i y columna j.	Row i and column j.
+h7eko5c	Transpuesta.	Transpose.
+vmlro11r	Entre matrices del mismo tamaño, o un número con cada elemento.	Between matrices of the same size, or a number with each element.
+11j71f015	Producto matricial (o número por matriz).	Matrix product (or number times matrix).
+vsu28uk	Elemento a elemento.	Element by element.
+12umx9bl	Funciones de un valor	Single-argument functions
+1wbs21m19	Sobre una matriz, se aplican a cada elemento.	On a matrix, they apply to each element.
+66f4cw1c	Inversa (avisa si es singular o no es cuadrada).	Inverse (warns if it is singular or not square).
+1phf2l813	Potencia entera de una matriz cuadrada.	Integer power of a square matrix.
+xjgdpfd	Determinante.	Determinant.
+1fkmfour	Traza: suma de la diagonal.	Trace: sum of the diagonal.
+1eb5p2d1p	De un vector, la matriz diagonal; de una matriz, su diagonal.	From a vector, the diagonal matrix; from a matrix, its diagonal.
+xag6ao	Matriz identidad de n×n.	n×n identity matrix.
+ustf4r12	Filas, columnas y número de elementos.	Rows, columns and number of elements.
+rj7fc13	Suma y producto de todos los elementos.	Sum and product of all the elements.
+9pwz5lg	Media y mediana.	Mean and median.
+urjgq21i	Desviación estándar y varianza muestrales (entre n−1).	Sample standard deviation and variance (divided by n−1).
+rok4j81a	Norma euclidiana (de Frobenius en una matriz).	Euclidean norm (Frobenius for a matrix).
+14k5wg11d	Con un solo vector: su menor y su mayor elemento.	With a single vector: its smallest and largest element.
+u6pu12r	Suma y producto acumulados.	Cumulative sum and product.
+1rmw89bf	Producto punto.	Dot product.
+4jo0hx15	Producto cruz de vectores de 3 elementos.	Cross product of 3-element vectors.
+1x590bb21	Distancia entre dos puntos (vectores del mismo tamaño, con sus unidades).	Distance between two points (vectors of the same size, with their units).
+g8za6ru	Construir y reordenar matrices	Building and reordering matrices
+a327qx1l	Las que reordenan conservan las unidades y los complejos.	Those that reorder keep the units and the complex numbers.
+1xzf7bb1h	Matriz de ceros o de unos (de n×n con un solo valor).	Matrix of zeros or ones (n×n with a single value).
+132q3jl1p	n valores igualmente espaciados de a a b (100 si se omite n).	n evenly spaced values from a to b (100 if n is omitted).
+ao1y021u	n valores de 10^a a 10^b en escala logarítmica (50 si se omite n).	n values from 10^a to 10^b on a logarithmic scale (50 if n is omitted).
+1i3f8jx21	Número de elementos (también de un vector de cadenas); [filas, columnas].	Number of elements (also of a string vector); [rows, columns].
+q9b4htn	Transpuesta (como A^T).	Transpose (like A^T).
+1ojgl4hy	Ordena un vector de menor a mayor.	Sorts a vector from smallest to largest.
+s41sl92h	Invierte el orden: un vector; las columnas (izquierda-derecha); las filas (arriba-abajo).	Reverses the order: a vector; the columns (left-right); the rows (top-bottom).
+1p3npwh1e	Repite A n veces hacia abajo y m hacia la derecha.	Repeats A n times downward and m times to the right.
+4iqmeo1e	Los mismos elementos en n×m, tomados por columnas.	The same elements as n×m, taken column by column.
+khpdko1l	Lado a lado y uno debajo del otro (como [A, B] y [A; B]).	Side by side and one below the other (like [A, B] and [A; B]).
+a1brh0m	Producto de Kronecker.	Kronecker product.
+96m8eks	1 si algún elemento no es 0.	1 if any element is not 0.
+1q29ma4x	Las posiciones (desde 1; en una matriz, por columnas) de los elementos que no son 0; 0 si no hay ninguno. Con una comparación, qué elementos cumplen: <code>find(v > 100)</code>.	The positions (from 1; in a matrix, column by column) of the elements that are not 0; 0 if there are none. With a comparison, which elements meet it: <code>find(v > 100)</code>.
+frmrsqe	Álgebra lineal	Linear algebra
+1n58ms72k	Con números reales (inv, det, linsolve y eig también con complejos). eig admite hasta 12×12.	With real numbers (inv, det, linsolve and eig also with complex numbers). eig supports up to 12×12.
+1n1q96y1q	x tal que A·x = b. Si A no es cuadrada, por mínimos cuadrados.	x such that A·x = b. If A is not square, by least squares.
+1uxpb7i6	Rango.	Rank.
+bfnvp19	Número de condición (con valores singulares).	Condition number (using singular values).
+ev93051o	Pseudoinversa (vale con matrices singulares o no cuadradas).	Pseudoinverse (works with singular or non-square matrices).
+liwd7u1i	Valores propios, en una columna; complejos si los hay.	Eigenvalues, in a column; complex if there are any.
+131tf7t10	Diferencias, acumulados e integrales	Differences, cumulative sums and integrals
+qjp5fx11	Diferencias entre elementos seguidos.	Differences between consecutive elements.
+rn0lg4r	Máximo y mínimo acumulados.	Running maximum and minimum.
+c8ddqi19	El valor más repetido (con empate, el menor).	The most frequent value (with a tie, the smallest).
+1newj6222	Integral por trapecios de datos (y acumulada). Con un solo vector, paso 1.	Trapezoidal integral of data (and cumulative). With a single vector, step 1.
+ycw84a4e	Integral de una expresión con la variable x, entre a y b (numérica, adaptativa). Como en fzero, la variable se nombra. Con unidades: las de expr por las de x.	Integral of an expression in the variable x, between a and b (numerical, adaptive). As in fzero, the variable is named. With units: those of expr times those of x.
+1wd26f2q	Interpolación y polinomios	Interpolation and polynomials
+ncnyrz2m	Un polinomio es el vector de sus coeficientes, del mayor grado al menor: [1, 0, -2] es x² − 2.	A polynomial is the vector of its coefficients, from highest degree to lowest: [1, 0, -2] is x² − 2.
+mkrq725m	Interpolación lineal en una tabla (x un número o un vector; conserva las unidades de ys). Fuera de la tabla da ⚠; con <code>interp1(xs; ys; x; "extrap")</code> extrapola con el primer o el último tramo.	Linear interpolation in a table (x a number or a vector; keeps the units of ys). Outside the table it gives ⚠; with <code>interp1(xs; ys; x; "extrap")</code> it extrapolates using the first or last segment.
+1yb15frp	Valor del polinomio en x.	Value of the polynomial at x.
+1c7ismv13	Raíces (columna); complejas si las hay.	Roots (column); complex if there are any.
+1mg99hg17	Polinomio de grado n por mínimos cuadrados.	Degree-n polynomial by least squares.
+1fchh1tn	Producto de polinomios.	Product of polynomials.
+43krui12	Derivada e integral (con constante 0).	Derivative and integral (with constant 0).
+111054jh	Funciones propias	Custom functions
+16wkums3k	Se definen en un texto y se usan en las salidas, en las variables y en las cotas. Pueden llamar a otras funciones y a sí mismas.	They are defined in a text and used in outputs, variables and dimensions. They can call other functions and themselves.
+5fliy8o	Función de un parámetro.	Function of one parameter.
+15a81pw1t	Varios parámetros, separados por <code>;</code> o <code>,</code>.	Several parameters, separated by <code>;</code> or <code>,</code>.
+19203exh	Números complejos	Complex numbers
+733wlwiz	<code>j</code> es la unidad imaginaria (<code>3+4j</code>); un número también lleva el sufijo: <code>2.5j</code> o <code>2.5i</code> (la letra <code>i</code> sola sigue siendo una variable). La raíz de un negativo da un complejo: <code>sqrt(-4)</code> es <code>2j</code>, <code>ln(-1)</code> es <code>πj</code> y una base negativa con exponente no entero da un complejo. Valen las operaciones, las potencias, las funciones (sin, exp, ln, sqrt…), las matrices (inv, det, producto) y las unidades (una impedancia en Ω). Con complejos solo se compara con <code>==</code> y <code>!=</code>. Una cota, una gráfica o la condición de un if necesitan un real: abs, angle, real o imag lo dan.	<code>j</code> is the imaginary unit (<code>3+4j</code>); a number can also take the suffix: <code>2.5j</code> or <code>2.5i</code> (the letter <code>i</code> alone is still a variable). The square root of a negative number gives a complex number: <code>sqrt(-4)</code> is <code>2j</code>, <code>ln(-1)</code> is <code>πj</code>, and a negative base with a non-integer exponent gives a complex number. Operations, powers, functions (sin, exp, ln, sqrt…), matrices (inv, det, product) and units (an impedance in Ω) all work. Complex numbers can only be compared with <code>==</code> and <code>!=</code>. A dimension, a graph or the condition of an if needs a real number: abs, angle, real or imag give one.
+nzt0sf7	Módulo.	Magnitude.
+1a89q181e	Argumento (en grados o radianes, según el dibujo).	Argument (in degrees or radians, depending on the drawing).
+818wv0o	Parte real e imaginaria.	Real and imaginary part.
+1vr52jgs	Conjugado: z·conj(z) = |z|².	Conjugate: z·conj(z) = |z|².
+1uky5ag7	Cadenas	Strings
+1nxatrfdf	Una cadena va entre comillas: <code>"Cumple"</code> (sirven las “ ” del iPad; <code>""</code> dentro es una comilla). Se unen con <code>+</code> y se comparan con <code>==</code> y <code>!=</code>; un número se convierte con <code>num2str</code> (con su unidad). <code>["a", "b"]</code> es un vector de cadenas (<code>v_2</code> es la segunda). En el resultado se muestran entre comillas tipográficas. Para un mensaje de verificación: <code>if(σ&lt;Sy, "Cumple", "No cumple")</code>.	A string goes between quotes: <code>"Cumple"</code> (the iPad's curly quotes “ ” work too; <code>""</code> inside is one quote). They are joined with <code>+</code> and compared with <code>==</code> and <code>!=</code>; a number is converted with <code>num2str</code> (with its unit). <code>["a", "b"]</code> is a string vector (<code>v_2</code> is the second). In the result they are shown in typographic quotes. For a check message: <code>if(σ&lt;Sy, "Cumple", "No cumple")</code>.
+1k0oa8l2i	Un número como texto, con su unidad y como lo muestra la app (n decimales fijos si se da).	A number as text, with its unit and as the app shows it (n fixed decimals if given).
+1jnxpdt2n	Formato: %d, %f, %.2f, %e, %g, %s, %%. Sin unidades: divide por la unidad que quieres (F/1'kN).	Format: %d, %f, %.2f, %e, %g, %s, %%. Without units: divide by the unit you want (F/1'kN).
+1sbq8rlw	El número escrito en una cadena.	The number written in a string.
+1ukzt0ml	Une cadenas (como +).	Joins strings (like +).
+2grxy11r	Mayúsculas, minúsculas, sin espacios en los extremos, al revés.	Uppercase, lowercase, trimmed of spaces at the ends, reversed.
+13yihdjw	Reemplaza todas las apariciones.	Replaces all occurrences.
+1tzlm952u	1 si la cadena está vacía (o todas las de un vector de cadenas); un número o un vector nunca lo están.	1 if the string is empty (or all of those in a string vector); a number or a vector is never empty.
+1pjpibc2k	Parte una cadena en un vector de cadenas (por espacios si no se da sep) y las vuelve a unir.	Splits a string into a string vector (by spaces if sep is not given) and joins them back.
+1f5r8r6l	Número de caracteres.	Number of characters.
+bix4311l	1 si la cadena contiene, empieza o termina con el patrón.	1 if the string contains, starts with or ends with the pattern.
+1d35ol91q	Posiciones (desde 1) donde aparece el patrón; 0 si no aparece.	Positions (from 1) where the pattern appears; 0 if it does not appear.
+uuresd1i	1 si son iguales (strcmpi, sin distinguir mayúsculas).	1 if they are equal (strcmpi, ignoring case).
+196he7a3h	Lo que hay antes o después de un patrón (o de una posición), o entre dos; con dos números, entre esas posiciones (incluidas).	What comes before or after a pattern (or a position), or between two; with two numbers, between those positions (inclusive).
+10gusgjl	Entre dos posiciones.	Between two positions.
+e09z939	Programas	Programs
+trl27tad	Pasos en orden y ciclos dentro de una fórmula. Dentro, <code>s:valor</code> asigna una variable <b>local</b>: vale solo en esa fórmula (no crea variables del documento ni cambia las de afuera). Se pueden escribir en varias líneas, con sangría, y se dibujan como se escribieron. Un ciclo tiene un tope de 100 000 vueltas y 1,5 s: si lo pasa, avisa en vez de congelar la app.	Steps in order and loops inside a formula. Inside, <code>s:valor</code> assigns a <b>local</b> variable: it is valid only in that formula (it does not create document variables or change those outside). They can be written on several lines, with indentation, and are drawn as written. A loop is capped at 100,000 iterations and 1.5 s: if it exceeds that, it warns instead of freezing the app.
+11lc6lo15	Hace los pasos en orden y vale el último.	Does the steps in order and takes the value of the last one.
+1yv51f33y	Repite el cuerpo con i = inicio, inicio+1, … hasta fin (si fin < inicio, ninguna vez). Con un vector en lugar del rango, i toma cada elemento.	Repeats the body with i = inicio, inicio+1, … up to fin (if fin < inicio, zero times). With a vector instead of the range, i takes each element.
+1ag9qg32v	Repite el cuerpo mientras la condición se cumpla. Para varios pasos en el cuerpo, <code>line(…)</code>.	Repeats the body while the condition holds. For several steps in the body, <code>line(…)</code>.
+5v4qn55o	Dentro de un for o un while: <code>break()</code> sale del ciclo; <code>continue()</code> pasa a la vuelta siguiente. En un script se escriben solos en su línea: <code>break</code>, <code>continue</code>.	Inside a for or a while: <code>break()</code> exits the loop; <code>continue()</code> moves on to the next iteration. In a script they are written alone on their line: <code>break</code>, <code>continue</code>.
+vrneio2p	Termina la función (o el script) con el valor x, sin seguir. En un script, <code>return x</code>.	Ends the function (or the script) with the value x, without going on. In a script, <code>return x</code>.
+49y9tcac	Asigna un elemento de un vector o de una matriz (o de un vector de cadenas) dentro de un programa, sobre una copia local: la variable del documento no cambia afuera. Un índice más allá del final agranda el vector con ceros (sirve para armar un vector en un <code>for</code>). El valor lleva la magnitud del vector; un vector de ceros sin unidades toma la del primer valor.	Assigns an element of a vector or matrix (or of a string vector) inside a program, on a local copy: the document variable does not change outside. An index past the end extends the vector with zeros (useful for building a vector in a <code>for</code>). The value takes the vector's magnitude; a vector of unitless zeros takes that of the first value.
+u8zooya	Ecuaciones	Equations
+y0f2j8b9	Se resuelven numéricamente (Levenberg-Marquardt): desde un valor inicial se busca el valor que cumple la ecuación. Con varias raíces da la más cercana al valor inicial; si no encuentra una, avisa. Para un sistema de ecuaciones, <code>solve(…)=</code> en un texto (ver <a href="07-texto-y-calculo.md#orden-de-lectura" data-help="calc" data-topic="Orden de lectura">Orden de lectura</a> en Texto y cálculo).	They are solved numerically (Levenberg-Marquardt): starting from an initial value, it looks for the value that satisfies the equation. With several roots it gives the one closest to the initial value; if it finds none, it warns. For a system of equations, <code>solve(…)=</code> in a text (see <a href="07-texto-y-calculo.md#reading-order" data-help="calc" data-topic="Reading order">Reading order</a> in Text and calculation).
+1fcw4b96d	El valor de x que cumple la ecuación, escrita con <code>==</code> (<code>x^2 == 2</code>) o como una expresión que vale 0 (<code>x^2-2</code>). El valor inicial lleva las unidades de x; sin él usa el valor de x en ese punto, o 1.	The value of x that satisfies the equation, written with <code>==</code> (<code>x^2 == 2</code>) or as an expression equal to 0 (<code>x^2-2</code>). The initial value carries the units of x; without it, it uses the value of x at that point, or 1.
+itq0bj29	Con unidades: la fuerza que da un momento de 30 kN·m con un brazo de 2 m (en kN).	With units: the force that gives a moment of 30 kN·m with an arm of 2 m (in kN).
+18ia88uj	Datos entre dibujos	Data between drawings
+1y1b5apap	Guardan un valor para leerlo después o desde otro dibujo. Los datos viven en este navegador, en este dispositivo (Archivo → Datos los muestra, exporta e importa). Se escriben al confirmar un cambio del dibujo, no al arrastrar ni en la simulación; rfile lee siempre lo guardado, así con <code>c:rfile(n)</code> y <code>wfile(c+1; n)</code> cada cambio suma 1 y se ve lo último guardado.	They store a value to read it later or from another drawing. The data lives in this browser, on this device (File → Data shows, exports and imports it). They are written when a change to the drawing is confirmed, not while dragging or in the simulation; rfile always reads what is stored, so with <code>c:rfile(n)</code> and <code>wfile(c+1; n)</code> each change adds 1 and the last stored value is shown.
+1e1gwetay	Guarda el valor (un número con su unidad, un vector, una matriz o una cadena) en el archivo de datos <i>Nombre</i> y vale 1. El nombre no se evalúa: es el de una variable (no importa su valor, ni si existe) o una cadena con extensión, <code>"datos.txt"</code>. El archivo es texto con la sintaxis de A-CAD y punto decimal: <code>12'kN</code>, <code>[1, 2; 3, 4]'mm</code>, <code>"texto"</code>.	Stores the value (a number with its unit, a vector, a matrix or a string) in the data file <i>Name</i> and equals 1. The name is not evaluated: it is that of a variable (its value does not matter, nor whether it exists) or a string with an extension, <code>"datos.txt"</code>. The file is text with A-CAD syntax and a decimal point: <code>12'kN</code>, <code>[1, 2; 3, 4]'mm</code>, <code>"texto"</code>.
+hlh8wc3w	El valor guardado con <code>wfile</code>, con sus unidades: <code>q:rfile(MiVariable)</code> da 12 kN. Si no hay datos con ese nombre, da ⚠.	The value stored with <code>wfile</code>, with its units: <code>q:rfile(MiVariable)</code> gives 12 kN. If there is no data with that name, it gives ⚠.
+7y7ejw4w	Lo guardado o, si todavía no hay datos con ese nombre, <i>inicial</i> (que solo se calcula entonces): sirve para empezar, <code>c:rfile(n; 0)</code>. Es una extensión de A-CAD.	What is stored or, if there is not yet any data with that name, <i>inicial</i> (which is only calculated then): useful for getting started, <code>c:rfile(n; 0)</code>. It is an A-CAD extension.
+11njcnw8o	Vale 1 en el paso que inició un Enter sobre el texto que define <i>nombre</i> (en la edición en el lugar, también sin cambiarlo) y 0 en cualquier otro paso: abrir el dibujo, mover algo, editar otro texto. Para ejecutar una orden al confirmarla: <code>wfile(si(entered(orden); hacer(x; orden); x); Estado)</code>.	Equals 1 in the step started by an Enter on the text that defines <i>nombre</i> (in in-place editing, even without changing it) and 0 in any other step: opening the drawing, moving something, editing another text. To run a command when it is confirmed: <code>wfile(si(entered(orden); hacer(x; orden); x); Estado)</code>.
+1opfil47	Sonidos	Sounds
+gikxv5az	Archivos de audio de la carpeta de datos del dispositivo (Archivo → Datos…: se importan con un nombre, se prueban, exportan y borran). Al importarlos se reducen (un canal, 16 kHz, 8 bits): unos 16 KB por segundo. El dibujo lleva incrustados los que nombra entre comillas, <code>play("nombre")</code>, y los restaura al abrirse si faltan; un nombre armado con una variable no viaja con el dibujo.	Audio files in the device's data folder (File → Data…: they are imported with a name, tested, exported and deleted). When imported they are downsampled (one channel, 16 kHz, 8 bits): about 16 KB per second. The drawing embeds those it names in quotes, <code>play("nombre")</code>, and restores them on opening if they are missing; a name built from a variable does not travel with the drawing.
+117uxfmdh	Hace sonar el sonido del dibujo con ese nombre, una vez, en el paso que confirma un cambio del dibujo (un Enter en un texto: el mismo paso en que se ejecuta <code>wfile</code>). No suena al redibujar, al arrastrar, al abrir el dibujo ni en la simulación. Vale 1 si el dibujo tiene ese sonido y 0 si no (sin error), y se puede usar dentro de una función o de una biblioteca: <code>if(choca; play("explosion"); 0)</code>. Los navegadores solo dejan sonar después de un toque o una tecla.	Plays the drawing's sound with that name, once, in the step that confirms a change to the drawing (an Enter in a text: the same step in which <code>wfile</code> runs). It does not play on redraw, on dragging, on opening the drawing or in the simulation. Equals 1 if the drawing has that sound and 0 if not (no error), and it can be used inside a function or a library: <code>if(choca; play("explosion"); 0)</code>. Browsers only allow sound after a tap or a key press.
+e78ss9i	Valores del dibujo	Drawing values
+dce5l82g	Nombres que una fórmula puede leer. Siempre valen lo que tiene el dibujo en ese momento.	Names that a formula can read. They always equal what the drawing has at that moment.
+1sqp0yk2t	Cotas con nombre: distancia, ángulo (vale en radianes), radio y diámetro. El nombre se puede cambiar.	Named dimensions: distance, angle (in radians), radius and diameter. The name can be changed.
+vorr0eo	Coordenadas de un punto.	Coordinates of a point.
+1e40l8f1z	Longitud de una línea y su ángulo (de su inicio a su fin, en radianes).	Length of a line and its angle (from its start to its end, in radians).
+xw7cm13	Radio, diámetro y centro de un círculo.	Radius, diameter and center of a circle.
+1ceywm7q	Radio y centro de un arco.	Radius and center of an arc.
+1f5p4v323	Variables de los textos, leídas de arriba a abajo y de izquierda a derecha.	Variables of the texts, read from top to bottom and from left to right.
+13i8mfv18	El tiempo, en los actuadores y las gráficas.	Time, in actuators and graphs.
+1cqt43g2j	En las gráficas: el desplazamiento de un actuador (también <code>.d</code>) y su velocidad.	In graphs: the displacement of an actuator (also <code>.d</code>) and its velocity.
+1k6q2mra	Reservados	Reserved
+iijm3l4w	No se pueden usar como nombre de cota ni de variable: las funciones y constantes de esta lista, <code>t</code>, <code>j</code>, <code>ω</code>, <code>θ</code> y <code>α</code>.	They cannot be used as a dimension or variable name: the functions and constants in this list, <code>t</code>, <code>j</code>, <code>ω</code>, <code>θ</code> and <code>α</code>.

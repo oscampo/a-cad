@@ -3,9 +3,9 @@
 
 Dimensions: measurements that drive the geometry or only read it, with formulas, names, scale and units.
 
-The full list of functions and operators, with examples, is in [Functions and operators](../funciones.md).
+The full list of functions and operators, with examples, is in [Functions and operators](funciones.md).
 
-[← 5. Constraints](05-restricciones.md) · [Index](README.md) · [7. Text and calculation →](../07-texto-y-calculo.md)
+[← 5. Constraints](05-restricciones.md) · [Index](README.md) · [7. Text and calculation →](07-texto-y-calculo.md)
 
 ---
 
@@ -81,4 +81,4 @@ Tap a point twice and choose its color in the properties window (palette or free
 
 ---
 
-[← 5. Constraints](05-restricciones.md) · [Index](README.md) · [7. Text and calculation →](../07-texto-y-calculo.md)
+[← 5. Constraints](05-restricciones.md) · [Index](README.md) · [7. Text and calculation →](07-texto-y-calculo.md)

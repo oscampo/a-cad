@@ -228,7 +228,7 @@ Pasos en orden y ciclos dentro de una fórmula. Dentro, `s:valor` asigna una var
 
 ## Ecuaciones
 
-Se resuelven numéricamente (Levenberg-Marquardt): desde un valor inicial se busca el valor que cumple la ecuación. Con varias raíces da la más cercana al valor inicial; si no encuentra una, avisa. Para un sistema de ecuaciones, `solve(…)=` en un texto (ver <a href="07-texto-y-calculo.md#orden-de-lectura" data-help="calc" data-topic="Orden de lectura">Orden de lectura</a> en Texto y cálculo).
+Se resuelven numéricamente (Levenberg-Marquardt): desde un valor inicial se busca el valor que cumple la ecuación. Con varias raíces da la más cercana al valor inicial; si no encuentra una, avisa. Para un sistema de ecuaciones, `solve(…)=` en un texto (ver [Orden de lectura](07-texto-y-calculo.md#orden-de-lectura) en Texto y cálculo).
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|

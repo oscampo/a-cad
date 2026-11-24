@@ -38,7 +38,7 @@ Este manual explica cada herramienta y concepto en detalle, para quien empieza o
 La ayuda de la app (botón **?**) se genera desde estos mismos archivos, así que hay una sola fuente: lo que se escribe aquí es lo que ve el usuario en la app y en GitHub.
 
 - **Español**: los capítulos de esta carpeta. **Inglés**: los mismos archivos en [en/](en/README.md), con el mismo nombre.
-- Los capítulos [Texto y cálculo](07-texto-y-calculo.md) y [Funciones y operadores](funciones.md) no se editan a mano: salen de `src/calcref.js` y `src/funcref.js` (`npm run docs`), y en la app llevan ejemplos que se calculan.
+- Los capítulos [Texto y cálculo](07-texto-y-calculo.md) y [Funciones y operadores](funciones.md) no se editan a mano: salen de `src/calcref.js` y `src/funcref.js` (`npm run docs`), y en la app llevan ejemplos que se calculan. Su traducción al inglés está en `tools/i18n/ref/*.tsv` (una línea por texto, se traduce la tercera columna): si cambias un texto de esos archivos, corre `npm run ref:sync`, traduce lo que quede en blanco, `npm run i18n` y `npm run docs`; el test avisa si falta algo.
 - Cada traducción empieza con una línea `<!-- es: ... -->` con el resumen del español al que corresponde. Si cambias un capítulo en español, el test (`npm test`) avisa que su traducción quedó vieja: actualízala y corre `npm run help:sync` para registrar que ya la revisaste.
 - `npm run help` regenera la ayuda de la app (`src/help-gen/`); `node tools/shape.mjs <capítulo>.md` compara la estructura de una traducción con la del original.
 - Una función o una opción nueva no está terminada hasta que aparece en el capítulo que le toca (y en su traducción).

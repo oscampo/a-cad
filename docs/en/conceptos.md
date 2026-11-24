@@ -52,7 +52,7 @@ Dimensions have names (D1 for distances, A1 for angles, R1 for radii, O1 for dia
 
 ## Calculating in the drawing
 
-Texts in the drawing can calculate (see [Text and calculation](../07-texto-y-calculo.md)). `k:25` defines a variable, `2*k=` shows a result, and dimension formulas can use those variables. There are also vectors, matrices and built-in functions.
+Texts in the drawing can calculate (see [Text and calculation](07-texto-y-calculo.md)). `k:25` defines a variable, `2*k=` shows a result, and dimension formulas can use those variables. There are also vectors, matrices and built-in functions.
 
 The page reads like a mathematical spreadsheet: **from top to bottom and, within the same row, from left to right**. A variable has the value of its last definition before the point where it is used, and it can be redefined further down. If you use it before defining it, the app warns you that it is defined further down.
 

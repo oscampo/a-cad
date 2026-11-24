@@ -525,10 +525,15 @@ function helpNavRender() {
     nav.appendChild(b);
     if (id === helpCh && body.classList.contains('nav')) {
       const act = body.querySelector(':scope > details[data-ch="' + id + '"]');
-      if (act) for (const sm of act.querySelectorAll(':scope > details > summary')) {
-        const t = document.createElement('button'); t.type = 'button'; t.className = 'hn-tp'; t.textContent = sm.textContent.trim();
-        t.onclick = () => { const d = sm.parentElement; d.open = true; d.scrollIntoView({ block: 'start' }); };
-        nav.appendChild(t);
+      // los temas: los desplegables del capitulo o, en los que arma la app (Texto y calculo, Funciones), los titulos de sus grupos
+      if (act) {
+        let tops = [...act.querySelectorAll(':scope > details > summary')].map((sm) => [sm.textContent.trim(), sm.parentElement]);
+        if (!tops.length) tops = [...act.querySelectorAll('h4')].map((h) => [h.textContent.trim(), h]);
+        for (const [title, el] of tops) {
+          const t = document.createElement('button'); t.type = 'button'; t.className = 'hn-tp'; t.textContent = title;
+          t.onclick = () => { if (el.tagName === 'DETAILS') el.open = true; el.scrollIntoView({ block: 'start' }); };
+          nav.appendChild(t);
+        }
       }
     }
   }
@@ -702,7 +707,7 @@ function fillIconRef() {
   const names = [...used.keys(), ...Object.keys(ICONS).filter((n) => !used.has(n)).sort()];
   const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const line = (n) => `![${(used.get(n)?.[0] || n).replace(/[[\]]/g, '')}](icon:${n})`;
-  box.innerHTML = `<table class="fref"><thead><tr><th></th><th>Escribe</th><th>Botón</th></tr></thead><tbody>${names.map((n) => `<tr data-copy="${esc(line(n))}" style="cursor:pointer"><td><span style="display:inline-block;width:22px;height:22px">${ICONS[n]}</span></td><td><code>${esc(line(n))}</code></td><td>${esc((used.get(n) || []).join(', ') || '(sin uso en la interfaz)')}</td></tr>`).join('')}</tbody></table>`;
+  box.innerHTML = `<table class="fref"><thead><tr><th></th><th>${getLang() === 'en' ? 'Type' : 'Escribe'}</th><th>${getLang() === 'en' ? 'Button' : 'Botón'}</th></tr></thead><tbody>${names.map((n) => `<tr data-copy="${esc(line(n))}" style="cursor:pointer"><td><span style="display:inline-block;width:22px;height:22px">${ICONS[n]}</span></td><td><code>${esc(line(n))}</code></td><td>${esc((used.get(n) || []).join(', ') || (getLang() === 'en' ? '(not used in the interface)' : '(sin uso en la interfaz)'))}</td></tr>`).join('')}</tbody></table>`;
   box.querySelectorAll('svg').forEach((s) => { s.setAttribute('width', '22'); s.setAttribute('height', '22'); });
   box.onclick = (e) => {
     const tr = e.target.closest('tr[data-copy]');

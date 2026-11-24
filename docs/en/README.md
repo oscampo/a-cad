@@ -23,8 +23,8 @@ This manual explains every tool and concept in detail, for people who are starti
 | 4 | [Splitting, copying and repeating](04-dividir-copiar-y-repetir.md) | Splitting an element into segments and repeating geometry with linear and circular arrays and mirror copies, linked or not to the original. |
 | 5 | [Constraints](05-restricciones.md) | The geometric relations that the solver always keeps: horizontal, parallel, tangent, coincident and the rest, with their numbering in the drawing. |
 | 6 | [Dimensions](06-cotas.md) | Dimensions: measurements that drive the geometry or only read it, with formulas, names, scale and units. |
-| 7 | [Text and calculation](../07-texto-y-calculo.md) *(Spanish)* | Texts that calculate: formulas with AsciiMath, variables, outputs, vectors and matrices, your own functions and the page reading order. |
-| | [Functions and operators](../funciones.md) *(Spanish)* | Reference for everything a formula accepts, with an example and its result for each function. |
+| 7 | [Text and calculation](07-texto-y-calculo.md) | Texts that calculate: formulas with AsciiMath, variables, outputs, vectors and matrices, your own functions and the page reading order. |
+| | [Functions and operators](funciones.md) | Reference for everything a formula accepts, with an example and its result for each function. |
 | 8 | [Splines and paths (cams and trajectories)](08-splines-y-trazados.md) | Free curves that pass through points of the drawing, the trajectory of a moving point and offset curves, the basis of cams and trajectories. |
 | 9 | [Graphical simulations](09-simulaciones-graficas.md) | Moving the drawing over time: rotary and linear actuators, the simulation player, graphs of measurements, gears, rack, and relations that only hold while the elements touch. |
 | 10 | [Style, layers and view](10-estilo-capas-y-vista.md) | Color, line type, width and fills; layers; what the view shows; and the element tree. |

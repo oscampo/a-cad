@@ -260,28 +260,42 @@ export const FUNC_GROUPS = [
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const exampleHtml = (ex) => ex.split('\n').map((l) => `<code>${esc(l)}</code>`).join('<br>');
 
-// Seccion de la ayuda (HTML): una tabla por grupo.
-export function funcRefHtml() {
+// Los textos fijos de la referencia (columnas, titulo, presentacion y navegacion del capitulo del manual); se traducen igual que los de los grupos.
+const FIXED = {
+  cols: ['Función', 'Qué hace', 'Ejemplo', 'Da'],
+  title: 'Funciones y operadores',
+  intro: 'Todo lo que acepta una fórmula, en las cotas, los textos (`x:…` y `expr=`), los actuadores y las gráficas. Cada ejemplo muestra lo que da; todos se comprueban con el motor de la app en las pruebas automáticas (`test/funcref.test.mjs`). Cómo se usan las fórmulas, las variables y el orden de lectura se explica en [6. Cotas](06-cotas.md) y [7. Texto y cálculo](07-texto-y-calculo.md).',
+  nav: '[Índice](README.md) · [7. Texto y cálculo](07-texto-y-calculo.md)',
+};
+// Un texto tiene algo que traducir si, quitado el codigo y las marcas, le quedan palabras
+const hasText = (s) => /[A-Za-zÁÉÍÓÚáéíóúñÑ]{3,}/.test(String(s).replace(/<code>[^<]*<\/code>/g, '').replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/`[^`]*`/g, ' '));
+// Todos los textos que se traducen (para el catalogo en ingles y su prueba), sin repetir
+export const funcRefStrings = () => {
+  const out = new Set([...FIXED.cols, FIXED.title, FIXED.intro, FIXED.nav]);
+  for (const g of FUNC_GROUPS) for (const s of [g.title, g.note, ...g.rows.flatMap((r) => [r[0], r[1]])]) if (s && hasText(s)) out.add(s);
+  return [...out];
+};
+
+const id = (s) => s;
+// Seccion de la ayuda (HTML): una tabla por grupo. T traduce un texto (en español, la identidad).
+export function funcRefHtml(T = id) {
+  const th = FIXED.cols.map((h) => `<th>${T(h)}</th>`).join('');
   return FUNC_GROUPS.map((g) => {
-    const rows = g.rows.map(([name, what, ex, res]) => `<tr><td>${name}</td><td>${what}</td><td>${ex ? exampleHtml(ex) : ''}</td><td>${res ? `<code>${esc(res)}</code>` : ''}</td></tr>`).join('');
-    return `<h4>${g.title}</h4>${g.note ? `<p>${g.note}</p>` : ''}<table class="fref"><thead><tr><th>Función</th><th>Qué hace</th><th>Ejemplo</th><th>Da</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const rows = g.rows.map(([name, what, ex, res]) => `<tr><td>${T(name)}</td><td>${T(what)}</td><td>${ex ? exampleHtml(ex) : ''}</td><td>${res ? `<code>${esc(res)}</code>` : ''}</td></tr>`).join('');
+    return `<h4>${T(g.title)}</h4>${g.note ? `<p>${T(g.note)}</p>` : ''}<table class="fref"><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table>`;
   }).join('\n');
 }
 
-// Capitulo del manual (Markdown, docs/funciones.md). Se regenera con «npm run docs:funciones»; test/funcref.test.mjs avisa si quedo viejo.
+// Capitulo del manual (Markdown, docs/funciones.md y docs/en/funciones.md). Se regenera con «npm run docs»; test/funcref.test.mjs avisa si quedo viejo.
 const md = (h) => h.replace(/<code>([^<]*)<\/code>/g, (_, c) => '`' + c.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&') + '`')
-  .replace(/<b>([^<]*)<\/b>/g, '**$1**').replace(/\|/g, '\|');
+  .replace(/<b>([^<]*)<\/b>/g, '**$1**').replace(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g, '[$2]($1)').replace(/\|/g, '\|');
 const mdExample = (ex) => ex.split('\n').map((l) => '`' + l + '`').join('<br>');
-export function funcRefMarkdown() {
-  const head = `# Funciones y operadores
-
-Todo lo que acepta una fórmula, en las cotas, los textos (\`x:…\` y \`expr=\`), los actuadores y las gráficas. Cada ejemplo muestra lo que da; todos se comprueban con el motor de la app en las pruebas automáticas (\`test/funcref.test.mjs\`). Cómo se usan las fórmulas, las variables y el orden de lectura se explica en [6. Cotas](06-cotas.md) y [7. Texto y cálculo](07-texto-y-calculo.md).
-
-[Índice](README.md) · [7. Texto y cálculo](07-texto-y-calculo.md)
-`;
+export function funcRefMarkdown(T = id) {
+  const head = `# ${T(FIXED.title)}\n\n${T(FIXED.intro)}\n\n${T(FIXED.nav)}\n`;
+  const cols = FIXED.cols.map(T), hdr = `| ${cols.join(' | ')} |\n|---|---|---|---|`;
   const body = FUNC_GROUPS.map((g) => {
-    const rows = g.rows.map(([name, what, ex, res]) => `| ${md(name)} | ${md(what)} | ${ex ? mdExample(ex) : ''} | ${res ? '`' + res + '`' : ''} |`).join('\n');
-    return `## ${g.title}\n\n${g.note ? md(g.note) + '\n\n' : ''}| Función | Qué hace | Ejemplo | Da |\n|---|---|---|---|\n${rows}`;
+    const rows = g.rows.map(([name, what, ex, res]) => `| ${md(T(name))} | ${md(T(what))} | ${ex ? mdExample(ex) : ''} | ${res ? '`' + res + '`' : ''} |`).join('\n');
+    return `## ${T(g.title)}\n\n${g.note ? md(T(g.note)) + '\n\n' : ''}${hdr}\n${rows}`;
   }).join('\n\n');
-  return `${head}\n---\n\n${body}\n\n---\n\n[Índice](README.md) · [7. Texto y cálculo](07-texto-y-calculo.md)\n`;
+  return `${head}\n---\n\n${body}\n\n---\n\n${T(FIXED.nav)}\n`;
 }
