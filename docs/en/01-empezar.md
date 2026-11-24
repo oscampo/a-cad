@@ -1,4 +1,4 @@
-<!-- es: 174b4345c6 -->
+<!-- es: 640720b600 -->
 # 1. Getting started
 
 How to use the app: gestures with the pencil, finger and mouse, the parts of the screen, and how to select.
@@ -53,6 +53,16 @@ With **Finger draws** and Select, holding means aiming: on release, whatever is 
 ## Cursor ring
 
 The small circle that accompanies the pencil (over the screen) or the mouse also appears in the ![Select](../icons/select.svg) **Select** tool, at the cursor's real position.
+
+## Help and search
+
+The ![Help and documentation](../icons/help.svg) **?** button in the bar opens this manual, with the index of chapters and topics on the left and the chapter on the right.
+
+- **Search**: type one or more words (accents and capitals do not matter) and you get a list of results with their chapter and topic; tap one to go there.
+- **Help for the active tool**: the **?** button in the bottom bar opens the topic of the tool you are using.
+- **Help for a window**: the Data, GitHub files, Insert library, Graph and Actuator windows have their own **?**, which opens the topic that explains them.
+- **Where is that button?**: tap a tool icon in the help; the help closes, the button is highlighted on the screen (if it is in a dropdown, the dropdown opens) and **Back to the help** appears.
+- **Links**: a reference to another chapter or topic opens that place, and a strip at the top takes you back to where you were.
 
 ---
 

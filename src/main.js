@@ -49,7 +49,7 @@ import { needsReload, reloadAllowed } from './update.js';
 import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
 import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr, setShuffleSeed, rngMix, normName } from './expr.js';
 import { localNum, SCI_DEFAULT, sciFrom, decimalMode } from './locale.js';
-import { getLang, setLang, initLang } from './i18n.js';
+import { getLang, setLang, initLang, tr } from './i18n.js';
 import { helpHtml } from './help.js';
 import { search, snippet, wordsOf, norm as helpNorm } from './helpsearch.js';
 import { colorPicker } from './colorpicker.js';
@@ -502,8 +502,8 @@ $('treeBy').onclick = () => { opts.treeBy = opts.treeBy === 'layer' ? 'type' : '
 // encabezado se pone aqui. Dos niveles: a la izquierda el indice de capitulos (y, del abierto, sus temas) y a la derecha un capitulo a la vez;
 // con el buscador se ven todos los capitulos con lo que coincide. En una pantalla angosta el indice es la primera pantalla y se vuelve a el con ‹.
 const HELP_UI = {
-  es: { title: 'Ayuda', search: 'Buscar en la ayuda', close: 'Cerrar', none: 'Nada en la ayuda coincide con la búsqueda.', home: 'Inicio', index: 'Índice', chapters: 'Capítulos', results: 'Resultados de', more: 'Mostrar más', count: 'resultados', back: 'Volver a' },
-  en: { title: 'Help', search: 'Search the help', close: 'Close', none: 'Nothing in the help matches the search.', home: 'Start', index: 'Index', chapters: 'Chapters', results: 'Results for', more: 'Show more', count: 'results', back: 'Back to' },
+  es: { title: 'Ayuda', search: 'Buscar en la ayuda', close: 'Cerrar', none: 'Nada en la ayuda coincide con la búsqueda.', home: 'Inicio', index: 'Índice', chapters: 'Capítulos', results: 'Resultados de', more: 'Mostrar más', count: 'resultados', back: 'Volver a', resume: 'Volver a la ayuda', notfound: 'Ese botón no está a la vista en esta pantalla', hint: 'Toca el ícono de una herramienta para ver dónde está en la pantalla.' },
+  en: { title: 'Help', search: 'Search the help', close: 'Close', none: 'Nothing in the help matches the search.', home: 'Start', index: 'Index', chapters: 'Chapters', results: 'Results for', more: 'Show more', count: 'results', back: 'Back to', resume: 'Back to the help', notfound: 'That button is not in view on this screen', hint: 'Tap a tool icon to see where it is on the screen.' },
 };
 const HELP_LS = 'a-cad-help-ch';
 let helpCh = 'home', helpUi = HELP_UI.es, helpPrev = null; // helpPrev: de donde viene quien siguio un enlace interno { id, title, top }
@@ -571,10 +571,14 @@ function helpHomeBuild() {
     b.append(t, sm); b.onclick = () => helpShow(d.dataset.ch);
     cards.appendChild(b);
   }
+  const hint = document.createElement('p'); hint.style.cssText = 'color:var(--muted);font-size:13px'; hint.textContent = helpUi.hint;
   const v = document.createElement('p'); v.style.cssText = 'color:var(--muted);font-size:12px'; v.textContent = 'A-CAD v' + VERSION;
-  sec.append(cards, v);
+  sec.append(cards, hint, v);
 }
-$('tHelp').onclick = async () => {
+// Abre la ayuda. Sin opciones: donde se quedo. Con { icon, label }: el tema de la herramienta de ese icono (la ayuda contextual); con
+// { ch, topic: { es, en } }: un tema por el titulo (en cada idioma). El tema se elige por puntos: el icono en su primer parrafo, el titulo que
+// empieza como la herramienta y la letra de su atajo, «(V)».
+async function openHelp(o = {}) {
   const lang = getLang() === 'en' ? 'en' : 'es', ui = HELP_UI[lang];
   let html;
   try { html = await helpHtml(lang); } catch { toast(lang === 'en' ? 'The help could not be loaded' : 'No se pudo cargar la ayuda'); return; }
@@ -588,13 +592,94 @@ $('tHelp').onclick = async () => {
   $('helpBody').querySelectorAll('details').forEach((d) => { d.dataset.open0 = d.open ? '1' : ''; });
   helpHomeBuild();
   $('helpSearch').value = '';
-  let last = 'home';
-  try { last = localStorage.getItem(HELP_LS) || 'home'; } catch { /* sin almacenamiento */ }
-  const narrow = helpNarrow();
-  helpShow(narrow ? 'home' : last, narrow); // angosta: empieza en el indice
-  $('dlgH').showModal();
-};
+  const body = $('helpBody'), narrow = helpNarrow();
+  let ch = null, target = null;
+  if (o.icon) {
+    const first = helpNorm(String(o.label || '')).split(/[^a-z0-9]+/).filter(Boolean)[0] || '', key = /\(([A-Za-z]{1,2})\)/.exec(o.label || '')?.[1]?.toLowerCase();
+    let best = 0;
+    for (const hi of body.querySelectorAll(':scope > details[data-ch] .hi[data-icon="' + o.icon + '"]')) {
+      const topic = hi.closest('details:not([data-ch])'), head = topic ? helpNorm(topic.querySelector(':scope > summary').textContent) : '';
+      const score = 1 + (topic && topic.querySelector(':scope > p')?.contains(hi) ? 10 : 0) + (first && head.startsWith(first) ? 5 : 0) + (key && head.includes('(' + key + ')') ? 6 : 0);
+      if (score > best) { best = score; ch = hi.closest('details[data-ch]').dataset.ch; target = topic; }
+    }
+  } else if (o.ch && o.topic) {
+    ch = o.ch;
+    const want = helpSlug(o.topic[lang] || o.topic.es || '');
+    const det = body.querySelector(':scope > details[data-ch="' + ch + '"]');
+    const hit = [...(det?.querySelectorAll(':scope > details > summary, h4') || [])].find((x) => helpSlug(x.textContent) === want);
+    target = hit ? (hit.tagName === 'SUMMARY' ? hit.parentElement : hit) : null;
+  } else if (o.ch) ch = o.ch;
+  if (!$('dlgH').open) $('dlgH').showModal(); // antes de moverse: un elemento oculto no se desplaza
+  if (ch) helpShow(ch, false, target);
+  else {
+    let last = 'home';
+    try { last = localStorage.getItem(HELP_LS) || 'home'; } catch { /* sin almacenamiento */ }
+    helpShow(narrow ? 'home' : last, narrow); // angosta: empieza en el indice
+  }
+}
+$('tHelp').onclick = () => openHelp();
 $('helpBack').onclick = () => { helpQuery = ''; clearTimeout(helpTimer); $('helpSearch').value = ''; helpShow('home', true); };
+// ---- ayuda contextual
+// El icono y la etiqueta de una herramienta (la de un grupo, o un boton con data-tool)
+const iconOfTool = (t) => {
+  for (const g of Object.values(GROUPS)) { const it = g.find((x) => x[0] === t); if (it) return [it[1], it[2]]; }
+  const b = document.querySelector('[data-tool="' + t + '"]');
+  return b ? [b.dataset.icon, b.title || b.getAttribute('aria-label') || ''] : [null, ''];
+};
+// «?» de la barra inferior: la ayuda de la herramienta activa
+$('statusHelp').onclick = () => { const [icon, label] = iconOfTool(toolName); openHelp(icon ? { icon, label: tr(label) } : {}); };
+// «?» de una ventana: el tema que la explica
+document.addEventListener('click', (e) => {
+  const b = e.target.closest?.('.dhelp');
+  if (!b) return;
+  e.preventDefault();
+  openHelp({ ch: b.dataset.helpCh, topic: { es: b.dataset.helpEs, en: b.dataset.helpEn } });
+});
+// Resalta en la pantalla el boton de un icono: el de un grupo que ahora muestra esa herramienta, un boton del panel o, si esta en un
+// desplegable, el desplegable abierto. Devuelve false si no esta a la vista.
+function showMeIcon(name) {
+  const vis = (el) => el && el.offsetParent !== null && !el.closest('#dlgH');
+  const mark = (el) => { el.classList.remove('show-me'); void el.offsetWidth; el.classList.add('show-me'); el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); setTimeout(() => el.classList.remove('show-me'), 3200); };
+  const find = () => {
+    for (const b of document.querySelectorAll('.grp[data-group]')) {
+      const g = b.dataset.group;
+      if (MENU_ONLY.has(g)) continue;
+      const it = GROUPS[g].find((x) => x[0] === grpTool(g));
+      if (it && it[1] === name && vis(b)) return b;
+    }
+    for (const el of document.querySelectorAll('[data-icon="' + name + '"]')) if (vis(el)) return el;
+    return null;
+  };
+  let el = find();
+  if (!el) {
+    for (const [g, items] of Object.entries(GROUPS)) { // en un desplegable
+      if (!items.some((x) => x[1] === name)) continue;
+      const b = document.querySelector('.grp[data-group="' + g + '"]');
+      if (!b || !vis(b)) continue;
+      openFly(b);
+      const it = document.querySelector('#fly [data-ico="' + name + '"]');
+      if (it) { mark(it); mark(b); return true; }
+    }
+    if (opts.panel === false) { opts.panel = true; applyChrome(); persist(); el = find(); } // el panel de herramientas oculto
+  }
+  if (el) { mark(el); return true; }
+  return false;
+}
+let helpResume = null, helpResumeTimer = 0;
+// Un toque en un icono de la ayuda: se cierra la ayuda, se resalta el boton y queda un boton para volver
+function helpShowMe(name) {
+  const body = $('helpBody');
+  helpResume = { ch: helpCh, top: body.scrollTop, q: helpQuery };
+  $('dlgH').close();
+  setTimeout(() => {
+    if (!showMeIcon(name)) { toast(helpUi.notfound); openHelp({ ch: helpResume.ch }); return; }
+    document.getElementById('helpResume')?.remove();
+    const c = document.createElement('button'); c.type = 'button'; c.id = 'helpResume'; c.textContent = '‹ ' + helpUi.resume;
+    c.onclick = async () => { const r = helpResume; c.remove(); clearTimeout(helpResumeTimer); closeFly(); await openHelp({ ch: r.ch }); $('helpBody').scrollTop = r.top; };
+    document.body.appendChild(c);
+    clearTimeout(helpResumeTimer); helpResumeTimer = setTimeout(() => c.remove(), 9000);
+  }, 120);
+}
 // Buscador de la ayuda (helpsearch.js): una lista de resultados con la ruta («Capítulo › Tema») y un fragmento con lo que coincide; tocar uno
 // abre su capitulo y salta a el. Las unidades que se buscan son los puntos de lista, los parrafos y las filas de tabla, de todos los capitulos.
 let helpUnits = null, helpQuery = '', helpHits = [], helpShown = 0, helpTimer = 0;
@@ -663,6 +748,8 @@ const helpTitleOf = (id) => (id === 'home' ? helpUi.home : (helpChapters().find(
 const helpSlug = (x) => helpNorm(x).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 // Un enlace del manual a otro capitulo (o a un tema de el): lo abre en la ayuda y deja la franja para volver
 $('helpBody').addEventListener('click', (e) => {
+  const hi = e.target.closest?.('.hi');
+  if (hi) { helpShowMe(hi.dataset.icon); return; }
   const a = e.target.closest?.('a[data-help]');
   if (!a) return;
   e.preventDefault();
@@ -5042,7 +5129,7 @@ function openFly(b) {
   el.id = 'fly';
   for (const [id, icon, tip, short] of GROUPS[g]) {
     const label = short || tip, x = document.createElement('button');
-    x.title = tip;
+    x.title = tip; x.dataset.ico = icon;
     x.innerHTML = `<i>${iconSvg(icon)}</i><span>${label}</span>`;
     if (id === grpTool(g) && !isAct(id)) x.classList.add('on');
     if (ACT_IDS.has(id) && $(id).disabled) x.disabled = true;

@@ -148,6 +148,9 @@ dialog.help details { border-top: 1px solid var(--line); padding: 4px 0; }
 dialog.help summary { cursor: pointer; font-weight: 600; min-height: 36px; display: flex; align-items: center; }
 dialog.help ul { margin: 4px 0 8px; padding-left: 20px; }
 dialog.help li { margin: 3px 0; }
+.dhelp { float: right; min-width: 28px; min-height: 28px; width: 28px; height: 28px; padding: 0; border-radius: 50%; font-weight: 700; line-height: 1; margin-left: 8px; }
+dialog.help .hi { cursor: pointer; display: inline-block; width: 1.3em; height: 1.3em; vertical-align: -0.32em; margin: 0 .1em; color: var(--muted); }
+dialog.help .hi svg { width: 100%; height: 100%; display: block; }
 dialog.help code { background: var(--btn); padding: 1px 5px; border-radius: 4px; }
 dialog.help h4 { margin: 12px 0 4px; font-size: 14px; }
 dialog.help table.fref { width: 100%; border-collapse: collapse; font-size: 13px; margin: 4px 0 10px; }
@@ -208,7 +211,13 @@ dialog.help a { color: var(--accent); }
 .cp .cp-rgb .cp-num { flex: 1 1 0; width: auto; min-width: 0; }
 .cp-prev { width: 44px; height: 32px; border-radius: 6px; border: 1px solid var(--line); flex: none; }
 .cp .cp-hex { flex: 1 1 auto; min-width: 0; min-height: 32px; height: 32px; font-size: 14px; font-family: ui-monospace, monospace; }
-#status { padding: 5px 10px; border-top: 1px solid var(--line); background: var(--panel); color: var(--muted); font-variant-numeric: tabular-nums; min-height: 28px; }
+#statusWrap { display: flex; align-items: center; gap: 8px; padding: 2px 6px 2px 10px; border-top: 1px solid var(--line); background: var(--panel); min-height: 32px; }
+#status { flex: 1; min-width: 0; padding: 3px 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+#statusHelp { flex: none; min-width: 30px; min-height: 30px; width: 30px; height: 30px; padding: 0; border-radius: 50%; font-weight: 700; line-height: 1; }
+/* «Mostrar donde esta»: el boton de verdad, resaltado un momento */
+@keyframes showme { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent); } 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent), 0 0 0 3px var(--accent); } }
+.show-me { animation: showme 0.9s ease-in-out 3; outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; position: relative; z-index: 5; }
+#helpResume { position: fixed; left: 50%; transform: translateX(-50%); bottom: 44px; z-index: 50; padding: 8px 16px; border-radius: 999px; background: var(--accent); color: #fff; border: 0; font: inherit; font-weight: 600; box-shadow: 0 4px 16px #0006; cursor: pointer; }
 #toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90%; z-index: 5; }
 #toast.show { opacity: .95; }
 /* pastilla de enlaces: aparece sobre un texto seleccionado que tiene enlaces; cada boton muestra el destino real */
@@ -444,7 +453,7 @@ body.nopanel #panel { display: none; }
   <button id="ghSave"></button><button id="ghOpen"></button><button id="ghCfg"></button>
   <button id="trTrace"></button><button id="trClear"></button><button id="mkReset"></button><button id="trSpline"></button><button id="spClose"></button><button id="spOffset"></button>
 </div>
-<footer id="status">Listo</footer>
+<footer id="statusWrap"><span id="status">Listo</span><button id="statusHelp" type="button" title="Ayuda de esta herramienta" aria-label="Ayuda de esta herramienta">?</button></footer>
 <dialog id="dlgL"><form method="dialog">
   <p style="margin:0 0 8px"><b>SVG para corte láser</b></p>
   <div class="row"><label for="lsUnit">1 unidad del dibujo =</label><input type="number" id="lsUnit" step="any" min="0"><span>mm</span></div>
@@ -520,14 +529,14 @@ body.nopanel #panel { display: none; }
   <div id="ovBtns"><button type="button" id="ovAll">Todos</button><button type="button" id="ovProp" title="Abre las propiedades del elemento marcado (debe haber uno solo)">Propiedades</button><span class="sp"></span><button type="button" id="ovNo">Cancelar</button><button type="button" id="ovOk" class="on">Confirmar</button></div>
 </div>
 <dialog id="dlgData"><form method="dialog" style="width:min(560px,calc(100vw - 48px))">
-  <p style="margin:0 0 6px"><b>Datos</b> <span id="dataCount" style="color:var(--muted);font-size:13px"></span></p>
+  <p style="margin:0 0 6px"><button type="button" class="dhelp" data-help-ch="archivo" data-help-es="Datos del dispositivo" data-help-en="Device data" title="Ayuda de esta ventana" aria-label="Ayuda de esta ventana">?</button><b>Datos</b> <span id="dataCount" style="color:var(--muted);font-size:13px"></span></p>
   <small>La carpeta de datos de este dispositivo, común a todos los dibujos: los textos que guarda <code>wfile(valor, Nombre)</code> y lee <code>rfile(Nombre)</code>, y los archivos de audio (se reducen al importarlos: un canal, 16 kHz, 8 bits) que suenan con <code>play("nombre")</code> al confirmar un paso. Un dibujo lleva consigo los audios que nombra entre comillas y los restaura al abrirse si faltan aquí. Para llevar los demás datos a otro equipo, expórtalos e impórtalos allí.</small>
   <div id="dataList" style="margin:8px 0;max-height:45vh;overflow:auto"></div>
   <input type="file" id="dataIn" multiple hidden>
   <div class="actions"><button type="button" id="dataImport">Importar…</button><button class="on">Cerrar</button></div>
 </form></dialog>
 <dialog id="dlgGo"><form method="dialog" style="width:min(560px,calc(100vw - 48px))">
-  <p style="margin:0 0 6px"><b>Archivos de GitHub</b> <span id="goWhere" style="color:var(--muted);font-size:13px"></span></p>
+  <p style="margin:0 0 6px"><button type="button" class="dhelp" data-help-ch="archivo" data-help-es="Administrar los archivos de GitHub" data-help-en="Managing GitHub files" title="Ayuda de esta ventana" aria-label="Ayuda de esta ventana">?</button><b>Archivos de GitHub</b> <span id="goWhere" style="color:var(--muted);font-size:13px"></span></p>
   <div class="gm-tabs"><button type="button" id="goTabD" class="on">Dibujos</button><button type="button" id="goTabT">Papelera</button><button type="button" id="goTabL" title="Los documentos guardados como biblioteca (carpeta MyLibrary/ del repositorio)">Bibliotecas</button></div>
   <div id="goAuto" class="gm-auto"></div>
   <div id="goFind" class="gm-find"></div>
@@ -552,7 +561,7 @@ body.nopanel #panel { display: none; }
   <div class="actions"><button id="imgDel" type="button">Eliminar</button><button id="imgOk" class="on">Cerrar</button></div>
 </form></dialog>
 <dialog id="dlgLib"><form method="dialog">
-  <p style="margin:0 0 6px"><b>Insertar biblioteca</b> <span id="libWhere" style="color:var(--muted);font-size:13px"></span></p>
+  <p style="margin:0 0 6px"><button type="button" class="dhelp" data-help-ch="simulaciones" data-help-es="Bibliotecas" data-help-en="Libraries" title="Ayuda de esta ventana" aria-label="Ayuda de esta ventana">?</button><b>Insertar biblioteca</b> <span id="libWhere" style="color:var(--muted);font-size:13px"></span></p>
   <div id="libList" style="max-height:46vh;overflow:auto"></div>
   <div class="row" style="margin-top:8px"><label for="libAs">Alias</label><input id="libAs" autocomplete="off" style="flex:1" title="El prefijo con que se usan sus nombres en este documento: UF.C_(surf)(…). Conviene dejar el que trae la biblioteca, para que las fórmulas se puedan copiar entre documentos."></div>
   <div id="libMsg" style="font-size:13px;color:var(--muted);min-height:1.2em"></div>
@@ -606,7 +615,7 @@ body.nopanel #panel { display: none; }
   <div class="actions"><button type="button" id="flAll">Todo</button><button type="button" id="flNone">Nada</button><button type="button" id="flCancel">Cancelar</button><button id="flOk" class="on">Aplicar</button></div>
 </form></dialog>
 <dialog id="dlgAct"><form method="dialog">
-  <b id="actTitle">Actuador</b>
+  <button type="button" class="dhelp" data-help-ch="simulaciones" data-help-es="Actuadores" data-help-en="Actuators" title="Ayuda de esta ventana" aria-label="Ayuda de esta ventana">?</button><b id="actTitle">Actuador</b>
   <label>Qué se define <select id="actMode"><option value="disp">Desplazamiento respecto al tiempo</option><option value="vel">Velocidad</option></select></label>
   <label>Cómo <select id="actSrc"><option value="expr">Expresión o función de t</option><option value="table">Tabla contra el tiempo</option></select></label>
   <div id="actExprRow"><label><span id="actExprLbl"></span><input id="actExpr" autocomplete="off" placeholder="p. ej. 90*t, 30*sin(2π*t)"></label></div>
@@ -615,7 +624,7 @@ body.nopanel #panel { display: none; }
   <div class="actions"><button id="actDel" type="button">Eliminar</button><button id="actCancel" type="button">Cancelar</button><button id="actOk" class="on">Aceptar</button></div>
 </form></dialog>
 <dialog id="dlgGraph"><form method="dialog">
-  <b>Gráfica</b>
+  <button type="button" class="dhelp" data-help-ch="simulaciones" data-help-es="Gráficas" data-help-en="Graphs" title="Ayuda de esta ventana" aria-label="Ayuda de esta ventana">?</button><b>Gráfica</b>
   <label>Título (opcional) <input id="grTitle" autocomplete="off"></label>
   <label>Relaciones, una por línea: «variable1 vs variable2» (la 1.ª va en el eje vertical). Admiten operaciones, p. ej. «p1.x/p1.y vs t»; al final, «@y2», «@x2» o «@x2 y2» las lleva a los ejes secundarios; un estilo entre comillas elige color, línea y símbolo: «σ vs N "rx"», «Y vs X "o"» (o elígelo abajo)<textarea id="grSeries" rows="4" placeholder="MR1 vs t&#10;ML1.d-p1.x vs t @y2"></textarea></label>
   <div id="grStyles"></div>

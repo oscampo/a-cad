@@ -53,6 +53,16 @@ Con **Dedo dibuja** y Selección, sostener es apuntar: al soltar se selecciona l
 
 El circulito que acompaña al lápiz (sobre la pantalla) o al ratón también aparece en la herramienta ![Seleccionar](icons/select.svg) **Seleccionar**, en la posición real del cursor.
 
+## Ayuda y búsqueda
+
+El botón ![Ayuda y documentación](icons/help.svg) **?** de la barra abre este manual, con el índice de capítulos y temas a la izquierda y el capítulo a la derecha.
+
+- **Buscador**: escribe una o más palabras (sin importar tildes ni mayúsculas) y verás una lista de resultados con su capítulo y tema; toca uno para ir a él.
+- **Ayuda de la herramienta activa**: el botón **?** de la barra inferior abre el tema de la herramienta que estás usando.
+- **Ayuda de una ventana**: las ventanas de Datos, Archivos de GitHub, Insertar biblioteca, Gráfica y Actuador tienen su propio **?**, que abre el tema que las explica.
+- **¿Dónde está ese botón?**: toca el ícono de una herramienta en la ayuda; la ayuda se cierra, el botón se resalta en la pantalla (si está en un desplegable, se abre) y aparece **Volver a la ayuda**.
+- **Enlaces**: una referencia a otro capítulo o tema abre ese lugar, y una franja arriba permite volver a donde estabas.
+
 ---
 
 [← Conceptos básicos](conceptos.md) · [Índice](README.md) · [2. Dibujar →](02-dibujar.md)
