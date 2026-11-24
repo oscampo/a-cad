@@ -1,0 +1,320 @@
+{
+ "app": "ipad-cad",
+ "version": "2.9.4",
+ "doc": {
+  "calc": 2,
+  "n": 36,
+  "pts": {
+   "p1": {
+    "x": 0,
+    "y": 0,
+    "fixed": true,
+    "auto": false
+   },
+   "p3": {
+    "x": 40,
+    "y": 0,
+    "fixed": false,
+    "auto": false
+   },
+   "p8": {
+    "x": 20.000000000000004,
+    "y": 34.64101615137754,
+    "fixed": false,
+    "auto": false
+   },
+   "p13": {
+    "x": -19.999999999999993,
+    "y": 34.64101615137755,
+    "fixed": false,
+    "auto": false
+   },
+   "p18": {
+    "x": -40,
+    "y": 4.898587196589413e-15,
+    "fixed": false,
+    "auto": false
+   },
+   "p23": {
+    "x": -20.000000000000018,
+    "y": -34.64101615137754,
+    "fixed": false,
+    "auto": false
+   },
+   "p28": {
+    "x": 19.99999999999997,
+    "y": -34.64101615137756,
+    "fixed": false,
+    "auto": false
+   },
+   "p33": {
+    "x": -60,
+    "y": -75,
+    "fixed": false,
+    "auto": false
+   },
+   "p35": {
+    "x": -60,
+    "y": -79.5,
+    "fixed": false,
+    "auto": false
+   }
+  },
+  "lines": {},
+  "circles": {
+   "c2": {
+    "c": "p1",
+    "r": 60
+   },
+   "c4": {
+    "c": "p3",
+    "r": 5
+   },
+   "c9": {
+    "c": "p8",
+    "r": 5
+   },
+   "c14": {
+    "c": "p13",
+    "r": 5
+   },
+   "c19": {
+    "c": "p18",
+    "r": 5
+   },
+   "c24": {
+    "c": "p23",
+    "r": 5
+   },
+   "c29": {
+    "c": "p28",
+    "r": 5
+   }
+  },
+  "arcs": {},
+  "ellipses": {},
+  "texts": {
+   "t34": {
+    "pt": "p33",
+    "text": "Brida con seis agujeros iguales a 60° (matriz circular con copias vinculadas).",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t36": {
+    "pt": "p35",
+    "text": "Cambia la cota de distancia o el radio de un agujero: los seis cambian juntos.",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   }
+  },
+  "splines": {},
+  "traces": {},
+  "cons": {
+   "k5": {
+    "t": "DIST",
+    "refs": [
+     "p1",
+     "p3"
+    ],
+    "v": 40,
+    "name": "D1"
+   },
+   "k6": {
+    "t": "RAD",
+    "refs": [
+     "c4"
+    ],
+    "v": 5,
+    "name": "O1"
+   },
+   "k10": {
+    "t": "EQD",
+    "refs": [
+     "p1",
+     "p3",
+     "p1",
+     "p8"
+    ],
+    "hidden": true,
+    "op": "o7"
+   },
+   "k11": {
+    "t": "ANG4",
+    "refs": [
+     "p1",
+     "p3",
+     "p1",
+     "p8"
+    ],
+    "v": 60,
+    "hidden": true,
+    "op": "o7"
+   },
+   "k12": {
+    "t": "EQR",
+    "refs": [
+     "c4",
+     "c9"
+    ],
+    "hidden": true,
+    "op": "o7"
+   },
+   "k15": {
+    "t": "EQD",
+    "refs": [
+     "p1",
+     "p3",
+     "p1",
+     "p13"
+    ],
+    "hidden": true,
+    "op": "o7"
+   },
+   "k16": {
+    "t": "ANG4",
+    "refs": [
+     "p1",
+     "p3",
+     "p1",
+     "p13"
+    ],
+    "v": 120,
+    "hidden": true,
+    "op": "o7"
+   },
+   "k17": {
+    "t": "EQR",
+    "refs": [
+     "c4",
+     "c14"
+    ],
+    "hidden": true,
+    "op": "o7"
+   },
+   "k20": {
+    "t": "EQD",
+    "refs": [
+     "p1",
+     "p3",
+     "p1",
+     "p18"
+    ],
+    "hidden": true,
+    "op": "o7"
+   },
+   "k21": {
+    "t": "ANG4",
+    "refs": [
+     "p1",
+     "p3",
+     "p1",
+     "p18"
+    ],
+    "v": 180,
+    "hidden": true,
+    "op": "o7"
+   },
+   "k22": {
+    "t": "EQR",
+    "refs": [
+     "c4",
+     "c19"
+    ],
+    "hidden": true,
+    "op": "o7"
+   },
+   "k25": {
+    "t": "EQD",
+    "refs": [
+     "p1",
+     "p3",
+     "p1",
+     "p23"
+    ],
+    "hidden": true,
+    "op": "o7"
+   },
+   "k26": {
+    "t": "ANG4",
+    "refs": [
+     "p1",
+     "p3",
+     "p1",
+     "p23"
+    ],
+    "v": -120,
+    "hidden": true,
+    "op": "o7"
+   },
+   "k27": {
+    "t": "EQR",
+    "refs": [
+     "c4",
+     "c24"
+    ],
+    "hidden": true,
+    "op": "o7"
+   },
+   "k30": {
+    "t": "EQD",
+    "refs": [
+     "p1",
+     "p3",
+     "p1",
+     "p28"
+    ],
+    "hidden": true,
+    "op": "o7"
+   },
+   "k31": {
+    "t": "ANG4",
+    "refs": [
+     "p1",
+     "p3",
+     "p1",
+     "p28"
+    ],
+    "v": -60,
+    "hidden": true,
+    "op": "o7"
+   },
+   "k32": {
+    "t": "EQR",
+    "refs": [
+     "c4",
+     "c29"
+    ],
+    "hidden": true,
+    "op": "o7"
+   }
+  },
+  "hatches": {},
+  "ltypes": {},
+  "cn": {},
+  "layers": {},
+  "curLayer": null,
+  "cnd": {
+   "D": 1,
+   "O": 1
+  },
+  "ops": {
+   "o7": {
+    "t": "MATC",
+    "n": 1
+   }
+  },
+  "opn": {
+   "MATC": 1
+  }
+ },
+ "view": {
+  "texts": true,
+  "dims": true
+ }
+}

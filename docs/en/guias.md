@@ -1,4 +1,4 @@
-<!-- es: a1ca434aeb -->
+<!-- es: 8041c1e6ad -->
 # Task guides
 
 Each guide solves a concrete task, step by step, with an example drawing that opens in the app. For the detail of each tool, follow the links to the chapter that explains it.
@@ -142,6 +142,74 @@ The cut lines and the marking lines (a fold, for example) are separated by color
 ### What you will see
 
 A real-scale SVG in millimeters, with two groups, "cut" and "mark". Dimensions, texts, points and fills are not included. More detail in [SVG CUT](11-archivo-y-exportacion.md#svg-cut).
+
+## Make a text console
+
+A text that shows several calculated lines, like a game status or a data panel.
+
+**Example:** [Open the example](../../ejemplos/guias/consola-de-texto.json).
+
+### Steps
+
+1. Define the variables you want to show, each in its own text: `$$n:3$$`.
+2. In another text, define a vector of strings: `$$consola:["ESTADO", "Vidas: "+num2str(n), "Puntos: "+num2str(n*100)]$$`. Each string will be one line (see [Functions and operators](funciones.md)).
+3. Create a third text that is just `$$consola=$$`.
+4. Double tap it, turn on *Show only the result* and choose a monospaced font and the font and background colors (see [Font and text format](07-texto-y-calculo.md#font-and-text-format)).
+
+### What you will see
+
+Three lines of normal text: "ESTADO", "Vidas: 3" and "Puntos: 300", on the background you chose. Change `n` and the console updates by itself.
+
+### To continue
+
+- A vector of strings that starts and ends with three backticks is drawn as a code block.
+- To make the console react to what you type, see [Data between drawings](funciones.md#data-between-drawings).
+
+## Remember a value between changes and play a sound
+
+A counter that is not lost when you close the drawing, and a sound that plays when something changes.
+
+**Example:** [Open the example](../../ejemplos/guias/contador-y-sonido.json). When opened it writes the `contador` data on this device.
+
+### Steps
+
+1. Type `$$c:rfile(contador; 0)$$`: it reads the data "contador", or is 0 if it does not exist yet.
+2. Type `$$wfile(c+1; contador)=$$`: it stores that value plus 1. The result is 1 and all that matters is that it runs.
+3. Type `$$c=$$` to see the value that was read.
+4. Open ![Data](../icons/folder-open.svg) **File → Data…**: `contador` is already there (see [Device data](11-archivo-y-exportacion.md#device-data)).
+5. With **Import…** add an audio file and name it `ding`. Type `$$play("ding")=$$` to play it (see [Sounds](funciones.md#sounds)).
+
+### What you will see
+
+`c` goes up by one each time you confirm a change in the drawing, and the data survives even if you close the app. Dragging or simulating does not write the data: only confirmed changes do.
+
+### To continue
+
+- The data is shared by all the drawings on the device: two drawings can share a value.
+- A name built from a variable, like `play(n)`, does not travel with the drawing.
+
+## Repeat a hole around a center
+
+Six equal holes on a flange, which all change together when you modify one.
+
+**Example:** [Open the example](../../ejemplos/guias/patron-circular.json).
+
+### Steps
+
+1. With ![Circle](../icons/circle.svg) draw the outline of the flange and fix its center O with ![Fix / release](../icons/lock.svg) [Fix / release](05-restricciones.md#fix--release).
+2. Draw a small circle (the hole) and dimension its distance to O and its radius (see [Dimension (D)](06-cotas.md#dimension-d)).
+3. Select the hole and choose ![Circular array](../icons/array-circ.svg) [Circular array](04-dividir-copiar-y-repetir.md#circular-array).
+4. Tap O as the **Center**, leave **Total angle** at 360° and type **Total number** 6.
+5. Leave [linked copies](04-dividir-copiar-y-repetir.md#linked-copies) on.
+
+### What you will see
+
+Six holes 60° apart. Change the distance dimension or the radius of one and all six follow.
+
+### To continue
+
+- For a row instead of a circle: [Linear array](04-dividir-copiar-y-repetir.md#linear-array).
+- To remove the relation between copies: [Without linking](04-dividir-copiar-y-repetir.md#without-linking).
 
 ## Save, open and share your drawings
 

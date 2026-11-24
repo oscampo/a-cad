@@ -96,6 +96,35 @@ t('corte laser: dos clases de linea (corte rojo continua, marcado azul discontin
   assert.deepEqual(cl.map((c) => [c.ltype, c.count]), [['continua', 8], ['discontinua', 1]]);
 });
 
+t('consola: el vector de cadenas se ve como tres lineas, en monoespaciada y con fondo', () => {
+  const d = load('consola-de-texto');
+  const c = Object.values(d.texts).find((x) => x.valOnly);
+  assert.equal(shownText(d, c).text, 'ESTADO\nVidas: 3\nPuntos: 300');
+  assert.deepEqual([c.font, c.bg], ['mono', '#0b1020']);
+  Object.values(d.texts).find((x) => x.text === '$$n:3$$').text = '$$n:5$$';
+  assert.equal(shownText(d, c).text, 'ESTADO\nVidas: 5\nPuntos: 500'); // al cambiar n se actualiza
+});
+
+t('contador: lee con valor inicial 0, guarda c+1 y reproduce un sonido', () => {
+  const d = load('contador-y-sonido');
+  const shown = Object.values(d.texts).map((x) => shownText(d, x).text.replace(/[-]/g, '')).join('\n');
+  assert.match(shown, /\$\$c=0\$\$/);
+  assert.match(shown, /wfile\(c\+1; contador\)=1/);
+  assert.match(shown, /play\(.*ding.*\)=1/);
+});
+
+t('patron circular: seis agujeros iguales a 60° que siguen al cambiar la cota o el radio', () => {
+  const d = load('patron-circular');
+  const holes = () => Object.values(d.circles).filter((c) => c.r < 20);
+  assert.equal(holes().length, 6);
+  const ang = holes().map((c) => Math.round((Math.atan2(d.pts[c.c].y, d.pts[c.c].x) * 180) / Math.PI + 360) % 360).sort((a, b) => a - b);
+  assert.deepEqual(ang, [0, 60, 120, 180, 240, 300]);
+  Object.values(d.cons).find((k) => k.t === 'DIST' && !k.hidden).v = 30; // la distancia de O al agujero
+  Object.values(d.cons).find((k) => k.t === 'RAD' && !k.hidden).v = 8;
+  assert.equal(settle(d, solve, []).ok !== false, true);
+  for (const c of holes()) { assert.ok(Math.abs(Math.hypot(d.pts[c.c].x, d.pts[c.c].y) - 30) < 1e-4, 'todos a 30 de O'); assert.ok(Math.abs(c.r - 8) < 1e-4, 'todos de radio 8'); }
+});
+
 t('cada ejemplo que nombra el manual existe y la app puede abrirlo', () => {
   const main = readFileSync(new URL('src/main.js', root), 'utf8');
   const globs = /import\.meta\.glob\(\[([^\]]*)\]/.exec(main)?.[1] || '';

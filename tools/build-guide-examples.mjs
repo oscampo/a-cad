@@ -9,6 +9,7 @@ import { addRectangle, CLINE_STYLE } from '../src/shapes.js';
 import { addRotary } from '../src/actuators.js';
 import { addGraph } from '../src/graphs.js';
 import { makeVector } from '../src/vectors.js';
+import { circularArray } from '../src/edit.js';
 import { settle } from '../src/params.js';
 import { viewNeeds } from '../src/examples.js';
 
@@ -130,6 +131,58 @@ const EXAMPLES = {
       'File → SVG for laser cutting: choose "Cut" for the red lines and "Mark" for the blue one.',
     ]);
     void p;
+    return d;
+  },
+  // 7. Una consola de texto: un vector de cadenas mostrado solo como resultado
+  'consola-de-texto': (L) => {
+    const d = newDoc();
+    txt(d, 0, 100, '$$n:3$$');
+    txt(d, 0, 92, '$$consola:["ESTADO", "Vidas: "+num2str(n), "Puntos: "+num2str(n*100)]$$');
+    const con = addText(d, addPoint(d, 0, 76), '$$consola=$$', { h: 4, anchor: 'tl', font: 'mono', color: '#4ade80' });
+    Object.assign(d.texts[con], { valOnly: true, bg: '#0b1020' }); // addText no lleva estas dos propiedades
+    note(d, 0, 40, L.es ? [
+      'La consola de abajo muestra solo el resultado de «consola=» (doble toque → «Mostrar solo el resultado»).',
+      'Cambia n (arriba) o las cadenas del vector: la consola se actualiza.',
+    ] : [
+      'The console below shows only the result of "consola=" (double tap → "Show only the result").',
+      'Change n (above) or the strings of the vector: the console updates.',
+    ]);
+    return d;
+  },
+  // 8. Un valor que se recuerda entre cambios y un sonido
+  'contador-y-sonido': (L) => {
+    const d = newDoc();
+    txt(d, 0, 100, '$$c:rfile(contador; 0)$$');
+    txt(d, 0, 92, '$$wfile(c+1; contador)=$$');
+    txt(d, 0, 84, '$$c=$$');
+    txt(d, 0, 76, '$$play("ding")=$$');
+    const A = addPoint(d, 0, 0), B = addPoint(d, 40, 0);
+    addLine(d, A, B);
+    note(d, 0, 50, L.es ? [
+      'c lee el dato «contador» (0 si no existe) y wfile lo guarda sumándole 1 cada vez que confirmas un cambio.',
+      'Para oír «ding», importa un sonido llamado ding en Archivo → Datos. Arrastra B para provocar un cambio.',
+    ] : [
+      'c reads the data "contador" (0 if missing) and wfile stores it plus 1 each time you confirm a change.',
+      'To hear "ding", import a sound named ding in File → Data. Drag B to trigger a change.',
+    ]);
+    return d;
+  },
+  // 9. Un agujero repetido alrededor de un centro (matriz circular con copias vinculadas)
+  'patron-circular': (L) => {
+    const d = newDoc();
+    const O = addPoint(d, 0, 0); d.pts[O].fixed = true;
+    addCircle(d, O, 60);
+    const c = addPoint(d, 40, 0), hole = addCircle(d, c, 5);
+    addCon(d, { t: 'DIST', refs: [O, c], v: 40 });
+    addCon(d, { t: 'RAD', refs: [hole], v: 5 });
+    circularArray(d, [{ k: 'ci', id: hole }], { c: { x: 0, y: 0 }, step: Math.PI / 3, n: 6, link: true, cid: O, dims: false });
+    note(d, -60, -75, L.es ? [
+      'Brida con seis agujeros iguales a 60° (matriz circular con copias vinculadas).',
+      'Cambia la cota de distancia o el radio de un agujero: los seis cambian juntos.',
+    ] : [
+      'Flange with six equal holes at 60° (circular array with linked copies).',
+      'Change the distance dimension or the radius of one hole: all six change together.',
+    ]);
     return d;
   },
 };

@@ -142,6 +142,74 @@ Las líneas de corte y las de marcado (un pliegue, por ejemplo) se separan por c
 
 Un SVG a escala real en milímetros, con dos grupos, «corte» y «marcado». No salen cotas, textos, puntos ni rellenos. Más detalle en [SVG CUT](11-archivo-y-exportacion.md#svg-cut).
 
+## Hacer una consola de texto
+
+Un texto que muestra varias líneas calculadas, como el estado de un juego o un panel de datos.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/consola-de-texto.json).
+
+### Pasos
+
+1. Define las variables que quieres mostrar, cada una en su texto: `$$n:3$$`.
+2. En otro texto, define un vector de cadenas: `$$consola:["ESTADO", "Vidas: "+num2str(n), "Puntos: "+num2str(n*100)]$$`. Cada cadena será una línea (ver [Funciones y operadores](funciones.md)).
+3. Crea un tercer texto que sea solo `$$consola=$$`.
+4. Dale doble toque, activa *Mostrar solo el resultado* y elige una fuente monoespaciada y los colores de fuente y de fondo (ver [Fuente y formato del texto](07-texto-y-calculo.md#fuente-y-formato-del-texto)).
+
+### Qué verás
+
+Tres líneas de texto normal: «ESTADO», «Vidas: 3» y «Puntos: 300», sobre el fondo que elegiste. Cambia `n` y la consola se actualiza sola.
+
+### Para seguir
+
+- Un vector de cadenas que empieza y termina con tres comillas invertidas se dibuja como bloque de código.
+- Para que la consola reaccione a lo que escribes, ver [Datos entre dibujos](funciones.md#datos-entre-dibujos).
+
+## Recordar un valor entre cambios y reproducir un sonido
+
+Un contador que no se pierde al cerrar el dibujo, y un sonido que suena cuando algo cambia.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/contador-y-sonido.json). Al abrirlo escribe el dato `contador` en este dispositivo.
+
+### Pasos
+
+1. Escribe `$$c:rfile(contador; 0)$$`: lee el dato «contador», o vale 0 si todavía no existe.
+2. Escribe `$$wfile(c+1; contador)=$$`: guarda ese valor más 1. El resultado es 1 y solo importa que se ejecute.
+3. Escribe `$$c=$$` para ver el valor que se leyó.
+4. Abre ![Datos](icons/folder-open.svg) **Archivo → Datos…**: ya aparece `contador` (ver [Datos del dispositivo](11-archivo-y-exportacion.md#datos-del-dispositivo)).
+5. Con **Importar…** agrega un audio y llámalo `ding`. Escribe `$$play("ding")=$$` para reproducirlo (ver [Sonidos](funciones.md#sonidos)).
+
+### Qué verás
+
+`c` sube de uno en uno cada vez que confirmas un cambio en el dibujo, y el dato sobrevive aunque cierres la app. Arrastrar o simular no escribe el dato: solo los cambios confirmados.
+
+### Para seguir
+
+- Los datos son comunes a todos los dibujos del dispositivo: dos dibujos pueden compartir un valor.
+- Un nombre armado con una variable, como `play(n)`, no viaja con el dibujo.
+
+## Repetir un agujero alrededor de un centro
+
+Seis agujeros iguales en una brida, que cambian todos juntos al modificar uno.
+
+**Ejemplo:** [Abrir el ejemplo](../ejemplos/guias/patron-circular.json).
+
+### Pasos
+
+1. Dibuja con ![Círculo](icons/circle.svg) el contorno de la brida y fija su centro O con ![Fijar / soltar](icons/lock.svg) [Fijar / soltar](05-restricciones.md#fijar--soltar).
+2. Dibuja un círculo pequeño (el agujero) y acota su distancia a O y su radio (ver [Acotar (D)](06-cotas.md#acotar-d)).
+3. Selecciona el agujero y elige ![Matriz circular](icons/array-circ.svg) [Matriz circular](04-dividir-copiar-y-repetir.md#matriz-circular).
+4. Toca O como **Centro**, deja **Ángulo total** en 360° y escribe **Número total** 6.
+5. Deja activas las [copias vinculadas](04-dividir-copiar-y-repetir.md#copias-vinculadas).
+
+### Qué verás
+
+Seis agujeros a 60° uno del otro. Cambia la cota de distancia o el radio de uno y los seis lo siguen.
+
+### Para seguir
+
+- Para una fila en vez de un círculo: [Matriz lineal](04-dividir-copiar-y-repetir.md#matriz-lineal).
+- Para quitar la relación entre copias: [Sin vincular](04-dividir-copiar-y-repetir.md#sin-vincular).
+
 ## Guardar, abrir y compartir tus dibujos
 
 Tus dibujos se guardan como archivos `.json`, y puedes llevarlos a otro dispositivo con GitHub.

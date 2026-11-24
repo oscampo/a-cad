@@ -1,0 +1,135 @@
+{
+ "app": "ipad-cad",
+ "version": "2.9.4",
+ "doc": {
+  "calc": 2,
+  "n": 15,
+  "pts": {
+   "p1": {
+    "x": 0,
+    "y": 100,
+    "fixed": false,
+    "auto": false
+   },
+   "p3": {
+    "x": 0,
+    "y": 92,
+    "fixed": false,
+    "auto": false
+   },
+   "p5": {
+    "x": 0,
+    "y": 84,
+    "fixed": false,
+    "auto": false
+   },
+   "p7": {
+    "x": 0,
+    "y": 76,
+    "fixed": false,
+    "auto": false
+   },
+   "p9": {
+    "x": 0,
+    "y": 0,
+    "fixed": false,
+    "auto": false
+   },
+   "p10": {
+    "x": 40,
+    "y": 0,
+    "fixed": false,
+    "auto": false
+   },
+   "p12": {
+    "x": 0,
+    "y": 50,
+    "fixed": false,
+    "auto": false
+   },
+   "p14": {
+    "x": 0,
+    "y": 45.5,
+    "fixed": false,
+    "auto": false
+   }
+  },
+  "lines": {
+   "l11": {
+    "a": "p9",
+    "b": "p10"
+   }
+  },
+  "circles": {},
+  "arcs": {},
+  "ellipses": {},
+  "texts": {
+   "t2": {
+    "pt": "p1",
+    "text": "$$c:rfile(contador; 0)$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t4": {
+    "pt": "p3",
+    "text": "$$wfile(c+1; contador)=$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t6": {
+    "pt": "p5",
+    "text": "$$c=$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t8": {
+    "pt": "p7",
+    "text": "$$play(\"ding\")=$$",
+    "h": 3.2,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t13": {
+    "pt": "p12",
+    "text": "c lee el dato «contador» (0 si no existe) y wfile lo guarda sumándole 1 cada vez que confirmas un cambio.",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   },
+   "t15": {
+    "pt": "p14",
+    "text": "Para oír «ding», importa un sonido llamado ding en Archivo → Datos. Arrastra B para provocar un cambio.",
+    "h": 3,
+    "ang": 0,
+    "anchor": "tl",
+    "color": "auto",
+    "readable": true
+   }
+  },
+  "splines": {},
+  "traces": {},
+  "cons": {},
+  "hatches": {},
+  "ltypes": {},
+  "cn": {},
+  "layers": {},
+  "curLayer": null,
+  "cnd": {}
+ },
+ "view": {
+  "texts": true
+ }
+}
