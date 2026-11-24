@@ -133,3 +133,7 @@ Toca la línea del actuador	Tap the actuator line
 Toca la línea del actuador y su extremo que será la cabeza (en cualquier orden)	Tap the actuator line and its end that will be the head (in any order)
 La línea no termina en ese punto: toca el extremo que será la cabeza del actuador	The line does not end at that point: tap the end that will be the actuator head
 La cabeza debe ser un extremo de la línea	The head must be an end of the line
+Actuador lineal (ML): toca la línea y su extremo que será la cabeza, o los puntos de la cola y la cabeza (o selecciónalos antes); define su desplazamiento o velocidad respecto al tiempo (t).	Linear actuator (ML): tap the line and its end that will be the head, or the tail and head points (or select them first); it defines its displacement or velocity over time (t).
+Toca la línea del actuador, o el otro punto	Tap the actuator line, or the other point
+Actuador lineal (ML): toca la línea y su extremo que será la cabeza, o los puntos de la cola y la cabeza (o selecciónalos antes)	Linear actuator (ML): tap the line and its end that will be the head, or the tail and head points (or select them first)
+Cola elegida: toca el punto de la cabeza del actuador	Tail chosen: tap the actuator head point

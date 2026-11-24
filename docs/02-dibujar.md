@@ -74,7 +74,7 @@ El **vector**, la **línea indicativa** y el **actuador lineal** se definen igua
 
 - ![Vector](icons/vector.svg) **Vector**: la línea pasa a ser vector (ver [Vector (W)](#vector-w)).
 - **Línea indicativa**: la flecha va en el extremo elegido (ver [Líneas indicativas](06-cotas.md#líneas-indicativas)).
-- ![Actuador lineal](icons/act-l.svg) **Actuador lineal (ML)**: el desplazamiento se mide de la cola a la cabeza (ver [Actuadores](09-simulaciones-graficas.md#actuadores)).
+- ![Actuador lineal](icons/act-l.svg) **Actuador lineal (ML)**: el desplazamiento se mide de la cola a la cabeza; también se define con dos puntos, la cola y la cabeza (ver [Actuadores](09-simulaciones-graficas.md#actuadores)).
 
 El texto de cada uno (la magnitud del vector, la etiqueta de la línea indicativa y el nombre del actuador) queda, por defecto, en el **punto medio** de la línea; después puedes cambiarlo en sus propiedades.
 

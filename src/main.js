@@ -19,7 +19,7 @@ import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, dimH, ARROW, ARROW_HW, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow, revForHead } from './vectors.js';
-import { addRotary, addLinearOnLine, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
+import { addRotary, addLinear, addLinearOnLine, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
 import { parseLineSpec, splitSpec, withSpec, addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, genericRange, GEN_X, AXES } from './graphs.js';
 import { panStep, zoomStep, setWindow, clearWindow, saveHome, homeWin, forgetHome, resetAxis } from './graphview.js';
@@ -4089,7 +4089,7 @@ const HINTS = {
   mline: 'Línea de punto medio: toca el punto medio y luego un extremo (o arrastra); la línea crece igual hacia el otro lado. Hay bloqueo suave.',
   graph: 'Gráfica: toca donde va su esquina inferior izquierda. Escribe las relaciones como «variable1 vs variable2» (una por línea): t, actuadores (MR1, MR1.v), cotas, variables y vectores de rangos.',
   mr: 'Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes); define su desplazamiento o velocidad angular respecto al tiempo (t).',
-  ml: 'Actuador lineal (ML): toca la línea y su extremo que será la cabeza (o selecciónalos antes); define su desplazamiento o velocidad respecto al tiempo (t).',
+  ml: 'Actuador lineal (ML): toca la línea y su extremo que será la cabeza, o los puntos de la cola y la cabeza (o selecciónalos antes); define su desplazamiento o velocidad respecto al tiempo (t).',
   vector: 'Vector: como Línea, con cabeza de flecha en el punto final y su magnitud como texto en el punto medio. Con una línea (y uno de sus extremos, que será la cabeza) seleccionada, pulsar Vector la convierte en vector.',
   cline: 'Línea constructiva (gris, fina, con un punto en cada extremo): toca inicio y fin, o arrastra. No sale en el SVG de corte láser salvo que lo elijas.',
   circle3: 'Círculo perimetral: toca 3 puntos no colineales por donde pasa la circunferencia.',
@@ -4315,11 +4315,12 @@ function setTool(t) {
   if (t === 'dim') startDimTool();
   if (t === 'ml') { // con una linea (y uno de sus extremos, que sera la cabeza) ya seleccionados, se crea el actuador sobre ellos
     const lns = sel.filter((x) => x.k === 'ln' && doc.lines[x.id]), pts = sel.filter((x) => x.k === 'pt' && doc.pts[x.id]);
+    if (lns.length === 0 && pts.length === 2 && pts.length === sel.length) { mlTwoPoints(pts[0].id, pts[1].id, false); return; } // dos puntos seleccionados: el primero es la cola y el segundo la cabeza
     if (lns.length === 1) {
       const l = doc.lines[lns[0].id], ends = pts.filter((x) => x.id === l.a || x.id === l.b);
       if (ends.length === 1 && pts.length === 1) { mlMake(lns[0].id, ends[0].id); return; }
       if (!pts.length) { pending = { ml: { line: lns[0].id } }; toast('Toca el extremo de la línea que será la cabeza del actuador'); }
-    } else if (lns.length === 0 && pts.length === 1) { pending = { ml: { pt: pts[0].id } }; toast('Toca la línea del actuador'); }
+    } else if (lns.length === 0 && pts.length === 1) { pending = { ml: { pt: pts[0].id } }; toast('Toca la línea del actuador, o el otro punto'); }
   }
   if (t === 'mr') { // con una linea (y uno de sus extremos) ya seleccionados, se crea el actuador sobre ellos
     const lns = sel.filter((x) => x.k === 'ln' && doc.lines[x.id]), pts = sel.filter((x) => x.k === 'pt' && doc.pts[x.id]);
@@ -4344,7 +4345,7 @@ const GROUPS = {
   arc: [['arcc', 'arc-c', 'Arco por centro y extremos (R)'], ['arc3', 'arc-3', 'Arco por 3 puntos (A)'], ['carcc', 'carcc', 'Arco constructivo por centro y extremos'], ['carc3', 'carc3', 'Arco constructivo por 3 puntos']],
   ellipse: [['ellipse', 'ellipse', 'Elipse: centro y dos ejes (O)'], ['earc', 'earc', 'Elipse parcial (arco elíptico)']],
   rect: [['rect', 'rect', 'Rectángulo por diagonal (B)'], ['rectc', 'rect-c', 'Rectángulo de centro']],
-  act: [['mr', 'act-r', 'Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes)', 'Actuador MR'], ['ml', 'act-l', 'Actuador lineal (ML): toca la línea y su extremo que será la cabeza (o selecciónalos antes)', 'Actuador ML'], ['graph', 'graph', 'Gráfica: toca donde va su esquina inferior izquierda; muestra «variable1 vs variable2»', 'Gráfica'], ['sim', 'play', 'Simulación: barra de tiempo para mover los actuadores', 'Simulación']],
+  act: [['mr', 'act-r', 'Actuador rotacional (MR): toca la línea y su extremo que será el centro de giro (o selecciónalos antes)', 'Actuador MR'], ['ml', 'act-l', 'Actuador lineal (ML): toca la línea y su extremo que será la cabeza, o los puntos de la cola y la cabeza (o selecciónalos antes)', 'Actuador ML'], ['graph', 'graph', 'Gráfica: toca donde va su esquina inferior izquierda; muestra «variable1 vs variable2»', 'Gráfica'], ['sim', 'play', 'Simulación: barra de tiempo para mover los actuadores', 'Simulación']],
   corner: [['fillet', 'fillet', 'Redondeo (F): toca una esquina, o dos elementos, y teclea el radio'], ['chamfer', 'chamfer', 'Chaflán: toca una esquina y teclea la distancia']],
   clip: [['copy', 'copy', 'Copiar la selección (Ctrl+C)'], ['paste', 'paste', 'Pegar: toca el punto donde va el centro de lo copiado (Ctrl+V)']],
 };
@@ -4942,8 +4943,8 @@ function editGraph(id, nuevo) {
   $('grCancel').onclick = cancel; dlg.oncancel = cancel;
   dlg.showModal();
 }
-// Herramientas MR y ML: las dos se definen con una linea y uno de sus extremos (en cualquier orden): en MR el extremo es el centro de giro;
-// en ML es la cabeza (la cola es el otro extremo), como en el vector y la linea indicativa.
+// Herramientas MR y ML: se definen con una linea y uno de sus extremos (en cualquier orden): en MR el extremo es el centro de giro; en ML es la
+// cabeza (la cola es el otro extremo), como en el vector y la linea indicativa. El ML tambien se define con dos puntos: la cola y luego la cabeza.
 function actTool(p) {
   const ah = actAt(p.x, p.y);
   if (ah) { editAct(ah, false); return; }
@@ -4954,12 +4955,19 @@ function actTool(p) {
     return;
   }
   const h = hitTest(p.x, p.y);
-  if (!h || (h.k !== 'ln' && h.k !== 'pt')) { toast('Toca la línea del actuador y su extremo que será la cabeza (en cualquier orden)'); return; }
-  mlPick(h);
+  if (h && (h.k === 'ln' || h.k === 'pt')) { mlPick(h); return; }
+  // un toque en un lugar vacio: un punto nuevo, la cola (o la cabeza, si ya hay un punto)
+  const ml0 = pending?.ml;
+  if (ml0?.line) { toast('Toca el extremo de la línea que será la cabeza del actuador'); return; }
+  const s = snapAt(p.x, p.y, { press: true });
+  if (!ml0?.pt) { pushUndo(); const a1 = pointFrom(s); pending = { ml: { pt: a1, fresh: true } }; sel = [{ k: 'pt', id: a1 }]; draw(); toast('Cola elegida: toca el punto de la cabeza del actuador'); return; }
+  mlTwoPoints(ml0.pt, pointFrom(s), !!ml0.fresh);
 }
 // ML: la linea y su extremo que sera la cabeza se eligen en cualquier orden, o vienen de la seleccion; la cola es el otro extremo.
 function mlPick(h) {
   const ml = { ...(pending?.ml || {}) };
+  if (h.k === 'pt' && ml.pt && !ml.line && ml.pt !== h.id) { mlTwoPoints(ml.pt, h.id, !!ml.fresh); return; } // dos puntos: la cola y luego la cabeza
+  if (h.k === 'ln' && ml.fresh) { rollback(); ml.pt = null; ml.fresh = false; } // el punto nuevo no era para esta linea: se deshace
   if (h.k === 'ln') ml.line = h.id; else ml.pt = h.id;
   const l = ml.line && doc.lines[ml.line];
   if (l && ml.pt && ml.pt !== l.a && ml.pt !== l.b) {
@@ -4969,8 +4977,16 @@ function mlPick(h) {
   if (ml.line && ml.pt) { mlMake(ml.line, ml.pt); return; }
   pending = { ml };
   sel = [...(ml.line ? [{ k: 'ln', id: ml.line }] : []), ...(ml.pt ? [{ k: 'pt', id: ml.pt }] : [])];
-  toast(ml.line ? 'Toca el extremo de la línea que será la cabeza del actuador' : 'Toca la línea del actuador');
+  toast(ml.line ? 'Toca el extremo de la línea que será la cabeza del actuador' : 'Toca la línea del actuador, o el otro punto');
   draw();
+}
+// ML con dos puntos: el primero es la cola y el segundo la cabeza. fresh: la cola se acaba de crear con un toque (si se cancela, se deshace).
+function mlTwoPoints(tail, head, fresh) {
+  pending = null; sel = [];
+  if (tail === head) { if (fresh) rollback(); draw(); return; }
+  if (!fresh) pushUndo();
+  const id = addLinear(doc, tail, head);
+  afterChange(); editAct(id, true);
 }
 function mlMake(line, head) {
   pending = null; sel = [];

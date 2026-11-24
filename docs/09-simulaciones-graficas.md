@@ -21,6 +21,8 @@ Se define eligiendo la línea y su extremo que será el centro de giro.
 
 Se define con **una línea y uno de sus extremos**: toca la línea y el extremo que será la **cabeza** (en cualquier orden), o selecciónalos antes de elegir la herramienta. La cola es el otro extremo, y el nombre del actuador queda en el punto medio de la línea (ver [Cabeza y cola](02-dibujar.md#cabeza-y-cola-un-solo-gesto)).
 
+También puedes definirlo con **dos puntos**: toca (o selecciona) primero el de la **cola** y luego el de la **cabeza**. Un toque en un lugar vacío crea el punto.
+
 ### Valor del movimiento
 
 A cada actuador se le da un **desplazamiento** o una **velocidad** respecto al tiempo `t`, de una de estas formas:

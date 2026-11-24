@@ -1,4 +1,4 @@
-<!-- es: 04a441f310 -->
+<!-- es: b0c66d92e6 -->
 # 9. Graphical simulations
 
 Moving the drawing over time: rotary and linear actuators, the simulation player, graphs of measurements, gears, rack and pinion, and relations that only hold while the elements touch.
@@ -21,6 +21,8 @@ It is defined by choosing the line and the end of it that will be the center of 
 ### ML (linear)
 
 It is defined with **a line and one of its ends**: tap the line and the end that will be the **head** (in any order), or select them before choosing the tool. The tail is the other end, and the actuator name stays at the midpoint of the line (see [Head and tail](02-dibujar.md#head-and-tail-one-gesture)).
+
+You can also define it with **two points**: tap (or select) first the **tail** point and then the **head** point. A tap on an empty place creates the point.
 
 ### Value of the motion
 

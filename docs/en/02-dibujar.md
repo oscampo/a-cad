@@ -1,4 +1,4 @@
-<!-- es: b15f5501fa -->
+<!-- es: 9736995815 -->
 # 2. Drawing
 
 The tools that create geometry (points, lines, circles, arcs, ellipses, splines, rectangles and polygons) and the drawing aids: the soft lock and the intersection magnet.
@@ -75,7 +75,7 @@ The **vector**, the **leader** and the **linear actuator** are defined the same 
 
 - ![Vector](../icons/vector.svg) **Vector**: the line becomes a vector (see [Vector (W)](#vector-w)).
 - **Leader**: the arrow goes at the chosen end (see [Leaders](06-cotas.md#leaders)).
-- ![Linear actuator](../icons/act-l.svg) **Linear actuator (ML)**: the displacement is measured from the tail to the head (see [Actuators](09-simulaciones-graficas.md#actuators)).
+- ![Linear actuator](../icons/act-l.svg) **Linear actuator (ML)**: the displacement is measured from the tail to the head; it can also be defined with two points, the tail and the head (see [Actuators](09-simulaciones-graficas.md#actuators)).
 
 The text of each one (the vector magnitude, the leader label and the actuator name) goes, by default, at the **midpoint** of the line; afterwards you can change it in its properties.
 
