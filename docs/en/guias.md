@@ -1,4 +1,4 @@
-<!-- es: a1f3b8f46b -->
+<!-- es: 090ece1505 -->
 # Task guides
 
 Each guide solves a concrete task, step by step, with an example drawing that opens in the app. For the detail of each tool, follow the links to the chapter that explains it.
@@ -222,7 +222,7 @@ A rectangular plate with its four corners rounded, whose radius is driven from a
 1. Draw the plate with ![Rectangle](../icons/rect.svg) and dimension its length and height (see [Dimension (D)](06-cotas.md#dimension-d)). Fix one corner so it does not move.
 2. Select the four corners (their points) and choose ![Fillet](../icons/fillet.svg) [Fillet (F)](03-seleccionar-y-editar.md#fillet-f-and-chamfer).
 3. Type the radius, for example `8`. Each corner gets a tangent arc and its own radius dimension (R1 to R4).
-4. To make the four equal, double tap R2, R3 and R4 and type the formula `R1`.
+4. To make the four equal, double tap R2, R3 and R4 and type the formula `R1'mm` (with the unit, their labels say "R8 mm").
 
 ### What you will see
 

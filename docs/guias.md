@@ -221,7 +221,7 @@ Una placa rectangular con las cuatro esquinas redondeadas, cuyo radio se gobiern
 1. Dibuja la placa con ![Rectángulo](icons/rect.svg) y acota su largo y su alto (ver [Acotar (D)](06-cotas.md#acotar-d)). Fija una esquina para que no se mueva.
 2. Selecciona las cuatro esquinas (sus puntos) y elige ![Redondeo](icons/fillet.svg) [Redondeo (F)](03-seleccionar-y-editar.md#redondeo-f-y-chaflán).
 3. Escribe el radio, por ejemplo `8`. Cada esquina queda con un arco tangente y su propia cota de radio (R1 a R4).
-4. Para que las cuatro valgan lo mismo, da doble toque a R2, R3 y R4 y escribe la fórmula `R1`.
+4. Para que las cuatro valgan lo mismo, da doble toque a R2, R3 y R4 y escribe la fórmula `R1'mm` (con la unidad, sus etiquetas dicen «R8 mm»).
 
 ### Qué verás
 

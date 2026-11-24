@@ -3,7 +3,7 @@
  "version": "2.9.4",
  "doc": {
   "calc": 2,
-  "n": 15,
+  "n": 16,
   "pts": {
    "p1": {
     "x": 0,
@@ -30,26 +30,26 @@
     "auto": false
    },
    "p9": {
-    "x": 0,
-    "y": 0,
+    "x": 0.27226494644253146,
+    "y": 43.016637325655886,
     "fixed": false,
     "auto": false
    },
    "p10": {
-    "x": 40,
-    "y": 0,
+    "x": 40.27226494644294,
+    "y": 43.01663732565545,
     "fixed": false,
     "auto": false
    },
-   "p12": {
+   "p13": {
     "x": 0,
-    "y": 50,
+    "y": 63.61286254728878,
     "fixed": false,
     "auto": false
    },
-   "p14": {
+   "p15": {
     "x": 0,
-    "y": 45.5,
+    "y": 59.11286254728878,
     "fixed": false,
     "auto": false
    }
@@ -104,8 +104,17 @@
     "color": "auto",
     "readable": true
    },
-   "t13": {
-    "pt": "p12",
+   "t12": {
+    "pt": "p10",
+    "text": "B",
+    "h": 4.2333333333333325,
+    "ang": 0,
+    "anchor": "bc",
+    "color": "auto",
+    "readable": true
+   },
+   "t14": {
+    "pt": "p13",
     "text": "c lee el dato «contador» (0 si no existe) y wfile lo guarda sumándole 1 cada vez que confirmas un cambio.",
     "h": 3,
     "ang": 0,
@@ -113,9 +122,9 @@
     "color": "auto",
     "readable": true
    },
-   "t15": {
-    "pt": "p14",
-    "text": "Para oír «ding», importa un sonido llamado ding en Archivo → Datos. Arrastra B para provocar un cambio.",
+   "t16": {
+    "pt": "p15",
+    "text": "Para oír «ding», importa un sonido llamado ding en Archivo → Datos. \nArrastra el punto debajo de B para provocar un cambio.",
     "h": 3,
     "ang": 0,
     "anchor": "tl",
@@ -131,6 +140,13 @@
   "cn": {},
   "layers": {},
   "curLayer": null,
+  "page": {
+   "w": 215.9,
+   "h": 279.4,
+   "m": 25,
+   "x0": -25,
+   "y0": 125
+  },
   "cnd": {}
  },
  "view": {

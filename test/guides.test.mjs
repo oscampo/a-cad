@@ -127,7 +127,9 @@ t('placa redondeada: cuatro arcos de radio 8 y R1 manda sobre R2, R3 y R4; el la
   assert.deepEqual(Object.values(d.arcs).map((a) => a.r), [8, 8, 8, 8]);
   const rads = Object.values(d.cons).filter((k) => k.t === 'RAD');
   assert.deepEqual(rads.map((k) => k.name), ['R1', 'R2', 'R3', 'R4']);
-  assert.deepEqual(rads.slice(1).map((k) => k.expr), ['R1', 'R1', 'R1']);
+  assert.deepEqual(rads.slice(1).map((k) => k.expr), ["R1'mm", "R1'mm", "R1'mm"]);
+  assert.deepEqual(rads.slice(1).map((k) => k.du), ['mm', 'mm', 'mm']);
+  assert.deepEqual(rads.map((k) => dimText(d, k)), ['R1', 'R8 mm', 'R8 mm', 'R8 mm']); // R1 lleva su nombre como etiqueta; las otras, el valor con su unidad
   rads[0].v = 12;
   Object.values(d.cons).find((k) => k.t === 'DIST' && !k.hidden).v = 140;
   assert.equal(settle(d, solve, []).ok !== false, true);
