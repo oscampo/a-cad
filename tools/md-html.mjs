@@ -1,6 +1,10 @@
 // Markdown del manual (docs/*.md) -> HTML de la ayuda de la app. Solo lo que usan los capitulos: titulos, parrafos, listas, tablas,
 // reglas, negrita, cursiva, codigo, enlaces y <br>/<u>. Sin dependencias; lo usa tools/build-help.mjs.
 const GH = 'https://github.com/oscampo/a-cad/blob/main/'; // los enlaces a archivos del repositorio («../CHANGELOG.md») apuntan a GitHub
+// La carpeta del capitulo que se convierte (docs/ o docs/en/): un enlace «../x» se resuelve desde ella hasta la raiz del repositorio
+let DIR = ['docs'];
+export const setDir = (d) => { DIR = d; };
+const resolveUp = (u) => { const parts = DIR.slice(); const rest = u.split('/'); while (rest[0] === '..') { rest.shift(); parts.pop(); } return parts.concat(rest).join('/'); };
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const attr = (s) => esc(s).replace(/"/g, '&quot;');
 
@@ -14,7 +18,7 @@ export function inline(src) {
   s = esc(s);
   s = s.replace(/\\([|*_`\\])/g, (_, c) => '\u0003' + c.charCodeAt(0) + '\u0003'); // escapes de Markdown
   s = s.replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?!\w)/g, '$1<i>$2</i>');
-  s = s.replace(/!\[([^\]]*)\]\(([^)]*)\)/g, '$1').replace(/\[([^\]]+)\]\(([^)]*)\)/g, (_, t, u0) => { const u = u0.startsWith('../') ? GH + u0.slice(3) : u0; return (/^https?:/.test(u) ? `<a href="${attr(u.replace(/&amp;/g, '&'))}" target="_blank" rel="noopener">${t}</a>` : t); });
+  s = s.replace(/!\[([^\]]*)\]\(([^)]*)\)/g, '$1').replace(/\[([^\]]+)\]\(([^)]*)\)/g, (_, t, u0) => { const u = u0.startsWith('../') ? GH + resolveUp(u0) : u0; return (/^https?:/.test(u) ? `<a href="${attr(u.replace(/&amp;/g, '&'))}" target="_blank" rel="noopener">${t}</a>` : t); });
   s = s.replace(/\u0001/g, '<br>').replace(/\u0002(\/?)\u0002/g, '<$1u>').replace(/\u0003(\d+)\u0003/g, (_, n) => '&#' + n + ';');
   return s.replace(/\u0000(\d+)\u0000/g, (_, i) => '<code>' + esc(codes[+i]) + '</code>');
 }

@@ -93,7 +93,42 @@ body.nolabels .grid2 button { justify-content: center; padding: 4px; }
 .grp.filtered::before { content: ""; position: absolute; right: 4px; top: 4px; width: 8px; height: 8px; border-radius: 4px; background: var(--warn); }
 #fly { position: fixed; z-index: 30; display: flex; flex-direction: column; gap: 4px; padding: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
 #fly button { justify-content: flex-start; text-align: left; white-space: nowrap; }
-dialog.help { width: min(760px, calc(100vw - 16px)); max-width: none; padding: 0; }
+dialog.help { width: min(980px, calc(100vw - 16px)); max-width: none; padding: 0; }
+dialog.help[open] { display: flex; flex-direction: column; height: min(88vh, 820px); max-height: calc(100vh - 16px); overflow: hidden; }
+dialog.help #helpWrap { display: flex; flex: 1 1 auto; min-height: 0; }
+dialog.help #helpNav { flex: 0 0 240px; overflow: auto; border-right: 1px solid var(--line); padding: 6px 0 12px; font-size: 14px; }
+dialog.help #helpNav button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 0; box-shadow: none; padding: 7px 14px; min-height: 34px; color: inherit; font: inherit; cursor: pointer; line-height: 1.25; }
+dialog.help #helpNav button:hover { background: var(--btn); }
+dialog.help #helpNav .hn-ch { font-weight: 600; }
+dialog.help #helpNav .hn-ch.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+dialog.help #helpNav .hn-tp { padding: 4px 14px 4px 28px; min-height: 28px; font-size: 13px; color: var(--muted); }
+dialog.help #helpNav .hn-tp:hover { color: inherit; }
+dialog.help #helpBody { flex: 1 1 auto; min-width: 0; overflow: auto; }
+dialog.help #helpBack { flex: none; min-width: 36px; min-height: 36px; padding: 0 8px; font-size: 20px; line-height: 1; margin-right: 4px; }
+dialog.help .hhead b { white-space: nowrap; }
+dialog.help #helpWrap.searching #helpNav { display: none; }
+/* con un capitulo a la vez: su titulo va fijo (no se pliega) y sus temas a la vista */
+dialog.help #helpBody.nav > details[data-ch]:not(.hactive) { display: none; }
+dialog.help #helpBody.nav > details[data-ch].hactive { border-top: 0; }
+dialog.help #helpBody.nav > details[data-ch].hactive > summary { pointer-events: none; font-size: 20px; list-style: none; padding-bottom: 4px; }
+dialog.help #helpBody.nav > details[data-ch].hactive > summary::-webkit-details-marker { display: none; }
+dialog.help #helpBody.nav > details[data-ch].hactive > summary::marker { content: ""; }
+dialog.help #helpBody > section.hhome { display: none; }
+dialog.help #helpBody.nav > section.hhome.hactive { display: block; }
+dialog.help #helpBody.nav > p#helpNone { display: none; }
+dialog.help .hcards { display: grid; gap: 8px; margin: 10px 0 4px; }
+dialog.help .hcards button { text-align: left; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--btn); color: inherit; font: inherit; cursor: pointer; min-height: 44px; line-height: 1.3; }
+dialog.help .hcards button:hover { border-color: var(--accent); }
+dialog.help .hcards b { display: block; }
+dialog.help .hcards small { color: var(--muted); }
+@media (max-width: 760px) {
+  dialog.help #helpNav { flex-basis: 100%; border-right: 0; }
+  dialog.help #helpNav .hn-tp { display: none; }
+  dialog.help #helpWrap.idx #helpBody { display: none; }
+  dialog.help #helpWrap:not(.idx):not(.searching) #helpNav { display: none; }
+  dialog.help #helpWrap.searching #helpBody { display: block; }
+}
+@media (min-width: 761px) { dialog.help #helpBack { display: none; } }
 dialog.help .hhead { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
 dialog.help #helpBody { padding: 8px 16px 16px; font-size: 14px; line-height: 1.45; }
 dialog.help #helpSearch { flex: 1; min-width: 0; margin: 0 8px 0 12px; min-height: 36px; padding: 4px 10px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--btn); color: var(--fg, inherit); }
@@ -579,7 +614,7 @@ body.nopanel #panel { display: none; }
   <div style="display:flex;gap:8px"><label style="flex:1">x<input id="grX" inputmode="decimal"></label><label style="flex:1">y<input id="grY" inputmode="decimal"></label><label style="flex:1">Ancho<input id="grW" inputmode="decimal"></label><label style="flex:1">Alto<input id="grH" inputmode="decimal"></label></div>
   <div class="actions"><button id="grDel" type="button">Eliminar</button><button id="grCancel" type="button">Cancelar</button><button id="grOk" class="on">Aceptar</button></div>
 </form></dialog>
-<dialog id="dlgH" class="help"><div class="hhead"><b>Ayuda</b><input id="helpSearch" type="search" placeholder="Buscar en la ayuda" aria-label="Buscar en la ayuda" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="helpClose" aria-label="Cerrar">✕</button></div><div id="helpBody"></div></dialog>
+<dialog id="dlgH" class="help"><div class="hhead"><button id="helpBack" type="button" hidden aria-label="Índice">‹</button><b>Ayuda</b><input id="helpSearch" type="search" placeholder="Buscar en la ayuda" aria-label="Buscar en la ayuda" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="helpClose" aria-label="Cerrar">✕</button></div><div id="helpWrap" class="idx"><nav id="helpNav"></nav><div id="helpBody"></div></div></dialog>
 <dialog id="dlgLead"><form method="dialog"><h3 id="dlgLeadTitle" style="margin:0 0 6px">Línea indicativa</h3><label for="leadText">Etiqueta: texto, "texto", $fórmula$ o $$fórmula$$</label><textarea id="leadText" rows="2" style="width:100%;font-size:18px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);font-family:inherit"></textarea><div class="row" id="leadAtRow" style="margin-top:6px"><label for="leadAt">Dónde va</label><select id="leadAt"></select></div><div class="row" style="margin-top:6px;align-items:flex-start"><label>Punto de inserción</label><div id="leadAnchor" class="txa"></div></div><div class="row" style="margin-top:6px"><label for="leadFont">Fuente</label><select id="leadFont"></select></div><div class="row" style="margin-top:6px"><label for="leadH" id="leadHLabel">Altura</label><input id="leadH" type="text" inputmode="decimal" style="width:90px;min-height:36px"></div><div class="row" id="leadLayRow" style="margin-top:6px"><label for="leadLay">Capa</label><select id="leadLay" style="flex:1;min-height:36px;padding:2px 8px;border:1px solid var(--line);border-radius:8px;background:var(--btn)"></select></div><div class="actions"><button value="cancel" type="button" id="leadCancel">Cancelar</button><button value="ok" id="leadOk" class="on">Aceptar</button></div></form></dialog>
 <dialog id="dlgT"><form method="dialog"><label id="dlgTLabel" for="dlgTInput"></label><textarea id="dlgTInput" rows="2" style="width:100%;font-size:18px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);font-family:inherit"></textarea><div class="row" id="dlgTFontRow" style="margin-top:6px"><label for="dlgTFont">Fuente</label><select id="dlgTFont"></select></div><div class="actions"><button value="cancel" type="button" id="dlgTCancel">Cancelar</button><button value="ok" id="dlgTOk" class="on">Aceptar</button></div></form></dialog>
 <dialog id="dlgN"><form method="dialog">

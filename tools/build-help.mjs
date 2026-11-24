@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { chapterHtml, blocks } from './md-html.mjs';
+import { chapterHtml, blocks, setDir } from './md-html.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // Orden de la ayuda: los capitulos del manual; null marca donde la app pone los que arma ella (calc, icons, funcs)
@@ -40,6 +40,7 @@ export function buildLang(lang) {
     let md = lang === 'es' ? null : readDoc(lang, file), from = lang;
     if (md === null) { md = readDoc('es', file); from = 'es'; }
     if (lang !== 'es' && from === 'es') fallback.push(id);
+    setDir(from === 'es' ? ['docs'] : ['docs', from]); // desde donde se resuelven los enlaces «../»
     let html = chapterHtml(md, id);
     if (from !== lang) html = html.replace('</summary>', ' <small>(es)</small></summary>'); // sin traducir: se ve en español
     out[id] = html;

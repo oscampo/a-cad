@@ -112,6 +112,8 @@ export const EN = {
   "Search the help": "Search the help",
   "Nothing in the help matches the search.": "Nothing in the help matches the search.",
   "The help could not be loaded": "The help could not be loaded",
+  "Capítulos": "Chapters",
+  "Chapters": "Chapters",
   "Distribuir ↔": "Distribute ↔",
   "Distribuir ↕": "Distribute ↕",
   "Punto medio": "Midpoint",
