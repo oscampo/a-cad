@@ -22,6 +22,10 @@ Guardar y abrir dibujos (también en un repositorio de GitHub) y exportar a PNG,
 
 El dibujo se guarda en un archivo .json (te pide el nombre). Además, la app recuerda el último dibujo **solo en este navegador**: guarda un .json para respaldar.
 
+## Datos del dispositivo
+
+**Archivo → Datos…** muestra la carpeta de datos de este dispositivo, común a todos los dibujos: los textos que guarda `wfile(valor, Nombre)` y lee `rfile(Nombre)`, y los archivos de audio. **Importar…** agrega un archivo (un archivo de audio se pide con un nombre, se reduce a un canal, 16 kHz y 8 bits, unos 16 KB por segundo, y suena con `play("nombre")`). Cada dato se puede **probar** (audio), **exportar** y **borrar**. Un dibujo lleva consigo, al guardarlo, los audios que nombra entre comillas (también dentro de una biblioteca) y al abrirse los restaura si faltan en el dispositivo, sin pisar uno que ya exista con ese nombre (si es distinto, avisa y usa el del dispositivo). Un nombre armado con una variable, como `play(n)`, no se detecta y no viaja con el dibujo. Los textos de `wfile` no viajan con el dibujo.
+
 ## PNG
 
 Imagen del dibujo. **SVG**: vectorial. **DXF**: para CAD (las cotas salen como geometría y texto).

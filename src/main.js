@@ -50,7 +50,7 @@ import { nearAll, describe as ovDescribe, OV_COLL } from './overlap.js';
 import { parseValue, isPlainNumber, setAngleMode, APPROX_TOL, convertExpr, setShuffleSeed, rngMix, normName } from './expr.js';
 import { localNum, SCI_DEFAULT, sciFrom, decimalMode } from './locale.js';
 import { getLang, setLang, initLang } from './i18n.js';
-import { HELP_HTML } from './help.js';
+import { helpHtml } from './help.js';
 import { colorPicker } from './colorpicker.js';
 import { lineLock, lockConstraints, originsOfPoint, originsOfSnap } from './lock.js';
 
@@ -497,8 +497,19 @@ function applyChrome() {
 $('tPanel').onclick = () => { opts.panel = opts.panel === false; applyChrome(); persist(); };
 $('tTree').onclick = () => { opts.tree = !opts.tree; applyChrome(); persist(); };
 $('treeBy').onclick = () => { opts.treeBy = opts.treeBy === 'layer' ? 'type' : 'layer'; persist(); renderTree(); };
-$('tHelp').onclick = () => {
-  $('helpBody').innerHTML = HELP_HTML + `<p id="helpNone" hidden>Nada en la ayuda coincide con la búsqueda.</p><p style="color:var(--muted);font-size:12px">A-CAD v${VERSION}</p>`;
+// La ayuda sale del manual en el idioma activo (ver help.js). El cuadro de la ayuda no pasa por la traduccion automatica (i18n.js): su
+// encabezado se pone aqui.
+const HELP_UI = {
+  es: { title: 'Ayuda', search: 'Buscar en la ayuda', close: 'Cerrar', none: 'Nada en la ayuda coincide con la búsqueda.' },
+  en: { title: 'Help', search: 'Search the help', close: 'Close', none: 'Nothing in the help matches the search.' },
+};
+$('tHelp').onclick = async () => {
+  const lang = getLang() === 'en' ? 'en' : 'es', ui = HELP_UI[lang];
+  let html;
+  try { html = await helpHtml(lang); } catch { toast(lang === 'en' ? 'The help could not be loaded' : 'No se pudo cargar la ayuda'); return; }
+  $('dlgH').querySelector('.hhead b').textContent = ui.title;
+  $('helpSearch').placeholder = ui.search; $('helpSearch').setAttribute('aria-label', ui.search); $('helpClose').setAttribute('aria-label', ui.close);
+  $('helpBody').innerHTML = html + `<p id="helpNone" hidden>${ui.none}</p><p style="color:var(--muted);font-size:12px">A-CAD v${VERSION}</p>`;
   fillIconRef();
   $('helpBody').querySelectorAll('details').forEach((d) => { d.dataset.open0 = d.open ? '1' : ''; });
   $('helpSearch').value = '';

@@ -66,6 +66,18 @@ En cotas angulares hay un selector de unidad. En grados, sin/cos/tan usan grados
 
 Toca dos veces un punto y elige su color en la ventana de propiedades (paleta o color libre; «auto» vuelve al color normal). El color solo se ve en pantalla: los puntos no salen en las exportaciones.
 
+## Etiqueta libre
+
+**Etiqueta libre**: al final del valor de una cota, `["texto"]` cambia lo que dice: `50["D"]` mide 50 y gobierna el dibujo, pero se lee «D». Con `[$fórmula$]` o `[$$fórmula$$]` la etiqueta se dibuja con el motor de los textos (subíndices, griegas, fracciones): `50[$D/2$]`, `8[$r_1$]`. Se combina con la escala, en ese orden: `30[*1'mm/kN]["F"]`. Al editar la cota se ve completa; para quitarla, borra el corchete. En el SVG y el DXF una etiqueta con fórmula sale como texto plano.
+
+## Tamaño de letra de las cotas
+
+**Tamaño de letra de las cotas**: con **Configuración → Cotas con la letra de los textos** (activada en los documentos nuevos), la letra de las cotas se mide como la de los textos: en **puntos** con página y en unidades del dibujo sin ella, y las cotas crecen y se achican con el zoom junto con el dibujo, también al exportar. Desmarcada (los dibujos anteriores), la letra va en píxeles de pantalla y no cambia con el zoom. Se elige en **Estilo → Letra de cotas** (sin cotas seleccionadas cambia la del documento, que siguen todas las que no tienen una propia; con cotas seleccionadas, la suya) y en la ventana de cada cota (doble toque), en **Letra de la cota**. Las flechas y las separaciones crecen con la letra. Las cabezas de flecha siguen la norma ASME Y14.2: su largo es la altura de las cifras y su base, un tercio del largo (3:1), rellenas. Las líneas indicativas usan la misma flecha que las cotas del documento.
+
+## Líneas indicativas
+
+**Líneas indicativas** (anotaciones): con la herramienta de cota (o el botón Distancia), elige **un punto y el elemento al que pertenece**; se abre su ventana. Si el punto es un **extremo** de una línea, un arco, un arco elíptico o un spline abierto, **el elemento mismo pasa a ser la línea indicativa**: la flecha va en ese extremo, en la dirección de la curva; su color, tipo de línea y grosor son los del elemento (cámbialos en el panel Estilo, con la línea indicativa o el elemento seleccionado), y el elemento no sale en el SVG de corte láser. Si el punto es el centro de un círculo o arco, o un punto intermedio, se dibuja una línea recta propia con la flecha en el punto y el estilo del panel. La **etiqueta es un texto del dibujo**: su altura va en unidades del dibujo, como la de los textos, y su flecha es la misma de las cotas del documento. En su ventana (al crearla y con doble toque) eliges la etiqueta (texto suelto, `"texto"`, `$fórmula$` o `$$fórmula$$`), **dónde va** (en una recta, un arco o un arco elíptico: un extremo o el punto medio; en un spline, cualquiera de sus puntos), el **punto de inserción** de su caja (esquinas, medios o centro, como en los textos; queda separada del punto un cuarto de altura), la **fuente** y la **altura** (con hoja, en puntos, como los textos; nace con la fuente y la altura de los textos nuevos). También puedes arrastrar la etiqueta: salta al lugar permitido más cercano. Si la geometría se mueve, la acompaña. No restringe nada: el solver no la ve, y se borra con su punto o su elemento (borrarla deja el elemento). Sale en el SVG y en el DXF, con la fórmula dibujada.
+
 ---
 
 [← 5. Restricciones](05-restricciones.md) · [Índice](README.md) · [7. Texto y cálculo →](07-texto-y-calculo.md)

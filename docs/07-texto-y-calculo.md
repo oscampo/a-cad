@@ -221,6 +221,7 @@ Se usan en cualquier fórmula: cotas, textos (`p12.x=`), actuadores y gráficas.
 | Punto de inserción | Es un punto real: se puede acotar, fijar o relacionar. Se elige su lugar en la caja del texto. |
 | Ángulo y altura | Gira y escala el texto. **Alinear con** lo alinea con una línea (el ángulo pasa a ser un desfase); «Ninguna» lo suelta y conserva la orientación. |
 | *Legible* | Gira 180° el texto que quedaría boca abajo. |
+| Mostrar solo el resultado | En un texto que es solo `expr=`, dibuja el valor sin la fórmula: un número, una tabla o un mensaje. Si el resultado es una cadena o un vector de cadenas, sale como texto normal, una línea por cadena y con sus espacios, en la fuente del texto: sirve para una consola o un tablero. Un vector de cadenas que empieza y termina con `` "```" `` se dibuja como un bloque de código (en la fuente elegida, o monoespaciada si no se eligió ninguna). Solo vale si el texto no lleva nada más que esa salida. |
 | Color y fondo | Las mismas muestras sirven para la fuente o para el fondo: se elige con **Color de fuente** o **Color de fondo**. El fondo pinta la caja del texto (con un pequeño margen) y tapa lo que quede debajo; en el fondo, *Auto* es el color del papel y **Sin fondo** lo quita. Se ve en el dibujo y en el SVG; el DXF no lo lleva. |
 
 ## Dibujos anteriores a la v2.0
