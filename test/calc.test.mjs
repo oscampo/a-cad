@@ -73,8 +73,18 @@ t("«x:valor'unidad»: unidades reales, se convierten y se propagan", () => {
   assert.equal(u("$$L:1'm\nM:L'mm\nM=$$"), '$$L:=1 m\nM:=L mm\nM=1000 mm$$'); // con unidades, la cola solo dice en que unidad mostrarla
   assert.equal(u("$$L:1'm\nM:L+3'mm\nM=$$"), '$$L:=1 m\nM:=L+3 mm\nM=1003 mm$$'); // L+3 no cuadra: «3'mm» es parte de la expresion (y M se muestra en mm)
   assert.equal(u("$$x:2'N+3=$$").includes('⚠'), true); // N mas un numero sin unidades
-  assert.equal(u("$$p:2.5e6'Pa\np='MPa\nq:3e-4=\nr:2E-3*1E3=\ns:sin(180)=$$"), '$$p:=2.5e6 Pa\np=2.5 MPa\nq:=3e-4=0.0003\nr:=2E-3*1E3=2\ns:=sin(180)=0$$'); // notacion cientifica; un numero muy pequeño no se muestra como 0, el ruido de redondeo si
+  assert.equal(u("$$p:2.5e6'Pa\np='MPa\nq:3e-4=\nr:2E-3*1E3=\ns:sin(180)=$$"), '$$p:=2.5e6 Pa\np=2.5 MPa\nq:=3e-4=0.0003\nr:=2E-3*1E3=2\ns:=sin(180)=≈0$$'); // notacion cientifica; un numero muy pequeño no se muestra como 0, el ruido de redondeo sale «≈0»
   assert.equal(u("$$x:sin(30'deg)=$$"), '$$x:=sin(30 deg)=0.5$$'); // un ángulo con unidad
+});
+
+t('«≈0»: un numero sin unidades distinto de 0 con |x| <= tolerancia de ≈ del dibujo se muestra «≈0»; el 0 exacto sigue siendo 0', () => {
+  const at = (text, tol) => { const d = { angles: undefined, approxTol: tol, pts: { p: { x: 0, y: 0 } }, lines: {}, circles: {}, arcs: {}, cons: {}, ellipses: {}, splines: {}, hatches: {}, traces: {}, texts: {} }; d.texts.t1 = { pt: 'p', h: 1, font: '', text }; return plainText(textValue(d, d.texts.t1)); };
+  assert.equal(at("$$a:1.6e-12\na=$$"), '$$a:=1.6e-12\na=1.6e-12$$'); // con la tolerancia por defecto (1e-12), 1.6e-12 es un valor y no ruido
+  assert.equal(at("$$a:1.6e-12\na=$$", 1e-11), '$$a:=1.6e-12\na=≈0$$'); // subiendo la tolerancia a 1e-11 sale ≈0
+  assert.equal(at("$$b:-1.6e-12\nb=$$", 1e-11), '$$b:=-1.6e-12\nb=≈0$$'); // tambien negativo
+  assert.equal(at("$$a:0\na=$$", 1e-11), '$$a:=0\na=0$$'); // el cero exacto no lleva ≈
+  assert.equal(at("$$a:3e-4\na=$$", 1e-11), '$$a:=3e-4\na=0.0003$$'); // un valor pequeño pero mayor que la tolerancia sigue saliendo con cifras
+  assert.equal(at("$$a:1.6e-12'm\na=$$", 1e-11).includes('≈0'), false); // con unidades no se aplica: 1.6 pm no es ruido
 });
 
 t('vectores y matrices con unidades: una sola unidad para todos los elementos', () => {

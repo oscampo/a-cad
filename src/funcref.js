@@ -16,7 +16,7 @@ export const FUNC_GROUPS = [
       ['<code>;</code> y <code>, </code>', 'Separan los valores de una función de varios. <code>2,5</code> sin espacio es el número 2,5.', 'max(3; 8)', '8', 'n'],
       ['<code>&lt; &gt; &lt;= &gt;= == !=</code>', 'Comparan: dan 1 si se cumple y 0 si no. También <code>≤ ≥ ≠</code>. <code>==</code> y <code>!=</code> toleran el redondeo.', '0.1+0.2==0.3', '1', 'n'],
       ['<code>if(c; a; b)</code> (<code>si</code>)', 'Si la condición <code>c</code> no es 0 vale <code>a</code>, si no <code>b</code>. Solo calcula la rama elegida.', 'if(0==0; 0; 1/0)', '0', 'n'],
-      ['<code>a ≈ b</code> (<code>a ~~ b</code>)', 'Casi igual: 1 si |a − b| ≤ tolerancia × máx(1, |a|, |b|), si no 0. La tolerancia (1e-12 por defecto) se cambia en <b>Configuración</b>. Sirve para comparar resultados con redondeo; <code>==</code> sigue siendo la igualdad de la app.', '0.1+0.2 ~~ 0.3', '1', 'n'],
+      ['<code>a ≈ b</code> (<code>a ~~ b</code>)', 'Casi igual: 1 si |a − b| ≤ tolerancia × máx(1, |a|, |b|), si no 0. La tolerancia (1e-12 por defecto) se cambia en <b>Configuración</b>. Sirve para comparar resultados con redondeo; <code>==</code> sigue siendo la igualdad de la app. Con la misma tolerancia, un resultado sin unidades distinto de 0 y con |x| ≤ tolerancia se muestra <code>≈0</code> (ruido de redondeo, no un cero exacto).', '0.1+0.2 ~~ 0.3', '1', 'n'],
     ],
   },
   {

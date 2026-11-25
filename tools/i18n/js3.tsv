@@ -354,7 +354,7 @@ una cadena no lleva unidad	a string takes no unit
 «{0}» es una cadena: las incógnitas de solve son números	«{0}» is a string: the unknowns of solve are numbers
 El exponente de una unidad es un número	The exponent of a unit is a number
 Tolerancia de ≈	Tolerance of ≈
-a ≈ b (o a ~~ b) en los textos de cálculo es 1 si |a − b| ≤ tolerancia × máx(1, |a|, |b|). Por defecto 1e-12.	a ≈ b (or a ~~ b) in calculation texts is 1 if |a − b| ≤ tolerance × max(1, |a|, |b|). Default 1e-12.
+a ≈ b (o a ~~ b) en los textos de cálculo es 1 si |a − b| ≤ tolerancia × máx(1, |a|, |b|). Por defecto 1e-12. Un resultado sin unidades distinto de 0 con |x| ≤ tolerancia se muestra ≈0.	a ≈ b (or a ~~ b) in calculation texts is 1 if |a − b| ≤ tolerance × max(1, |a|, |b|). Default 1e-12. A unitless result other than 0 with |x| ≤ tolerance is shown as ≈0.
 interp1(xs, ys, x, "linear", "extrap"): por ahora solo interpolación lineal; "extrap" extrapola fuera de la tabla	interp1(xs, ys, x, "linear", "extrap"): only linear interpolation for now; "extrap" extrapolates outside the table
 interp1: {0} está fuera de la tabla (de {1} a {2}); para extrapolar: interp1(xs, ys, x, "extrap")	interp1: {0} is outside the table (from {1} to {2}); to extrapolate: interp1(xs, ys, x, "extrap")
 La tolerancia es un número entre 0 y 1, p. ej. 1e-12	The tolerance is a number between 0 and 1, e.g. 1e-12

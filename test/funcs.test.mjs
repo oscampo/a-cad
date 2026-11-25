@@ -129,7 +129,7 @@ t('funciones de usuario: $foo(x):...$, varios parametros, funciones que llaman a
   const s = show('$f(x):x^2+1$\n$g(a; b):a*b+f(a)$\n$h(u, v):u-v$\n$f(3)=$ $g(2; 5)=$ $h(10, 4)=$ $f(f(1))=$ $f(2)*f(3)=$');
   assert.equal(s, '$f(x):=x^2+1$\n$g(a; b):=a*b+f(a)$\n$h(u, v):=u-v$\n$f(3)=10$ $g(2; 5)=15$ $h(10, 4)=6$ $f(f(1))=5$ $f(2)*f(3)=50$');
   assert.equal(s.includes('⚠'), false);
-  assert.equal(show('$f(x):x^2$\n$sin(f(30))=$').split('\n').at(-1), '$sin(f(30))=0$'); // sin(900°) = sin(180°) = 0: las funciones de siempre aceptan las de usuario
+  assert.equal(show('$f(x):x^2$\n$sin(f(30))=$').split('\n').at(-1), '$sin(f(30))=≈0$'); // sin(900°) = sin(180°) = 0 (con ruido, sale ≈0): las funciones de siempre aceptan las de usuario
 });
 
 t('funciones de usuario: los parametros ocultan a las variables de igual nombre; lo demas es del dibujo', () => {

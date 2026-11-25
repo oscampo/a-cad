@@ -1,7 +1,7 @@
 // Geometria de los textos: caja imaginaria, punto de insercion y orientacion. Sin DOM.
 // measure(linea) -> ancho de la linea para una altura de texto de 1 (en el navegador sale
 // de measureText; en las pruebas puede ser una aproximacion).
-import { evalExpr, setAngleMode, rngSet, rngMix, rngReset } from './expr.js';
+import { evalExpr, setAngleMode, rngSet, rngMix, rngReset, approxTol } from './expr.js';
 import { varsOf, textVars } from './params.js';
 import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, showFlat, scriptStmt, clearCall, solveCall, unitDefOf, UDEF_ERR } from './tvars.js';
 import { normName, exprRefs } from './expr.js';
@@ -50,7 +50,9 @@ function pickUnit(dim, env, src, want, v) {
 }
 const tailOf = (n, math) => (math ? unitMath(n) : ' ' + n);
 // Un numero complejo: «3+4j», «3-4j», «4j»; una parte que redondea a 0 no se muestra (exp(jπ) = -1). f: el formato de cada parte.
-const numFmt = (x) => (Math.abs(x) > 1e-12 ? (Math.abs(x) < 1e-3 ? fmtQ(x) : fmtNum(x)) : fmtNum(x));
+const numFmt = (x) => (Math.abs(x) > approxTol() ? (Math.abs(x) < 1e-3 ? fmtQ(x) : fmtNum(x)) : fmtNum(x));
+// Un numero sin unidades distinto de 0 que es «≈ 0» (|x| <= tolerancia de ≈, la del dibujo) se muestra «≈0»: es ruido de redondeo, no un cero exacto.
+const fmtPlain = (x) => (x !== 0 && Math.abs(x) <= approxTol() ? '≈0' : Math.abs(x) < 1e-3 && x !== 0 ? fmtQ(x) : fmtNum(x));
 const isZeroTxt = (s) => /^-?0(?:[.,]0*)?$/.test(s);
 function cfmt(re, im, f) {
   const R = f(re), I = f(Math.abs(im));
@@ -74,7 +76,7 @@ function qty(r, env, src, want, math) {
     return parC(cfmt(r.value / u.f, r.im / u.f, fmtQ)) + tailOf(u.name, math);
   }
   if (want) { const u = pickUnit(r.dim, env, src, want, r.value); return u ? fmtQ(r.value / u.f) + tailOf(want, math) : '⚠'; }
-  if (!r.dim) return Math.abs(r.value) > 1e-12 ? (Math.abs(r.value) < 1e-3 ? fmtQ(r.value) : fmtNum(r.value)) : fmtNum(r.value); // 3e-4 no sale como 0; el ruido de redondeo (sin(180)) si
+  if (!r.dim) return fmtPlain(r.value); // 3e-4 no sale como 0; el ruido de redondeo (sin(180)) sale «≈0»
   const u = pickUnit(r.dim, env, src, null, r.value);
   return fmtQ(r.value / u.f) + tailOf(u.name, math);
 }
