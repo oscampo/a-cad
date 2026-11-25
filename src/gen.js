@@ -141,7 +141,7 @@ export function regenerate(doc) {
     if (Math.abs(p.x - r.x) > EPS || Math.abs(p.y - r.y) > EPS) { p.x = r.x; p.y = r.y; out.changed = true; }
     if (!p.fixed) { p.fixed = true; out.changed = true; }
   }
-  const pid = (ns, name) => map[ns + '/' + name] || rel[ns + '/' + name], has = (id) => !!(id && doc.pts[id]);
+  const pid = (ns, name) => map[ns + '/' + name] || rel[ns + '/' + name] || (doc.pts[name] ? name : undefined), has = (id) => !!(id && doc.pts[id]); // pid: lo de este texto primero; si no, un punto del dibujo (p5)
   // lineas
   for (const [key, r] of req.lines) {
     const a = pid(r.ns, r.a), b = pid(r.ns, r.b);

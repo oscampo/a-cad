@@ -322,4 +322,83 @@ t('Soltar sin nada generado no hace nada', () => {
   assert.equal(releaseGen(d, [{ k: 'pt', id: 'p1' }]), 0);
 });
 
+// ---- puntos del dibujo (del usuario) como extremos de lo que dibuja el script
+function mkU(body) { // un punto del usuario (p1) y un texto que dibuja
+  const d = newDoc();
+  const u = addPoint(d, 5, 5);
+  const tid = addText(d, addPoint(d, -50, 50), '$$w:30\npto2:point(p1.x + w; p1.y)\n' + body + '$$', {});
+  return { d, u, tid };
+}
+const linesOf = (d, id) => Object.values(d.lines).filter((l) => l.a === id || l.b === id);
+
+t('line(p1; pto2): un punto del dibujo es extremo de una linea generada', () => {
+  const { d, u, tid } = mkU('s1:line(p1; pto2)');
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  assert.equal(linesOf(d, u).length, 1);
+  assert.equal(isGen(d, u), false, 'el punto del usuario no pasa a ser generado');
+  assert.equal(d.pts[u].fixed || false, false, 'ni se fija');
+  assert.ok(linesOf(d, d.gen.map[tid + '/pto2']).length === 1);
+});
+
+t('tambien entre comillas, y con los extremos al reves', () => {
+  const { d, u } = mkU('s1:line("p1"; "pto2")');
+  assert.deepEqual(regenerate(d).errs, []); assert.equal(linesOf(d, u).length, 1);
+  const g = mkU('s1:line(pto2; p1)');
+  assert.deepEqual(regenerate(g.d).errs, []); assert.equal(linesOf(g.d, g.u).length, 1);
+});
+
+t('el punto del usuario se puede mover: la linea lo sigue y regenerar no lo toca ni duplica la linea', () => {
+  const { d, u, tid } = mkU('s1:line(p1; pto2)');
+  regenerate(d);
+  const ids = JSON.stringify(d.gen.map);
+  d.pts[u].x = 9; d.pts[u].y = 11;
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  assert.equal(n(d.lines), 1); assert.equal(JSON.stringify(d.gen.map), ids);
+  assert.deepEqual([d.pts[u].x, d.pts[u].y], [9, 11]);
+  assert.deepEqual([d.pts[d.gen.map[tid + '/pto2']].x, d.pts[d.gen.map[tid + '/pto2']].y], [39, 11], 'pto2 lee p1.x y p1.y: sigue al punto');
+});
+
+t('quitar la llamada borra la linea pero no el punto del usuario', () => {
+  const { d, u, tid } = mkU('s1:line(p1; pto2)');
+  regenerate(d);
+  d.texts[tid].text = d.texts[tid].text.replace('s1:line(p1; pto2)', '');
+  regenerate(d);
+  assert.equal(n(d.lines), 0); assert.ok(d.pts[u]);
+});
+
+t('borrar el punto del usuario: la linea se va con el, el texto queda con su error (ya no existe p1) y no se rompe nada', () => {
+  const { d, u, tid } = mkU('s1:line(p1; pto2)');
+  regenerate(d);
+  deleteItems(d, [{ k: 'pt', id: u }]);
+  assert.doesNotThrow(() => regenerate(d));
+  assert.equal(n(d.lines), 0);
+  assert.ok(textVars(d).errs.size >= 1 || textVars(d).bad?.size >= 1, 'el texto avisa: ' + tid);
+});
+
+t('circle con el centro en un punto del dibujo; y spline con puntos del dibujo', () => {
+  const a = mkU('c1:circle(p1; 3)');
+  assert.deepEqual(regenerate(a.d).errs, []);
+  const o = Object.values(a.d.circles); assert.equal(o.length, 1); assert.equal(o[0].c, a.u);
+  const b = mkU('q:point(w; 20)\nsp:spline(["p1", "pto2", "q"])');
+  assert.deepEqual(regenerate(b.d).errs, []);
+  assert.equal(Object.values(b.d.splines).length, 1);
+  const c = mkU('q:point(w; 20)\nsp:spline([p1, pto2, q])');
+  assert.deepEqual(regenerate(c.d).errs, []);
+  assert.equal(Object.values(c.d.splines).length, 1);
+});
+
+t('una variable del texto con ese nombre manda sobre el punto del dibujo', () => {
+  const d = newDoc(); const u = addPoint(d, 5, 5); // p1
+  const tid = addText(d, addPoint(d, -50, 50), '$$p1:point(20; 20)\nq:point(30; 20)\ns:line(p1; q)$$', {});
+  assert.deepEqual(regenerate(d).errs, []);
+  assert.equal(linesOf(d, u).length, 0, 'la linea usa el p1 generado, no el del usuario');
+  assert.equal(n(d.lines), 1); assert.ok(d.gen.map[tid + '/p1']);
+});
+
+t('fuera de line/circle/arc/spline, un punto del dibujo no es una variable (sigue dando error)', () => {
+  assert.throws(() => evalExpr('p1 + 1', { vars: { 'p1.x': { v: 5, r: false }, 'p1.y': { v: 5, r: false } }, allowMat: true, allowCplx: true }), /No reconozco/);
+});
+
 console.log(`${passed} pruebas de dibujo generado`);

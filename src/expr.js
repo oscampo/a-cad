@@ -216,6 +216,7 @@ function tokenize(src, vars = null, loose = false) {
       else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name) || MATFN.has(name) || name in NF) toks.push({ t: 'id', v: name, i, j: i + L });
       else if (name in SFL) toks.push({ t: 'id', v: SFL[name], i, j: i + L }); // funciones de cadenas (startsWith o startswith)
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + L });
+      else if (vars && (raw + '.x') in vars && (raw + '.y') in vars && !((raw + '.r') in vars) && inGenArgs(toks)) toks.push({ t: 'str', v: raw, i, j: i + L }); // un punto del dibujo como extremo de line/arc/spline o centro de circle: line(p5; b)
       else if (FUTURE_VARS.has(raw)) throw new Error(`${reservedWhy(raw)} (todavía no tiene valor)`);
       else if (/^(nargin|varargin)(_|$)/.test(raw)) throw new Error(raw.startsWith('nargin') ? '«nargin» solo vale dentro de una función: es cuántos valores recibió' : '«varargin» solo vale dentro de una función que lo tenga como último parámetro: f(a, varargin):…');
       else throw new Error(`No reconozco «${raw}»` + (/\d/.test(raw) || raw.length === 1 ? ' (no hay una cota con ese nombre)' : ''));
@@ -994,6 +995,18 @@ export function genProps(g) {
 export const genAt = (ns) => { GEN?.at?.(ns); }; // el texto cuyo enunciado se evalua (los nombres son locales a el)
 export const GEN_RE = /(?:^|[^A-Za-z0-9_.])(?:point|line|circle|arc|spline)\s*\(/i;
 export const GEN_FUNCS = ['point', 'line', 'circle', 'arc', 'spline'];
+// ¿Se esta dentro de los argumentos de line/circle/arc/spline? (los «[ ]» de spline([a; b]) no cuentan). Ahi un nombre como «p5», que no es una variable pero
+// si un punto del dibujo (tiene p5.x y p5.y), se toma como su nombre en vez de dar «No reconozco».
+function inGenArgs(toks) {
+  for (let k = toks.length - 1, d = 0; k >= 0; k--) {
+    const t = toks[k];
+    if (t.t !== 'op') continue;
+    if (t.v === ')' || t.v === ']') d++;
+    else if (t.v === '[') { if (d > 0) d--; }
+    else if (t.v === '(') { if (d > 0) d--; else return toks[k - 1]?.t === 'id' && ['line', 'circle', 'arc', 'spline'].includes(toks[k - 1].v); }
+  }
+  return false;
+}
 const genName = (a, fn, what) => { if (typeof a?.str !== 'string' || !a.str.trim()) throw new Error(`${fn}: ${what} es un nombre entre comillas, p. ej. "A"`); return a.str.trim(); };
 const genNum = (a, fn, what) => {
   if (!Number.isFinite(a?.v) || a.im || a.mat || a.fn) throw new Error(`${fn}: ${what} debe ser un número`);
