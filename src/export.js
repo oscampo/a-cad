@@ -49,7 +49,7 @@ function withLeadTexts(doc) {
 const lblTxt = (t) => (lblIsMath(t) ? lblPlain(t) : t); // una etiqueta con formula va como texto plano en el SVG
 const labelBox = (l) => {
   const g = (l.px || 12) / 12, w = 0.6 * 12 * g * lblTxt(l.text).length + 8 * g, h = 18 * g;
-  return { x: l.x - w / 2, y: l.y - h / 2, w, h };
+  return { x: l.edge === 'l' ? l.x : l.edge === 'r' ? l.x - w : l.x - w / 2, y: l.y - h / 2, w, h };
 };
 
 // Extension (px segun view) que ocupan las cotas y los textos, para no recortarlos al exportar.
@@ -89,11 +89,11 @@ function dimSvg(L, color, leadAttrs = null) {
     out.push(`<rect x="${n(b.x)}" y="${n(b.y)}" width="${n(b.w)}" height="${n(b.h)}" rx="3" fill="#fff" fill-opacity="0.85"/>`);
     const lt = lblTxt(L.label.text), px = L.label.px || 12;
     if (lt.startsWith(DIAM)) { // cota de diametro: el simbolo va como vector, de la altura de las cifras (no el glifo de la fuente, que cambia de una a otra)
-      const G = diamGeom(0.72 * px), rest = lt.slice(DIAM.length), total = G.w + G.gap + approx(rest) * px, x0 = L.label.x - total / 2, cx = x0 + G.w / 2, cy = L.label.y;
+      const G = diamGeom(0.72 * px), rest = lt.slice(DIAM.length), total = G.w + G.gap + approx(rest) * px, x0 = L.label.edge === 'l' ? L.label.x + 4 * px / 12 : L.label.edge === 'r' ? L.label.x - 4 * px / 12 - total : L.label.x - total / 2, cx = x0 + G.w / 2, cy = L.label.y;
       out.push(`<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(G.r)}" fill="none" stroke="${color}" stroke-width="${n(G.lw)}"/>`);
       out.push(`<line x1="${n(cx - G.dx)}" y1="${n(cy + G.H / 2)}" x2="${n(cx + G.dx)}" y2="${n(cy - G.H / 2)}" stroke="${color}" stroke-width="${n(G.lw)}"/>`);
       out.push(`<text x="${n(x0 + G.w + G.gap)}" y="${n(L.label.y)}" font-family="sans-serif" font-size="${n(px)}" text-anchor="start" dominant-baseline="central"${L.label.italic ? ' font-style="italic"' : ''}${L.label.underline ? ' text-decoration="underline"' : ''} fill="${color}">${esc(rest)}</text>`);
-    } else out.push(`<text x="${n(L.label.x)}" y="${n(L.label.y)}" font-family="sans-serif" font-size="${n(px)}" text-anchor="middle" dominant-baseline="central"${L.label.italic ? ' font-style="italic"' : ''}${L.label.underline ? ' text-decoration="underline"' : ''} fill="${color}">${esc(lt)}</text>`);
+    } else out.push(`<text x="${n(L.label.edge === 'l' ? L.label.x + 4 * px / 12 : L.label.edge === 'r' ? L.label.x - 4 * px / 12 : L.label.x)}" y="${n(L.label.y)}" font-family="sans-serif" font-size="${n(px)}" text-anchor="${L.label.edge === 'l' ? 'start' : L.label.edge === 'r' ? 'end' : 'middle'}" dominant-baseline="central"${L.label.italic ? ' font-style="italic"' : ''}${L.label.underline ? ' text-decoration="underline"' : ''} fill="${color}">${esc(lt)}</text>`);
   }
   return out;
 }
@@ -293,7 +293,8 @@ export function exportDXF(doc, viewScale = 5, vis = {}) {
     if (L.label && !L.label.model) {
       g(0, 'TEXT'); g(8, '0'); g(10, mx(L.label.x)); g(20, my(L.label.y)); g(30, 0); g(40, (11 * (L.label.px || 12)) / 12 / S); g(1, (L.label.underline ? '%%u' : '') + lblTxt(L.label.text).replace(/\u2300/g, '%%c'));
       if (L.label.italic) g(51, 15); // cota de referencia: oblicuo
-      g(72, 1); g(11, mx(L.label.x)); g(21, my(L.label.y)); g(31, 0); g(73, 2);
+      const ex = L.label.edge === 'l' ? L.label.x + 4 * (L.label.px || 12) / 12 : L.label.edge === 'r' ? L.label.x - 4 * (L.label.px || 12) / 12 : L.label.x; // el borde cercano a la llamada: alineado a la izquierda o a la derecha
+      g(72, L.label.edge === 'l' ? 0 : L.label.edge === 'r' ? 2 : 1); g(11, mx(ex)); g(21, my(L.label.y)); g(31, 0); g(73, 2);
     }
   }
   for (const p of Object.values(doc.pts)) if (!p.auto) { g(0, 'POINT'); g(8, '0'); g(10, p.x); g(20, p.y); g(30, 0); }

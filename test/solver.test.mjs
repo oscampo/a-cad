@@ -351,6 +351,13 @@ t('cotas: circulo muestra phi con el diametro y arco muestra R', () => {
   const Lc = layoutDim(d, kc, VIEW);
   assert.equal(Lc.label.text, '⌀10');
   assert.equal(Lc.arrows.length, 2);
+  // llamada hacia afuera: la etiqueta se ancla por su borde cercano a la llamada (quien dibuja conoce el ancho real del texto), sin depender de una estimación del ancho
+  for (const [ang, edge, sgn] of [[Math.PI / 4, 'l', 1], [Math.PI, 'r', -1]]) {
+    const Lo = layoutDim(d, { ...kc, ang, lp: 8, lbl: '"Un texto largo largo largo : <>"' }, VIEW), end = Lo.lines[1];
+    assert.equal(Lo.label.edge, edge, 'borde de la caja pegado a la llamada');
+    assert.ok(Math.abs(Lo.label.x - (end[2] + sgn)) < 1e-9 && Math.abs(Lo.label.y - end[3]) < 1e-9, 'x es el extremo de la llamada, no el centro de un texto estimado');
+  }
+  assert.equal(layoutDim(d, kc, VIEW).label.edge, undefined, 'dentro de la cota no hay borde: va centrada');
   const ka = { t: 'RAD', refs: [A], v: 5 };
   const La = layoutDim(d, ka, VIEW);
   assert.equal(La.label.text, 'R5');

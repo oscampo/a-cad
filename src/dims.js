@@ -435,7 +435,7 @@ function layoutDimBase(doc, k, view) {
       const side = d.x >= 0 ? 1 : -1, E2 = { x: E.x + side * 10, y: E.y };
       out.lines.push([P.x, P.y, E.x, E.y], [E.x, E.y, E2.x, E2.y]);
       out.arrows.push({ x: P.x, y: P.y, dx: -d.x, dy: -d.y });
-      out.label = { x: E2.x + side * (tw / 2 + 1), y: E2.y, text };
+      out.label = { x: E2.x + side * 1, y: E2.y, text, edge: side > 0 ? 'l' : 'r' }; // el borde cercano de la etiqueta (l: izquierdo, r: derecho) en x: quien dibuja sabe el ancho real del texto
     } else {
       const L = { x: C.x + d.x * lp, y: C.y + d.y * lp };
       if (circ) {

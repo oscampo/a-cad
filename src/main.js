@@ -1552,9 +1552,11 @@ function drawHatch(c, id, h, o) {
 
 let labelBg = '#fff';
 // Etiqueta de cota con formula («$D/2$», ver splitLabel): se dibuja con el motor de los textos, centrada en (x, y), de px de alto
-function mathLabel(c, src, x, y, id, color, px = 12) {
+function mathLabel(c, src, x, y, id, color, px = 12, edge = null) {
   const t = { text: src, h: px / view.s, anchor: 'mc' }, f = textFrame(t, measureRel, 'mc'), sc = view.s;
-  const w = f.w * sc + 8 * px / 12, h = Math.max(f.hh * sc + 4, 18 * px / 12), bx = x - w / 2, by = y - h / 2;
+  const w = f.w * sc + 8 * px / 12, h = Math.max(f.hh * sc + 4, 18 * px / 12);
+  if (edge) x += edge === 'l' ? w / 2 : -w / 2; // x es el borde de la caja (el lado de la llamada), no su centro
+  const bx = x - w / 2, by = y - h / 2;
   c.save();
   c.fillStyle = labelBg; c.globalAlpha = 0.85; c.beginPath(); c.roundRect(bx * dpr, by * dpr, w * dpr, h * dpr, 4 * dpr); c.fill(); c.globalAlpha = 1;
   c.translate(x * dpr, y * dpr); c.textBaseline = 'alphabetic'; c.fillStyle = c.strokeStyle = color; c.lineCap = 'round'; c.lineJoin = 'round'; c.setLineDash([]);
@@ -1566,8 +1568,8 @@ function mathLabel(c, src, x, y, id, color, px = 12) {
   c.restore();
   if (id) labelHits.push({ x: bx, y: by, w, h, id });
 }
-function label(c, text, x, y, id, color, italic = false, underline = false, px = 12) {
-  if (lblIsMath(text)) { mathLabel(c, text, x, y, id, color, px); return; }
+function label(c, text, x, y, id, color, italic = false, underline = false, px = 12, edge = null) {
+  if (lblIsMath(text)) { mathLabel(c, text, x, y, id, color, px, edge); return; }
   c.save();
   c.font = `${italic ? 'italic ' : ''}${px * dpr}px -apple-system, system-ui, sans-serif`;
   c.textBaseline = 'middle'; c.textAlign = 'center';
@@ -1577,6 +1579,7 @@ function label(c, text, x, y, id, color, italic = false, underline = false, px =
   if (dia) { const m0 = c.measureText('0'), A = m0.actualBoundingBoxAscent / dpr, D = m0.actualBoundingBoxDescent / dpr; G = A + D > 0 ? { ...diamGeom(A + D), cy: (D - A) / 2 } : { ...diamGeom(0.72 * px), cy: 0 }; } // cy: el centro de las cifras respecto a la linea media del texto
   const total = (G ? G.w + G.gap : 0) + c.measureText(rest).width / dpr;
   const w = total + 8 * px / 12, h = 18 * px / 12;
+  if (edge) x += edge === 'l' ? w / 2 : -w / 2; // x es el borde de la caja (el lado de la llamada), con el ancho real del texto: sin hueco entre la llamada y la etiqueta
   const bx = x - w / 2, by = y - h / 2;
   c.fillStyle = labelBg; c.globalAlpha = 0.85;
   c.beginPath(); c.roundRect(bx * dpr, by * dpr, w * dpr, h * dpr, 4 * dpr); c.fill();
@@ -1696,7 +1699,7 @@ function drawDim(c, id, k, col, o = null) {
   for (const ar of L.arrows) arrowHead(c, ar, ar.g || L.size);
   c.restore();
   if (L.label?.model) drawLeadLabel(c, L.label, id, col); // linea indicativa: un texto en unidades del dibujo
-  else if (L.label) label(c, L.label.text, L.label.x, L.label.y, id, col, L.label.italic, L.label.underline, L.label.px);
+  else if (L.label) label(c, L.label.text, L.label.x, L.label.y, id, col, L.label.italic, L.label.underline, L.label.px, L.label.edge);
 }
 
 // Etiqueta de una linea indicativa: un texto con altura en unidades del dibujo y su anclaje en (x, y) de pantalla
