@@ -17,6 +17,7 @@ import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, past
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { STYLE_PROPS, styleState, applyStyleProp, styleObjects } from './smartstyle.js';
+import { regenerate, isGen } from './gen.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, dimH, ARROW, ARROW_HW, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, diamGeom, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow, revForHead } from './vectors.js';
@@ -321,7 +322,22 @@ function updateFileTag() {
   const el = $('fileTag'), t = opts.fileBase ? opts.fileBase + '.json' : 'sin nombre';
   if (el && el.textContent !== t) el.textContent = t;
 }
-function afterChange() { if (usesShuffle()) { shuffleStep++; dataChanged(); } syncImages(doc); pageExt = null; scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = unsnap(bak, doc.assets); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); flushData(); persist(); draw(); renderTree(); }
+// Dibujo generado por scripts (gen.js): los textos que llaman a point/line/circle se vuelven a leer tras cada cambio y lo generado se reconcilia
+// (posiciones, fijo, borrado); si algo cambio, el dibujo se vuelve a resolver con lo generado como ancla. El aviso sale una vez por mensaje.
+const GEN_MSG = 'Lo generó un script: se cambia en su texto (quita o edita la llamada que lo dibuja)';
+let genBusy = false, lastGenMsg = '';
+function regenGen() {
+  if (genBusy) return;
+  genBusy = true;
+  try {
+    const r = regenerate(doc);
+    if (r.changed) solve(doc, []);
+    const msg = r.errs[0] || r.notes[0] || '';
+    if (msg && msg !== lastGenMsg) toast(msg);
+    lastGenMsg = msg;
+  } catch (e) { /* un fallo al regenerar no debe impedir que el dibujo se actualice */ } finally { genBusy = false; }
+}
+function afterChange() { regenGen(); if (usesShuffle()) { shuffleStep++; dataChanged(); } syncImages(doc); pageExt = null; scheduleGraphs(); updateFileTag(); syncVectors(doc); trackAngles(doc); const fz = pruneFormulas(doc); if (hasReactive(doc)) { const bak = snapshot(), st = settle(doc, solve, []); if (!st.ok) doc = unsnap(bak, doc.assets); } if (fz.length) toast(`${fz.join(', ')}: la cota de la que dependía ya no existe o es de referencia; queda con su valor actual`); layerBtn(); updateButtons(); updateEnabled(); syncPanel(); flushData(); persist(); draw(); renderTree(); }
 
 // Un boton de restriccion solo se activa si la seleccion actual le sirve (mismas reglas que applyCon).
 function updateEnabled() {
@@ -2471,6 +2487,7 @@ function finishBox(d, p) {
 function trimStep(p, d) {
   const h = hitCurves(p.x, p.y);
   if (!h) return;
+  if (isGen(doc, h.id)) { toast(GEN_MSG); return; }
   const bak = snapshot();
   if (!d.undone) { pushUndo(); d.undone = true; }
   const fail = (msg) => { doc = unsnap(bak, doc.assets); if (!d.trimmed) { undoStack.pop(); d.undone = false; } toast(msg); };
@@ -2537,6 +2554,7 @@ function toolMove(p) {
   }
   const m = toModel(p.x, p.y);
   const h = drag.hit;
+  if (!drag.multi && (h.k === 'ci' || h.k === 'ar') && isGen(doc, h.id)) return; // el radio de un circulo generado lo manda el script
   if (!drag.multi && (h.k === 'ci' || h.k === 'ar')) {
     const ci = h.k === 'ci' ? doc.circles[h.id] : doc.arcs[h.id], c = doc.pts[ci.c];
     const r0 = ci.r; ci.r = Math.max(0.01, dist(c, m));
@@ -2875,6 +2893,7 @@ function extendAt(p) {
   if (!h) { toast('Toca el segmento, arco o spline cerca del extremo que quieres alargar'); return; }
   if (h.k === 'el') { toast('Las elipses no se extienden'); return; }
   if (h.k === 'ci') { toast('Un círculo no se extiende'); return; }
+  if (isGen(doc, h.id)) { toast(GEN_MSG); return; }
   const near = toModel(p.x, p.y), bak = snapshot();
   pushUndo();
   let r = extendEnd(doc, h.k, h.id, near);
@@ -2893,6 +2912,7 @@ function extendAt(p) {
 // Redondeo entre dos elementos que no tienen que juntarse en una esquina: se tocan uno y luego el otro, del lado que se conserva.
 function roundPick(h, m) {
   if (h.k === 'ci') { toast('Un círculo no se redondea ni se achaflana: usa un arco'); return; }
+  if (isGen(doc, h.id)) { toast(GEN_MSG); return; }
   const first = pending?.fil;
   if (!first) { pending = { fil: { k: h.k, id: h.id, p: m } }; sel = [{ k: h.k, id: h.id }]; toast('Toca el segundo elemento, del lado que quieres conservar'); afterChange(); return; }
   if (first.k === h.k && first.id === h.id) { toast('Toca otro elemento'); return; }
@@ -2901,6 +2921,7 @@ function roundPick(h, m) {
 }
 // A y B: { k, id, p }; sin p (elementos ya seleccionados) se toma el medio de cada uno como el lado que se conserva.
 async function roundTool(A, B) {
+  if (isGen(doc, A.id) || isGen(doc, B.id)) { toast(GEN_MSG); return; }
   const fillet = toolName === 'fillet';
   const reach = filletReach(doc, A, B);
   if (reach.msg) { toast(reach.msg); afterChange(); return; }
@@ -2926,6 +2947,7 @@ async function roundTool(A, B) {
 // Redondeo o chaflan (segun la herramienta) en las esquinas dadas (puntos donde se juntan dos lineas), con un solo valor.
 // El valor puede ser una formula: queda en la cota de cada esquina.
 async function cornerTool(pids) {
+  if (pids.some((q) => isGen(doc, q))) { toast(GEN_MSG); return; }
   const fillet = toolName === 'fillet', seen = new Set(), items = [];
   for (const pid of pids) { // una esquina puede tener varios puntos coincidentes: se toma una sola vez
     if (seen.has(pid)) continue;
@@ -3893,6 +3915,7 @@ function splitSelected() {
   const els = sel.filter((x) => x.k === 'ln' || x.k === 'ci' || x.k === 'ar');
   const pts = sel.filter((x) => x.k === 'pt').map((x) => x.id);
   if (els.length !== 1) { toast('Selecciona 1 segmento, arco o círculo (y, si quieres, los puntos que lo dividen)'); return; }
+  if (isGen(doc, els[0].id)) { toast(GEN_MSG); return; }
   if (!pts.length) { splitEqual(els[0]); return; }
   pushUndo();
   const res = splitElement(doc, els[0].id, pts);
@@ -5934,6 +5957,7 @@ $('undo').onclick = undo; $('redo').onclick = redo;
 $('fit').onclick = fitView;
 $('del').onclick = () => {
   const gs = [...multiGraphs()];
+  if (sel.some((s) => isGen(doc, s.id))) { sel = sel.filter((s) => !isGen(doc, s.id)); toast(GEN_MSG); afterChange(); } // lo generado no se borra a mano
   if (!sel.length && !gs.length) return;
   pushUndo();
   for (const id of gs) { if (doc.graphs?.[id]) { delete doc.graphs[id]; delete graphData[id]; } else dropImage(id); }

@@ -57,7 +57,7 @@ t('fase 2: qualify reescribe los nombres de la biblioteca, sin tocar locales, un
   assert.equal(qualify("T'MPa + 1'T + p1.x + UF.T + \"T b\"", n, 'UF'), "T'MPa + 1'T + p1.x + UF.T + \"T b\""); // unidades, propiedades, ya calificado, cadena
   assert.equal(qualify("S_e'(2) + 3", n, 'UF'), "UF.S_e'(2) + 3");
   assert.equal(qualifyDef({ params: ['b'], expr: 'b*T' }, n, 'UF').expr, 'b*UF.T'); // el parametro b es local
-  assert.equal(qualifyDef({ params: null, expr: 'line(b:[1, 2], b_2 + T)' }, n, 'UF').expr, 'line(b:[1, 2], b_2 + UF.T)'); // la b asignada en el programa es local
+  assert.equal(qualifyDef({ params: null, expr: 'seq(b:[1, 2], b_2 + T)' }, n, 'UF').expr, 'seq(b:[1, 2], b_2 + UF.T)'); // la b asignada en el programa es local
 });
 
 t('fase 2: el lector de fórmulas reconoce alias.nombre (llamadas, primas, índices) y avisa si la biblioteca no lo tiene', () => {

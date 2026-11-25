@@ -49,7 +49,7 @@ t('interp1 con "extrap" (y "linear"); sin ella fuera de la tabla avisa', () => {
 
 t('varargin y nargin: valores opcionales de cualquier tipo', () => {
   const V = {
-    s: { fn: { params: ['varargin'], body: 'line(t:0, for(k, 1..nargin, t:t+varargin_k), t)' } },
+    s: { fn: { params: ['varargin'], body: 'seq(t:0, for(k, 1..nargin, t:t+varargin_k), t)' } },
     deq: { fn: { params: ['b', 'varargin'], body: 'if(nargin==1, 0.808*b, 0.808*sqrt(b*varargin_1))' } },
     g: { fn: { params: ['a', 'varargin'], body: 'nargin' } }, h: { fn: { params: ['varargin'], body: 'varargin_2' } },
     uno: { fn: { params: ['x'], body: 'nargin' } }, w: { fn: { params: ['varargin'], body: 'varargin' } },
@@ -79,7 +79,7 @@ t('el problema de la clase: solve lejos del valor inicial, una local que tapa a 
   near(solveEqs([{ name: 'Ay', v: 1, r: false, d: N }], ['V(1) == 0'], calc, base)[0], 1500); // desde 1 N: antes no llegaba
   assert.throws(() => solveEqs([{ name: 'x', v: 1, r: false }], ['x^2 == -1'], calc, {}), /no encontré una solución/);
   // un programa que asigna b:[…] con una b global numero: b_k es un indice (antes «No reconozco b_k»); afuera b no cambia
-  const G = { b: { v: -0.113, r: false }, g: { fn: { params: ['k'], body: 'line(b:[10, 20, 30], b_k)' } } };
+  const G = { b: { v: -0.113, r: false }, g: { fn: { params: ['k'], body: 'seq(b:[10, 20, 30], b_k)' } } };
   assert.equal(evalExpr('g(2)', { vars: G, allowMat: true }).value, 20); assert.equal(G.b.v, -0.113);
   // σ = 32·M/(π·d³) lleva la marca de π, pero es una presion: la grafica la dibuja en MPa, no la pasa a grados
   const d = newDoc(); d.decimal = '.';

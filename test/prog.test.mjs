@@ -1,4 +1,4 @@
-// Programas en las formulas (como en SMath): line(…), for(…), while(…) y la asignacion local «s:valor».
+// Programas en las formulas (como en SMath): seq(…), for(…), while(…) y la asignacion local «s:valor».
 import assert from 'node:assert/strict';
 import { evalExpr, LOOP_MAX } from '../src/expr.js';
 import { newDoc, addPoint, addText } from '../src/model.js';
@@ -16,56 +16,56 @@ const err = (s, re, vars = {}) => assert.throws(() => ev(s, vars), re);
 const clean = (s) => s.replace(/[-]/g, '');
 
 t('line hace los pasos en orden y vale el ultimo; las asignaciones son locales', () => {
-  assert.equal(ev('line(a:1, b:a+1, a*b)').value, 2);
+  assert.equal(ev('seq(a:1, b:a+1, a*b)').value, 2);
   const vars = { s: { v: 99, r: false } };
-  assert.equal(ev('line(s:0, s:s+5, s)', vars).value, 5);
+  assert.equal(ev('seq(s:0, s:s+5, s)', vars).value, 5);
   assert.equal(vars.s.v, 99); // la variable de afuera no cambia
   assert.deepEqual(Object.keys(vars), ['s']); // ni aparecen variables nuevas
-  const r = ev("line(x:1'm, x:x*2, x)");
+  const r = ev("seq(x:1'm, x:x*2, x)");
   assert.equal(r.value, 2); assert.deepEqual(r.dim, [1, 0, 0, 0, 0, 0, 0]); // con unidades
 });
 
 t('for recorre un rango o un vector; while repite mientras se cumple; if puede asignar', () => {
   const vars = { n: { v: 10, r: false } };
-  assert.equal(ev('line(s:0, for(i, 1..n, s:s+i^2), s)', vars).value, 385);
-  assert.equal(ev('line(t:0, for(i, 5..1, t:t+1), t)').value, 0); // fin < inicio: ninguna vuelta
-  assert.equal(ev('line(v:[1,2,3], t:0, for(e, v, t:t+e), t)').value, 6);
-  assert.equal(ev('line(k:0, while(k^2<50, k:k+1), k)').value, 8);
-  assert.ok(Math.abs(ev('line(x:1, for(i, 1..20, x:x-(x^2-2)/(2x)), x)').value - Math.SQRT2) < 1e-12); // Newton
-  assert.equal(ev('line(c:0, if(n>5, c:1, c:2), c)', vars).value, 1);
-  assert.equal(ev('line(v:[4,5,6], v_2)').value, 5); // un vector local con indice
+  assert.equal(ev('seq(s:0, for(i, 1..n, s:s+i^2), s)', vars).value, 385);
+  assert.equal(ev('seq(t:0, for(i, 5..1, t:t+1), t)').value, 0); // fin < inicio: ninguna vuelta
+  assert.equal(ev('seq(v:[1,2,3], t:0, for(e, v, t:t+e), t)').value, 6);
+  assert.equal(ev('seq(k:0, while(k^2<50, k:k+1), k)').value, 8);
+  assert.ok(Math.abs(ev('seq(x:1, for(i, 1..20, x:x-(x^2-2)/(2x)), x)').value - Math.SQRT2) < 1e-12); // Newton
+  assert.equal(ev('seq(c:0, if(n>5, c:1, c:2), c)', vars).value, 1);
+  assert.equal(ev('seq(v:[4,5,6], v_2)').value, 5); // un vector local con indice
 });
 
 t('funciones propias con programas, tambien recursivas', () => {
-  const vars = { suma2: fn(['n'], 'line(s:0, for(i, 1..n, s:s+i^2), s)'), fact: fn(['n'], 'if(n<=1, 1, n*fact(n-1))') };
+  const vars = { suma2: fn(['n'], 'seq(s:0, for(i, 1..n, s:s+i^2), s)'), fact: fn(['n'], 'if(n<=1, 1, n*fact(n-1))') };
   assert.equal(ev('suma2(3)', vars).value, 14);
   assert.equal(ev('suma2(3)+suma2(4)', vars).value, 44);
   assert.equal(ev('fact(5)', vars).value, 120);
 });
 
 t('errores claros: ciclo sin fin, «:» fuera de un programa, local sin valor, elemento, sintaxis', () => {
-  err('line(k:0, while(1, k:k+1), k)', new RegExp(`pasó de ${LOOP_MAX.toLocaleString('es')} vueltas`));
-  err('max(s:1, 2)', /«:» asigna un valor solo dentro de line\(\), for\(\) o while\(\)/, { s: { v: 1, r: false } });
-  err('line(z:z+1, z)', /«z» se usa antes de darle un valor/);
-  assert.deepEqual(ev('line(v:[1,2], v_1:5, v)').mat, [[5, 2]]); // asignar a un elemento ya se puede (ver más abajo)
-  err('line(m:3, m_1)', /no es un vector ni una matriz/);
+  err('seq(k:0, while(1, k:k+1), k)', new RegExp(`pasó de ${LOOP_MAX.toLocaleString('es')} vueltas`));
+  err('max(s:1, 2)', /«:» asigna un valor solo dentro de seq\(\), for\(\) o while\(\)/, { s: { v: 1, r: false } });
+  err('seq(z:z+1, z)', /«z» se usa antes de darle un valor/);
+  assert.deepEqual(ev('seq(v:[1,2], v_1:5, v)').mat, [[5, 2]]); // asignar a un elemento ya se puede (ver más abajo)
+  err('seq(m:3, m_1)', /no es un vector ni una matriz/);
   err('for(i, 1..3)', /for\(i, inicio\.\.fin, cuerpo\)/);
-  err('line()', /line\(a, b, …\)/);
+  err('seq()', /seq\(a, b, …\)/);
   err("for(i, 1'm..3, 0)", /deben tener las mismas unidades/);
 });
 
 t('en los textos: se define y se usa; el programa en varias lineas se dibuja como se escribio; el texto guardado no cambia', () => {
   const d = newDoc();
-  const src = '$$suma2(n):line(\n  s:0,\n  for(i, 1..n,\n    s:s+i^2\n  ),\n  s\n)$$';
+  const src = '$$suma2(n):seq(\n  s:0,\n  for(i, 1..n,\n    s:s+i^2\n  ),\n  s\n)$$';
   const a = d.texts[addText(d, addPoint(d, 0, 100), src, {})];
   const b = d.texts[addText(d, addPoint(d, 0, 0), '$$suma2(10)=$$', {})];
   assert.deepEqual(textVarErrors(d), []);
   assert.equal(clean(shownText(d, b).text), '$$suma2(10)=385$$');
-  assert.equal(clean(shownText(d, a).text), '$$suma2(n):=line(\n  s:0,\n  for(i, 1..n,\n    s:s+i^2\n  ),\n  s\n)$$'); // en varias lineas
+  assert.equal(clean(shownText(d, a).text), '$$suma2(n):=seq(\n  s:0,\n  for(i, 1..n,\n    s:s+i^2\n  ),\n  s\n)$$'); // en varias lineas
   assert.equal(calcSrc(calcParse(src)), src);
   const r = newDoc(); // un valor calculado con un programa
-  const c = r.texts[addText(r, addPoint(r, 0, 0), '$$r:line(a:2, b:a^2, a+b)=$$', {})];
-  assert.equal(clean(shownText(r, c).text), '$$r:=line(a:2, b:a^2, a+b)=6$$');
+  const c = r.texts[addText(r, addPoint(r, 0, 0), '$$r:seq(a:2, b:a^2, a+b)=$$', {})];
+  assert.equal(clean(shownText(r, c).text), '$$r:=seq(a:2, b:a^2, a+b)=6$$');
 });
 
 t('el 0 sin unidades por cualquier cosa sigue valiendo con cualquier unidad (la rama «0» de un if); una unidad escrita se conserva', () => {
@@ -80,17 +80,17 @@ t('el 0 sin unidades por cualquier cosa sigue valiendo con cualquier unidad (la 
 
 t('asignar a un elemento dentro de un programa: p_i, A_(i,j) y cadenas, sobre una copia local; crece como en MATLAB', () => {
   const q = { vec: [1, 2, 3], r: false };
-  assert.deepEqual(ev('line(p:[1, 2, 3], for(i, 1..3, p_i:p_i + 1), p)').mat, [[2, 3, 4]]);
-  assert.deepEqual(ev('line(q_1:9, q)', { q }).mat, [[9, 2, 3]]); assert.deepEqual(q.vec, [1, 2, 3]); // la del documento no cambia
-  assert.deepEqual(ev('line(p:[0], for(i, 1..4, p_i:i^2), p)').mat, [[1, 4, 9, 16]]); // crece con cada asignación
-  assert.deepEqual(ev('line(A:[1, 2; 3, 4], A_(3,3):7, A)').mat, [[1, 2, 0], [3, 4, 0], [0, 0, 7]]);
-  assert.deepEqual(evalExpr('line(s:["a", "b"], s_2:"z", s)', { vars: {}, allowMat: true, allowCplx: true }).strs, ['a', 'z']); // allowCplx: también cadenas
-  assert.deepEqual(ev("line(p:zeros(1, 3), p_2:5'mm, p)").dim, [1, 0, 0, 0, 0, 0, 0]); // ceros sin unidades: toma la del valor
-  assert.equal(ev('line(p:[1, 2], p_2:7)').value, 7); // vale lo asignado
-  assert.throws(() => ev("line(p:[1'mm, 2'mm], p_1:3'kN, p)"), /lleva m: no se le asigna N/);
-  assert.throws(() => ev('line(p:[1, 2], p_0:1, p)'), /entero desde 1/);
-  assert.throws(() => ev('line(A:[1, 2; 3, 4], A_2:0, A)'), /lleva dos índices/);
-  assert.throws(() => ev('line(p:[1, 2], p_1:[1, 2], p)'), /se le asigna un número/);
+  assert.deepEqual(ev('seq(p:[1, 2, 3], for(i, 1..3, p_i:p_i + 1), p)').mat, [[2, 3, 4]]);
+  assert.deepEqual(ev('seq(q_1:9, q)', { q }).mat, [[9, 2, 3]]); assert.deepEqual(q.vec, [1, 2, 3]); // la del documento no cambia
+  assert.deepEqual(ev('seq(p:[0], for(i, 1..4, p_i:i^2), p)').mat, [[1, 4, 9, 16]]); // crece con cada asignación
+  assert.deepEqual(ev('seq(A:[1, 2; 3, 4], A_(3,3):7, A)').mat, [[1, 2, 0], [3, 4, 0], [0, 0, 7]]);
+  assert.deepEqual(evalExpr('seq(s:["a", "b"], s_2:"z", s)', { vars: {}, allowMat: true, allowCplx: true }).strs, ['a', 'z']); // allowCplx: también cadenas
+  assert.deepEqual(ev("seq(p:zeros(1, 3), p_2:5'mm, p)").dim, [1, 0, 0, 0, 0, 0, 0]); // ceros sin unidades: toma la del valor
+  assert.equal(ev('seq(p:[1, 2], p_2:7)').value, 7); // vale lo asignado
+  assert.throws(() => ev("seq(p:[1'mm, 2'mm], p_1:3'kN, p)"), /lleva m: no se le asigna N/);
+  assert.throws(() => ev('seq(p:[1, 2], p_0:1, p)'), /entero desde 1/);
+  assert.throws(() => ev('seq(A:[1, 2; 3, 4], A_2:0, A)'), /lleva dos índices/);
+  assert.throws(() => ev('seq(p:[1, 2], p_1:[1, 2], p)'), /se le asigna un número/);
 });
 
 t('índices con paréntesis dentro: b_(k + 7*(j - 1)), funciones en el índice, el índice de un nombre con subíndice y asignar', () => {
@@ -101,7 +101,7 @@ t('índices con paréntesis dentro: b_(k + 7*(j - 1)), funciones en el índice, 
   assert.equal(n('A_(max(1, 2), (1))'), 3);
   assert.equal(n('T_(st)_((1),(2))'), 6); assert.equal(n('T_(st)_(1,2)'), 6);
   assert.equal(n('b_(k + 7*(jug - 1)) * (2)'), 160); // el paréntesis de después no es parte del índice
-  assert.deepEqual(ev('line(p:b, p_(k + 3*(jug - 1)):0, p)', V).mat, [[10, 20, 30, 0, 50, 60, 70, 80]]);
+  assert.deepEqual(ev('seq(p:b, p_(k + 3*(jug - 1)):0, p)', V).mat, [[10, 20, 30, 0, 50, 60, 70, 80]]);
   const d = newDoc(); d.decimal = '.';
   addText(d, addPoint(d, 0, 100), '$$b:[1, 2, 3, 4, 5, 6, 7, 8]$$', {});
   addText(d, addPoint(d, 0, 90), '%lado(v, jug):\n  s:0\n  for k in 1..3:\n    s:s + v_(k + 4*(jug - 1))\n  s', {});
@@ -145,7 +145,7 @@ t('una definición cuyo valor es el vector que devuelve una función se dibuja c
 t('el reparto de semillas del Mancala: una función que modifica su parámetro y un script con while', () => {
   const d = newDoc(); d.decimal = '.';
   const T = (q, y) => d.texts[addText(d, addPoint(d, 0, y), q, {})];
-  T('$$capture(p, i):line(p_7:p_7 + p_i + p_(14-i), p_i:0, p_(14-i):0, p)$$', 100);
+  T('$$capture(p, i):seq(p_7:p_7 + p_i + p_(14-i), p_i:0, p_(14-i):0, p)$$', 100);
   T('%sembrar(p, k):\n  # reparte las semillas del foso k, una por foso, en sentido antihorario\n  n:p_k\n  p_k:0\n  i:k\n  while n > 0:\n    i:mod(i, 14) + 1\n    p_i:p_i + 1\n    n:n - 1\n  p', 90);
   const a = T('$$tab:[4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0]$$', 80);
   T('$$r:sembrar(tab, 3)$$', 70);
@@ -169,8 +169,8 @@ t('scripts con break, continue y return; también dentro de las fórmulas', () =
   const outs = ['a', 'b', 'c', 'k', 'f'].map((n) => d.texts[T(`$$${n}=$$`)]);
   assert.deepEqual(textVarErrors(d), []);
   assert.deepEqual(outs.map((t) => clean(shownText(d, t).text)), ['$$a=2$$', '$$b=0$$', '$$c=30$$', '$$k=7$$', '$$f=10$$']); // f: el break interno solo corta su ciclo (1+2+3+4)
-  assert.equal(ev('line(s:0, for(i, 1..10, line(if(i > 3, break(), 0), s:s + i)), s)').value, 6);
-  assert.equal(ev('line(return(5), 7)').value, 5);
+  assert.equal(ev('seq(s:0, for(i, 1..10, seq(if(i > 3, break(), 0), s:s + i)), s)').value, 6);
+  assert.equal(ev('seq(return(5), 7)').value, 5);
   assert.throws(() => ev('break()'), /va dentro de un for o un while/);
   assert.deepEqual(ev('find([0, 3, 0, 5])').mat, [[2, 4]]);
   assert.equal(ev('find([0, 0])').value, 0);

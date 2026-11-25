@@ -4,7 +4,7 @@
 import { dataVersion } from './datastore.js';
 import { argChar, decimalMode } from './locale.js';
 const paramSep = () => (decimalMode() === ',' ? /;/ : /[;,]/); // parametros de una funcion: con coma decimal solo «;»
-import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName, rngReset, rngState, rngMix } from './expr.js';
+import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName, rngReset, rngState, rngMix, genActive, genAt, GEN_RE } from './expr.js';
 import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg, setUserUnits, addUserUnit, onDocUnits, unitsVersion, UNIT_NAME_RE } from './units.js';
 import { solveEqs, splitEq, eqResiduals } from './nsolve.js';
@@ -123,14 +123,14 @@ export const contBack = (tk, s, show = false) => { let i = 0; return tk.conts ? 
 function joinOpen(src, ex) {
   const conts = [], imp = new Set();
   if (!src.includes('\n') || !/[([]/.test(src)) return { src, conts: ex, imp };
-  // un programa (line(, for(, while() se dibuja como se escribio, en varias lineas: sus cortes no van en imp
+  // un programa (seq(, for(, while() se dibuja como se escribio, en varias lineas: sus cortes no van en imp
   let out = '', lit = false, e = 0;
   const open = []; // true: el parentesis abierto es el de un programa
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
     if (c === CONT_MARK) { conts.push(ex[e++]); out += c; continue; }
     if (c === '`') lit = !lit;
-    else if (!lit && (c === '(' || c === '[')) open.push(c === '(' && /(?:^|[^A-Za-z0-9_])(?:line|for|while)\s*$/i.test(out));
+    else if (!lit && (c === '(' || c === '[')) open.push(c === '(' && /(?:^|[^A-Za-z0-9_])(?:seq|for|while)\s*$/i.test(out));
     else if (!lit && (c === ')' || c === ']')) open.pop();
     else if (!lit && c === '\n' && open.length) {
       const a = /[ \t]*$/.exec(out)[0], b = /^[ \t]*/.exec(src.slice(i + 1))[0];
@@ -501,7 +501,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   const events = readingEvents(doc, probes);
   if (!events.some((e) => e.kind !== 'dim')) return st; // sin definiciones ni salidas: nada que leer
   const key = JSON.stringify([events, dimVars, [...dimNames], angleRad(), unitsVersion(), dataVersion()]); // dataVersion: lo que lee rfile
-  if (key === memoKey) return memoSt; // las mismas definiciones, posiciones y cotas: el mismo resultado
+  if (key === memoKey && !genActive()) return memoSt; // las mismas definiciones, posiciones y cotas: el mismo resultado (salvo en la regeneracion, que debe ejecutar las llamadas)
   rngReset(); // rand, randn, randi: la misma secuencia en cada calculo del dibujo (ver expr.js)
   const check = (d) => { // ¿vale la definicion? (motivo si no)
     if (d.err) return `script «${d.name || '…'}»: ${d.err}`; // un script con un error de sintaxis (con su linea)
@@ -552,6 +552,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
       if (e.name) { dimLater.delete(e.name); if (pend.delete(e.name) && !hid.has(e.name) && !(e.name in env)) cur[e.name] = dimVars[e.name]; } // llego el lugar de la cota: vuelve a leerse
       st.dimEnv.set(e.id, { ...env }); st.dimHide.set(e.id, new Set([...hid, ...pend])); continue;
     } // una cota ve las variables de texto de este punto de la lectura
+    genAt(e.tid); // regeneracion del dibujo: lo que pidan point/line/circle en este enunciado es de este texto
     const drop = (n) => { (dimLater.has(n) ? pend : hid).add(n); delete cur[n]; st.cleared.add(n); };
     const back = (n) => { delete env[n]; if (n in dimVars && !hid.has(n) && !dimLater.has(n)) cur[n] = dimVars[n]; else { delete cur[n]; if (n in dimVars && !hid.has(n)) pend.add(n); } };
     if (e.kind === 'lib') { // biblioteca insertada: sus definiciones valen desde aqui como alias.nombre, atadas a sus propios nombres (qualify.js)
@@ -571,6 +572,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
     if (e.kind === 'out' || e.kind === 'def') st.at.set(k, { live: new Set(Object.keys(env)), expr: e.expr });
     if (e.kind === 'out') {
       st.outEnv.set(k, { ...cur });
+      if (genActive() && GEN_RE.test(e.expr)) { try { evalExpr(e.expr, { vars: cur, allowMat: true, allowCplx: true }); } catch (err) { (st.genBad ||= new Set()).add(e.tid); st.errs.set('gen:' + k, hint(err.message)); } } // una salida «line(a; b)=» tambien dibuja
       st.outRng.set(k, rngMix(rngState(), st.outRng.size)); // rand en una salida: siempre la misma tirada, distinta de la de otra salida
       if (/(?:^|[^A-Za-z0-9_.])rng\s*\(/.test(e.expr)) { try { st.rngOut.set(k, evalExpr(e.expr, { vars: cur, allowMat: true, allowCplx: true })); } catch (err) { /* el error se ve en la salida */ } } // «rng(7)=»: cambia la secuencia desde aqui; la salida muestra ESTE resultado (con «shuffle», la semilla que se uso)
       const cl = clearCall(e.expr);

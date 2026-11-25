@@ -19,7 +19,7 @@ t('literal, + y ==; las comillas del iPad; "" dentro', () => {
   assert.equal(E('"x" == "x"').value, 1); assert.equal(E('"x" != "x"').value, 0);
   assert.equal(S('if(σ<Sy, "Cumple", "No cumple")'), 'Cumple');
   assert.deepEqual(E('["a", "b"]').strs, ['a', 'b']);
-  assert.equal(S('line(s:"", for(e, ["x","y","z"], s:s+e), s)'), 'xyz');
+  assert.equal(S('seq(s:"", for(e, ["x","y","z"], s:s+e), s)'), 'xyz');
 });
 
 t('num2str con la unidad (como la muestra la app), decimales y complejos; sprintf', () => {

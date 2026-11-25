@@ -219,12 +219,23 @@ Pasos en orden y ciclos dentro de una fórmula. Dentro, `s:valor` asigna una var
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
-| `line(a; b; …; r)` | Hace los pasos en orden y vale el último. | `line(a:2; b:a^2; a+b)` | `6` |
-| `for(i; inicio..fin; cuerpo)` | Repite el cuerpo con i = inicio, inicio+1, … hasta fin (si fin < inicio, ninguna vez). Con un vector en lugar del rango, i toma cada elemento. | `suma2(n):line(s:0; for(i; 1..n; s:s+i^2); s)`<br>`suma2(10)=` | `385` |
-| `while(condición; cuerpo)` | Repite el cuerpo mientras la condición se cumpla. Para varios pasos en el cuerpo, `line(…)`. | `line(k:0; while(k^2<50; k:k+1); k)` | `8` |
-| `break()`, `continue()` | Dentro de un for o un while: `break()` sale del ciclo; `continue()` pasa a la vuelta siguiente. En un script se escriben solos en su línea: `break`, `continue`. | `line(s:0; for(i; 1..10; line(if(i > 3; break(); 0); s:s + i)); s)` | `6` |
-| `return(x)` | Termina la función (o el script) con el valor x, sin seguir. En un script, `return x`. | `line(return(5); 7)` | `5` |
-| `v_i:valor`, `A_(i,j):valor` | Asigna un elemento de un vector o de una matriz (o de un vector de cadenas) dentro de un programa, sobre una copia local: la variable del documento no cambia afuera. Un índice más allá del final agranda el vector con ceros (sirve para armar un vector en un `for`). El valor lleva la magnitud del vector; un vector de ceros sin unidades toma la del primer valor. | `line(p:[1,2,3]; p_2:7; sum(p))` | `11` |
+| `seq(a; b; …; r)` | Hace los pasos en orden y vale el último. | `seq(a:2; b:a^2; a+b)` | `6` |
+| `for(i; inicio..fin; cuerpo)` | Repite el cuerpo con i = inicio, inicio+1, … hasta fin (si fin < inicio, ninguna vez). Con un vector en lugar del rango, i toma cada elemento. | `suma2(n):seq(s:0; for(i; 1..n; s:s+i^2); s)`<br>`suma2(10)=` | `385` |
+| `while(condición; cuerpo)` | Repite el cuerpo mientras la condición se cumpla. Para varios pasos en el cuerpo, `seq(…)`. | `seq(k:0; while(k^2<50; k:k+1); k)` | `8` |
+| `break()`, `continue()` | Dentro de un for o un while: `break()` sale del ciclo; `continue()` pasa a la vuelta siguiente. En un script se escriben solos en su línea: `break`, `continue`. | `seq(s:0; for(i; 1..10; seq(if(i > 3; break(); 0); s:s + i)); s)` | `6` |
+| `return(x)` | Termina la función (o el script) con el valor x, sin seguir. En un script, `return x`. | `seq(return(5); 7)` | `5` |
+| `v_i:valor`, `A_(i,j):valor` | Asigna un elemento de un vector o de una matriz (o de un vector de cadenas) dentro de un programa, sobre una copia local: la variable del documento no cambia afuera. Un índice más allá del final agranda el vector con ceros (sirve para armar un vector en un `for`). El valor lleva la magnitud del vector; un vector de ceros sin unidades toma la del primer valor. | `seq(p:[1,2,3]; p_2:7; sum(p))` | `11` |
+
+## Dibujar desde un script
+
+Un texto de cálculo puede **dibujar**: `point`, `line` y `circle` crean puntos, líneas y círculos y devuelven su **nombre** (una cadena), con el que los demás se refieren a ellos. Lo generado lo gobierna el script: sus puntos son fijos, se identifican por su nombre (local al texto que los dibuja) y se actualizan solos cuando cambian las variables que el script lee. Puedes ponerles cotas y relaciones, pero no moverlos, recortarlos ni borrarlos a mano: se cambia la llamada. Una cota entre dos cosas generadas pasa a ser de referencia. Si quitas una llamada, lo que dibujaba desaparece. Como siempre en el orden de lectura, el script va arriba o a la izquierda de lo que lo lee.
+
+| Función | Qué hace | Ejemplo | Da |
+|---|---|---|---|
+| `point("A"; x; y)` | Crea el punto A en (x, y), en unidades del dibujo, y devuelve su nombre. Es fijo. El nombre es local al texto: dos textos pueden tener un «A». | `point("A"; 10; 5)=` | `“A”` |
+| `line(a; b)`, `line(a; b; "eje")` | Una línea entre dos puntos ya creados con point (por su nombre o por la variable que lo guarda). El tipo de línea es opcional ("eje", "oculta"…); sin él, continua. | `line("A"; "B")=` | `“A-B”` |
+| `circle(c; r)`, `circle(c; r; "oculta")` | Un círculo con centro en el punto c (creado con point) y radio r. El tipo de línea es opcional. | `circle("A"; 4)=` | `“o(A)”` |
+|  | Un rectángulo que depende de w y h: cámbialos y se redibuja. | `w:40`<br>`h:30`<br>`p1:point("A"; 0; 0)`<br>`p2:point("B"; w; 0)`<br>`p3:point("C"; w; h)`<br>`p4:point("D"; 0; h)`<br>`s1:line(p1; p2)`<br>`s2:line(p2; p3)`<br>`s3:line(p3; p4)`<br>`s4:line(p4; p1)=` | `“D-A”` |
 
 ## Ecuaciones
 

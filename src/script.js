@@ -86,7 +86,7 @@ export function parseScript(src) {
       else stmts.push(ln.s);
     }
     if (!stmts.length) return top ? fail(lines[i - 1] || first, 'el script no tiene ningún paso que dé un valor (la última línea es el valor)') : null;
-    return stmts.length === 1 ? stmts[0] : `line(${stmts.join(S)})`;
+    return stmts.length === 1 ? stmts[0] : `seq(${stmts.join(S)})`;
   }
   try {
     const body = block(0, true);

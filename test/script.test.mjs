@@ -19,7 +19,7 @@ const call = (src, args) => {
 const clean = (s) => s.replace(/[\uE000-\uF8FF]/g, '');
 
 t('traduccion: for, while, if/elif/else, varios pasos por vuelta, funciones locales, comentarios y la forma de una linea', () => {
-  assert.equal(parseScript('%suma2(n):\n  s:0\n  for i in 1..n:\n    s:s+i^2\n  s').body, 'line(s:0; for(i; 1..n; s:s+i^2); s)');
+  assert.equal(parseScript('%suma2(n):\n  s:0\n  for i in 1..n:\n    s:s+i^2\n  s').body, 'seq(s:0; for(i; 1..n; s:s+i^2); s)');
   assert.equal(call('%suma2(n):\n  s:0\n  for i in 1..n:\n    s:s+i^2\n  s', 10), 385);
   const signo = '%signo(x):\n  if x>0:\n    1\n  elif x<0:\n    -1\n  else:\n    0';
   assert.deepEqual([call(signo, -3), call(signo, 0), call(signo, 5)], [-1, 0, 1]);

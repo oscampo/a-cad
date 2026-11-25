@@ -207,12 +207,22 @@ export const FUNC_GROUPS = [
     title: 'Programas',
     note: 'Pasos en orden y ciclos dentro de una fórmula. Dentro, <code>s:valor</code> asigna una variable <b>local</b>: vale solo en esa fórmula (no crea variables del documento ni cambia las de afuera). Se pueden escribir en varias líneas, con sangría, y se dibujan como se escribieron. Un ciclo tiene un tope de 100 000 vueltas y 1,5 s: si lo pasa, avisa en vez de congelar la app.',
     rows: [
-      ['<code>line(a; b; …; r)</code>', 'Hace los pasos en orden y vale el último.', 'line(a:2; b:a^2; a+b)', '6', 'n'],
-      ['<code>for(i; inicio..fin; cuerpo)</code>', 'Repite el cuerpo con i = inicio, inicio+1, … hasta fin (si fin < inicio, ninguna vez). Con un vector en lugar del rango, i toma cada elemento.', 'suma2(n):line(s:0; for(i; 1..n; s:s+i^2); s)\nsuma2(10)=', '385', 't'],
-      ['<code>while(condición; cuerpo)</code>', 'Repite el cuerpo mientras la condición se cumpla. Para varios pasos en el cuerpo, <code>line(…)</code>.', 'line(k:0; while(k^2<50; k:k+1); k)', '8', 'n'],
-      ['<code>break()</code>, <code>continue()</code>', 'Dentro de un for o un while: <code>break()</code> sale del ciclo; <code>continue()</code> pasa a la vuelta siguiente. En un script se escriben solos en su línea: <code>break</code>, <code>continue</code>.', 'line(s:0; for(i; 1..10; line(if(i > 3; break(); 0); s:s + i)); s)', '6', 'n'],
-      ['<code>return(x)</code>', 'Termina la función (o el script) con el valor x, sin seguir. En un script, <code>return x</code>.', 'line(return(5); 7)', '5', 'n'],
-      ['<code>v_i:valor</code>, <code>A_(i,j):valor</code>', 'Asigna un elemento de un vector o de una matriz (o de un vector de cadenas) dentro de un programa, sobre una copia local: la variable del documento no cambia afuera. Un índice más allá del final agranda el vector con ceros (sirve para armar un vector en un <code>for</code>). El valor lleva la magnitud del vector; un vector de ceros sin unidades toma la del primer valor.', 'line(p:[1,2,3]; p_2:7; sum(p))', '11', 'n'],
+      ['<code>seq(a; b; …; r)</code>', 'Hace los pasos en orden y vale el último.', 'seq(a:2; b:a^2; a+b)', '6', 'n'],
+      ['<code>for(i; inicio..fin; cuerpo)</code>', 'Repite el cuerpo con i = inicio, inicio+1, … hasta fin (si fin < inicio, ninguna vez). Con un vector en lugar del rango, i toma cada elemento.', 'suma2(n):seq(s:0; for(i; 1..n; s:s+i^2); s)\nsuma2(10)=', '385', 't'],
+      ['<code>while(condición; cuerpo)</code>', 'Repite el cuerpo mientras la condición se cumpla. Para varios pasos en el cuerpo, <code>seq(…)</code>.', 'seq(k:0; while(k^2<50; k:k+1); k)', '8', 'n'],
+      ['<code>break()</code>, <code>continue()</code>', 'Dentro de un for o un while: <code>break()</code> sale del ciclo; <code>continue()</code> pasa a la vuelta siguiente. En un script se escriben solos en su línea: <code>break</code>, <code>continue</code>.', 'seq(s:0; for(i; 1..10; seq(if(i > 3; break(); 0); s:s + i)); s)', '6', 'n'],
+      ['<code>return(x)</code>', 'Termina la función (o el script) con el valor x, sin seguir. En un script, <code>return x</code>.', 'seq(return(5); 7)', '5', 'n'],
+      ['<code>v_i:valor</code>, <code>A_(i,j):valor</code>', 'Asigna un elemento de un vector o de una matriz (o de un vector de cadenas) dentro de un programa, sobre una copia local: la variable del documento no cambia afuera. Un índice más allá del final agranda el vector con ceros (sirve para armar un vector en un <code>for</code>). El valor lleva la magnitud del vector; un vector de ceros sin unidades toma la del primer valor.', 'seq(p:[1,2,3]; p_2:7; sum(p))', '11', 'n'],
+    ],
+  },
+  {
+    title: 'Dibujar desde un script',
+    note: 'Un texto de cálculo puede <b>dibujar</b>: <code>point</code>, <code>line</code> y <code>circle</code> crean puntos, líneas y círculos y devuelven su <b>nombre</b> (una cadena), con el que los demás se refieren a ellos. Lo generado lo gobierna el script: sus puntos son fijos, se identifican por su nombre (local al texto que los dibuja) y se actualizan solos cuando cambian las variables que el script lee. Puedes ponerles cotas y relaciones, pero no moverlos, recortarlos ni borrarlos a mano: se cambia la llamada. Una cota entre dos cosas generadas pasa a ser de referencia. Si quitas una llamada, lo que dibujaba desaparece. Como siempre en el orden de lectura, el script va arriba o a la izquierda de lo que lo lee.',
+    rows: [
+      ['<code>point("A"; x; y)</code>', 'Crea el punto A en (x, y), en unidades del dibujo, y devuelve su nombre. Es fijo. El nombre es local al texto: dos textos pueden tener un «A».', 'point("A"; 10; 5)=', '“A”', 't'],
+      ['<code>line(a; b)</code>, <code>line(a; b; "eje")</code>', 'Una línea entre dos puntos ya creados con point (por su nombre o por la variable que lo guarda). El tipo de línea es opcional ("eje", "oculta"…); sin él, continua.', 'line("A"; "B")=', '“A-B”', 't'],
+      ['<code>circle(c; r)</code>, <code>circle(c; r; "oculta")</code>', 'Un círculo con centro en el punto c (creado con point) y radio r. El tipo de línea es opcional.', 'circle("A"; 4)=', '“o(A)”', 't'],
+      ['', 'Un rectángulo que depende de w y h: cámbialos y se redibuja.', 'w:40\nh:30\np1:point("A"; 0; 0)\np2:point("B"; w; 0)\np3:point("C"; w; h)\np4:point("D"; 0; h)\ns1:line(p1; p2)\ns2:line(p2; p3)\ns3:line(p3; p4)\ns4:line(p4; p1)=', '“D-A”', 't'],
     ],
   },
   {

@@ -58,7 +58,7 @@ Object.assign(MULTI, {
   nchoosek: { n: [2, 2], f: (A) => { const n = intOf(A[0], 'nchoosek(n, k)', 'n'), k = intOf(A[1], 'nchoosek(n, k)', 'k'); if (k < 0 || n < 0 || k > n) throw new Error('nchoosek(n, k): hace falta 0 ≤ k ≤ n'); let c = 1; for (let i = 1; i <= Math.min(k, n - k); i++) c = (c * (n - Math.min(k, n - k) + i)) / i; return { v: Math.round(c), r: false }; } },
   nthroot: { n: [2, 2], f: (A) => { const x = A[0].v, n = A[1].v; if (!Number.isInteger(n) || n === 0) throw new Error('nthroot(x, n): n debe ser un entero distinto de 0'); if (x < 0 && n % 2 === 0) throw rt('nthroot(x, n): con x negativo, n debe ser impar (para un complejo usa x^(1/n))'); return { v: Math.sign(x) * Math.abs(x) ** (1 / n), r: false }; } },
 });
-const LAZY = new Set(['if', 'si', 'fzero', 'line', 'for', 'while', 'integral', 'wfile', 'rfile', 'break', 'continue', 'return', 'entered']); // break, continue y return: senales de los programas (ver lazyFor) // wfile/rfile: el nombre del archivo no se evalua (ver lazyWfile) // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
+const LAZY = new Set(['if', 'si', 'fzero', 'seq', 'for', 'while', 'integral', 'wfile', 'rfile', 'break', 'continue', 'return', 'entered']); // break, continue y return: senales de los programas (ver lazyFor) // wfile/rfile: el nombre del archivo no se evalua (ver lazyWfile) // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
 // Funciones de vectores y matrices (reciben un vector o una matriz): inv, det; resumenes (sobre todos los elementos): sum, prod, mean, median, std, variance, norm, len;
 // forma: rows, cols, trace, diag, eye(n); acumuladas: cumsum, cumprod; entre dos vectores: dot, cross. min(x) y max(x) con un solo vector tambien resumen.
 const MATFN = new Set(['inv', 'det', 'sum', 'prod', 'mean', 'median', 'std', 'variance', 'norm', 'len', 'rows', 'cols', 'trace', 'diag', 'eye', 'cumsum', 'cumprod', 'dot', 'cross']);
@@ -222,7 +222,7 @@ function tokenize(src, vars = null, loose = false) {
       i += L; continue;
     }
     if (c === '.' && src[i + 1] === '.') { toks.push({ t: 'op', v: '..', i, j: i + 2 }); i += 2; continue; } // rango de for: 1..n
-    if (c === ':') { toks.push({ t: 'asg', i, j: i + 1 }); i++; continue; } // asignacion: solo dentro de line(), for() o while()
+    if (c === ':') { toks.push({ t: 'asg', i, j: i + 1 }); i++; continue; } // asignacion: solo dentro de seq(), for() o while()
     if (c === '*' && src[i + 1] === '*') { toks.push({ t: 'op', v: '^', i, j: i + 2 }); i += 2; continue; }
     if (c === '.' && '*/^'.includes(src[i + 1] ?? ' ')) { toks.push({ t: 'op', v: '.' + src[i + 1], i, j: i + 2 }); i += 2; continue; } // elemento a elemento: .* ./ .^
     if (c === '[') depth++; else if (c === ']') depth = Math.max(0, depth - 1);
@@ -969,7 +969,27 @@ function sprintfA(A) {
   } while (k > 0 && k < vals.length && ++guard < 1000);
   return { str: out };
 }
+// ---- Dibujar desde un script: point("A"; x; y), line("A"; "B"), circle("A"; r) ----
+// Cada una devuelve el NOMBRE del objeto (una cadena), que es como los demas se refieren a el. Fuera del paso de regeneracion (gen.js) no hacen
+// nada mas: asi un texto puede reevaluarse cuantas veces quiera (al redibujar) sin que el dibujo cambie. Durante la regeneracion, GEN recoge
+// lo que piden; el dibujo lo reconcilia despues (los objetos generados los gobierna el script).
+let GEN = null;
+export const setGenSink = (s) => { GEN = s; };
+export const genActive = () => !!GEN;
+export const genAt = (ns) => { GEN?.at?.(ns); }; // el texto cuyo enunciado se evalua (los nombres son locales a el)
+export const GEN_RE = /(?:^|[^A-Za-z0-9_.])(?:point|line|circle)\s*\(/i;
+export const GEN_FUNCS = ['point', 'line', 'circle'];
+const genName = (a, fn, what) => { if (typeof a?.str !== 'string' || !a.str.trim()) throw new Error(`${fn}: ${what} es un nombre entre comillas, p. ej. "A"`); return a.str.trim(); };
+const genNum = (a, fn, what) => {
+  if (!Number.isFinite(a?.v) || a.im || a.mat || a.fn) throw new Error(`${fn}: ${what} debe ser un número`);
+  if (a.d && a.d.some((x) => x)) throw new Error(`${fn}: ${what} lleva unidades; las coordenadas van en unidades del dibujo (divide por la unidad, p. ej. L/1'mm)`);
+  return a.v;
+};
+const genStyle = (a, fn) => { if (a === undefined) return undefined; if (typeof a?.str !== 'string') throw new Error(`${fn}: el tipo de línea es una cadena, p. ej. "eje"`); return a.str.trim(); };
 const SF = {
+  point: { n: [3, 3], f: (A) => { const nm = genName(A[0], 'point', 'el nombre'); const x = genNum(A[1], 'point', 'x'), y = genNum(A[2], 'point', 'y'); GEN?.point(nm, x, y); return { str: nm }; } },
+  line: { n: [2, 3], f: (A) => { const a = genName(A[0], 'line', 'el primer punto'), b = genName(A[1], 'line', 'el segundo punto'); GEN?.line(a, b, genStyle(A[2], 'line')); return { str: a + '-' + b }; } },
+  circle: { n: [2, 3], f: (A) => { const c = genName(A[0], 'circle', 'el centro'), r = genNum(A[1], 'circle', 'el radio'); if (!(r > 0)) throw new Error('circle: el radio debe ser mayor que 0'); GEN?.circle(c, r, genStyle(A[2], 'circle')); return { str: 'o(' + c + ')' }; } },
   num2str: { n: [1, 2], f: (A) => ({ str: numText(A[0], A[1] !== undefined ? intArg(A[1], 'num2str(x, n)', 'n', 0, 12) : undefined) }) },
   string: { n: [1, 1], f: (A) => (A[0].strs ? A[0] : { str: numText(A[0]) }) },
   str2double: { n: [1, 1], f: (A) => { const t = strArg(A[0], 'str2double(s)').trim().replace(',', '.'), v = Number(t); if (!t || !Number.isFinite(v)) throw rt(`str2double: «${A[0].str}» no es un número`); return { v, r: false }; } },
@@ -1061,11 +1081,11 @@ function evalExpr0(src, opts) {
     try { return evalExpr1(src, opts); } catch (e2) { throw e; } finally { setDecimal(null); }
   }
 }
-// Programas en las formulas (como en SMath): line(a, b, …, r) hace todo en orden y vale lo ultimo; for(i, a..b, cuerpo) y
+// Programas en las formulas (como en SMath): seq(a, b, …, r) hace todo en orden y vale lo ultimo; for(i, a..b, cuerpo) y
 // while(condicion, cuerpo) repiten. Dentro, «s:valor» asigna una variable LOCAL: vale solo en esa formula (no crea variables del
 // documento ni cambia el orden de lectura). withLocals copia las variables (para no tocar las de afuera) y da un lugar a cada nombre que se
 // asigna o que es la variable de un for, para poder leer la formula antes de que tenga valor.
-const PROG_RE = /(?:^|[^A-Za-z0-9_])(?:line|for|while)\s*\(/i;
+const PROG_RE = /(?:^|[^A-Za-z0-9_])(?:seq|for|while)\s*\(/i;
 const ASG_RE = /(?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_'.])([A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*'*)\s*:(?!=)/g;
 const FOR_RE = /(?:^|[^A-Za-z0-9_])for\s*\(\s*([A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*'*)\s*[,;]/g;
 function withLocals(s, vars) {
@@ -1158,7 +1178,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   const mulU = (a, b, s, v, asUnit = false) => (!asUnit && (zero0(a) || (s > 0 && zero0(b))) ? { v: 0, r: false } : { v, r: a.r || b.r, d: mulDim(a.d, b.d, s) });
 
   // comparacion (la de menor precedencia): da 1 si se cumple y 0 si no. «==» y «!=» toleran el error de redondeo.
-  const ASG_MSG = () => `«:» asigna un valor solo dentro de line(), for() o while(), p. ej. line(s:0${argText()} s:s+1${argText()} s)`;
+  const ASG_MSG = () => `«:» asigna un valor solo dentro de seq(), for() o while(), p. ej. seq(s:0${argText()} s:s+1${argText()} s)`;
   // un enunciado de un programa: «nombre:valor» (asigna la variable local y vale ese valor) o una expresion
   function stmt() {
     const k = peek(), n = toks[p + 1];
@@ -1218,14 +1238,14 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   }
   const progSep = (msg) => { if (peek()?.t !== 'sep') throw new Error(msg()); p++; };
   const closeP = (msg) => { if (!isOp(')')) throw new Error(peek()?.t === 'sep' ? msg() : 'Falta cerrar un paréntesis'); p++; };
-  const LINE_MSG = () => `line(a${argText()} b${argText()} …) lleva los pasos separados por «${argText()}»; vale el último`;
+  const SEQ_MSG = () => `seq(a${argText()} b${argText()} …) lleva los pasos separados por «${argText()}»; vale el último`;
   const FOR_MSG = () => `for(i${argText()} inicio..fin${argText()} cuerpo) o for(i${argText()} vector${argText()} cuerpo): la variable, lo que recorre y lo que repite`;
   const WHILE_MSG = () => `while(condición${argText()} cuerpo): repite el cuerpo mientras la condición se cumpla`;
-  function lazyLine() { // ya se leyo «line(»
-    if (isOp(')')) throw new Error(LINE_MSG());
+  function lazySeq() { // ya se leyo «seq(»
+    if (isOp(')')) throw new Error(SEQ_MSG());
     let last;
     for (;;) { last = stmt(); if (peek()?.t === 'sep') { p++; continue; } break; }
-    closeP(LINE_MSG);
+    closeP(SEQ_MSG);
     return last;
   }
   function lazyFor() { // ya se leyo «for(»
@@ -1758,7 +1778,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       p++;
       if (k.v === 'fzero') return lazyFzero();
       if (k.v === 'integral') return lazyIntegral();
-      if (k.v === 'line') return lazyLine();
+      if (k.v === 'seq') return lazySeq();
       if (k.v === 'for') return lazyFor();
       if (k.v === 'while') return lazyWhile();
       if (k.v === 'wfile') return lazyWfile();

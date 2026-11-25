@@ -219,12 +219,23 @@ Steps in order and loops inside a formula. Inside, `s:valor` assigns a **local**
 
 | Function | What it does | Example | Gives |
 |---|---|---|---|
-| `line(a; b; …; r)` | Does the steps in order and takes the value of the last one. | `line(a:2; b:a^2; a+b)` | `6` |
-| `for(i; inicio..fin; cuerpo)` | Repeats the body with i = inicio, inicio+1, … up to fin (if fin < inicio, zero times). With a vector instead of the range, i takes each element. | `suma2(n):line(s:0; for(i; 1..n; s:s+i^2); s)`<br>`suma2(10)=` | `385` |
-| `while(condición; cuerpo)` | Repeats the body while the condition holds. For several steps in the body, `line(…)`. | `line(k:0; while(k^2<50; k:k+1); k)` | `8` |
-| `break()`, `continue()` | Inside a for or a while: `break()` exits the loop; `continue()` moves on to the next iteration. In a script they are written alone on their line: `break`, `continue`. | `line(s:0; for(i; 1..10; line(if(i > 3; break(); 0); s:s + i)); s)` | `6` |
-| `return(x)` | Ends the function (or the script) with the value x, without going on. In a script, `return x`. | `line(return(5); 7)` | `5` |
-| `v_i:valor`, `A_(i,j):valor` | Assigns an element of a vector or matrix (or of a string vector) inside a program, on a local copy: the document variable does not change outside. An index past the end extends the vector with zeros (useful for building a vector in a `for`). The value takes the vector's magnitude; a vector of unitless zeros takes that of the first value. | `line(p:[1,2,3]; p_2:7; sum(p))` | `11` |
+| `seq(a; b; …; r)` | Does the steps in order and takes the value of the last one. | `seq(a:2; b:a^2; a+b)` | `6` |
+| `for(i; inicio..fin; cuerpo)` | Repeats the body with i = inicio, inicio+1, … up to fin (if fin < inicio, zero times). With a vector instead of the range, i takes each element. | `suma2(n):seq(s:0; for(i; 1..n; s:s+i^2); s)`<br>`suma2(10)=` | `385` |
+| `while(condición; cuerpo)` | Repeats the body while the condition holds. For several steps in the body, `seq(…)`. | `seq(k:0; while(k^2<50; k:k+1); k)` | `8` |
+| `break()`, `continue()` | Inside a for or a while: `break()` exits the loop; `continue()` moves on to the next iteration. In a script they are written alone on their line: `break`, `continue`. | `seq(s:0; for(i; 1..10; seq(if(i > 3; break(); 0); s:s + i)); s)` | `6` |
+| `return(x)` | Ends the function (or the script) with the value x, without going on. In a script, `return x`. | `seq(return(5); 7)` | `5` |
+| `v_i:valor`, `A_(i,j):valor` | Assigns an element of a vector or matrix (or of a string vector) inside a program, on a local copy: the document variable does not change outside. An index past the end extends the vector with zeros (useful for building a vector in a `for`). The value takes the vector's magnitude; a vector of unitless zeros takes that of the first value. | `seq(p:[1,2,3]; p_2:7; sum(p))` | `11` |
+
+## Drawing from a script
+
+A calculation text can **draw**: `point`, `line` and `circle` create points, lines and circles and return their **name** (a string), which is how the others refer to them. What is generated is governed by the script: its points are fixed, they are identified by their name (local to the text that draws them) and they update on their own when the variables the script reads change. You can put dimensions and constraints on them, but you cannot move, trim or delete them by hand: you change the call. A dimension between two generated things becomes a reference dimension. If you remove a call, what it drew disappears. As always in the reading order, the script goes above or to the left of whatever reads it.
+
+| Function | What it does | Example | Gives |
+|---|---|---|---|
+| `point("A"; x; y)` | Creates the point A at (x, y), in drawing units, and returns its name. It is fixed. The name is local to the text: two texts can each have an "A". | `point("A"; 10; 5)=` | `“A”` |
+| `line(a; b)`, `line(a; b; "eje")` | A line between two points already created with point (by name or by the variable that holds it). The line type is optional ("eje", "oculta"…); without it, continuous. | `line("A"; "B")=` | `“A-B”` |
+| `circle(c; r)`, `circle(c; r; "oculta")` | A circle centered at the point c (created with point) and radius r. The line type is optional. | `circle("A"; 4)=` | `“o(A)”` |
+|  | A rectangle that depends on w and h: change them and it redraws. | `w:40`<br>`h:30`<br>`p1:point("A"; 0; 0)`<br>`p2:point("B"; w; 0)`<br>`p3:point("C"; w; h)`<br>`p4:point("D"; 0; h)`<br>`s1:line(p1; p2)`<br>`s2:line(p2; p3)`<br>`s3:line(p3; p4)`<br>`s4:line(p4; p1)=` | `“D-A”` |
 
 ## Equations
 
