@@ -1017,10 +1017,10 @@ const genStyle = (a, fn) => { if (a === undefined) return undefined; if (typeof 
 const SF = {
   point: { n: [2, 3], f: (A) => { // point(x; y): se llama como la variable; point("A"; x; y): con nombre explicito (p. ej. dentro de un for)
     const nm = A.length === 3 ? genName(A[0], 'point', 'el nombre') : implicitName(), i = A.length === 3 ? 1 : 0;
-    const x = genNum(A[i], 'point', 'x'), y = genNum(A[i + 1], 'point', 'y'); GEN?.point(nm, x, y); return { str: nm, gen: { k: 'pt', x, y } };
+    const x = genNum(A[i], 'point', 'x'), y = genNum(A[i + 1], 'point', 'y'); GEN?.point(nm, x, y); return { str: nm, gen: { k: 'pt', x, y, ...(GEN?.cur?.() ? { ns: GEN.cur() } : {}) } }; // ns: el texto que lo genero; al usar la variable en otro texto, line/arc/circle saben de donde viene
   } },
-  line: { n: [2, 3], f: (A) => { const a = genName(A[0], 'line', 'el primer punto'), b = genName(A[1], 'line', 'el segundo punto'); GEN?.line(a, b, genStyle(A[2], 'line')); const p = A[0].gen, q = A[1].gen; return { str: a + '-' + b, ...(p?.k === 'pt' && q?.k === 'pt' ? { gen: { k: 'ln', a: p, b: q } } : {}) }; } },
-  arc: { n: [3, 4], f: (A) => { const c = genName(A[0], 'arc', 'el centro'), a = genName(A[1], 'arc', 'el primer extremo'), b = genName(A[2], 'arc', 'el segundo extremo'); GEN?.arc(c, a, b, genStyle(A[3], 'arc')); const p = A[0].gen, q = A[1].gen; return { str: 'arc(' + c + ',' + a + '-' + b + ')', ...(p?.k === 'pt' && q?.k === 'pt' ? { gen: { k: 'ar', x: p.x, y: p.y, r: Math.hypot(q.x - p.x, q.y - p.y) } } : {}) }; } },
+  line: { n: [2, 3], f: (A) => { const a = genName(A[0], 'line', 'el primer punto'), b = genName(A[1], 'line', 'el segundo punto'); GEN?.line(a, b, genStyle(A[2], 'line'), { a: A[0].gen?.ns, b: A[1].gen?.ns }); const p = A[0].gen, q = A[1].gen; return { str: a + '-' + b, ...(p?.k === 'pt' && q?.k === 'pt' ? { gen: { k: 'ln', a: p, b: q } } : {}) }; } },
+  arc: { n: [3, 4], f: (A) => { const c = genName(A[0], 'arc', 'el centro'), a = genName(A[1], 'arc', 'el primer extremo'), b = genName(A[2], 'arc', 'el segundo extremo'); GEN?.arc(c, a, b, genStyle(A[3], 'arc'), { c: A[0].gen?.ns, a: A[1].gen?.ns, b: A[2].gen?.ns }); const p = A[0].gen, q = A[1].gen; return { str: 'arc(' + c + ',' + a + '-' + b + ')', ...(p?.k === 'pt' && q?.k === 'pt' ? { gen: { k: 'ar', x: p.x, y: p.y, r: Math.hypot(q.x - p.x, q.y - p.y) } } : {}) }; } },
   spline: { n: [1, 3], f: (A) => {
     const v = A[0];
     if (!v?.strs || v.strs.length < 2) throw new Error('spline: los puntos son un vector de nombres, p. ej. ["A", "B", "C"] (al menos 2)');
@@ -1031,7 +1031,7 @@ const SF = {
     GEN?.spline(names, closed, style);
     return { str: 'spline(' + names.join(',') + ')' };
   } },
-  circle: { n: [2, 3], f: (A) => { const c = genName(A[0], 'circle', 'el centro'), r = genNum(A[1], 'circle', 'el radio'); if (!(r > 0)) throw new Error('circle: el radio debe ser mayor que 0'); GEN?.circle(c, r, genStyle(A[2], 'circle')); const p = A[0].gen; return { str: 'o(' + c + ')', ...(p?.k === 'pt' ? { gen: { k: 'ci', x: p.x, y: p.y, r } } : {}) }; } },
+  circle: { n: [2, 3], f: (A) => { const c = genName(A[0], 'circle', 'el centro'), r = genNum(A[1], 'circle', 'el radio'); if (!(r > 0)) throw new Error('circle: el radio debe ser mayor que 0'); GEN?.circle(c, r, genStyle(A[2], 'circle'), { c: A[0].gen?.ns }); const p = A[0].gen; return { str: 'o(' + c + ')', ...(p?.k === 'pt' ? { gen: { k: 'ci', x: p.x, y: p.y, r } } : {}) }; } },
   num2str: { n: [1, 2], f: (A) => ({ str: numText(A[0], A[1] !== undefined ? intArg(A[1], 'num2str(x, n)', 'n', 0, 12) : undefined) }) },
   string: { n: [1, 1], f: (A) => (A[0].strs ? A[0] : { str: numText(A[0]) }) },
   str2double: { n: [1, 1], f: (A) => { const t = strArg(A[0], 'str2double(s)').trim().replace(',', '.'), v = Number(t); if (!t || !Number.isFinite(v)) throw rt(`str2double: «${A[0].str}» no es un número`); return { v, r: false }; } },

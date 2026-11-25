@@ -401,4 +401,56 @@ t('fuera de line/circle/arc/spline, un punto del dibujo no es una variable (sigu
   assert.throws(() => evalExpr('p1 + 1', { vars: { 'p1.x': { v: 5, r: false }, 'p1.y': { v: 5, r: false } }, allowMat: true, allowCplx: true }), /No reconozco/);
 });
 
+// ---- un punto de OTRO texto: la variable que lo guarda lleva su texto de origen (sin prefijos ni ids)
+function mkMulti(...bodies) {
+  const d = newDoc(); const u = addPoint(d, 5, 5); // p1 del usuario
+  const ids = bodies.map((b, i) => addText(d, addPoint(d, -50, 50 - 10 * i), '$$' + b + '$$', {}));
+  return { d, u, ids };
+}
+
+t('una linea usa, por su variable, un punto que genero otro texto (y uno del usuario)', () => {
+  const { d, u, ids } = mkMulti('pto2:point(p1.x + 30; p1.y)', 'pto3:point(pto2.x; pto2.y + 40)', 's1:line(p1; pto2)', 's2:line(pto2; pto3)');
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  assert.equal(n(d.lines), 2);
+  assert.equal(linesOf(d, u).length, 1);
+  assert.equal(linesOf(d, d.gen.map[ids[0] + '/pto2']).length, 2);
+});
+
+t('dos textos con el mismo nombre de punto: la variable dice cual es, sin adivinar', () => {
+  const { d, ids } = mkMulti('a1:point("A"; 1; 1)', 'a2:point("A"; 5; 5)', 'b:point("B"; 9; 9)\nl:line(a2; b)\nm:line(a1; b)');
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  assert.equal(n(d.lines), 2);
+  const A1 = d.gen.map[ids[0] + '/A'], A2 = d.gen.map[ids[1] + '/A'], B = d.gen.map[ids[2] + '/B'];
+  assert.ok(A1 && A2 && A1 !== A2);
+  assert.equal(linesOf(d, A1).length, 1); assert.equal(linesOf(d, A2).length, 1); assert.equal(linesOf(d, B).length, 2);
+});
+
+t('por nombre entre comillas sigue siendo local al texto: usar el de otro texto da el aviso de siempre', () => {
+  const { d } = mkMulti('a1:point("A"; 1; 1)', 'b:point("B"; 9; 9)\nl:line("A"; "B")');
+  const r = regenerate(d);
+  assert.ok(r.errs.some((e) => /falta un punto/.test(e)), r.errs.join(' | '));
+  assert.equal(n(d.lines), 0);
+});
+
+t('el punto de otro texto sigue al script que lo genera; quitar la linea no toca el punto', () => {
+  const { d, ids } = mkMulti('w:30\npto2:point(w; 0)', 's1:line(p1; pto2)');
+  regenerate(d);
+  const P2 = d.gen.map[ids[0] + '/pto2'];
+  d.texts[ids[0]].text = d.texts[ids[0]].text.replace('w:30', 'w:50');
+  regenerate(d);
+  assert.equal(d.pts[P2].x, 50); assert.equal(n(d.lines), 1);
+  d.texts[ids[1]].text = '$$$$';
+  regenerate(d);
+  assert.equal(n(d.lines), 0); assert.ok(d.pts[P2]);
+});
+
+t('circle y arc con puntos de otros textos', () => {
+  const { d } = mkMulti('o:point(0; 0)', 'a:point(4; 0)\nb:point(0; 4)', 'c1:circle(o; 3)\nar:arc(o; a; b)');
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  assert.equal(Object.keys(d.circles).length, 1); assert.equal(Object.keys(d.arcs).length, 1);
+});
+
 console.log(`${passed} pruebas de dibujo generado`);

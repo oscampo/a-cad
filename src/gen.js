@@ -47,28 +47,32 @@ export function genOwners(doc, sel) {
 function collector() {
   const req = { pts: new Map(), lines: new Map(), circles: new Map(), arcs: new Map(), splines: new Map(), errs: [] };
   let ns = null; const radii = new Map();
+  // Un punto que viene de OTRO texto (la variable que lo guarda lleva su texto de origen, o): en la llave se escribe «origen.nombre» para no confundirlo con uno local.
+  const qn = (name, o) => (o && o !== ns ? o + '.' + name : name);
   const sink = {
     at: (t) => { ns = t; },
+    cur: () => ns,
     point(name, x, y) {
       const key = ns + '/' + name, o = req.pts.get(key);
       if (o && (Math.abs(o.x - x) > EPS || Math.abs(o.y - y) > EPS)) req.errs.push({ ns, msg: `el punto «${name}» se define dos veces con coordenadas distintas` });
       else if (!o) req.pts.set(key, { ns, name, x, y });
     },
-    line(a, b, style) {
-      const key = ns + '/' + [a, b].sort().join('|');
-      if (!req.lines.has(key)) req.lines.set(key, { ns, a, b, style });
+    line(a, b, style, o) {
+      const key = ns + '/' + [qn(a, o?.a), qn(b, o?.b)].sort().join('|');
+      if (!req.lines.has(key)) req.lines.set(key, { ns, a, b, oa: o?.a, ob: o?.b, style });
       else if (style !== undefined) req.lines.get(key).style = style;
     },
-    circle(c, r, style) {
-      const rs = radii.get(ns + '/' + c) || radii.set(ns + '/' + c, []).get(ns + '/' + c);
+    circle(c, r, style, o) {
+      const cq = qn(c, o?.c);
+      const rs = radii.get(ns + '/' + cq) || radii.set(ns + '/' + cq, []).get(ns + '/' + cq);
       let i = rs.findIndex((q) => Math.abs(q - r) < EPS);
       if (i < 0) { rs.push(r); i = rs.length - 1; }
-      const key = ns + '/o:' + c + '#' + i;
-      if (!req.circles.has(key)) req.circles.set(key, { ns, c, r, style });
+      const key = ns + '/o:' + cq + '#' + i;
+      if (!req.circles.has(key)) req.circles.set(key, { ns, c, oc: o?.c, r, style });
     },
-    arc(c, a, b, style) {
-      const key = ns + '/a:' + [c, a, b].join('|');
-      if (!req.arcs.has(key)) req.arcs.set(key, { ns, c, a, b, style });
+    arc(c, a, b, style, o) {
+      const key = ns + '/a:' + [qn(c, o?.c), qn(a, o?.a), qn(b, o?.b)].join('|');
+      if (!req.arcs.has(key)) req.arcs.set(key, { ns, c, a, b, oc: o?.c, oa: o?.a, ob: o?.b, style });
       else if (style !== undefined) req.arcs.get(key).style = style;
     },
     spline(names, closed, style) {
@@ -141,10 +145,11 @@ export function regenerate(doc) {
     if (Math.abs(p.x - r.x) > EPS || Math.abs(p.y - r.y) > EPS) { p.x = r.x; p.y = r.y; out.changed = true; }
     if (!p.fixed) { p.fixed = true; out.changed = true; }
   }
-  const pid = (ns, name) => map[ns + '/' + name] || rel[ns + '/' + name] || (doc.pts[name] ? name : undefined), has = (id) => !!(id && doc.pts[id]); // pid: lo de este texto primero; si no, un punto del dibujo (p5)
+  const pid = (ns, name, from) => map[(from || ns) + '/' + name] || rel[(from || ns) + '/' + name] || (doc.pts[name] ? name : undefined), // from: el texto de origen del punto (si la variable lo trae)
+    has = (id) => !!(id && doc.pts[id]); // pid: lo de este texto primero; si no, un punto del dibujo (p5)
   // lineas
   for (const [key, r] of req.lines) {
-    const a = pid(r.ns, r.a), b = pid(r.ns, r.b);
+    const a = pid(r.ns, r.a, r.oa), b = pid(r.ns, r.b, r.ob);
     if (!(has(a) && has(b))) { note(`line("${r.a}"; "${r.b}"): falta un punto: créalo antes con point("${!has(a) ? r.a : r.b}"; x; y)`); continue; }
     if (!ltOk(r.style)) { note(`line("${r.a}"; "${r.b}"): «${r.style}» no es un tipo de línea`); continue; }
     seen.add(key);
@@ -156,7 +161,7 @@ export function regenerate(doc) {
   }
   // circulos
   for (const [key, r] of req.circles) {
-    const c = pid(r.ns, r.c);
+    const c = pid(r.ns, r.c, r.oc);
     if (!has(c)) { note(`circle("${r.c}"; r): falta el centro: créalo antes con point("${r.c}"; x; y)`); continue; }
     if (!ltOk(r.style)) { note(`circle("${r.c}"; r): «${r.style}» no es un tipo de línea`); continue; }
     seen.add(key);
@@ -169,7 +174,7 @@ export function regenerate(doc) {
   }
   // arcos: centro y dos extremos (antihorario de a a b); los extremos deben estar a la misma distancia del centro, que es el radio
   for (const [key, r] of req.arcs) {
-    const c = pid(r.ns, r.c), a = pid(r.ns, r.a), b = pid(r.ns, r.b);
+    const c = pid(r.ns, r.c, r.oc), a = pid(r.ns, r.a, r.oa), b = pid(r.ns, r.b, r.ob);
     if (!(has(c) && has(a) && has(b))) { note(`arc("${r.c}"; "${r.a}"; "${r.b}"): falta un punto: créalo antes con point(nombre; x; y)`); continue; }
     if (!ltOk(r.style)) { note(`arc("${r.c}"; "${r.a}"; "${r.b}"): «${r.style}» no es un tipo de línea`); continue; }
     const C = doc.pts[c], ra = Math.hypot(doc.pts[a].x - C.x, doc.pts[a].y - C.y), rb = Math.hypot(doc.pts[b].x - C.x, doc.pts[b].y - C.y);
