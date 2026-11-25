@@ -1,4 +1,4 @@
-<!-- es: 1a75f62e22 -->
+<!-- es: 3088837abc -->
 # 10. Style, layers and view
 
 Color, line type, width and fills; layers; what the view shows; and the element tree.
@@ -14,6 +14,8 @@ Color, line type, width and fills; layers; what the view shows; and the element 
 - **Color.**
 - **Line type:** continuous, hidden, axis, phantom, dashed, dotted, dash-dot, or a new one with its own pattern.
 - **Width:** thin, normal, thick.
+
+**Mixed selection.** Each property changes only the elements it applies to: color reaches lines, texts and hatches; line type and width, the graphics (lines, circles, arcs, ellipses, splines, leader lines and traces), not the text or the hatch; **font** and **height** (rows that appear when a text is selected), only the texts. Rows that do not apply to the selection are dimmed. If the elements have different values the control says "(various)" and only changes what you choose.
 
 ## Fill / hatch
 

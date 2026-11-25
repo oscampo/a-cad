@@ -177,6 +177,8 @@ dialog.help a { color: var(--accent); }
 .row label { flex: 1 1 90px; color: var(--muted); }
 .row input[type=number], .row input[type=text], .row select { flex: 1 1 90px; min-width: 0; min-height: 36px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--btn); }
 .row input[type=range] { flex: 2 1 120px; }
+.row[hidden] { display: none; }
+.st-off { opacity: 0.4; pointer-events: none; } /* SmartStyle: la propiedad no aplica a lo seleccionado */
 .sw { display: flex; flex-wrap: wrap; gap: 6px; }
 .sw button { width: 34px; height: 34px; min-width: 34px; min-height: 34px; padding: 0; border-radius: 17px; border-width: 2px; }
 .sw button.on { outline: 3px solid var(--accent); outline-offset: 1px; }
@@ -410,6 +412,8 @@ body.nopanel #panel { display: none; }
     <div class="row"><label for="ltEl">Escala del patrón</label><input type="range" id="ltEl" min="0.2" max="3" step="0.1" value="1"></div>
     <div class="row"><label for="weight">Grosor</label><select id="weight"><option value="1">Fino</option><option value="2" selected>Normal</option><option value="3.5">Grueso</option></select></div>
     <div class="row"><label for="dimFs" id="dimFsLabel">Letra de cotas (px)</label><input type="number" id="dimFs" min="0" step="any" value="12"></div>
+    <div class="row" id="stFontRow" hidden><label for="stFont">Fuente</label><select id="stFont"></select></div>
+    <div class="row" id="stHRow" hidden><label for="stH" id="stHLabel">Altura</label><input type="number" id="stH" min="0.01" step="any"></div>
 </details>
 <details class="sec" data-sec="lt"><summary data-icon="linetype"><i></i>Nuevo tipo de línea</summary>
     <div class="row"><label for="ltName">Nombre</label><input type="text" id="ltName" placeholder="mi tipo"></div>

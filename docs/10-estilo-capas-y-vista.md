@@ -14,6 +14,8 @@ Color, tipo de línea, grosor y rellenos; capas; lo que muestra la vista; y el �
 - **Tipo de línea:** continua, oculta, eje, fantasma, discontinua, punteada, traza y punto, o uno nuevo con su patrón.
 - **Grosor:** fino, normal, grueso.
 
+**Selección mixta.** Cada propiedad cambia solo los elementos a los que aplica: el color llega a líneas, textos y rellenos; el tipo de línea y el grosor, a los gráficos (líneas, círculos, arcos, elipses, splines, líneas indicativas y trazados), no al texto ni al relleno; la **fuente** y la **altura** (filas que aparecen cuando hay un texto seleccionado), solo a los textos. Las filas que no sirven a lo seleccionado se ven atenuadas. Si los elementos tienen valores distintos, el control dice «(varios)» y solo cambia lo que tú elijas.
+
 ## Relleno / achurado
 
 ![Relleno / achurado](icons/hatch.svg) **Relleno / achurado** se aplica sobre un contorno cerrado (líneas, arcos o círculo).

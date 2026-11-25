@@ -16,6 +16,7 @@ import { crossPoints } from './snapx.js';
 import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, pasteClip } from './edit.js';
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
+import { STYLE_PROPS, styleState, applyStyleProp, styleObjects } from './smartstyle.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, dimH, ARROW, ARROW_HW, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, diamGeom, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow, revForHead } from './vectors.js';
@@ -4032,17 +4033,14 @@ async function editDimension(id) {
 }
 
 // ---------------------------------------------------------------- estilo, tipos de linea, rellenos
+// SmartStyle: cada propiedad se escribe solo en los elementos de la seleccion a los que aplica (ver smartstyle.js): el color llega a lineas,
+// textos y rellenos; el tipo de linea y el grosor, a los gráficos; la fuente y la altura, solo al texto. La letra de las cotas es aparte.
 function applyStyle(prop, value) {
-  cur[prop] = value;
+  if (prop === 'font' || prop === 'h') cur.tx[prop] = value; else cur[prop] = value; // y queda como lo de lo nuevo
   let touched = false;
   if (sel.length) pushUndo();
-  for (const s of sel) {
-    const o = s.k === 'ln' ? doc.lines[s.id] : s.k === 'ci' ? doc.circles[s.id] : s.k === 'ar' ? doc.arcs[s.id] : s.k === 'sp' ? doc.splines[s.id] : s.k === 'el' ? doc.ellipses[s.id] : (s.k === 'ha' || s.k === 'tx') && prop === 'color' ? (s.k === 'ha' ? doc.hatches[s.id] : doc.texts[s.id]) : null;
-    if (o) { o[prop] = value; touched = true; if (prop === 'ltype' && value === 'constructiva') { o.color = CLINE_STYLE.color; o.w = CLINE_STYLE.w; } } // convertir a constructiva toma su color y grosor
-    else if (s.k === 'co' && doc.cons[s.id]?.t === 'LEAD' && ['color', 'ltype', 'w', 'ls'].includes(prop)) { (leadBody(doc, doc.cons[s.id]) || doc.cons[s.id])[prop] = value; touched = true; } // con cuerpo: el estilo es el del elemento // línea indicativa: color, tipo y grosor
-    else if (prop === 'dimFs' && s.k === 'co' && doc.cons[s.id]?.v !== undefined) { const k = doc.cons[s.id]; if (doc.dimText) k.th = dimFsRead(value); else if (value !== DIM_FS) k.fs = value; else delete k.fs; touched = true; } // letra de una cota seleccionada
-    else if (s.k === 'pt' && doc.traces[s.id]) { doc.traces[s.id][prop] = value; touched = true; } // el estilo de un punto con trazado es el de su trayectoria
-  }
+  if (prop in STYLE_PROPS) touched = applyStyleProp(doc, sel, prop, value) > 0;
+  else if (prop === 'dimFs') for (const s of sel) if (s.k === 'co' && doc.cons[s.id]?.v !== undefined) { const k = doc.cons[s.id]; if (doc.dimText) k.th = dimFsRead(value); else if (value !== DIM_FS) k.fs = value; else delete k.fs; touched = true; } // letra de una cota seleccionada
   if (sel.length && !touched) undoStack.pop();
   afterChange();
 }
@@ -4100,8 +4098,18 @@ function syncPanel() {
   $('ltEl').value = String(sv.ls ?? 1);
   fillLtypes(sv.ltype);
   $('weight').value = String(sv.w);
+  // SmartStyle: lo que la seleccion tiene igual o distinto, y que filas del panel le sirven
+  const stC = styleState(doc, sel, 'color'), stT = styleState(doc, sel, 'ltype'), stW = styleState(doc, sel, 'w'), stF = styleState(doc, sel, 'font'), stH = styleState(doc, sel, 'h');
+  const mix = (id, S, val = '') => { const s = $(id); s.querySelector('option[data-mixed]')?.remove(); if (S.mixed) { const o = new Option('(varios)', val); o.dataset.mixed = '1'; s.add(o, 0); s.value = val; } };
+  mix('ltype', stT); mix('weight', stW); mix('stFont', stF, '__mixed__');
+  const hasDim = sel.some((s) => s.k === 'co' && doc.cons[s.id]?.v !== undefined), styled = hasDim || styleObjects(doc, sel).length > 0;
+  const apply = (el, ok) => { if (!el) return; el.classList.toggle('st-off', styled && !ok); el.title = styled && !ok ? 'No aplica a lo seleccionado' : ''; }; // con solo puntos o relaciones seleccionados sigue valiendo para lo nuevo
+  apply($('swatches'), stC.n > 0); apply($('ltype').closest('.row'), stT.n > 0); apply($('ltprev'), stT.n > 0); apply($('ltEl').closest('.row'), stT.n > 0); apply($('weight').closest('.row'), stW.n > 0); apply($('dimFs').closest('.row'), hasDim);
+  $('stFontRow').hidden = !stF.n; $('stHRow').hidden = !stH.n;
+  if (stF.n && !stF.mixed) $('stFont').value = stF.value || '';
+  if (stH.n) { $('stHLabel').textContent = doc.page ? 'Altura (pt)' : 'Altura'; $('stH').value = stH.mixed ? '' : String(doc.page ? ptOf(stH.value) : Math.round(stH.value * 1000) / 1000); $('stH').placeholder = stH.mixed ? '(varios)' : ''; }
   { const dk = sel.map((s) => (s.k === 'co' ? doc.cons[s.id] : null)).find((k) => k && k.v !== undefined); $('dimFs').value = String(dk ? dimFsShow(dk) : doc.dimText ? dimFsShow(null) : cur.dimFs || DIM_FS); $('dimFsLabel').textContent = dimFsLabel('Letra de cotas'); } // la de la cota seleccionada o la de las nuevas
-  panelColor = sv.color || 'auto';
+  panelColor = stC.mixed ? '' : sv.color || 'auto'; // varios colores: ninguna muestra marcada
   panelPicker?.refresh();
   if (hat) { $('hKind').value = hat.kind; $('hAngle').value = hat.angle; $('hSpace').value = hat.spacing; $('hAlpha').value = hat.alpha; }
   drawSample($('ltprev'), (allLtypes(doc)[sv.ltype] || allLtypes(doc).continua).pattern, theme.fg);
@@ -5933,6 +5941,9 @@ $('del').onclick = () => {
   afterChange();
 };
 $('weight').onchange = (e) => applyStyle('w', Number(e.target.value));
+for (const f of FONTS) $('stFont').add(new Option(f[1], f[0]));
+$('stFont').onchange = (e) => { if (e.target.value !== '__mixed__') applyStyle('font', e.target.value); };
+$('stH').onchange = (e) => { const n = Number(String(e.target.value).replace(',', '.')); if (n > 0) applyStyle('h', doc.page ? n * PT : n); else syncPanel(); };
 $('dimFs').onchange = (e) => {
   const f = Number(String(e.target.value).replace(',', '.'));
   if (doc.dimText) { // con la letra de los textos: sin selección de cotas cambia la del documento (todas las que no tienen una propia)
