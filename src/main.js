@@ -17,7 +17,7 @@ import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, past
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { STYLE_PROPS, styleState, applyStyleProp, styleObjects } from './smartstyle.js';
-import { regenerate, isGen, genOwners } from './gen.js';
+import { regenerate, isGen, genOwners, releaseGen } from './gen.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, dimH, ARROW, ARROW_HW, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, diamGeom, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow, revForHead } from './vectors.js';
@@ -324,7 +324,7 @@ function updateFileTag() {
 }
 // Dibujo generado por scripts (gen.js): los textos que llaman a point/line/circle se vuelven a leer tras cada cambio y lo generado se reconcilia
 // (posiciones, fijo, borrado); si algo cambio, el dibujo se vuelve a resolver con lo generado como ancla. El aviso sale una vez por mensaje.
-const GEN_MSG = 'Lo generó un script: se cambia en su texto (quita o edita la llamada que lo dibuja)';
+const GEN_MSG = 'Lo generó un script: se cambia en su texto (quita o edita la llamada que lo dibuja) o se suelta con el botón Soltar';
 let genBusy = false, lastGenMsg = '', statusOwner = null; // statusOwner: el texto que genero lo seleccionado (para ir a el desde la barra de estado)
 function regenGen() {
   if (genBusy) return;
@@ -4243,6 +4243,7 @@ function updateStatus(p) {
   statusOwner = null;
   { const ow = genOwners(doc, sel); if (ow.length) { statusOwner = ow[0]; txt += ` · generado por el texto ${ow.join(', ')} (toca aquí para verlo)`; } } // lo generado por un script: de que texto viene
   $('status').style.cursor = statusOwner ? 'pointer' : '';
+  $('statusRelease').hidden = !sel.some((s) => isGen(doc, s.id)); // Soltar: solo si lo seleccionado lo genero un script
   $('status').textContent = txt;
 }
 // Centra la vista en un texto (el que genero lo seleccionado, que puede estar fuera de lo que se ve).
@@ -4255,6 +4256,13 @@ function showText(id) {
   clampPage(); draw(); persist();
 }
 $('status').onclick = () => { if (statusOwner) showText(statusOwner); };
+$('statusRelease').onclick = () => {
+  if (!sel.some((s) => isGen(doc, s.id))) return;
+  pushUndo();
+  const n = releaseGen(doc, sel);
+  toast(n === 1 ? 'Soltado: ya es un elemento normal (el texto no cambia)' : `Soltados ${n} elementos: ya son normales (el texto no cambia)`);
+  afterChange();
+};
 
 // ---------------------------------------------------------------- archivo
 // Pide el nombre del archivo (Safari guarda sin preguntar). Devuelve el nombre completo o null si se cancela.

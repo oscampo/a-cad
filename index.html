@@ -215,6 +215,8 @@ dialog.help a { color: var(--accent); }
 .cp .cp-hex { flex: 1 1 auto; min-width: 0; min-height: 32px; height: 32px; font-size: 14px; font-family: ui-monospace, monospace; }
 #statusWrap { display: flex; align-items: center; gap: 8px; padding: 2px 6px 2px 10px; border-top: 1px solid var(--line); background: var(--panel); min-height: 32px; }
 #status { flex: 1; min-width: 0; padding: 3px 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+#statusRelease { flex: none; min-height: 30px; padding: 0 12px; }
+#statusRelease[hidden] { display: none; }
 #statusHelp { flex: none; min-width: 30px; min-height: 30px; width: 30px; height: 30px; padding: 0; border-radius: 50%; font-weight: 700; line-height: 1; }
 /* «Mostrar donde esta»: el boton de verdad, resaltado un momento */
 @keyframes showme { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent); } 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent), 0 0 0 3px var(--accent); } }
@@ -457,7 +459,7 @@ body.nopanel #panel { display: none; }
   <button id="ghSave"></button><button id="ghOpen"></button><button id="ghCfg"></button>
   <button id="trTrace"></button><button id="trClear"></button><button id="mkReset"></button><button id="trSpline"></button><button id="spClose"></button><button id="spOffset"></button>
 </div>
-<footer id="statusWrap"><span id="status">Listo</span><button id="statusHelp" type="button" title="Ayuda de esta herramienta" aria-label="Ayuda de esta herramienta">?</button></footer>
+<footer id="statusWrap"><span id="status">Listo</span><button id="statusRelease" type="button" hidden title="Convierte lo seleccionado, que genera un script, en elementos normales (el texto no cambia)">Soltar</button><button id="statusHelp" type="button" title="Ayuda de esta herramienta" aria-label="Ayuda de esta herramienta">?</button></footer>
 <dialog id="dlgL"><form method="dialog">
   <p style="margin:0 0 8px"><b>SVG para corte láser</b></p>
   <div class="row"><label for="lsUnit">1 unidad del dibujo =</label><input type="number" id="lsUnit" step="any" min="0"><span>mm</span></div>

@@ -1,7 +1,7 @@
 // Dibujo generado por scripts: point/line/circle en los textos, reconciliados con el dibujo (gen.js).
 import assert from 'node:assert/strict';
-import { newDoc, addPoint, addLine, addText, addCon } from '../src/model.js';
-import { regenerate, isGen, genSet, genOwners } from '../src/gen.js';
+import { newDoc, addPoint, addLine, addText, addCon, deleteItems } from '../src/model.js';
+import { regenerate, isGen, genSet, genOwners, releaseGen } from '../src/gen.js';
 import { evalExpr } from '../src/expr.js';
 import { textVars } from '../src/params.js';
 
@@ -257,6 +257,69 @@ t('las propiedades funcionan aunque el dibujo no se haya regenerado, y no hay la
   const { d } = mk('$$w:20\na:point(0; 0)\nb:point(w; 0)\nl:line(a; b)\nk:l.L$$');
   assert.equal(textVars(d).vals.k.v, 20); // sin regenerar: el dibujo no tiene nada aun
   assert.equal(Object.keys(d.pts).length, 1);
+});
+
+t('Soltar: lo seleccionado deja de ser generado, se puede mover y regenerar no lo crea de nuevo ni lo mueve', () => {
+  const { d, tid } = mk(); regenerate(d);
+  const A = d.gen.map[tid + '/A'], AB = d.gen.map[tid + '/A|B'];
+  const nPts = n(d.pts), nLines = n(d.lines);
+  assert.equal(releaseGen(d, [{ k: 'pt', id: A }, { k: 'ln', id: AB }]), 2);
+  assert.equal(isGen(d, A), false); assert.equal(isGen(d, AB), false);
+  assert.equal(d.pts[A].fixed, false, 'el punto soltado se puede mover');
+  d.pts[A].x = 7; d.pts[A].y = 9; // el usuario lo mueve
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  assert.equal(n(d.pts), nPts); assert.equal(n(d.lines), nLines, 'no se duplica nada');
+  assert.deepEqual([d.pts[A].x, d.pts[A].y], [7, 9], 'el script ya no lo manda');
+  assert.equal(d.lines[AB].a === A || d.lines[AB].b === A, true, 'la linea soltada sigue usando el punto');
+  assert.equal(isGen(d, d.gen.map[tid + '/B']), true, 'lo no seleccionado sigue generado');
+});
+
+t('Soltar: un punto soltado sigue de extremo de lo que el script aun dibuja', () => {
+  const { d, tid } = mk(); regenerate(d);
+  const A = d.gen.map[tid + '/A'];
+  releaseGen(d, [{ k: 'pt', id: A }]);
+  d.pts[A].x = 3;
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []); assert.deepEqual(r.notes, []);
+  const da = d.lines[d.gen.map[tid + '/A|D']];
+  assert.ok(da.a === A || da.b === A);
+});
+
+t('Soltar: las cotas del usuario y el texto se quedan como estaban', () => {
+  const { d, tid } = mk(); regenerate(d);
+  const A = d.gen.map[tid + '/A'], B = d.gen.map[tid + '/B'];
+  const k = addCon(d, { t: 'DIST', refs: [A, B], v: 40 });
+  const text = d.texts[tid].text;
+  releaseGen(d, [{ k: 'pt', id: A }, { k: 'pt', id: B }]);
+  regenerate(d);
+  assert.ok(d.cons[k]); assert.equal(d.texts[tid].text, text);
+});
+
+t('Soltar: si el script deja de llamarlo, la llave soltada se olvida y el elemento queda normal', () => {
+  const { d, tid } = mk(); regenerate(d);
+  const A = d.gen.map[tid + '/A'];
+  releaseGen(d, [{ k: 'pt', id: A }]);
+  assert.ok(d.gen.rel[tid + '/A']);
+  d.texts[tid].text = d.texts[tid].text.replace('a:point("A"; 0; 0)\n', 'a:point("Z"; 0; 0)\n');
+  regenerate(d);
+  assert.equal(d.gen.rel?.[tid + '/A'], undefined, 'la llave soltada se olvida');
+  assert.ok(d.pts[A], 'el elemento sigue ahi, normal');
+});
+
+t('Soltar: borrar el elemento soltado lo hace volver a generarse si el script aun lo llama', () => {
+  const { d, tid } = mk(); regenerate(d);
+  const A = d.gen.map[tid + '/A'];
+  releaseGen(d, [{ k: 'pt', id: A }]);
+  const lines = Object.entries(d.lines).filter(([, l]) => l.a === A || l.b === A).map(([id]) => ({ k: 'ln', id }));
+  deleteItems(d, [...lines, { k: 'pt', id: A }]);
+  regenerate(d);
+  assert.ok(d.gen.map[tid + '/A'] && d.pts[d.gen.map[tid + '/A']], 'el script lo vuelve a crear');
+});
+
+t('Soltar sin nada generado no hace nada', () => {
+  const d = newDoc();
+  assert.equal(releaseGen(d, [{ k: 'pt', id: 'p1' }]), 0);
 });
 
 console.log(`${passed} pruebas de dibujo generado`);

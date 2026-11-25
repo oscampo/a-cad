@@ -18,6 +18,24 @@ export const hasGenCalls = (doc) => Object.values(doc.texts || {}).some((t) => t
 // Los ids de lo generado, y si un id lo es.
 export const genSet = (doc) => new Set(Object.values(doc.gen?.map || {}));
 export const isGen = (doc, id) => !!doc.gen?.map && Object.values(doc.gen.map).includes(id);
+// Soltar: lo seleccionado que genero un script pasa a ser un elemento normal (se puede mover, borrar y restringir). El texto no se toca: su
+// llamada sigue ahi pero ya no dibuja eso (doc.gen.rel = { llave: id } guarda lo soltado; al regenerar se salta, y un punto soltado sigue
+// sirviendo de extremo a lo que el script aun dibuje). Las cotas y restricciones que tenia se quedan como estan. Devuelve cuantos soltó.
+export function releaseGen(doc, sel) {
+  const map = doc.gen?.map;
+  if (!map) return 0;
+  const ids = new Set((sel || []).map((s) => s.id));
+  let n = 0;
+  doc.gen.rel ||= {};
+  for (const [key, id] of Object.entries(map)) {
+    if (!ids.has(id)) continue;
+    doc.gen.rel[key] = id; delete map[key]; n++;
+    if (doc.pts[id]) doc.pts[id].fixed = false;
+  }
+  if (!Object.keys(doc.gen.rel).length) delete doc.gen.rel;
+  if (!Object.keys(map).length && !doc.gen.rel) delete doc.gen;
+  return n;
+}
 // Los textos que generaron lo seleccionado (ids de texto, sin repetir): para decirle al usuario de donde viene y resaltarlos.
 export function genOwners(doc, sel) {
   const rev = new Map(Object.entries(doc.gen?.map || {}).map(([k, id]) => [id, k.split('/')[0]]));
@@ -90,7 +108,7 @@ function loops(doc) {
 // resolver el dibujo); errs: lo que no se pudo (se muestra al usuario); notes: avisos (p. ej. un punto que dejo de generarse pero otros usan).
 export function regenerate(doc) {
   const out = { changed: false, errs: [], notes: [] };
-  const had = Object.keys(doc.gen?.map || {}).length > 0;
+  const had = Object.keys(doc.gen?.map || {}).length > 0 || Object.keys(doc.gen?.rel || {}).length > 0;
   if (!had && !hasGenCalls(doc)) return out;
   const { req, sink } = collector();
   let st = null;
@@ -105,6 +123,12 @@ export function regenerate(doc) {
     for (const m of [req.pts, req.lines, req.circles, req.arcs, req.splines]) for (const key of [...m.keys()]) if (key.startsWith(ns + '/')) m.delete(key);
   }
   doc.gen ||= { map: {} };
+  // lo soltado: lo que ya no existe se olvida (el script lo vuelve a generar si sigue llamandolo); lo que se pide y esta soltado no se genera
+  const rel = doc.gen.rel || {}, alive = (id) => !!(doc.pts[id] || doc.lines[id] || doc.circles[id] || doc.arcs[id] || doc.splines?.[id]);
+  for (const [key, id] of Object.entries(rel)) if (!alive(id)) { delete rel[key]; out.changed = true; }
+  const asked = (key) => [req.pts, req.lines, req.circles, req.arcs, req.splines].some((m) => m.has(key));
+  for (const key of Object.keys(rel)) if (!asked(key) && !badNs.has(key.split('/')[0])) delete rel[key]; // el script (o su texto) ya no lo llama: es un elemento normal del todo
+  for (const m of [req.pts, req.lines, req.circles, req.arcs, req.splines]) for (const key of [...m.keys()]) if (key in rel) m.delete(key);
   const map = doc.gen.map, seen = new Set(), note = (m) => out.errs.push(m);
   const ltOk = (s) => s === undefined || s in allLtypes(doc);
   const STYLE = (s) => ({ color: 'auto', ltype: s || 'continua', w: 2, ls: 1 });
@@ -117,7 +141,7 @@ export function regenerate(doc) {
     if (Math.abs(p.x - r.x) > EPS || Math.abs(p.y - r.y) > EPS) { p.x = r.x; p.y = r.y; out.changed = true; }
     if (!p.fixed) { p.fixed = true; out.changed = true; }
   }
-  const pid = (ns, name) => map[ns + '/' + name], has = (id) => !!(id && doc.pts[id]);
+  const pid = (ns, name) => map[ns + '/' + name] || rel[ns + '/' + name], has = (id) => !!(id && doc.pts[id]);
   // lineas
   for (const [key, r] of req.lines) {
     const a = pid(r.ns, r.a), b = pid(r.ns, r.b);
@@ -209,6 +233,7 @@ export function regenerate(doc) {
     else if (k.t !== 'LEAD') dead.push({ k: 'co', id });
   }
   if (dead.length) { deleteItems(doc, dead); out.changed = true; }
-  if (!Object.keys(map).length) delete doc.gen;
+  if (!Object.keys(rel).length) delete doc.gen.rel;
+  if (!Object.keys(map).length && !doc.gen.rel) delete doc.gen;
   return out;
 }
