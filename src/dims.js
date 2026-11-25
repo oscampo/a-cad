@@ -178,15 +178,25 @@ export function dimUnreadable(k) {
   return !!(u && u.d && !isLenDim(u.d) && !k.srep);
 }
 
-export function dimText(doc, k) {
-  if (k.lbl) return lblIsMath(k.lbl) ? k.lbl : lblPlain(k.lbl);
-  if (k.t === 'LEAD') return '…'; // sin etiqueta: se ve (y se puede tocar) // etiqueta libre: «D» o una formula ($…$, la dibuja quien llama)
-  if (k.t === 'ANG4') { const x = v4(doc, k); return dimText(x.d, x.k); }
+// El valor de la cota como lo dice su etiqueta: { sym: el simbolo (⌀ o R, vacio si no lo lleva), q: el numero con su unidad }.
+function dimBody(doc, k) {
+  if (k.t === 'ANG4') { const x = v4(doc, k); return dimBody(x.d, x.k); }
   const v = dimValue(doc, k);
-  if (k.t === 'ANG') return k.unit === 'rad' ? fmtNum((v * Math.PI) / 180) + ' rad' : fmtNum(v) + '°';
+  if (k.t === 'ANG') return { sym: '', q: k.unit === 'rad' ? fmtNum((v * Math.PI) / 180) + ' rad' : fmtNum(v) + '°' };
   const tail = dimUnit(k.du) ? ' ' + k.du : '', q = (dimUnreadable(k) ? '⚠' : fmtNum(dimShown(doc, k))) + tail;
-  if (k.t === 'RAD') return (k.refs[0] in doc.circles ? DIAM : 'R') + q;
-  return q;
+  return { sym: k.t === 'RAD' ? (k.refs[0] in doc.circles ? DIAM : 'R') : '', q };
+}
+// En una etiqueta libre entre comillas, «<>» es el valor de la cota (el numero con su unidad, sin el simbolo ⌀ o R): ["Diametro del acetabulo : <>"].
+export const LBL_VALUE = '<>';
+export function dimText(doc, k) {
+  if (k.lbl) {
+    if (lblIsMath(k.lbl)) return k.lbl; // una formula no sustituye el valor
+    const t = lblPlain(k.lbl);
+    return k.t !== 'LEAD' && t.includes(LBL_VALUE) ? t.split(LBL_VALUE).join(dimBody(doc, k).q) : t;
+  }
+  if (k.t === 'LEAD') return '…'; // sin etiqueta: se ve (y se puede tocar) // etiqueta libre: «D» o una formula ($…$, la dibuja quien llama)
+  const { sym, q } = dimBody(doc, k);
+  return sym + q;
 }
 
 // ---- Lineas indicativas (anotaciones): { t: 'LEAD', refs: [punto, elemento], lbl, ox, oy, fs, color, ltype, w }

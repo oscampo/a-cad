@@ -253,6 +253,8 @@ El color solo se ve en pantalla: los puntos no salen en las exportaciones.
 
 **Con fórmula.** Con `[$fórmula$]` o `[$$fórmula$$]` la etiqueta se dibuja con el motor de los textos (subíndices, griegas, fracciones): `50[$D/2$]`, `8[$r_1$]`.
 
+**Con el valor.** Dentro de una etiqueta entre comillas, `<>` es el valor de la cota (el número con su unidad, sin el símbolo ⌀ ni R): `["Diámetro del acetábulo : <>"]` se lee «Diámetro del acetábulo : 40.052 mm» y sigue a la cota si cambia. Puede ir al principio, al final o en medio (`["<> (nominal)"]`), y se puede repetir. Si quieres el símbolo, escríbelo: `["⌀<> H7"]`. Sirve también en una cota de referencia, que no tiene valor que escribir. En una etiqueta con fórmula (`$…$`) y en las líneas indicativas no se sustituye.
+
 **Con escala.** Se combina con la escala, en ese orden: `30[*1'mm/kN]["F"]`.
 
 **Editar y quitar.** Al editar la cota se ve completa; para quitarla, borra el corchete.

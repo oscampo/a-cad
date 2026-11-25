@@ -1,4 +1,4 @@
-<!-- es: c8dbca2c69 -->
+<!-- es: 6f7c089312 -->
 # 6. Dimensions
 
 Dimensions: measurements that drive the geometry or only read it, with formulas, names, scale and units.
@@ -253,6 +253,8 @@ The color is only visible on screen: points do not appear in exports.
 **Free label**: at the end of a dimension's value, `["texto"]` changes what it says: `50["D"]` measures 50 and drives the drawing, but reads "D".
 
 **With a formula.** With `[$fórmula$]` or `[$$fórmula$$]` the label is drawn with the text engine (subscripts, Greek letters, fractions): `50[$D/2$]`, `8[$r_1$]`.
+
+**With the value.** Inside a quoted label, `<>` is the dimension's value (the number with its unit, without the ⌀ or R symbol): `["Acetabulum diameter : <>"]` reads "Acetabulum diameter : 40.052 mm" and follows the dimension if it changes. It can go at the start, at the end or in the middle (`["<> (nominal)"]`), and can be repeated. If you want the symbol, type it: `["⌀<> H7"]`. It also works on a reference dimension, which has no value to type. In a label with a formula (`$…$`) and in leader lines it is not replaced.
 
 **With a scale.** It combines with the scale, in that order: `30[*1'mm/kN]["F"]`.
 

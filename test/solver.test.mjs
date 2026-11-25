@@ -546,6 +546,15 @@ t('cotas de referencia: miden en vivo, no entran al solver y salen en cursiva', 
   const circ = addCircle(d, c, 4, {});
   const kc = { t: 'RAD', refs: [circ], v: 1, ref: true };
   assert.equal(dimText(d, kc), '⌀8');
+  // «<>» en una etiqueta libre entre comillas es el valor de la cota, sin el símbolo ⌀ ni R
+  assert.equal(dimText(d, { ...kc, lbl: '"Diámetro del acetábulo : <>"' }), 'Diámetro del acetábulo : 8');
+  assert.equal(dimText(d, { ...kc, lbl: '"⌀<> H7"' }), '⌀8 H7', 'el símbolo, si se quiere, se escribe');
+  assert.equal(dimText(d, { ...kc, lbl: '"<> (nominal)"' }), '8 (nominal)');
+  assert.equal(dimText(d, { ...kc, lbl: '"D"' }), 'D', 'sin «<>», la etiqueta es la de siempre');
+  assert.equal(dimText(d, { ...kc, lbl: '$D = <>$' }), '$D = <>$', 'una fórmula no sustituye el valor');
+  assert.equal(dimText(d, { ...kc, du: 'in', lbl: '"<>"' }).endsWith(' in'), true, 'con su unidad');
+  assert.equal(dimText(d, { t: 'DIST', refs: [a, b], v: 10, ref: true, lbl: '"L = <> y <>"' }), 'L = 10 y 10', 'cada «<>» se sustituye');
+  assert.equal(dimText(d, { t: 'LEAD', refs: [a, c], lbl: '"<>"' }), '<>', 'una línea indicativa no tiene valor: queda como está');
 });
 
 
