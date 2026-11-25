@@ -74,6 +74,10 @@ t('acumuladas y entre dos vectores: cumsum, cumprod, dot, cross', () => {
   assert.equal(num('[1,2,3]·[4;5;6]'), 32);
   assert.equal(num('[1;2;3]·[4;5;6]'), 32); // columna por columna: igual que dot()
   assert.equal(num('[1;2;3]⋅[4;5;6]'), 32);
+  assert.deepEqual(mat('[1;2]·[3,4]'), [[3, 4], [6, 8]]); // columna por fila: producto exterior (matriz), como con «*»
+  assert.deepEqual(mat('[1;2;3]·[1,2]'), [[1, 2], [2, 4], [3, 6]]); // tambien de distinto tamaño
+  assert.equal(num('[3,4]·[3;4]'), 25); // fila por columna: un escalar
+  assert.deepEqual(mat('[1;2]·[3,4]·[1;1]'), [[7], [14]]); // (a bᵀ)c: matriz por vector, sin ambiguedad
   assert.equal(num(String.raw`[1;2;3]\cdot[4;5;6]`), 32);
   assert.deepEqual(mat('[1,0,0]×[0,1,0]'), [[0, 0, 1]]);
   assert.deepEqual(mat('[1;2;3]×[4;5;6]'), [[-3], [6], [-3]]);

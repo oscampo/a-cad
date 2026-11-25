@@ -110,7 +110,7 @@ Se escriben entre corchetes: la coma separa los elementos de una fila, el punto 
 | `norm` | Norma euclidiana (de Frobenius en una matriz). | `norm([3,4])` | `5` |
 | `min(x)`, `max(x)` | Con un solo vector: su menor y su mayor elemento. | `max([4,1,9])` | `9` |
 | `cumsum`, `cumprod` | Suma y producto acumulados. | `cumsum([1,2,3])` | `[1, 3, 6]` |
-| `dot(a; b)` | Producto punto. También se escribe `a · b` (o `a ⋅ b`), en cualquier orientación. | `dot([1,2,3]; [4,5,6])` | `32` |
+| `dot(a; b)` | Producto punto. También se escribe `a · b` (o `a ⋅ b`), en cualquier orientación salvo columna por fila (`a · bᵀ`), que es el producto exterior, una matriz. | `dot([1,2,3]; [4,5,6])` | `32` |
 | `cross(a; b)` | Producto cruz de vectores de 3 elementos. También se escribe `a × b`. Con tres vectores, `a×b×c` y `a·b×c` son ambiguos y dan error: usa paréntesis. | `cross([1,0,0]; [0,1,0])` | `[0, 0, 1]` |
 | `dist(p; q)` | Distancia entre dos puntos (vectores del mismo tamaño, con sus unidades). | `dist([0,0]; [3,4])` | `5` |
 

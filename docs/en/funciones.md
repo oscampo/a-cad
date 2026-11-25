@@ -110,7 +110,7 @@ They are written in square brackets: the comma separates the elements of a row, 
 | `norm` | Euclidean norm (Frobenius for a matrix). | `norm([3,4])` | `5` |
 | `min(x)`, `max(x)` | With a single vector: its smallest and largest element. | `max([4,1,9])` | `9` |
 | `cumsum`, `cumprod` | Cumulative sum and product. | `cumsum([1,2,3])` | `[1, 3, 6]` |
-| `dot(a; b)` | Dot product. Also written `a · b` (or `a ⋅ b`), in any orientation. | `dot([1,2,3]; [4,5,6])` | `32` |
+| `dot(a; b)` | Dot product. Also written `a · b` (or `a ⋅ b`), in any orientation except column by row (`a · bᵀ`), which is the outer product, a matrix. | `dot([1,2,3]; [4,5,6])` | `32` |
 | `cross(a; b)` | Cross product of 3-element vectors. Also written `a × b`. With three vectors, `a×b×c` and `a·b×c` are ambiguous and give an error: use parentheses. | `cross([1,0,0]; [0,1,0])` | `[0, 0, 1]` |
 | `dist(p; q)` | Distance between two points (vectors of the same size, with their units). | `dist([0,0]; [3,4])` | `5` |
 

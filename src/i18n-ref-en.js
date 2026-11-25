@@ -312,7 +312,7 @@ export const REF_EN = {
   "rok4j81a": "Euclidean norm (Frobenius for a matrix).",
   "14k5wg11d": "With a single vector: its smallest and largest element.",
   "u6pu12r": "Cumulative sum and product.",
-  "zqag532v": "Dot product. Also written <code>a · b</code> (or <code>a ⋅ b</code>), in any orientation.",
+  "qjjrl59": "Dot product. Also written <code>a · b</code> (or <code>a ⋅ b</code>), in any orientation except column by row (<code>a · bᵀ</code>), which is the outer product, a matrix.",
   "kk22hl51": "Cross product of 3-element vectors. Also written <code>a × b</code>. With three vectors, <code>a×b×c</code> and <code>a·b×c</code> are ambiguous and give an error: use parentheses.",
   "1x590bb21": "Distance between two points (vectors of the same size, with their units).",
   "g8za6ru": "Building and reordering matrices",

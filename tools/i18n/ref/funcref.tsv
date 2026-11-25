@@ -85,7 +85,7 @@ urjgq21i	Desviación estándar y varianza muestrales (entre n−1).	Sample stand
 rok4j81a	Norma euclidiana (de Frobenius en una matriz).	Euclidean norm (Frobenius for a matrix).
 14k5wg11d	Con un solo vector: su menor y su mayor elemento.	With a single vector: its smallest and largest element.
 u6pu12r	Suma y producto acumulados.	Cumulative sum and product.
-zqag532v	Producto punto. También se escribe <code>a · b</code> (o <code>a ⋅ b</code>), en cualquier orientación.	Dot product. Also written <code>a · b</code> (or <code>a ⋅ b</code>), in any orientation.
+qjjrl59	Producto punto. También se escribe <code>a · b</code> (o <code>a ⋅ b</code>), en cualquier orientación salvo columna por fila (<code>a · bᵀ</code>), que es el producto exterior, una matriz.	Dot product. Also written <code>a · b</code> (or <code>a ⋅ b</code>), in any orientation except column by row (<code>a · bᵀ</code>), which is the outer product, a matrix.
 kk22hl51	Producto cruz de vectores de 3 elementos. También se escribe <code>a × b</code>. Con tres vectores, <code>a×b×c</code> y <code>a·b×c</code> son ambiguos y dan error: usa paréntesis.	Cross product of 3-element vectors. Also written <code>a × b</code>. With three vectors, <code>a×b×c</code> and <code>a·b×c</code> are ambiguous and give an error: use parentheses.
 1x590bb21	Distancia entre dos puntos (vectores del mismo tamaño, con sus unidades).	Distance between two points (vectors of the same size, with their units).
 g8za6ru	Construir y reordenar matrices	Building and reordering matrices

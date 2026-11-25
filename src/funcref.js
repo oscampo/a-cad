@@ -105,7 +105,7 @@ export const FUNC_GROUPS = [
       ['<code>norm</code>', 'Norma euclidiana (de Frobenius en una matriz).', 'norm([3,4])', '5', 'm'],
       ['<code>min(x)</code>, <code>max(x)</code>', 'Con un solo vector: su menor y su mayor elemento.', 'max([4,1,9])', '9', 'm'],
       ['<code>cumsum</code>, <code>cumprod</code>', 'Suma y producto acumulados.', 'cumsum([1,2,3])', '[1, 3, 6]', 'm'],
-      ['<code>dot(a; b)</code>', 'Producto punto. También se escribe <code>a · b</code> (o <code>a ⋅ b</code>), en cualquier orientación.', 'dot([1,2,3]; [4,5,6])', '32', 'm'],
+      ['<code>dot(a; b)</code>', 'Producto punto. También se escribe <code>a · b</code> (o <code>a ⋅ b</code>), en cualquier orientación salvo columna por fila (<code>a · bᵀ</code>), que es el producto exterior, una matriz.', 'dot([1,2,3]; [4,5,6])', '32', 'm'],
       ['<code>cross(a; b)</code>', 'Producto cruz de vectores de 3 elementos. También se escribe <code>a × b</code>. Con tres vectores, <code>a×b×c</code> y <code>a·b×c</code> son ambiguos y dan error: usa paréntesis.', 'cross([1,0,0]; [0,1,0])', '[0, 0, 1]', 'm'],
       ['<code>dist(p; q)</code>', 'Distancia entre dos puntos (vectores del mismo tamaño, con sus unidades).', 'dist([0,0]; [3,4])', '5', 'n'],
     ],

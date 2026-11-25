@@ -305,7 +305,10 @@ function addM(a, b, s) {
 // «·» y «×» tecleados significan lo mismo que dot() y cross() (ver el apartado de cálculo): con dos vectores son el producto escalar y el vectorial
 // (en cualquier orientación); con un escalar multiplican; entre matrices, «·» es el producto matricial y «×» da error con la pista «*».
 const isVec = (a) => isM(a) && (a.m.length === 1 || a.m[0].length === 1) && a.m.flat().length > 1;
+// columna por fila (a bᵀ) es el producto exterior, una matriz: ahí «·» es el producto matricial, no dot().
+const isOuter = (a, b) => isVec(a) && isVec(b) && a.m.length > 1 && a.m[0].length === 1 && b.m.length === 1 && b.m[0].length > 1;
 function dotTimes(kind, a, b) { // kind: 'd' (·) o 'x' (×); devuelve el valor
+  if (kind === 'd' && isOuter(a, b)) return mulM(a, b);
   if (isVec(a) && isVec(b)) return matFn(kind === 'd' ? 'dot' : 'cross', [a, b]);
   if (kind === 'x' && isM(a) && isM(b)) throw new Error(`«×» entre matrices no es el producto matricial: usa «*» (y cross(a${argText()} b) para el producto vectorial de dos vectores)`);
   return mulM(a, b);
@@ -1560,7 +1563,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
           const kind = ot.x ? 'x' : 'd', bv = isVec(b), av = isVec(a);
           if (bv && ((kind === 'x' && last === 'x') || last === 'd')) throw new Error(`Precedencia ambigua: «${last === 'd' ? 'a·b' : 'a×b'}» seguido de «${kind === 'x' ? '×' : '·'}» con otro vector se lee distinto según el orden; usa paréntesis, por ejemplo a·(b×c) o (a×b)×c`);
           const v = isM(a) || isM(b) ? wd(dotTimes(kind, a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit);
-          last = av && bv ? kind : null; a = v; continue;
+          last = av && bv && !(kind === 'd' && isOuter(a, b)) ? kind : null; a = v; continue;
         }
         last = null;
         if (o === '/') {
