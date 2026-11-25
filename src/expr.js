@@ -977,8 +977,8 @@ let GEN = null;
 export const setGenSink = (s) => { GEN = s; };
 export const genActive = () => !!GEN;
 export const genAt = (ns) => { GEN?.at?.(ns); }; // el texto cuyo enunciado se evalua (los nombres son locales a el)
-export const GEN_RE = /(?:^|[^A-Za-z0-9_.])(?:point|line|circle)\s*\(/i;
-export const GEN_FUNCS = ['point', 'line', 'circle'];
+export const GEN_RE = /(?:^|[^A-Za-z0-9_.])(?:point|line|circle|arc|spline)\s*\(/i;
+export const GEN_FUNCS = ['point', 'line', 'circle', 'arc', 'spline'];
 const genName = (a, fn, what) => { if (typeof a?.str !== 'string' || !a.str.trim()) throw new Error(`${fn}: ${what} es un nombre entre comillas, p. ej. "A"`); return a.str.trim(); };
 const genNum = (a, fn, what) => {
   if (!Number.isFinite(a?.v) || a.im || a.mat || a.fn) throw new Error(`${fn}: ${what} debe ser un número`);
@@ -989,6 +989,17 @@ const genStyle = (a, fn) => { if (a === undefined) return undefined; if (typeof 
 const SF = {
   point: { n: [3, 3], f: (A) => { const nm = genName(A[0], 'point', 'el nombre'); const x = genNum(A[1], 'point', 'x'), y = genNum(A[2], 'point', 'y'); GEN?.point(nm, x, y); return { str: nm }; } },
   line: { n: [2, 3], f: (A) => { const a = genName(A[0], 'line', 'el primer punto'), b = genName(A[1], 'line', 'el segundo punto'); GEN?.line(a, b, genStyle(A[2], 'line')); return { str: a + '-' + b }; } },
+  arc: { n: [3, 4], f: (A) => { const c = genName(A[0], 'arc', 'el centro'), a = genName(A[1], 'arc', 'el primer extremo'), b = genName(A[2], 'arc', 'el segundo extremo'); GEN?.arc(c, a, b, genStyle(A[3], 'arc')); return { str: 'arc(' + c + ',' + a + '-' + b + ')' }; } },
+  spline: { n: [1, 3], f: (A) => {
+    const v = A[0];
+    if (!v?.strs || v.strs.length < 2) throw new Error('spline: los puntos son un vector de nombres, p. ej. ["A", "B", "C"] (al menos 2)');
+    const names = v.strs.map((s) => s.trim());
+    let closed = false, style;
+    for (const o of A.slice(1)) { if (typeof o?.str !== 'string') throw new Error('spline: "cerrado" o el tipo de línea son cadenas, p. ej. "cerrado", "eje"'); const s = o.str.trim(); if (/^(cerrado|closed)$/i.test(s)) closed = true; else style = s; }
+    if (closed && names.length < 3) throw new Error('spline: un spline cerrado necesita al menos 3 puntos');
+    GEN?.spline(names, closed, style);
+    return { str: 'spline(' + names.join(',') + ')' };
+  } },
   circle: { n: [2, 3], f: (A) => { const c = genName(A[0], 'circle', 'el centro'), r = genNum(A[1], 'circle', 'el radio'); if (!(r > 0)) throw new Error('circle: el radio debe ser mayor que 0'); GEN?.circle(c, r, genStyle(A[2], 'circle')); return { str: 'o(' + c + ')' }; } },
   num2str: { n: [1, 2], f: (A) => ({ str: numText(A[0], A[1] !== undefined ? intArg(A[1], 'num2str(x, n)', 'n', 0, 12) : undefined) }) },
   string: { n: [1, 1], f: (A) => (A[0].strs ? A[0] : { str: numText(A[0]) }) },

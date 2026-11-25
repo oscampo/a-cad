@@ -228,13 +228,15 @@ Steps in order and loops inside a formula. Inside, `s:valor` assigns a **local**
 
 ## Drawing from a script
 
-A calculation text can **draw**: `point`, `line` and `circle` create points, lines and circles and return their **name** (a string), which is how the others refer to them. What is generated is governed by the script: its points are fixed, they are identified by their name (local to the text that draws them) and they update on their own when the variables the script reads change. You can put dimensions and constraints on them, but you cannot move, trim or delete them by hand: you change the call. A dimension between two generated things becomes a reference dimension. If you remove a call, what it drew disappears. As always in the reading order, the script goes above or to the left of whatever reads it.
+A calculation text can **draw**: `point`, `line` and `circle` create points, lines and circles and return their **name** (a string), which is how the others refer to them. What is generated is governed by the script: its points are fixed, they are identified by their name (local to the text that draws them) and they update on their own when the variables the script reads change. You can put dimensions and constraints on them, but you cannot move, trim or delete them by hand: you change the call. A dimension between two generated things becomes a reference dimension. If you remove a call, what it drew disappears. As always in the reading order, the script goes above or to the left of whatever reads it. If the text reads a reference dimension that measures what the text itself draws, it is a loop: the app warns and leaves what was generated as it was. When you select something generated, the status bar says which text it comes from (tap it to see it) and the text is highlighted.
 
 | Function | What it does | Example | Gives |
 |---|---|---|---|
 | `point("A"; x; y)` | Creates the point A at (x, y), in drawing units, and returns its name. It is fixed. The name is local to the text: two texts can each have an "A". | `point("A"; 10; 5)=` | `“A”` |
 | `line(a; b)`, `line(a; b; "eje")` | A line between two points already created with point (by name or by the variable that holds it). The line type is optional ("eje", "oculta"…); without it, continuous. | `line("A"; "B")=` | `“A-B”` |
 | `circle(c; r)`, `circle(c; r; "oculta")` | A circle centered at the point c (created with point) and radius r. The line type is optional. | `circle("A"; 4)=` | `“o(A)”` |
+| `arc(c; a; b)` | An arc centered at the point c with ends a and b (created with point), from a to b counterclockwise. a and b must be at the same distance from c, which is the radius. Optional line type. | `arc("O"; "A"; "B")=` | `“arc(O,A-B)”` |
+| `spline(["A", "B", "C"])` | A spline through the named points (at least 2), created with point. A second string "cerrado" (closed) closes it (at least 3 points); another one is the line type: `spline(["A", "B", "C"]; "cerrado"; "eje")`. | `spline(["A", "B", "C"])=` | `“spline(A,B,C)”` |
 |  | A rectangle that depends on w and h: change them and it redraws. | `w:40`<br>`h:30`<br>`p1:point("A"; 0; 0)`<br>`p2:point("B"; w; 0)`<br>`p3:point("C"; w; h)`<br>`p4:point("D"; 0; h)`<br>`s1:line(p1; p2)`<br>`s2:line(p2; p3)`<br>`s3:line(p3; p4)`<br>`s4:line(p4; p1)=` | `“D-A”` |
 
 ## Equations

@@ -17,7 +17,7 @@ import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, past
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { STYLE_PROPS, styleState, applyStyleProp, styleObjects } from './smartstyle.js';
-import { regenerate, isGen } from './gen.js';
+import { regenerate, isGen, genOwners } from './gen.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, dimH, ARROW, ARROW_HW, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, diamGeom, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow, revForHead } from './vectors.js';
@@ -325,7 +325,7 @@ function updateFileTag() {
 // Dibujo generado por scripts (gen.js): los textos que llaman a point/line/circle se vuelven a leer tras cada cambio y lo generado se reconcilia
 // (posiciones, fijo, borrado); si algo cambio, el dibujo se vuelve a resolver con lo generado como ancla. El aviso sale una vez por mensaje.
 const GEN_MSG = 'Lo generó un script: se cambia en su texto (quita o edita la llamada que lo dibuja)';
-let genBusy = false, lastGenMsg = '';
+let genBusy = false, lastGenMsg = '', statusOwner = null; // statusOwner: el texto que genero lo seleccionado (para ir a el desde la barra de estado)
 function regenGen() {
   if (genBusy) return;
   genBusy = true;
@@ -1240,9 +1240,32 @@ function draw() {
   if (!document.getElementById('ccPop').hidden) ccCheck(); // la lista de sugerencias no sobrevive a su entrada ni muestra un texto viejo
   setAngleMode(doc); // angulos e indicador decimal del dibujo activos para todo lo que se lea o se escriba
   render(ctx, cv.width, cv.height, view, { fg: theme.fg, bg: theme.bg, grid: opts.grid, cons: opts.cons, dims: opts.dims, texts: opts.texts, ui: true });
+  drawGenOwner();
   drawHud();
   syncScrollbar();
   syncLinkChip();
+}
+
+// ---- encima del dibujo (solo en pantalla): el texto que genero lo seleccionado, resaltado; si no esta a la vista, una marca en el borde hacia donde esta
+function drawGenOwner() {
+  const ow = genOwners(doc, sel);
+  if (!ow.length) return;
+  const c = ctx, W = cv.width / dpr, H = cv.height / dpr;
+  c.save(); c.strokeStyle = c.fillStyle = theme.sel; c.lineWidth = 1.5 * dpr; c.setLineDash([6 * dpr, 4 * dpr]);
+  for (const id of ow) {
+    const t = doc.texts[id];
+    if (!t || !doc.pts[t.pt]) continue;
+    const q = textCorners(doc, t, measureRel).map(toScreen);
+    c.beginPath(); q.forEach((p, i) => (i ? c.lineTo(p.x * dpr, p.y * dpr) : c.moveTo(p.x * dpr, p.y * dpr))); c.closePath(); c.stroke();
+    const cx = q.reduce((s, p) => s + p.x, 0) / q.length, cy = q.reduce((s, p) => s + p.y, 0) / q.length;
+    if (cx < 0 || cx > W || cy < 0 || cy > H) { // fuera de la vista
+      const x = Math.max(14, Math.min(W - 14, cx)), y = Math.max(14, Math.min(H - 14, cy)), right = x > W / 2;
+      c.setLineDash([]); c.beginPath(); c.arc(x * dpr, y * dpr, 6 * dpr, 0, 2 * Math.PI); c.fill();
+      c.font = `${11 * dpr}px -apple-system, system-ui, sans-serif`; c.textBaseline = 'middle'; c.textAlign = right ? 'right' : 'left'; c.fillText(id, (x + (right ? -12 : 12)) * dpr, y * dpr);
+      c.setLineDash([6 * dpr, 4 * dpr]);
+    }
+  }
+  c.restore();
 }
 
 // ---- encima del dibujo (solo en pantalla, nunca en lo exportado): la lupa del dedo
@@ -4217,8 +4240,21 @@ function updateStatus(p) {
   const gn = selMulti && selMulti.owner === sel ? multiGraphs().size : 0;
   if (gn && (sel.length || gn > 1)) txt = `${sel.length + gn} elementos seleccionados (${gn} gráfica${gn === 1 ? '' : 's'})`;
   if (p && tool !== 'select') { const m = snapAt(p.x, p.y); txt += `   (${fmt(m.x)}, ${fmt(m.y)})${m.type !== 'free' ? ' ' + { pt: 'punto', ln: 'sobre línea', ci: 'sobre círculo' }[m.type] : ''}`; }
+  statusOwner = null;
+  { const ow = genOwners(doc, sel); if (ow.length) { statusOwner = ow[0]; txt += ` · generado por el texto ${ow.join(', ')} (toca aquí para verlo)`; } } // lo generado por un script: de que texto viene
+  $('status').style.cursor = statusOwner ? 'pointer' : '';
   $('status').textContent = txt;
 }
+// Centra la vista en un texto (el que genero lo seleccionado, que puede estar fuera de lo que se ve).
+function showText(id) {
+  const t = doc.texts[id];
+  if (!t || !doc.pts[t.pt]) return;
+  const q = textCorners(doc, t, measureRel), xs = q.map((v) => v.x), ys = q.map((v) => v.y);
+  view.ox = cv.clientWidth / 2 - ((Math.min(...xs) + Math.max(...xs)) / 2) * view.s;
+  view.oy = cv.clientHeight / 2 + ((Math.min(...ys) + Math.max(...ys)) / 2) * view.s;
+  clampPage(); draw(); persist();
+}
+$('status').onclick = () => { if (statusOwner) showText(statusOwner); };
 
 // ---------------------------------------------------------------- archivo
 // Pide el nombre del archivo (Safari guarda sin preguntar). Devuelve el nombre completo o null si se cancela.

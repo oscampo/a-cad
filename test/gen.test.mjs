@@ -1,7 +1,7 @@
 // Dibujo generado por scripts: point/line/circle en los textos, reconciliados con el dibujo (gen.js).
 import assert from 'node:assert/strict';
 import { newDoc, addPoint, addLine, addText, addCon } from '../src/model.js';
-import { regenerate, isGen, genSet } from '../src/gen.js';
+import { regenerate, isGen, genSet, genOwners } from '../src/gen.js';
 import { evalExpr } from '../src/expr.js';
 
 let passed = 0;
@@ -138,6 +138,77 @@ t('una copia de un elemento generado ya no lo es (otro id)', () => {
   const { d, tid } = mk(); regenerate(d);
   const A = d.gen.map[tid + '/A'], copy = addPoint(d, d.pts[A].x, d.pts[A].y); // lo que haria copiar y pegar
   assert.equal(isGen(d, A), true); assert.equal(isGen(d, copy), false); assert.equal(genSet(d).has(copy), false);
+});
+
+t('arc: centro y dos extremos a la misma distancia; el radio sale de ahi y sigue al script', () => {
+  const T = '$$r:10\no:point("O"; 0; 0)\na:point("A"; r; 0)\nb:point("B"; 0; r)\nx:arc(o; a; b)$$';
+  const { d, tid } = mk(T); const e = regenerate(d);
+  assert.deepEqual(e.errs, []);
+  const id = d.gen.map[tid + '/a:O|A|B'];
+  assert.ok(d.arcs[id]); assert.equal(d.arcs[id].r, 10);
+  assert.equal(d.arcs[id].a, d.gen.map[tid + '/A']);
+  d.texts[tid].text = T.replace('r:10', 'r:14'); regenerate(d);
+  assert.equal(d.arcs[id].r, 14); assert.equal(d.pts[d.gen.map[tid + '/B']].y, 14);
+});
+
+t('arc: extremos a distancias distintas del centro es un error claro y no dibuja nada', () => {
+  const { d } = mk('$$o:point("O"; 0; 0)\na:point("A"; 10; 0)\nb:point("B"; 0; 7)\nx:arc(o; a; b)$$');
+  const r = regenerate(d);
+  assert.ok(r.errs.some((e) => /misma distancia/.test(e))); assert.equal(Object.keys(d.arcs).length, 0);
+});
+
+t('spline: por puntos de point, abierto o cerrado; un punto que falta es un error', () => {
+  const T = '$$a:point("A"; 0; 0)\nb:point("B"; 10; 5)\nc:point("C"; 20; 0)\ns:spline(["A", "B", "C"])$$';
+  let { d, tid } = mk(T); let r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  const sid = d.gen.map[tid + '/s:A|B|C'];
+  assert.deepEqual(d.splines[sid].pts, ['A', 'B', 'C'].map((n) => d.gen.map[tid + '/' + n])); assert.equal(!!d.splines[sid].closed, false);
+  d.texts[tid].text = T.replace('["A", "B", "C"])', '["A", "B", "C"]; "cerrado"; "eje")');
+  regenerate(d);
+  const s2 = d.gen.map[tid + '/s:A|B|C|cerrado'];
+  assert.equal(d.splines[s2].closed, true); assert.equal(d.splines[s2].ltype, 'eje'); assert.equal(d.splines[sid], undefined, 'el abierto ya no se pide');
+  ({ d } = mk('$$a:point("A"; 0; 0)\ns:spline(["A", "Z"])$$')); r = regenerate(d);
+  assert.ok(r.errs.some((e) => /falta el punto «Z»/.test(e)));
+});
+
+t('spline y arc: llamadas mal formadas', () => {
+  const ev = (s) => evalExpr(s, { vars: {}, allowMat: true, allowCplx: true });
+  assert.throws(() => ev('spline("A")'), /vector de nombres/);
+  assert.throws(() => ev('spline(["A"])'), /al menos 2/);
+  assert.throws(() => ev('spline(["A", "B"]; "cerrado")'), /al menos 3/);
+  assert.throws(() => ev('arc("O"; 1; "B")'), /el primer extremo/);
+  assert.equal(ev('arc("O"; "A"; "B")').str, 'arc(O,A-B)');
+});
+
+t('lo generado se borra al quitar el arco o el spline', () => {
+  const { d, tid } = mk('$$o:point("O"; 0; 0)\na:point("A"; 5; 0)\nb:point("B"; 0; 5)\nx:arc(o; a; b)\ns:spline(["O", "A", "B"])$$'); regenerate(d);
+  assert.equal(Object.keys(d.arcs).length, 1); assert.equal(Object.keys(d.splines).length, 1);
+  d.texts[tid].text = '$$o:point("O"; 0; 0)\na:point("A"; 5; 0)\nb:point("B"; 0; 5)$$'; regenerate(d);
+  assert.equal(Object.keys(d.arcs).length, 0); assert.equal(Object.keys(d.splines).length, 0);
+});
+
+t('un texto que lee una cota de referencia que mide lo que el mismo dibuja: error y lo generado no deriva', () => {
+  const d = newDoc();
+  const anc = addPoint(d, -100, 100), tid = addText(d, anc, '$$w:D1+10\na:point("A"; 0; 0)\nb:point("B"; w; 0)$$', {});
+  d.cons.k0 = { t: 'DIST', refs: [anc, anc], v: 1, ref: true, name: 'D1' };
+  regenerate(d);
+  const A = d.gen.map[tid + '/A'], B = d.gen.map[tid + '/B'];
+  d.cons.k0.refs = [A, B]; // el usuario mide la distancia entre los dos generados
+  const x0 = d.pts[B].x;
+  for (let i = 0; i < 3; i++) { const r = regenerate(d); assert.ok(r.errs.some((e) => /dependencia circular/.test(e))); }
+  assert.equal(d.pts[B].x, x0, 'B ya no se mueve en cada regeneracion');
+  d.cons.k0.refs = [addPoint(d, 1, 1), addPoint(d, 4, 5)]; // si la cota ya no mide lo generado, el lazo desaparece
+  assert.deepEqual(regenerate(d).errs, []);
+});
+
+t('genOwners: de que textos viene lo seleccionado', () => {
+  const d = newDoc();
+  const t1 = addText(d, addPoint(d, 0, 0), '$$a:point("A"; 1; 1)$$', {}), t2 = addText(d, addPoint(d, 0, 50), '$$a:point("A"; 2; 2)$$', {});
+  regenerate(d);
+  const A1 = d.gen.map[t1 + '/A'], A2 = d.gen.map[t2 + '/A'], mine = addPoint(d, 9, 9);
+  assert.deepEqual(genOwners(d, [{ k: 'pt', id: A1 }]), [t1]);
+  assert.deepEqual(genOwners(d, [{ k: 'pt', id: A1 }, { k: 'pt', id: A2 }, { k: 'pt', id: mine }]).sort(), [t1, t2].sort());
+  assert.deepEqual(genOwners(d, [{ k: 'pt', id: mine }]), []);
 });
 
 console.log(`${passed} pruebas de dibujo generado`);

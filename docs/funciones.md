@@ -228,13 +228,15 @@ Pasos en orden y ciclos dentro de una fórmula. Dentro, `s:valor` asigna una var
 
 ## Dibujar desde un script
 
-Un texto de cálculo puede **dibujar**: `point`, `line` y `circle` crean puntos, líneas y círculos y devuelven su **nombre** (una cadena), con el que los demás se refieren a ellos. Lo generado lo gobierna el script: sus puntos son fijos, se identifican por su nombre (local al texto que los dibuja) y se actualizan solos cuando cambian las variables que el script lee. Puedes ponerles cotas y relaciones, pero no moverlos, recortarlos ni borrarlos a mano: se cambia la llamada. Una cota entre dos cosas generadas pasa a ser de referencia. Si quitas una llamada, lo que dibujaba desaparece. Como siempre en el orden de lectura, el script va arriba o a la izquierda de lo que lo lee.
+Un texto de cálculo puede **dibujar**: `point`, `line` y `circle` crean puntos, líneas y círculos y devuelven su **nombre** (una cadena), con el que los demás se refieren a ellos. Lo generado lo gobierna el script: sus puntos son fijos, se identifican por su nombre (local al texto que los dibuja) y se actualizan solos cuando cambian las variables que el script lee. Puedes ponerles cotas y relaciones, pero no moverlos, recortarlos ni borrarlos a mano: se cambia la llamada. Una cota entre dos cosas generadas pasa a ser de referencia. Si quitas una llamada, lo que dibujaba desaparece. Si el texto lee una cota de referencia que mide lo que él mismo dibuja, es un lazo: la app avisa y deja lo generado como estaba. Al seleccionar algo generado, la barra de estado dice de qué texto viene (tócala para verlo) y el texto se resalta. Como siempre en el orden de lectura, el script va arriba o a la izquierda de lo que lo lee.
 
 | Función | Qué hace | Ejemplo | Da |
 |---|---|---|---|
 | `point("A"; x; y)` | Crea el punto A en (x, y), en unidades del dibujo, y devuelve su nombre. Es fijo. El nombre es local al texto: dos textos pueden tener un «A». | `point("A"; 10; 5)=` | `“A”` |
 | `line(a; b)`, `line(a; b; "eje")` | Una línea entre dos puntos ya creados con point (por su nombre o por la variable que lo guarda). El tipo de línea es opcional ("eje", "oculta"…); sin él, continua. | `line("A"; "B")=` | `“A-B”` |
 | `circle(c; r)`, `circle(c; r; "oculta")` | Un círculo con centro en el punto c (creado con point) y radio r. El tipo de línea es opcional. | `circle("A"; 4)=` | `“o(A)”` |
+| `arc(c; a; b)` | Un arco con centro en el punto c y extremos a y b (creados con point), de a a b en sentido antihorario. a y b deben estar a la misma distancia de c, que es el radio. Con tipo de línea opcional. | `arc("O"; "A"; "B")=` | `“arc(O,A-B)”` |
+| `spline(["A", "B", "C"])` | Un spline por los puntos nombrados (al menos 2), creados con point. Un segundo texto "cerrado" lo cierra (al menos 3 puntos); otro, el tipo de línea: `spline(["A", "B", "C"]; "cerrado"; "eje")`. | `spline(["A", "B", "C"])=` | `“spline(A,B,C)”` |
 |  | Un rectángulo que depende de w y h: cámbialos y se redibuja. | `w:40`<br>`h:30`<br>`p1:point("A"; 0; 0)`<br>`p2:point("B"; w; 0)`<br>`p3:point("C"; w; h)`<br>`p4:point("D"; 0; h)`<br>`s1:line(p1; p2)`<br>`s2:line(p2; p3)`<br>`s3:line(p3; p4)`<br>`s4:line(p4; p1)=` | `“D-A”` |
 
 ## Ecuaciones
