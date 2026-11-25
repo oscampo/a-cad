@@ -4,7 +4,7 @@
 import { dataVersion } from './datastore.js';
 import { argChar, decimalMode } from './locale.js';
 const paramSep = () => (decimalMode() === ',' ? /;/ : /[;,]/); // parametros de una funcion: con coma decimal solo «;»
-import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName, rngReset, rngState, rngMix, genActive, genAt, GEN_RE } from './expr.js';
+import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName, rngReset, rngState, rngMix, genActive, genAt, genAsg, genProps, GEN_RE } from './expr.js';
 import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg, setUserUnits, addUserUnit, onDocUnits, unitsVersion, UNIT_NAME_RE } from './units.js';
 import { solveEqs, splitEq, eqResiduals } from './nsolve.js';
@@ -342,7 +342,7 @@ export const textDefs = (doc) => readingEvents(doc).filter((e) => e.kind === 'de
 // El valor que guarda una variable de texto a partir del resultado de evalDef
 function valOf(r) {
   const u = { ...(r.dim ? { d: r.dim } : {}), ...(r.pu ? { pu: r.pu, pf: r.pf } : {}) };
-  return r.str !== undefined ? { str: r.str } : r.strs ? { strs: r.strs } : r.mi ? { mat: r.mat, mi: r.mi, r: false, ...u } : r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false, ...u } : { mat: r.mat, r: false, ...u }) : { v: r.value, r: r.rad, ...u, ...(r.im ? { im: r.im } : {}) }; // un complejo guarda su parte imaginaria (una matriz compleja, siempre como mat + mi) // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
+  return r.str !== undefined ? { str: r.str, ...(r.gen ? { gen: r.gen } : {}) } : r.strs ? { strs: r.strs } : r.mi ? { mat: r.mat, mi: r.mi, r: false, ...u } : r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false, ...u } : { mat: r.mat, r: false, ...u }) : { v: r.value, r: r.rad, ...u, ...(r.im ? { im: r.im } : {}) }; // un complejo guarda su parte imaginaria (una matriz compleja, siempre como mat + mi) // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
 }
 export function evalDef(expr, unit, vars) {
   const all = (s) => evalExpr(s, { vars, allowMat: true, allowCplx: true }); // los textos de calculo aceptan complejos
@@ -530,6 +530,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   for (const [n, es] of open) { st.openEnd.add(n); if (dimNames.has(n)) for (const d of es) if (!d.freed) d.why = `«${n}» ya es el nombre de una cota: para usarlo antes en un texto, bórralo con clear(${n}) más abajo`; }
   for (const d of defs) if (!d.why) st.names.add(d.name);
   st.defs = defs;
+  const genKeys = new Map(); // variable -> sus propiedades (p2.x, s1.L…) cuando guarda un objeto que dibuja (ver genProps en expr.js)
   const cur = { ...dimVars }, env = st.vals; // cur: lo que ve una expresion en este punto de la lectura (cotas + variables de texto)
   // Una cota que comparte nombre con una variable de texto (borrada con clear) vuelve a leerse en SU lugar de la pagina, no al borrar la
   // variable; y una cota borrada con clear() antes de su etiqueta, tambien desde ahi (la pagina es una cronologia: la cota «aparece» en su
@@ -554,7 +555,8 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
     } // una cota ve las variables de texto de este punto de la lectura
     genAt(e.tid); // regeneracion del dibujo: lo que pidan point/line/circle en este enunciado es de este texto
     const drop = (n) => { (dimLater.has(n) ? pend : hid).add(n); delete cur[n]; st.cleared.add(n); };
-    const back = (n) => { delete env[n]; if (n in dimVars && !hid.has(n) && !dimLater.has(n)) cur[n] = dimVars[n]; else { delete cur[n]; if (n in dimVars && !hid.has(n)) pend.add(n); } };
+    const dropGen = (n) => { for (const k2 of genKeys.get(n) || []) { delete env[k2]; if (k2 in dimVars) cur[k2] = dimVars[k2]; else delete cur[k2]; } genKeys.delete(n); }; // al redefinirla o borrarla, sus propiedades se van (vuelven las de la geometria con ese nombre, si hay)
+    const back = (n) => { dropGen(n); delete env[n]; if (n in dimVars && !hid.has(n) && !dimLater.has(n)) cur[n] = dimVars[n]; else { delete cur[n]; if (n in dimVars && !hid.has(n)) pend.add(n); } };
     if (e.kind === 'lib') { // biblioteca insertada: sus definiciones valen desde aqui como alias.nombre, atadas a sus propios nombres (qualify.js)
       const L = e.lib, A = String(L.alias || ''), names = new Set((L.defs || []).map((d) => d.name));
       for (const d of L.defs || []) {
@@ -572,7 +574,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
     if (e.kind === 'out' || e.kind === 'def') st.at.set(k, { live: new Set(Object.keys(env)), expr: e.expr });
     if (e.kind === 'out') {
       st.outEnv.set(k, { ...cur });
-      if (genActive() && GEN_RE.test(e.expr)) { try { evalExpr(e.expr, { vars: cur, allowMat: true, allowCplx: true }); } catch (err) { (st.genBad ||= new Set()).add(e.tid); st.errs.set('gen:' + k, hint(err.message)); } } // una salida «line(a; b)=» tambien dibuja
+      if (genActive() && GEN_RE.test(e.expr)) { try { genAsg('_o' + e.idx); evalExpr(e.expr, { vars: cur, allowMat: true, allowCplx: true }); } catch (err) { (st.genBad ||= new Set()).add(e.tid); st.errs.set('gen:' + k, hint(err.message)); } } // una salida «line(a; b)=» tambien dibuja
       st.outRng.set(k, rngMix(rngState(), st.outRng.size)); // rand en una salida: siempre la misma tirada, distinta de la de otra salida
       if (/(?:^|[^A-Za-z0-9_.])rng\s*\(/.test(e.expr)) { try { st.rngOut.set(k, evalExpr(e.expr, { vars: cur, allowMat: true, allowCplx: true })); } catch (err) { /* el error se ve en la salida */ } } // «rng(7)=»: cambia la secuencia desde aqui; la salida muestra ESTE resultado (con «shuffle», la semilla que se uso)
       const cl = clearCall(e.expr);
@@ -636,12 +638,17 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
     else {
       try {
         const rg = e.script ? null : parseRange(e.expr); // un script puede llevar «1..n» de un for: no es un rango
+        genAsg(e.name);
         const r = rg ? evalRangeDef(rg, e.unit, cur) : evalDef(e.expr, e.unit, e.lib ? { ...cur, ...e.lib } : cur); // las funciones locales de un script
         val = valOf(r);
       } catch (err) { st.bad.add(k); st.errs.set(e.name, `«${e.name}»: ${hint(err.message)}`); }
     }
-    if (val) { cur[e.name] = val; env[e.name] = val; st.defVal.set(k, val); if (e.eq) st.fnEnv.set(k, { ...cur }); } else back(e.name); // una definicion que falla deja la variable sin definir (o vuelve a la cota del mismo nombre)
+    if (val) {
+      dropGen(e.name); cur[e.name] = val; env[e.name] = val; st.defVal.set(k, val); if (e.eq) st.fnEnv.set(k, { ...cur });
+      if (val.gen) { const ks = []; for (const [p, v] of Object.entries(genProps(val.gen))) { const k2 = e.name + '.' + p; cur[k2] = v; env[k2] = v; st.names.add(k2); ks.push(k2); } genKeys.set(e.name, ks); } // p2.x, s1.L…: la variable manda sobre un elemento del dibujo con ese nombre
+    } else back(e.name); // una definicion que falla deja la variable sin definir (o vuelve a la cota del mismo nombre)
   }
+  genAsg(null);
   memoKey = key; memoSt = st;
   return st;
 }

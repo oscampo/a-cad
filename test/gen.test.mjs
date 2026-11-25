@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { newDoc, addPoint, addLine, addText, addCon } from '../src/model.js';
 import { regenerate, isGen, genSet, genOwners } from '../src/gen.js';
 import { evalExpr } from '../src/expr.js';
+import { textVars } from '../src/params.js';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
@@ -209,6 +210,53 @@ t('genOwners: de que textos viene lo seleccionado', () => {
   assert.deepEqual(genOwners(d, [{ k: 'pt', id: A1 }]), [t1]);
   assert.deepEqual(genOwners(d, [{ k: 'pt', id: A1 }, { k: 'pt', id: A2 }, { k: 'pt', id: mine }]).sort(), [t1, t2].sort());
   assert.deepEqual(genOwners(d, [{ k: 'pt', id: mine }]), []);
+});
+
+t('point(x; y) sin etiqueta: el objeto se llama como la variable', () => {
+  const { d, tid } = mk('$$a:point(0; 0)\nb:point(10; 0)\nl:line(a; b)$$');
+  assert.deepEqual(regenerate(d).errs, []);
+  assert.deepEqual(Object.keys(d.gen.map).sort(), [tid + '/a', tid + '/a|b', tid + '/b']);
+  assert.deepEqual([d.pts[d.gen.map[tid + '/b']].x, d.pts[d.gen.map[tid + '/b']].y], [10, 0]);
+  // con la etiqueta de siempre sigue valiendo
+  const o = mk('$$a:point("A"; 1; 2)$$'); regenerate(o.d);
+  assert.deepEqual([o.d.pts[o.d.gen.map[o.tid + '/A']].x, o.d.pts[o.d.gen.map[o.tid + '/A']].y], [1, 2]);
+});
+
+t('varios objetos en un enunciado: el 1.o lleva el nombre de la variable y los demas «nombre#n»; una funcion llamada dos veces no choca', () => {
+  let { d, tid } = mk('$$v:seq(point(0; 0); point(1; 0); point(2; 0))$$'); regenerate(d);
+  assert.deepEqual(Object.keys(d.gen.map).sort(), [tid + '/v', tid + '/v#2', tid + '/v#3']);
+  ({ d, tid } = mk('$$f(x):point(x; 0)\nc1:f(1)\nc2:f(5)$$')); const r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  assert.equal(d.pts[d.gen.map[tid + '/c1']].x, 1); assert.equal(d.pts[d.gen.map[tid + '/c2']].x, 5);
+});
+
+t('propiedades de la variable: p.x, p.y, l.L, l.ang, c.r, c.d, calculadas de lo que pidio el script', () => {
+  const { d } = mk('$$a:point(3; 4)\nb:point(6; 8)\nl:line(a; b)\nc:circle(a; 2)\nax:a.x\nay:a.y\nll:l.L\nll2:l.len\ndir:l.ang\nrr:c.r\ndd:c.d\ncx:c.x$$');
+  const v = textVars(d).vals;
+  assert.equal(v.ax.v, 3); assert.equal(v.ay.v, 4);
+  assert.ok(Math.abs(v.ll.v - 5) < 1e-12); assert.ok(Math.abs(v.ll2.v - 5) < 1e-12);
+  assert.ok(Math.abs(v.dir.v - Math.atan2(4, 3)) < 1e-12);
+  assert.equal(v.rr.v, 2); assert.equal(v.dd.v, 4); assert.equal(v.cx.v, 3);
+});
+
+t('las propiedades siguen a la variable al redefinirla y no existen antes de definirla', () => {
+  const { d } = mk('$$a:point(1; 1)\nb:a.x\na:point(5; 5)\nc:a.x$$');
+  const v = textVars(d).vals;
+  assert.equal(v.b.v, 1); assert.equal(v.c.v, 5);
+});
+
+t('una variable de texto manda sobre un elemento del dibujo con ese nombre (p1.x)', () => {
+  const d = newDoc();
+  const mine = addPoint(d, 99, 99); // su id es p1
+  assert.equal(mine, 'p1');
+  addText(d, addPoint(d, -50, 50), '$$p1:point(5; 7)\nq:p1.x$$', {});
+  assert.equal(textVars(d).vals.q.v, 5);
+});
+
+t('las propiedades funcionan aunque el dibujo no se haya regenerado, y no hay lazo con una cota que las lea', () => {
+  const { d } = mk('$$w:20\na:point(0; 0)\nb:point(w; 0)\nl:line(a; b)\nk:l.L$$');
+  assert.equal(textVars(d).vals.k.v, 20); // sin regenerar: el dibujo no tiene nada aun
+  assert.equal(Object.keys(d.pts).length, 1);
 });
 
 console.log(`${passed} pruebas de dibujo generado`);

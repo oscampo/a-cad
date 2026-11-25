@@ -976,6 +976,21 @@ function sprintfA(A) {
 let GEN = null;
 export const setGenSink = (s) => { GEN = s; };
 export const genActive = () => !!GEN;
+// El nombre de lo que dibuja point(x; y) sin etiqueta es el de la variable a la que se asigna (lo pone quien evalua el enunciado: tvars.js); si el
+// enunciado dibuja varios (un for, una funcion), el 1.o lleva el nombre y los demas «nombre#2», «nombre#3»…
+let ASG = null, CNT = 0;
+export const genAsg = (name) => { ASG = name; CNT = 0; };
+const implicitName = () => { CNT++; return (ASG || '_') + (CNT > 1 ? '#' + CNT : ''); };
+// Las propiedades de lo que dibuja una variable (p2.x, s1.L, c.r…), calculadas de lo que pidio el script y no leidas del dibujo: no dependen de
+// que ya se haya regenerado ni pueden formar un lazo. Las mismas que tienen los elementos del dibujo (geo.js).
+export function genProps(g) {
+  const num = (v) => ({ v, r: false });
+  if (g?.k === 'pt') return { x: num(g.x), y: num(g.y) };
+  if (g?.k === 'ln') { const dx = g.b.x - g.a.x, dy = g.b.y - g.a.y, L = Math.hypot(dx, dy); return { L: num(L), len: num(L), ang: { v: Math.atan2(dy, dx), r: true } }; }
+  if (g?.k === 'ci') return { r: num(g.r), d: num(2 * g.r), x: num(g.x), y: num(g.y) };
+  if (g?.k === 'ar') return { r: num(g.r), x: num(g.x), y: num(g.y) };
+  return {};
+}
 export const genAt = (ns) => { GEN?.at?.(ns); }; // el texto cuyo enunciado se evalua (los nombres son locales a el)
 export const GEN_RE = /(?:^|[^A-Za-z0-9_.])(?:point|line|circle|arc|spline)\s*\(/i;
 export const GEN_FUNCS = ['point', 'line', 'circle', 'arc', 'spline'];
@@ -987,9 +1002,12 @@ const genNum = (a, fn, what) => {
 };
 const genStyle = (a, fn) => { if (a === undefined) return undefined; if (typeof a?.str !== 'string') throw new Error(`${fn}: el tipo de línea es una cadena, p. ej. "eje"`); return a.str.trim(); };
 const SF = {
-  point: { n: [3, 3], f: (A) => { const nm = genName(A[0], 'point', 'el nombre'); const x = genNum(A[1], 'point', 'x'), y = genNum(A[2], 'point', 'y'); GEN?.point(nm, x, y); return { str: nm }; } },
-  line: { n: [2, 3], f: (A) => { const a = genName(A[0], 'line', 'el primer punto'), b = genName(A[1], 'line', 'el segundo punto'); GEN?.line(a, b, genStyle(A[2], 'line')); return { str: a + '-' + b }; } },
-  arc: { n: [3, 4], f: (A) => { const c = genName(A[0], 'arc', 'el centro'), a = genName(A[1], 'arc', 'el primer extremo'), b = genName(A[2], 'arc', 'el segundo extremo'); GEN?.arc(c, a, b, genStyle(A[3], 'arc')); return { str: 'arc(' + c + ',' + a + '-' + b + ')' }; } },
+  point: { n: [2, 3], f: (A) => { // point(x; y): se llama como la variable; point("A"; x; y): con nombre explicito (p. ej. dentro de un for)
+    const nm = A.length === 3 ? genName(A[0], 'point', 'el nombre') : implicitName(), i = A.length === 3 ? 1 : 0;
+    const x = genNum(A[i], 'point', 'x'), y = genNum(A[i + 1], 'point', 'y'); GEN?.point(nm, x, y); return { str: nm, gen: { k: 'pt', x, y } };
+  } },
+  line: { n: [2, 3], f: (A) => { const a = genName(A[0], 'line', 'el primer punto'), b = genName(A[1], 'line', 'el segundo punto'); GEN?.line(a, b, genStyle(A[2], 'line')); const p = A[0].gen, q = A[1].gen; return { str: a + '-' + b, ...(p?.k === 'pt' && q?.k === 'pt' ? { gen: { k: 'ln', a: p, b: q } } : {}) }; } },
+  arc: { n: [3, 4], f: (A) => { const c = genName(A[0], 'arc', 'el centro'), a = genName(A[1], 'arc', 'el primer extremo'), b = genName(A[2], 'arc', 'el segundo extremo'); GEN?.arc(c, a, b, genStyle(A[3], 'arc')); const p = A[0].gen, q = A[1].gen; return { str: 'arc(' + c + ',' + a + '-' + b + ')', ...(p?.k === 'pt' && q?.k === 'pt' ? { gen: { k: 'ar', x: p.x, y: p.y, r: Math.hypot(q.x - p.x, q.y - p.y) } } : {}) }; } },
   spline: { n: [1, 3], f: (A) => {
     const v = A[0];
     if (!v?.strs || v.strs.length < 2) throw new Error('spline: los puntos son un vector de nombres, p. ej. ["A", "B", "C"] (al menos 2)');
@@ -1000,7 +1018,7 @@ const SF = {
     GEN?.spline(names, closed, style);
     return { str: 'spline(' + names.join(',') + ')' };
   } },
-  circle: { n: [2, 3], f: (A) => { const c = genName(A[0], 'circle', 'el centro'), r = genNum(A[1], 'circle', 'el radio'); if (!(r > 0)) throw new Error('circle: el radio debe ser mayor que 0'); GEN?.circle(c, r, genStyle(A[2], 'circle')); return { str: 'o(' + c + ')' }; } },
+  circle: { n: [2, 3], f: (A) => { const c = genName(A[0], 'circle', 'el centro'), r = genNum(A[1], 'circle', 'el radio'); if (!(r > 0)) throw new Error('circle: el radio debe ser mayor que 0'); GEN?.circle(c, r, genStyle(A[2], 'circle')); const p = A[0].gen; return { str: 'o(' + c + ')', ...(p?.k === 'pt' ? { gen: { k: 'ci', x: p.x, y: p.y, r } } : {}) }; } },
   num2str: { n: [1, 2], f: (A) => ({ str: numText(A[0], A[1] !== undefined ? intArg(A[1], 'num2str(x, n)', 'n', 0, 12) : undefined) }) },
   string: { n: [1, 1], f: (A) => (A[0].strs ? A[0] : { str: numText(A[0]) }) },
   str2double: { n: [1, 1], f: (A) => { const t = strArg(A[0], 'str2double(s)').trim().replace(',', '.'), v = Number(t); if (!t || !Number.isFinite(v)) throw rt(`str2double: «${A[0].str}» no es un número`); return { v, r: false }; } },
@@ -1549,7 +1567,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     f.params.slice(0, nFix).forEach((q, i) => { local[q] = isS(A[i]) ? { ...A[i] } : isM(A[i]) ? wd({ mat: A[i].m, ...(A[i].mi ? { mi: A[i].mi } : {}) }, A[i].d) : { v: A[i].v, ...(A[i].im ? { im: A[i].im } : {}), r: !!A[i].r, d: A[i].d }; });
     try {
       const r = evalExpr(f.body, { radians, vars: local, allowMat: true, allowCplx: true, depth: depth + 1, globals: g });
-      if (typeof r.str === 'string') return { str: r.str };
+      if (typeof r.str === 'string') return r.gen ? { str: r.str, gen: r.gen } : { str: r.str }; // gen: los datos del objeto que dibuja (ver point)
       if (r.strs) return { strs: r.strs };
       return r.mat ? wd({ m: r.mat, ...(r.mi ? { mi: r.mi } : {}) }, r.dim) : { v: r.value, ...(r.im ? { im: r.im } : {}), r: r.rad, d: r.dim };
     } catch (e) {
@@ -1713,7 +1731,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     if (k.t === 'var') {
       const x = vars[k.v];
       if (x.unset) throw new Error(`«${k.v}» se usa antes de darle un valor (dentro del programa: ${k.v}:valor)`);
-      if (typeof x.str === 'string') return { str: x.str };
+      if (typeof x.str === 'string') return x.gen ? { str: x.str, gen: x.gen } : { str: x.str };
       if (x.strs) return { strs: x.strs };
       if (x.fn) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
       if (x.args) throw new Error(`«${k.v}» es la lista de los valores de más: usa ${k.v}_1, ${k.v}_(k) y nargin`);
@@ -1819,7 +1837,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   // un complejo solo sale donde se acepta (los textos de calculo y las funciones); una cota, un actuador o una grafica necesitan un real
   if (isS(res)) { // una cadena solo sale en los textos de calculo (y las funciones); una cota o una grafica necesitan un numero
     if (!allowCplx) throw new Error('El resultado es una cadena: aquí hace falta un número');
-    return res.strs ? { strs: res.strs, value: NaN } : { str: res.str, value: NaN };
+    return res.strs ? { strs: res.strs, value: NaN } : { str: res.str, ...(res.gen ? { gen: res.gen } : {}), value: NaN };
   }
   if (isC(res) && !allowCplx) throw new Error('El resultado es un número complejo: aquí hace falta un número real (usa abs(…), angle(…), real(…) o imag(…))');
   if (isM(res)) {
