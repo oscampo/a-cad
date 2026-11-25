@@ -17,7 +17,7 @@ import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, past
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
-import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, dimH, ARROW, ARROW_HW, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
+import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, dimH, ARROW, ARROW_HW, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, diamGeom, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow, revForHead } from './vectors.js';
 import { addRotary, addLinear, addLinearOnLine, actName, actUnit, actError, parseTable, tableText, simBegin, simStep, simEnd } from './actuators.js';
 import { TRACE_STYLE } from './curves.js';
@@ -1570,13 +1570,25 @@ function label(c, text, x, y, id, color, italic = false, underline = false, px =
   if (lblIsMath(text)) { mathLabel(c, text, x, y, id, color, px); return; }
   c.save();
   c.font = `${italic ? 'italic ' : ''}${px * dpr}px -apple-system, system-ui, sans-serif`;
-  const w = c.measureText(text).width / dpr + 8 * px / 12, h = 18 * px / 12;
+  c.textBaseline = 'middle'; c.textAlign = 'center';
+  // «⌀» al principio (cota de diametro): el simbolo se dibuja como vector, con la altura de las cifras de ESTA fuente (se mide el «0»), no con el glifo
+  const dia = text.startsWith(DIAM), rest = dia ? text.slice(DIAM.length) : text;
+  let G = null;
+  if (dia) { const m0 = c.measureText('0'), A = m0.actualBoundingBoxAscent / dpr, D = m0.actualBoundingBoxDescent / dpr; G = A + D > 0 ? { ...diamGeom(A + D), cy: (D - A) / 2 } : { ...diamGeom(0.72 * px), cy: 0 }; } // cy: el centro de las cifras respecto a la linea media del texto
+  const total = (G ? G.w + G.gap : 0) + c.measureText(rest).width / dpr;
+  const w = total + 8 * px / 12, h = 18 * px / 12;
   const bx = x - w / 2, by = y - h / 2;
   c.fillStyle = labelBg; c.globalAlpha = 0.85;
   c.beginPath(); c.roundRect(bx * dpr, by * dpr, w * dpr, h * dpr, 4 * dpr); c.fill();
-  c.globalAlpha = 1; c.fillStyle = color; c.textBaseline = 'middle'; c.textAlign = 'center';
-  c.fillText(text, x * dpr, y * dpr + dpr);
-  if (underline) { const tw = c.measureText(text).width; c.strokeStyle = color; c.lineWidth = dpr; c.beginPath(); c.moveTo(x * dpr - tw / 2, (y + 8 * px / 12) * dpr); c.lineTo(x * dpr + tw / 2, (y + 8 * px / 12) * dpr); c.stroke(); } // cota a escala: subrayada
+  c.globalAlpha = 1; c.fillStyle = color;
+  if (G) {
+    const x0 = x - total / 2, cx = x0 + G.w / 2, cy = y + 1 + G.cy; // el texto va 1 px mas abajo (+ dpr): el simbolo, con el
+    c.textAlign = 'left'; c.fillText(rest, (x0 + G.w + G.gap) * dpr, y * dpr + dpr);
+    c.strokeStyle = color; c.lineWidth = G.lw * dpr; c.lineCap = 'butt';
+    c.beginPath(); c.arc(cx * dpr, cy * dpr, G.r * dpr, 0, 2 * Math.PI); c.stroke();
+    c.beginPath(); c.moveTo((cx - G.dx) * dpr, (cy + G.H / 2) * dpr); c.lineTo((cx + G.dx) * dpr, (cy - G.H / 2) * dpr); c.stroke();
+  } else c.fillText(text, x * dpr, y * dpr + dpr);
+  if (underline) { const tw = total * dpr; c.strokeStyle = color; c.lineWidth = dpr; c.beginPath(); c.moveTo(x * dpr - tw / 2, (y + 8 * px / 12) * dpr); c.lineTo(x * dpr + tw / 2, (y + 8 * px / 12) * dpr); c.stroke(); } // cota a escala: subrayada
   c.restore();
   if (id) labelHits.push({ x: bx, y: by, w, h, id });
 }

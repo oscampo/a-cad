@@ -447,7 +447,11 @@ t('exportar cotas: SVG y DXF llevan flechas, extension, arcos de angulo y etique
   const nArrows = L.reduce((s, x) => s + x.arrows.length, 0);
   const svg = exportSVG(d, 1);
   assert.equal(svg.split('<polygon').length - 1, nArrows, 'una flecha por cabeza');
-  assert.ok(svg.includes('>40</text>') && svg.includes('>90°</text>') && svg.includes('>⌀20</text>'), 'etiquetas');
+  assert.ok(svg.includes('>40</text>') && svg.includes('>90°</text>') && svg.includes('>20</text>'), 'etiquetas');
+  assert.equal(svg.includes('⌀'), false, 'el simbolo de diametro va como vector, no como glifo');
+  const px = Number(/font-size="([\d.]+)"[^>]*>20<\/text>/.exec(svg)[1]); // el tamaño de la letra de la cota
+  const dia = [...svg.matchAll(/<line x1="([\d.-]+)" y1="([\d.-]+)" x2="([\d.-]+)" y2="([\d.-]+)"/g)].filter((m) => Math.abs(Math.abs(m[2] - m[4]) - 0.72 * px) < 0.01 && Math.abs(Math.abs(m[1] - m[3]) - 0.42 * 0.72 * px) < 0.01);
+  assert.equal(dia.length, 1, 'el trazo oblicuo del simbolo ⌀ mide la altura de las cifras (0.72 de la fuente)');
   assert.ok(/<path d="M[^"]+ A[^"]+" fill="none" stroke="#000000" stroke-width="1"\/>/.test(svg), 'arco de la cota angular');
   const W = Number(svg.match(/width="([\d.]+)"/)[1]), H = Number(svg.match(/height="([\d.]+)"/)[1]);
   const tr = svg.match(/<g transform="translate\(([\d.-]+) ([\d.-]+)\)">/);

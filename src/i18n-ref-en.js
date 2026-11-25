@@ -243,7 +243,7 @@ export const REF_EN = {
   "1fkchjo2k": "They separate the values of a multi-argument function. <code>2,5</code> without a space is the number 2.5.",
   "k8bet13e": "They compare: give 1 if true and 0 if not. Also <code>≤ ≥ ≠</code>. <code>==</code> and <code>!=</code> tolerate rounding.",
   "wuw2w633": "If the condition <code>c</code> is not 0 the value is <code>a</code>, otherwise <code>b</code>. It only calculates the chosen branch.",
-  "1xld9biar": "Almost equal: 1 if |a − b| ≤ tolerance × max(1, |a|, |b|), otherwise 0. The tolerance (1e-12 by default) is changed in <b>Settings</b>. Use it to compare rounded results; <code>==</code> remains the app's equality. With the same tolerance, a unitless result other than 0 with |x| ≤ tolerance is shown as <code>≈0</code> (rounding noise, not an exact zero).",
+  "qln6dhbz": "Almost equal: 1 if |a − b| ≤ tolerance × max(1, |a|, |b|), otherwise 0. The tolerance (1e-12 by default) is changed in <b>Settings</b>. Use it to compare rounded results; <code>==</code> remains the app's equality. With the same tolerance, a unitless result (or each element of a vector or matrix) other than 0 with |x| ≤ tolerance is shown as <code>≈0</code> (rounding noise, not an exact zero).",
   "16nga95a": "Constants",
   "dkxv4916": "Pi. A value that carries π is in radians.",
   "kze3isg": "Euler's number.",

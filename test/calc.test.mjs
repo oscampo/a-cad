@@ -85,6 +85,11 @@ t('«≈0»: un numero sin unidades distinto de 0 con |x| <= tolerancia de ≈ d
   assert.equal(at("$$a:0\na=$$", 1e-11), '$$a:=0\na=0$$'); // el cero exacto no lleva ≈
   assert.equal(at("$$a:3e-4\na=$$", 1e-11), '$$a:=3e-4\na=0.0003$$'); // un valor pequeño pero mayor que la tolerancia sigue saliendo con cifras
   assert.equal(at("$$a:1.6e-12'm\na=$$", 1e-11).includes('≈0'), false); // con unidades no se aplica: 1.6 pm no es ruido
+  // vectores y matrices: cada elemento sigue la misma regla
+  assert.equal(at("$$v:[1e-13, 2, 0]\nv=$$").split('\n')[1], 'v=[≈0, 2, 0]$$'); // con la tolerancia por defecto
+  assert.equal(at("$$M:[1, 1.6e-12; 0, 1]\nM=$$", 1e-11).split('\n')[1], 'M=[1, ≈0; 0, 1]$$'); // matriz: ≈0 solo en el distinto de 0 y dentro de la tolerancia
+  assert.equal(at("$$M:[1, 1.6e-12; 0, 1]\nM=$$").split('\n')[1], 'M=[1, 1.6e-12; 0, 1]$$'); // fuera de la tolerancia sigue saliendo con cifras
+  assert.equal(at("$$A:[2, 1; 1, 3]\nA*inv(A)=$$").split('\n')[1].includes('≈0'), true); // el ruido de A·A⁻¹ en la diagonal secundaria
 });
 
 t('vectores y matrices con unidades: una sola unidad para todos los elementos', () => {

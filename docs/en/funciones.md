@@ -19,7 +19,7 @@ They work in Dimensions, Texts (`x:…` and `expr=`), actuators and Graphs.
 | `;` y `, ` | They separate the values of a multi-argument function. `2,5` without a space is the number 2.5. | `max(3; 8)` | `8` |
 | `< > <= >= == !=` | They compare: give 1 if true and 0 if not. Also `≤ ≥ ≠`. `==` and `!=` tolerate rounding. | `0.1+0.2==0.3` | `1` |
 | `if(c; a; b)` (`si`) | If the condition `c` is not 0 the value is `a`, otherwise `b`. It only calculates the chosen branch. | `if(0==0; 0; 1/0)` | `0` |
-| `a ≈ b` (`a ~~ b`) | Almost equal: 1 if |a − b| ≤ tolerance × max(1, |a|, |b|), otherwise 0. The tolerance (1e-12 by default) is changed in **Settings**. Use it to compare rounded results; `==` remains the app's equality. With the same tolerance, a unitless result other than 0 with |x| ≤ tolerance is shown as `≈0` (rounding noise, not an exact zero). | `0.1+0.2 ~~ 0.3` | `1` |
+| `a ≈ b` (`a ~~ b`) | Almost equal: 1 if |a − b| ≤ tolerance × max(1, |a|, |b|), otherwise 0. The tolerance (1e-12 by default) is changed in **Settings**. Use it to compare rounded results; `==` remains the app's equality. With the same tolerance, a unitless result (or each element of a vector or matrix) other than 0 with |x| ≤ tolerance is shown as `≈0` (rounding noise, not an exact zero). | `0.1+0.2 ~~ 0.3` | `1` |
 
 ## Constants
 

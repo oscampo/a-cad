@@ -2,7 +2,7 @@ import { visibleDoc, hatchLoops, allLtypes, arcOf, arcSamples, splinePolyline, e
 import { dashFromPattern, norm, splineBezier } from './geom.js';
 import { textFrame, textCorners, textPose, shownText, runsOf, plainText, framePrims, LINE_SPACING, fontCss, TEXT_BG_PAD } from './text.js';
 import { vecArrow } from './vectors.js';
-import { layoutDim, lblIsMath, lblPlain, leadBody, leadBodies, leadLabelPlace, ARROW, ARROW_HW } from './dims.js';
+import { layoutDim, lblIsMath, lblPlain, leadBody, leadBodies, leadLabelPlace, ARROW, ARROW_HW, DIAM, diamGeom } from './dims.js';
 
 const DIM_KINDS = new Set(['DIST', 'DISTPL', 'ANG', 'ANG4', 'RAD', 'LEAD']); // LEAD: lineas indicativas (anotaciones)
 const approx = (ln) => 0.6 * ln.length; // ancho aproximado de texto (por altura 1)
@@ -87,7 +87,13 @@ function dimSvg(L, color, leadAttrs = null) {
   if (L.label && !L.label.model) { // la de una linea indicativa sale con los textos
     const b = labelBox(L.label);
     out.push(`<rect x="${n(b.x)}" y="${n(b.y)}" width="${n(b.w)}" height="${n(b.h)}" rx="3" fill="#fff" fill-opacity="0.85"/>`);
-    out.push(`<text x="${n(L.label.x)}" y="${n(L.label.y)}" font-family="sans-serif" font-size="${n(L.label.px || 12)}" text-anchor="middle" dominant-baseline="central"${L.label.italic ? ' font-style="italic"' : ''}${L.label.underline ? ' text-decoration="underline"' : ''} fill="${color}">${esc(lblTxt(L.label.text))}</text>`);
+    const lt = lblTxt(L.label.text), px = L.label.px || 12;
+    if (lt.startsWith(DIAM)) { // cota de diametro: el simbolo va como vector, de la altura de las cifras (no el glifo de la fuente, que cambia de una a otra)
+      const G = diamGeom(0.72 * px), rest = lt.slice(DIAM.length), total = G.w + G.gap + approx(rest) * px, x0 = L.label.x - total / 2, cx = x0 + G.w / 2, cy = L.label.y;
+      out.push(`<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(G.r)}" fill="none" stroke="${color}" stroke-width="${n(G.lw)}"/>`);
+      out.push(`<line x1="${n(cx - G.dx)}" y1="${n(cy + G.H / 2)}" x2="${n(cx + G.dx)}" y2="${n(cy - G.H / 2)}" stroke="${color}" stroke-width="${n(G.lw)}"/>`);
+      out.push(`<text x="${n(x0 + G.w + G.gap)}" y="${n(L.label.y)}" font-family="sans-serif" font-size="${n(px)}" text-anchor="start" dominant-baseline="central"${L.label.italic ? ' font-style="italic"' : ''}${L.label.underline ? ' text-decoration="underline"' : ''} fill="${color}">${esc(rest)}</text>`);
+    } else out.push(`<text x="${n(L.label.x)}" y="${n(L.label.y)}" font-family="sans-serif" font-size="${n(px)}" text-anchor="middle" dominant-baseline="central"${L.label.italic ? ' font-style="italic"' : ''}${L.label.underline ? ' text-decoration="underline"' : ''} fill="${color}">${esc(lt)}</text>`);
   }
   return out;
 }

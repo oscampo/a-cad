@@ -18,6 +18,10 @@ export const DIM_H0 = 3.5; // altura por defecto (unidades del dibujo) si el doc
 export const dimH = (doc, k) => (k?.th > 0 ? k.th : doc?.dimH > 0 ? doc.dimH : DIM_H0);
 export const dimGainV = (doc, k, view) => (doc?.dimText ? (dimH(doc, k) * view.s) / DIM_FS : dimGain(k));
 export const DIAM = '\u2300'; // simbolo de diametro (U+2300)
+// El simbolo \u2300 se dibuja como vector y no con el glifo de la fuente: cada fuente lo trae de otra altura (o lo pide a otra fuente), y la norma
+// (ISO 129-1, UNE 1-039) lo quiere de la altura de las cifras de la cota. H = altura de las cifras; el trazo oblicuo ocupa exactamente H
+// (de la linea base a la altura de las cifras) y el circulo es un poco menor, de modo que el trazo lo atraviesa y sobresale.
+export const diamGeom = (H) => ({ H, w: 0.9 * H, r: 0.45 * H, dx: 0.21 * H, lw: Math.max(0.8, 0.12 * H), gap: 0.16 * H });
 export const fmtNum = (v) => (Math.abs(v) >= sciFrom() && Number.isFinite(v) ? sciText(v) : localNum(Math.abs(v) >= 1000 ? String(Number(v.toFixed(1))) : String(Math.round(v * 1000) / 1000))); // con coma decimal (doc.decimal), «0,333»; sin «.0» en los miles (1000, no 1000.0); desde el umbral de Configuracion, «2.569e5»
 
 const V = (view) => (p) => ({ x: p.x * view.s + view.ox, y: view.oy - p.y * view.s });

@@ -90,7 +90,7 @@ function matQ(m, dim, env, src, want, math, mi = null) {
     const u = pickUnit(dim, env, src, want, Math.max(...m.flat().map((x, q) => Math.hypot(x, mi.flat()[q]))));
     return u ? box(matText(cell(u.f, fmtQ), (x) => x)) + tailOf(want || u.name, math) : '⚠';
   }
-  if (!dim) return want ? '⚠' : box(matText(m));
+  if (!dim) return want ? '⚠' : box(matText(m, fmtPlain));
   const u = pickUnit(dim, env, src, want, Math.max(...m.flat().map(Math.abs)));
   return u ? box(matText(m.map((r) => r.map((x) => x / u.f)), fmtQ)) + tailOf(want || u.name, math) : '⚠';
 }
