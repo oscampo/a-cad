@@ -104,7 +104,7 @@ En un texto normal (el que empieza con `"` o un espacio), lo que va fuera de las
 | `texto[^1]` y `[^1]: la nota` | **Nota al pie**: la llamada va en superíndice, numerada en orden, y las notas se juntan al final del texto en letra más pequeña. |
 | `<!-- … -->` | Comentario: no se dibuja (puede abarcar varias líneas). |
 | `\*` | Deja el signo tal cual (sirve con cualquier signo de puntuación): `\*`, `\_`, `\#`, `\[`… Un `*` entre espacios (`2 * 3`) ya va tal cual, pero `2*3*4` pone el 3 en cursiva. |
-| Saltos de línea | Cada salto de línea es un salto de línea, con página o sin ella (a diferencia de Markdown, las líneas seguidas no se unen). Con la página (Configuración → Página), una línea que no cabe se parte en el margen. Una `\` al final de una línea no se dibuja. |
+| Saltos de línea | Cada salto de línea es un salto de línea, con página o sin ella (a diferencia de Markdown, las líneas seguidas no se unen). Con la página (Configuración → Página), una línea que no cabe se parte en el margen, y el margen izquierdo es un límite duro: un texto horizontal no empieza a su izquierda ni se arrastra más allá (los gráficos sí pueden cruzarlo). Una `\` al final de una línea no se dibuja. |
 
 ## Escritura matemática (AsciiMath)
 

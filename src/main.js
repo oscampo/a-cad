@@ -24,7 +24,7 @@ import { addRotary, addLinear, addLinearOnLine, actName, actUnit, actError, pars
 import { TRACE_STYLE } from './curves.js';
 import { parseLineSpec, splitSpec, withSpec, addGraph, computeGraphAsync, graphVarNames, dataBounds, axisCfg, axisLayout, axisRange, genericRange, GEN_X, AXES } from './graphs.js';
 import { panStep, zoomStep, setWindow, clearWindow, saveHome, homeWin, forgetHome, resetAxis } from './graphview.js';
-import { textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD, textLinkAt, textLinkBoxes } from './text.js';
+import { textMarginX, textFrame, textHit, textPose, shownText, textCorners, framePrims, runsOf, rawAngle, ANCHORS, ANCHOR_NAMES, LINE_SPACING, FONTS, fontCss, TEXT_BG_PAD, textLinkAt, textLinkBoxes } from './text.js';
 import { linkTarget, resolveRepoPath, findAnchor } from './links.js';
 import { attachAutoPair } from './autopair.js';
 import { attachGreek } from './greek.js';
@@ -2500,7 +2500,7 @@ function toolMove(p) {
     for (const [id, o] of Object.entries(drag.gorig)) { const g = boxOf(id); if (g) { g.x = o.x + dx; g.y = o.y + dy; } }
     const ids = Object.keys(drag.orig);
     if (ids.length) {
-      const tg = ids.map((id) => ({ id, x: drag.orig[id].x + dx, y: drag.orig[id].y + dy })), reac = hasReactive(doc);
+      const tg = ids.map((id) => ({ id, x: holdLeft(id, drag.orig[id].x + dx), y: drag.orig[id].y + dy })), reac = hasReactive(doc);
       const r = dragToStops(doc, tg, (t2) => (reac ? settle(doc, solveSteps, t2, { maxIter: 20 }) : solve(doc, t2)), !reac);
       if (r.ok) trackAngles(doc);
     }
@@ -2549,7 +2549,7 @@ function toolMove(p) {
     const steps = tracing ? Math.min(40, Math.max(1, Math.ceil((Math.hypot(cur2.dx - prev.dx, cur2.dy - prev.dy) * view.s) / 8))) : 1;
     for (let i = 1; i <= steps; i++) {
       const f = i / steps, dx = prev.dx + (cur2.dx - prev.dx) * f, dy = prev.dy + (cur2.dy - prev.dy) * f;
-      const tg = Object.entries(drag.orig).map(([id, o]) => ({ id, x: o.x + dx, y: o.y + dy }));
+      const tg = Object.entries(drag.orig).map(([id, o]) => ({ id, x: holdLeft(id, o.x + dx), y: o.y + dy }));
       const ts0 = PERF ? performance.now() : 0;
       const reac = hasReactive(doc);
       const r = dragToStops(doc, tg, (t2) => (reac ? settle(doc, solveSteps, t2, { maxIter: 20 }) : solve(doc, t2)), !reac); // con cotas que leen medidas, se actualizan mientras arrastras; con «tope en bordes» el elemento llega hasta el borde
@@ -2561,6 +2561,9 @@ function toolMove(p) {
     if (drag.gorig) for (const [id, o] of Object.entries(drag.gorig)) { const g = boxOf(id); if (g) { g.x = o.x + cur2.dx; g.y = o.y + cur2.dy; } }
   }
 }
+
+// Con pagina, un texto no se arrastra a la izquierda de su margen (limite duro; ver textMarginX); lo demas, sin cambios.
+const holdLeft = (id, x) => { const L = textMarginX(doc, id); return L == null ? x : Math.max(x, L); };
 
 function toolUp(p, q) {
   const d = drag; drag = null;
@@ -3163,6 +3166,7 @@ function commitTextLive(enter = false) {
   const pid = pointFrom(sUp); // el punto de insercion es un punto real: admite restricciones
   if (!reuse) doc.pts[pid].txOnly = true; // punto propio del texto: solo se ve al seleccionarlo
   const id = addText(doc, pid, text, { h: cur.tx.h ?? niceHeight(), ang: cur.tx.ang, anchor: text[0] === '%' ? 'tl' : cur.tx.anchor, color: cur.color, readable: cur.tx.readable, font: cur.tx.font }); // un script cuelga de su esquina superior: al expandirlo crece hacia abajo
+  { const L = textMarginX(doc, pid); if (L != null && doc.pts[pid].x < L) doc.pts[pid].x = L; } // el texto nuevo no empieza a la izquierda del margen
   if (!textEditOk(before)) return false;
   // La siguiente entrada va justo debajo de este texto (sea cual sea su altura): las entradas siguientes cuelgan de un cursor, y su texto se
   // coloca con el borde superior en el cursor.

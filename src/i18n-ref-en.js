@@ -118,7 +118,7 @@ export const REF_EN = {
   "1bmrnkk1j": "Comment: not drawn (can span several lines).",
   "109n87e6x": "Leaves the sign as is (works with any punctuation sign): <code>\\*</code>, <code>\\_</code>, <code>\\#</code>, <code>\\[</code>… A <code>*</code> between spaces (<code>2 * 3</code>) is already left as is, but <code>2*3*4</code> puts the 3 in italics.",
   "g7a7cff": "Line breaks",
-  "zkbjfv7b": "Every line break is a line break, with or without a page (unlike Markdown, consecutive lines are not joined). With the page (Settings → Page), a line that does not fit is wrapped at the margin. A <code>\\</code> at the end of a line is not drawn.",
+  "haqn6wbd": "Every line break is a line break, with or without a page (unlike Markdown, consecutive lines are not joined). With the page (Settings → Page), a line that does not fit is wrapped at the margin, and the left margin is a hard limit: a horizontal text does not start to its left or get dragged past it (graphics can still cross it). A <code>\\</code> at the end of a line is not drawn.",
   "1q09xdjw": "Math notation (AsciiMath)",
   "1cu1hok7t": "Formulas follow the syntax of <a href=\"https://asciimath.org/\" target=\"_blank\" rel=\"noopener\">asciimath.org</a>. They are drawn with fractions, roots, subscripts and mathematical symbols, and they rotate and export (SVG, DXF) like any text. Parentheses grow with what they enclose.",
   "97updc9": "Drawn as",

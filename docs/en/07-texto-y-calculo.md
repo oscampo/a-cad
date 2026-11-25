@@ -104,7 +104,7 @@ In a plain text (one that starts with `"` or a space), whatever is outside the f
 | `texto[^1]` y `[^1]: la nota` | **Footnote**: the call mark goes in superscript, numbered in order, and the notes are gathered at the end of the text in smaller type. |
 | `<!-- … -->` | Comment: not drawn (can span several lines). |
 | `\*` | Leaves the sign as is (works with any punctuation sign): `\*`, `\_`, `\#`, `\[`… A `*` between spaces (`2 * 3`) is already left as is, but `2*3*4` puts the 3 in italics. |
-| Line breaks | Every line break is a line break, with or without a page (unlike Markdown, consecutive lines are not joined). With the page (Settings → Page), a line that does not fit is wrapped at the margin. A `\` at the end of a line is not drawn. |
+| Line breaks | Every line break is a line break, with or without a page (unlike Markdown, consecutive lines are not joined). With the page (Settings → Page), a line that does not fit is wrapped at the margin, and the left margin is a hard limit: a horizontal text does not start to its left or get dragged past it (graphics can still cross it). A `\` at the end of a line is not drawn. |
 
 ## Math notation (AsciiMath)
 

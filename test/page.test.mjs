@@ -1,7 +1,7 @@
 // Modo pagina: ajuste de los textos al margen (cada salto de linea se respeta) y formulas que siguen en otra linea con «...».
 import assert from 'node:assert/strict';
 import { layoutText } from '../src/mathlayout.js';
-import { textFrame, shownText, textValue, pageWrap } from '../src/text.js';
+import { textFrame, shownText, textValue, pageWrap, textMarginX } from '../src/text.js';
 import { calcParse, calcSrc, calcStmts } from '../src/tvars.js';
 import { newDoc } from '../src/model.js';
 
@@ -53,6 +53,19 @@ t('pageWrap: el ancho segun el anclaje y el angulo', () => {
   assert.ok(Math.abs(pageWrap(doc, { pt: 'p', h: 5, anchor: 'mc' }).maxW - 50 / 5) < 1e-9);
   assert.equal(pageWrap(doc, { pt: 'p', h: 5, anchor: 'bl', ang: 30 }).maxW, undefined); // girado: une lineas pero no ajusta
   assert.equal(pageWrap({ ...doc, page: undefined }, { pt: 'p', h: 5 }), null); // sin limites
+});
+
+t('textMarginX: el margen izquierdo es un limite duro solo para los textos horizontales con punto propio', () => {
+  const mk = (extra = {}) => ({ page: { w: 215.9, m: 25, x0: 10 }, pts: { p: { x: 0, y: 0, txOnly: true, ...extra.pt } }, lines: {}, cons: extra.cons || {}, texts: { t1: { pt: 'p', h: 5, anchor: 'bl', ...extra.tx } } });
+  assert.equal(textMarginX(mk(), 'p'), 35, 'x0 + margen');
+  assert.equal(textMarginX({ ...mk(), page: undefined }, 'p'), null, 'sin pagina no hay limite');
+  assert.equal(textMarginX(mk({ tx: { ang: 90 } }), 'p'), null, 'un texto girado (un rotulo vertical) puede ir en el margen');
+  assert.equal(textMarginX(mk({ tx: { ang: 0.3 } }), 'p'), 35, 'casi horizontal cuenta como horizontal');
+  assert.equal(textMarginX(mk({ pt: { txOnly: false } }), 'p'), null, 'un punto que no es solo del texto no se mueve');
+  assert.equal(textMarginX(mk({ pt: { fixed: true } }), 'p'), null, 'un punto fijo tampoco');
+  assert.equal(textMarginX(mk({ cons: { k1: { t: 'H', refs: ['p', 'q'] } } }), 'p'), null, 'ni uno con restricciones');
+  assert.equal(textMarginX(mk(), 'q'), null, 'ni un punto que no existe');
+  assert.equal(textMarginX(mk({ tx: { vecOf: 'v1' } }), 'p'), null, 'la etiqueta de un vector sigue a su vector');
 });
 
 t('shownText y textFrame: con pagina la caja respeta el margen', () => {

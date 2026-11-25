@@ -257,6 +257,19 @@ export function pageWrap(doc, t) {
   return maxW > 2 * h ? { reflow: true, maxW: maxW / h } : { reflow: true };
 }
 
+// Con pagina, el margen izquierdo es un limite duro de los campos de texto, como lo es el derecho (donde el texto se parte): el punto de
+// insercion de un texto horizontal no puede quedar a su izquierda. Devuelve ese x minimo (mm del dibujo) o null si el punto no es de un texto
+// de esos: sin pagina, un texto en otro angulo (puede ir en el margen, p. ej. un rotulo vertical), un punto con restricciones, fijo, o
+// que no es solo del texto (el extremo de una linea no se mueve porque un texto cuelgue de el). Los graficos pueden cruzar el margen.
+export function textMarginX(doc, pid) {
+  const pg = doc?.page, P = doc?.pts?.[pid];
+  if (!pg || !P || !P.txOnly || P.fixed) return null;
+  if (Object.values(doc.cons || {}).some((k) => (k.refs || []).includes(pid))) return null;
+  const ts = Object.values(doc.texts || {}).filter((t) => t.pt === pid && !t.vecOf);
+  if (!ts.length || ts.some((t) => { const { ang } = textPose(doc, t); return Math.min(ang, 360 - ang) > 0.5; })) return null;
+  return (pg.x0 || 0) + pg.m;
+}
+
 export const ANCHORS = ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'];
 export const ANCHOR_NAMES = {
   tl: 'esquina superior izquierda', tc: 'medio del lado superior', tr: 'esquina superior derecha',
