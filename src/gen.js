@@ -141,16 +141,7 @@ export function regenerate(doc) {
     if (Math.abs(p.x - r.x) > EPS || Math.abs(p.y - r.y) > EPS) { p.x = r.x; p.y = r.y; out.changed = true; }
     if (!p.fixed) { p.fixed = true; out.changed = true; }
   }
-  // pid: el punto que lleva ese nombre: el de este texto; si no, el que genero OTRO texto (si el nombre es unico en el dibujo: cada enunciado suele ir
-  // en su propio texto); si no, un punto del dibujo (p5)
-  const ambiguous = new Set();
-  const other = (name) => {
-    const ids = new Set();
-    for (const m of [map, rel]) for (const [key, id] of Object.entries(m)) { const i = key.indexOf('/'); if (i > 0 && key.slice(i + 1) === name && doc.pts[id]) ids.add(id); }
-    if (ids.size > 1 && !ambiguous.has(name)) { ambiguous.add(name); out.errs.push(`«${name}» lo generan varios textos: ponle otro nombre a uno para saber a cuál te refieres`); }
-    return ids.size === 1 ? [...ids][0] : undefined;
-  };
-  const pid = (ns, name) => map[ns + '/' + name] || rel[ns + '/' + name] || other(name) || (doc.pts[name] ? name : undefined), has = (id) => !!(id && doc.pts[id]);
+  const pid = (ns, name) => map[ns + '/' + name] || rel[ns + '/' + name] || (doc.pts[name] ? name : undefined), has = (id) => !!(id && doc.pts[id]); // pid: lo de este texto primero; si no, un punto del dibujo (p5)
   // lineas
   for (const [key, r] of req.lines) {
     const a = pid(r.ns, r.a), b = pid(r.ns, r.b);

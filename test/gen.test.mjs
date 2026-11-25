@@ -401,35 +401,4 @@ t('fuera de line/circle/arc/spline, un punto del dibujo no es una variable (sigu
   assert.throws(() => evalExpr('p1 + 1', { vars: { 'p1.x': { v: 5, r: false }, 'p1.y': { v: 5, r: false } }, allowMat: true, allowCplx: true }), /No reconozco/);
 });
 
-// ---- un punto generado por OTRO texto (cada enunciado suele ir en su propio texto)
-function mkMulti(...bodies) {
-  const d = newDoc(); const u = addPoint(d, 5, 5); // p1 del usuario
-  const ids = bodies.map((b, i) => addText(d, addPoint(d, -50, 50 - 10 * i), '$$' + b + '$$', {}));
-  return { d, u, ids };
-}
-
-t('una linea en un texto usa un punto que genero otro texto (nombre unico), con y sin punto del usuario', () => {
-  const { d, u, ids } = mkMulti('pto2:point(p1.x + 30; p1.y)', 'pto3:point(pto2.x; pto2.y + 40)', 's1:line(p1; pto2)', 's2:line(pto2; pto3)');
-  const r = regenerate(d);
-  assert.deepEqual(r.errs, []);
-  assert.equal(n(d.lines), 2);
-  assert.equal(linesOf(d, u).length, 1);
-  assert.equal(linesOf(d, d.gen.map[ids[0] + '/pto2']).length, 2);
-});
-
-t('lo del propio texto manda sobre lo de otro con el mismo nombre', () => {
-  const { d, ids } = mkMulti('A:point(1; 1)', 'A:point(5; 5)\nB:point(9; 9)\nl:line(A; B)');
-  const r = regenerate(d);
-  assert.deepEqual(r.errs, []);
-  const l = Object.values(d.lines)[0];
-  assert.ok([l.a, l.b].includes(d.gen.map[ids[1] + '/A']) && !([l.a, l.b].includes(d.gen.map[ids[0] + '/A'])));
-});
-
-t('un nombre que generan varios textos y se usa desde un tercero: aviso claro y no se adivina', () => {
-  const { d } = mkMulti('A:point(1; 1)', 'A:point(5; 5)', 'B:point(9; 9)\nl:line(A; B)');
-  const r = regenerate(d);
-  assert.ok(r.errs.some((e) => /lo generan varios textos/.test(e)), r.errs.join(' | '));
-  assert.equal(n(d.lines), 0);
-});
-
 console.log(`${passed} pruebas de dibujo generado`);
