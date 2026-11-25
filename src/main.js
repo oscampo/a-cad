@@ -1042,7 +1042,8 @@ function hitTest(sx, sy, noText = false) { // noText: lo que hay debajo de un te
   for (const [id, p] of Object.entries(doc.pts)) {
     if (!shown.has(id) || !fkOn('pt')) continue;
     const d = dist(toScreen(p), { x: sx, y: sy });
-    if (d < bd) { bd = d; best = { k: 'pt', id }; }
+    // un punto generado por un script (fijo) debajo de uno del usuario no lo tapa: el del usuario es el que se puede agarrar
+    if (d < bd || (best?.k === 'pt' && isGen(doc, best.id) && !isGen(doc, id) && d < bd + 1.5)) { bd = Math.min(d, bd + 1.5); best = { k: 'pt', id }; }
   }
   if (best) return best;
   // un texto se toma por su caja (antes que las lineas que pasen por debajo)
