@@ -129,7 +129,7 @@ t('iso sobre un contorno con lineas y un arco, y sobre un circulo: una sola func
   const arc = addArc(d, P(5, 30), p[4], p[5], 5, {});
   const { id: k } = addCtr(d, [...l.map((id) => ({ k: 'ln', id })), { k: 'ar', id: arc }], 'L');
   const hole = addCircle(d, P(18, 4), 2);
-  addText(d, addPoint(d, 0, 200), readFileSync(new URL('./fixtures/iso-contorno.txt', import.meta.url), 'utf8').trim(), {});
+  addText(d, addPoint(d, 0, 200), readFileSync(new URL('./fixtures/iso-contorno.txt', import.meta.url), 'utf8').split('\r').join('').trim(), {}); // sin los \r de una descarga en Windows
   addText(d, addPoint(d, 0, 100), '$$r:iso("T", ' + k + ', 100, 0)$$', {});
   addText(d, addPoint(d, 0, 80), '$$q:iso("T", ' + hole + ', 100, 0)$$', {});
   const st = textVars(d), r = regenerate(d);
