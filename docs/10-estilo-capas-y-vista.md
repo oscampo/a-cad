@@ -126,7 +126,7 @@ Un grupo es una declaración tuya: sus líneas y arcos pasan a vivir **bajo él*
 - **Disolver** (*Disolver el contorno*): los elementos se quedan donde estaban, sin grupo, y vuelven a «Líneas» y «Arcos».
 - **Borrar** (la papelera): borra el grupo **y** sus elementos.
 - Un elemento está en un solo grupo. Un círculo, un vector, un elemento constructivo o una spline cerrada no entran.
-- Copiar, pegar y las matrices **no** copian el grupo; dividir un elemento deja los trozos en el grupo. Si un grupo se queda con menos de dos elementos, desaparece solo.
+- **Copiar** un grupo **completo** (pegar, matrices, copia espejo) forma un grupo nuevo **sin nombre** por cada copia; si copias solo una parte de sus elementos, la copia no hereda nada. Dividir un elemento deja los trozos en el grupo, y el redondeo y el chaflán entre dos elementos del mismo grupo suman lo nuevo al grupo. Si un grupo se queda con menos de dos elementos, desaparece solo.
 
 ---
 

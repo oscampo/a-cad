@@ -1,7 +1,7 @@
 // Recortar, extender y matriz lineal. Sin DOM (se prueba en Node). Mutan doc; quien llama hace undo/solve
 // y revierte si el solver falla.
 import { makeVector } from './vectors.js';
-import { shownEntries, addPoint, addLine, addArc, addCircle, addEllipse, addSpline, addText, addCon, withOp, nextId, arcOf, splinePolyline, deleteItems, arcSamples, ellipsePolyline, ellipseOf, ellipseRange, ellipsePoint, ellipseParam, isPartial, cleanup } from './model.js';
+import { ctrMembers, shownEntries, addPoint, addLine, addArc, addCircle, addEllipse, addSpline, addText, addCon, withOp, nextId, arcOf, splinePolyline, deleteItems, arcSamples, ellipsePolyline, ellipseOf, ellipseRange, ellipsePoint, ellipseParam, isPartial, cleanup } from './model.js';
 import { dist, closestOnSeg, lineLine, lineCircle, circleCircle, polylineLine, polylineCircle, polylinePolyline, closestOnPolyline, splineSamples, inSweep, angleFrom, norm, TAU } from './geom.js';
 import { splitElement } from './split.js';
 import { rawAngle } from './text.js';
@@ -526,7 +526,9 @@ function collect(doc, items) {
   const inSet = new Set([...P, ...L, ...Ci, ...Ar, ...Sp, ...Tx, ...El]);
   const cons = Object.values(doc.cons).filter((k) => (k.refs || []).length && k.refs.every((r) => inSet.has(r)));
   const hatches = Object.values(doc.hatches || {}).filter((h) => h.ids.length && h.ids.every((i) => inSet.has(i)));
-  return { P, L, Ci, Ar, Sp, Tx, El, cons, hatches };
+  // un grupo de contorno cuyos miembros van todos en la copia: la copia forma un grupo nuevo (sin nombre); si falta alguno, no hereda
+  const ctrs = Object.keys(doc.ctrs || {}).filter((id) => { const m = ctrMembers(doc, id); return m.length >= 2 && m.every((it) => inSet.has(it.id)); });
+  return { P, L, Ci, Ar, Sp, Tx, El, cons, hatches, ctrs };
 }
 
 const jclone = (o) => JSON.parse(JSON.stringify(o));
@@ -538,7 +540,7 @@ const jclone = (o) => JSON.parse(JSON.stringify(o));
 // solo siguen valiendo si ese angulo es multiplo de 90 (con 90 se intercambian); si no, no se copian.
 // rotDeg: giro que se suma al angulo de los textos (en el reflejo se usa axisAng).
 function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvAngle, rotDeg = 0, linked = false, src = null } = {}) {
-  const { P, L, Ci, Ar, Sp, Tx, El, cons, hatches } = col;
+  const { P, L, Ci, Ar, Sp, Tx, El, cons, hatches, ctrs = [] } = col;
   const S = src || doc; // de donde se leen los originales (al pegar, un documento guardado al copiar)
   const M = {}, made = [], vecLines = [];
   // las partes de un vector (punto medio, texto y cota de magnitud) no se copian: la copia del vector las crea nuevas
@@ -552,7 +554,7 @@ function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvA
     if (linked) doc.pts[np].fixed = false; // la copia sigue al original
     M[pid] = np;
   }
-  // ctr (el grupo de contorno) se separa de st en las lineas, arcos, arcos elipticos y splines: una copia NO hereda el grupo
+  // ctr (el grupo de contorno) se separa de st en las lineas, arcos, arcos elipticos y splines: una copia suelta NO hereda el grupo (si va el grupo completo, se forma uno nuevo mas abajo)
   for (const id of L) { const { a, b, vec, ctr, ...st } = S.lines[id]; M[id] = addLine(doc, M[a], M[b], st); made.push({ k: 'ln', id: M[id] }); if (vec) vecLines.push([M[id], vec, S.texts?.[vec.t]]); }
   for (const pid of P) { const mk = S.pts[pid].mark; if (mk && M[mk] && M[pid] && M[pid] !== pid && doc.pts[M[pid]]) doc.pts[M[pid]].mark = M[mk]; }
   for (const id of Ci) { const { c, r, ...st } = S.circles[id]; M[id] = addCircle(doc, M[c], r, st); made.push({ k: 'ci', id: M[id] }); }
@@ -586,6 +588,15 @@ function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvA
     addCon(doc, n);
   }
   for (const h of hatches) doc.hatches[nextId(doc, 'h')] = { ...jclone(h), ids: h.ids.map((x) => M[x]) };
+  for (const cid of ctrs) {
+    const mem = ctrMembers(S, cid).filter((it) => M[it.id]);
+    if (mem.length < 2) continue;
+    doc.ctrs ||= {};
+    const nid = nextId(doc, 'k');
+    doc.ctrs[nid] = {};
+    const COLL = { ln: 'lines', ar: 'arcs', el: 'ellipses', sp: 'splines' };
+    for (const it of mem) doc[COLL[it.k]][M[it.id]].ctr = nid;
+  }
   for (const [lid, v, tx] of vecLines) makeVector(doc, lid, { rev: v.rev, h: tx?.h }); // cada copia es un vector con su propia magnitud
   return { made, M };
 }

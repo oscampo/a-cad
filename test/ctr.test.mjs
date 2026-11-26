@@ -112,23 +112,40 @@ t('un ctr que apunta a un grupo que no existe se limpia', () => {
   assert.equal(d.lines[items[0].id].ctr, undefined);
 });
 
-t('copiar y pegar: la copia NO hereda el grupo, los originales lo conservan', () => {
+t('copiar y pegar un grupo completo: la copia forma un grupo nuevo, sin nombre; el original se queda como esta', () => {
   const { d, items } = square();
-  const { id } = addCtr(d, items);
+  const { id } = addCtr(d, items, 'perfil');
   const clip = clipOf(d, items);
   const r = pasteClip(d, clip, { x: 50, y: 50 });
   assert.ok(r.ok); assert.equal(r.made.length, 4);
-  for (const m of r.made) assert.equal(d.lines[m.id].ctr, undefined, 'la copia no esta en el grupo');
+  const nid = d.lines[r.made[0].id].ctr;
+  assert.ok(nid && nid !== id);
+  for (const m of r.made) assert.equal(d.lines[m.id].ctr, nid);
+  assert.equal(d.ctrs[nid].name, undefined, 'la copia nace sin nombre');
+  assert.equal(d.ctrs[id].name, 'perfil');
+  assert.equal(ctrMembers(d, id).length, 4); assert.equal(ctrMembers(d, nid).length, 4);
+});
+
+t('copiar solo parte de un grupo: la copia no hereda nada', () => {
+  const { d, items } = square();
+  const { id } = addCtr(d, items);
+  const part = items.slice(0, 3);
+  const r = pasteClip(d, clipOf(d, part), { x: 50, y: 50 });
+  assert.ok(r.ok); assert.equal(r.made.length, 3);
+  for (const m of r.made) assert.equal(d.lines[m.id].ctr, undefined);
   assert.equal(ctrMembers(d, id).length, 4);
 });
 
-t('matriz lineal: las copias no heredan el grupo', () => {
+t('matriz lineal de un grupo completo: cada copia es un grupo propio, sin nombre; el original no cambia', () => {
   const { d, items } = square();
-  const { id } = addCtr(d, items);
-  const r = linearArray(d, items, [{ u: { x: 1, y: 0 }, s: 30, n: 1 }]);
+  const { id } = addCtr(d, items, 'perfil');
+  const r = linearArray(d, items, [{ u: { x: 1, y: 0 }, s: 30, n: 2 }]);
   assert.ok(r.ok);
   assert.equal(ctrMembers(d, id).length, 4);
-  assert.equal(Object.values(d.lines).filter((l) => l.ctr === id).length, 4);
+  assert.equal(d.ctrs[id].name, 'perfil');
+  const ids = Object.keys(d.ctrs);
+  assert.equal(ids.length, 3, 'el original y 2 copias');
+  for (const k of ids.filter((x) => x !== id)) { assert.equal(ctrMembers(d, k).length, 4); assert.equal(d.ctrs[k].name, undefined); }
 });
 
 t('dividir: los trozos siguen en el grupo del original', () => {

@@ -1,4 +1,4 @@
-<!-- es: af8d047e80 -->
+<!-- es: 6935cded33 -->
 # 10. Style, layers and view
 
 Color, line type, width and fills; layers; what the view shows; and the element tree.
@@ -127,7 +127,7 @@ A group is a declaration of yours: its lines and arcs now live **under it**, in 
 - **Dissolve** (*Dissolve the contour*): the elements stay where they were, without a group, and go back to "Lines" and "Arcs".
 - **Delete** (the trash can): deletes the group **and** its elements.
 - An element is in only one group. A circle, a vector, a construction element or a closed spline cannot join.
-- Copy, paste and the arrays do **not** copy the group; splitting an element leaves the pieces in the group. If a group is left with fewer than two elements, it disappears on its own.
+- **Copying** a **complete** group (paste, arrays, mirror copy) forms a new group **without a name** for each copy; if you copy only some of its elements, the copy inherits nothing. Splitting an element leaves the pieces in the group, and a fillet or chamfer between two elements of the same group adds the new piece to the group. If a group is left with fewer than two elements, it disappears on its own.
 
 ---
 
