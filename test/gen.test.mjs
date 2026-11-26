@@ -582,4 +582,65 @@ t('un punto del dibujo como primer argumento de una funcion propia admite la com
   }
 });
 
+// ---- funciones propias con puntos del dibujo: varargin_i.x, error() y el aviso de una llamada suelta
+const ISO = '%iso(vista, varargin):\n  k:cos(π/6)\n  s:sin(π/6)\n  if vista=="T":\n    T:[k,-k,0;s,s,0;0,0,1]\n  elif vista=="L":\n    T:[k,0,0;s,1,0;0,0,1]\n  else:\n    error("solo se admite T o L")\n  for i in 1..nargin-1:\n    P:T*[varargin_i.x;varargin_i.y;1]\n    point("P"+num2str(i); 200+P_1; P_2)\n  for i in 1..nargin-1:\n    j:if(i==nargin-1,1,i+1)\n    line("P"+num2str(i); "P"+num2str(j))\n  nargin-1';
+function isoDoc(call) {
+  const d = newDoc();
+  const ps = [[0, 0], [10, 0], [10, 20], [0, 20]].map(([x, y]) => addPoint(d, x, y));
+  addText(d, addPoint(d, 0, 100), ISO, {});
+  addText(d, addPoint(d, 0, 50), '$$' + call.replace(/P(\d)/g, (m, n) => ps[n - 1]) + '$$', {});
+  return { d, ps };
+}
+
+t('varargin_i.x y .y: los puntos del dibujo que llegan de mas llevan sus coordenadas; la vista superior da un rombo', () => {
+  const { d } = isoDoc('r:iso("T", P1, P2, P3, P4)');
+  const st = textVars(d), r = regenerate(d);
+  assert.deepEqual([...st.errs], []); assert.deepEqual(r.errs, []);
+  const gen = Object.entries(d.gen.map).filter(([k]) => !k.includes('|')).map(([k, id]) => d.pts[id]).sort((a, b) => a.x - b.x);
+  const c = Math.cos(Math.PI / 6), s = Math.sin(Math.PI / 6);
+  // (x, y) -> (200 + c(x - y), s(x + y)): (0,0) -> 200, 0; (10,0) -> 208.66, 5; (10,20) -> 191.34, 15; (0,20) -> 182.68, 10
+  const want = [[0, 0], [10, 0], [10, 20], [0, 20]].map(([x, y]) => [200 + c * (x - y), s * (x + y)]).sort((a, b) => a[0] - b[0]);
+  gen.forEach((p, i) => { assert.ok(Math.abs(p.x - want[i][0]) < 1e-9 && Math.abs(p.y - want[i][1]) < 1e-9, `punto ${i}`); });
+  assert.equal(Object.keys(d.gen.map).filter((k) => k.includes('|')).length, 4);
+});
+
+t('varargin_i.x: la coma y el «;» separan igual; un elemento que no es un objeto dibujado da un mensaje claro', () => {
+  const a = isoDoc('r:iso("L"; P1; P2; P3)'), b = isoDoc('r:iso("L", P1, P2, P3)');
+  assert.deepEqual([...textVars(a.d).errs], []); assert.deepEqual([...textVars(b.d).errs], []);
+  const c = isoDoc('r:iso("T", 5, 6)');
+  assert.ok([...textVars(c.d).errs.values()].some((m) => /no es un punto, una línea ni un círculo del dibujo/.test(m)), JSON.stringify([...textVars(c.d).errs]));
+});
+
+t('un nombre con guion bajo (pt_i) no lleva «.x»: el mensaje dice que es un indice y como arreglarlo', () => {
+  const d = newDoc(), p = addPoint(d, 3, 4);
+  addText(d, addPoint(d, 0, 100), '%f(varargin):\n  pt_i:varargin_1\n  pt_i.x', {});
+  addText(d, addPoint(d, 0, 50), '$$r:f(' + p + ')$$', {});
+  const m = [...textVars(d).errs.values()].join(' | ');
+  assert.match(m, /nombre con guion bajo es un elemento/); assert.match(m, /q\.x/);
+});
+
+t('pt:varargin_1 y luego pt.x tambien funciona (sin guion bajo)', () => {
+  const d = newDoc(), p = addPoint(d, 3, 4);
+  addText(d, addPoint(d, 0, 100), '%f(varargin):\n  pt:varargin_1\n  pt.x+pt.y', {});
+  addText(d, addPoint(d, 0, 50), '$$r:f(' + p + ')$$', {});
+  assert.deepEqual([...textVars(d).errs], []);
+});
+
+t('error("mensaje") detiene la funcion con ese mensaje; el mensaje debe ser una cadena', () => {
+  const { d } = isoDoc('r:iso("Z", P1, P2)');
+  assert.ok([...textVars(d).errs.values()].some((m) => /En «iso»: solo se admite T o L/.test(m)));
+  const e = newDoc();
+  addText(e, addPoint(e, 0, 100), '%g(v):\n  error(3)', {}); addText(e, addPoint(e, 0, 50), '$$r:g(1)$$', {});
+  assert.ok([...textVars(e).errs.values()].some((m) => /el mensaje debe ser una cadena/.test(m)));
+});
+
+t('una llamada suelta a una funcion propia (sin «=» ni asignacion) avisa; asignada o con «=» no', () => {
+  const sola = isoDoc('iso("T", P1, P2, P3)'), asig = isoDoc('r:iso("T", P1, P2, P3)'), muestra = isoDoc('iso("T", P1, P2, P3)=');
+  assert.ok(regenerate(sola.d).notes.some((m) => /llamada suelta/.test(m) && /r:iso/.test(m)));
+  assert.equal(regenerate(asig.d).notes.some((m) => /llamada suelta/.test(m)), false);
+  assert.equal(regenerate(muestra.d).notes.some((m) => /llamada suelta/.test(m)), false);
+  const sinFn = newDoc(); addText(sinFn, addPoint(sinFn, 0, 0), '$$2+3$$', {});
+  assert.deepEqual(regenerate(sinFn).notes, []);
+});
+
 console.log(`${passed} pruebas de dibujo generado`);

@@ -202,6 +202,7 @@ A string goes between quotes: `"Cumple"` (the iPad's curly quotes “ ” work t
 | `sprintf(formato; …)` | Format: %d, %f, %.2f, %e, %g, %s, %%. Without units: divide by the unit you want (F/1'kN). | `sprintf("%.1f kN"; 12.345)=` | `“12.3 kN”` |
 | `str2double(s)`, `str2num(s)` | The number written in a string. | `str2double("3.25")*2` | `6.5` |
 | `strcat(a; b; …)` | Joins strings (like +). | `strcat("A"; "-"; "CAD")=` | `“A-CAD”` |
+| `error("mensaje")` | Stops the calculation with that message, to validate what a function receives: `else: error("solo se admite T, L o R")`. The message is flagged in the text, with the name of the function. |  |  |
 | `upper`, `lower`, `strtrim`, `reverse` | Uppercase, lowercase, trimmed of spaces at the ends, reversed. | `upper("abc")=` | `“ABC”` |
 | `strrep(s; viejo; nuevo)`, `replace(s; viejo; nuevo)` | Replaces all occurrences. | `strrep("a-b-c"; "-"; "+")=` | `“a+b+c”` |
 | `isempty(s)` | 1 if the string is empty (or all of those in a string vector); a number or a vector is never empty. | `isempty("")` | `1` |

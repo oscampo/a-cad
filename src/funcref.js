@@ -191,6 +191,7 @@ export const FUNC_GROUPS = [
       ['<code>sprintf(formato; …)</code>', 'Formato: %d, %f, %.2f, %e, %g, %s, %%. Sin unidades: divide por la unidad que quieres (F/1\'kN).', 'sprintf("%.1f kN"; 12.345)=', '“12.3 kN”', 't'],
       ['<code>str2double(s)</code>, <code>str2num(s)</code>', 'El número escrito en una cadena.', 'str2double("3.25")*2', '6.5', 'n'],
       ['<code>strcat(a; b; …)</code>', 'Une cadenas (como +).', 'strcat("A"; "-"; "CAD")=', '“A-CAD”', 't'],
+      ['<code>error("mensaje")</code>', 'Detiene el cálculo con ese mensaje, para validar lo que recibe una función: <code>else: error("solo se admite T, L o R")</code>. El mensaje sale marcado en el texto, con el nombre de la función.'],
       ['<code>upper</code>, <code>lower</code>, <code>strtrim</code>, <code>reverse</code>', 'Mayúsculas, minúsculas, sin espacios en los extremos, al revés.', 'upper("abc")=', '“ABC”', 't'],
       ['<code>strrep(s; viejo; nuevo)</code>, <code>replace(s; viejo; nuevo)</code>', 'Reemplaza todas las apariciones.', 'strrep("a-b-c"; "-"; "+")=', '“a+b+c”', 't'],
       ['<code>isempty(s)</code>', '1 si la cadena está vacía (o todas las de un vector de cadenas); un número o un vector nunca lo están.', 'isempty("")', '1', 'n'],

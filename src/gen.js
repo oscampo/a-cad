@@ -6,7 +6,7 @@
 // copia tiene un id nuevo y por eso ya no lo es).
 import { setGenSink, GEN_RE } from './expr.js';
 import { textVars } from './params.js';
-import { calcStmts } from './tvars.js';
+import { calcStmts, calcParse } from './tvars.js';
 import { addPoint, addLine, addCircle, addArc, addSpline, allLtypes, deleteItems, nextId, dissolveCtr } from './model.js';
 
 const EPS = 1e-9;
@@ -118,10 +118,28 @@ function loops(doc) {
   return bad;
 }
 
+// Una linea suelta que llama a una funcion propia («iso("T"; p17)» a secas) no se evalua: ni muestra, ni asigna, ni dibuja, y tampoco da error. Se avisa.
+const FN_DEF = /^\s*%([A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*)\s*\(/;
+function bareCalls(doc) {
+  const texts = Object.values(doc.texts || {}), fns = new Set(texts.map((t) => FN_DEF.exec(String(t.text ?? ''))?.[1]).filter(Boolean));
+  if (!fns.size) return [];
+  const out = [];
+  for (const t of texts) {
+    const src = String(t.text ?? '');
+    if (!src.includes('$$')) continue;
+    for (const tk of calcParse(src)) if (tk.t === 'math') for (const p of tk.lines.flat()) {
+      const m = p.k === 'code' && /^\s*([A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*)\s*\(/.exec(p.s);
+      if (m && fns.has(m[1])) out.push(`«${p.s.trim()}» es una llamada suelta y no se evalúa. Para usar «${m[1]}», asígnala (r:${p.s.trim()}) o muéstrala (${p.s.trim()}=)`);
+    }
+  }
+  return out;
+}
+
 // Hace que el dibujo diga lo que piden los textos. Devuelve { changed, errs, notes }: changed = se movio o se creo/borro algo (hay que volver a
 // resolver el dibujo); errs: lo que no se pudo (se muestra al usuario); notes: avisos (p. ej. un punto que dejo de generarse pero otros usan).
 export function regenerate(doc) {
   const out = { changed: false, errs: [], notes: [] };
+  out.notes.push(...bareCalls(doc));
   const had = Object.keys(doc.gen?.map || {}).length > 0 || Object.keys(doc.gen?.rel || {}).length > 0;
   if (!had && !hasGenCalls(doc)) return out;
   const { req, sink } = collector();

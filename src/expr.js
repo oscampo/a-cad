@@ -210,7 +210,12 @@ function tokenize(src, vars = null, loose = false) {
         }
       }
       if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: vars[raw]?.fn ? 'ufn' : 'var', v: raw, i, j: i + L }); // ufn: funcion definida en un texto
-      else if (vars && (ix = indexOfVar(raw, vars))) toks.push({ t: 'idx', base: ix.base, src: ix.src, i, j: i + L }); // v_2, v_i, A_(1,2): un elemento de un vector o matriz
+      else if (vars && (ix = indexOfVar(raw, vars))) { // v_2, v_i, A_(1,2): un elemento de un vector o matriz
+        // varargin_i.x: la propiedad de un punto (o linea, circulo…) que llego de mas a la funcion, como p.x en un parametro con nombre
+        const pm = vars[ix.base]?.args && !loose ? /^\.(x|y|L|len|ang|r|d)(?![A-Za-z0-9_])/.exec(src.slice(i + L)) : null;
+        toks.push({ t: 'idx', base: ix.base, src: ix.src, ...(pm ? { prop: pm[1] } : {}), i, j: i + L + (pm ? pm[0].length : 0) });
+        if (pm) i += pm[0].length;
+      }
       else if (raw === 'T' && last?.t === 'op' && last.v === '^') toks.push({ t: 'tr', i, j: i + 1 }); // x^T: la transpuesta
       else if (raw === 'j') toks.push({ t: 'num', v: 0, im: 1, i, j: i + L }); // la unidad imaginaria (solo «j» minuscula)
       else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name) || MATFN.has(name) || name in NF) toks.push({ t: 'id', v: name, i, j: i + L });
@@ -233,6 +238,10 @@ function tokenize(src, vars = null, loose = false) {
     }
     if ('+-*/^()[]×÷·⋅−'.includes(c)) { toks.push({ t: 'op', v: c === '×' || c === '·' || c === '⋅' ? '*' : c === '÷' ? '/' : c === '−' ? '-' : c, ...(c === '×' ? { x: true } : c === '·' || c === '⋅' ? { d: true } : {}), i, j: i + 1 }); i++; continue; }
     if (c === ',' && decimalMode() === ',') throw new Error('Con coma decimal los argumentos se separan con «;» (la coma es el decimal)');
+    if (c === '.' && last && (last.t === 'var' || last.t === 'idx')) { // pt_i.x: el guion bajo marca un indice, y un elemento no lleva «.x»
+      const pm = /^\.(x|y|L|len|ang|r|d)(?![A-Za-z0-9_])/.exec(src.slice(i)), nm = last.t === 'idx' ? last.base + '_' + last.src : last.v;
+      if (pm && String(nm).includes('_')) throw new Error(`«${nm}${pm[0]}»: un nombre con guion bajo es un elemento (un índice), no lleva «${pm[0]}». Guarda el punto en un nombre sin guion bajo (q) y lee q${pm[0]}`);
+    }
     throw new Error(`Carácter no válido «${c}»`);
   }
   return toks;
@@ -1063,6 +1072,8 @@ const SF = {
     return { str: 'contour(' + refs.length + ')' };
   } },
   circle: { n: [2, 3], f: (A) => { const c = genName(A[0], 'circle', 'el centro'), r = genNum(A[1], 'circle', 'el radio'); if (!(r > 0)) throw new Error('circle: el radio debe ser mayor que 0'); GEN?.circle(c, r, genStyle(A[2], 'circle'), { c: A[0].gen?.ns }); const p = A[0].gen; return { str: 'o(' + c + ')', ...(p?.k === 'pt' ? { gen: { k: 'ci', x: p.x, y: p.y, r } } : {}) }; } },
+  // error("mensaje"): detiene el calculo con ese mensaje (para validar lo que recibe una funcion: else: error("solo T, L o R"))
+  error: { n: [1, 1], f: (A) => { throw rt(strArg(A[0], 'error(mensaje)', 'el mensaje')); } },
   num2str: { n: [1, 2], f: (A) => ({ str: numText(A[0], A[1] !== undefined ? intArg(A[1], 'num2str(x, n)', 'n', 0, 12) : undefined) }) },
   string: { n: [1, 1], f: (A) => (A[0].strs ? A[0] : { str: numText(A[0]) }) },
   str2double: { n: [1, 1], f: (A) => { const t = strArg(A[0], 'str2double(s)').trim().replace(',', '.'), v = Number(t); if (!t || !Number.isFinite(v)) throw rt(`str2double: «${A[0].str}» no es un número`); return { v, r: false }; } },
@@ -1166,12 +1177,15 @@ function withLocals(s, vars) {
   const out = { ...(vars || {}) }, names = new Set();
   for (const re of [ASG_RE, FOR_RE]) for (const m of s.matchAll(re)) names.add(normName(m[1]));
   const has = (n) => Object.prototype.hasOwnProperty.call(out, n) || names.has(n);
+  const usedProps = new Set(); // los «nombre.prop» que el texto lee: una variable local asignada con un objeto dibujado los tendra
+  for (const m of s.matchAll(/(?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_'.])([A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*)\.(x|y|L|len|ang|r|d)(?![A-Za-z0-9_])/g)) usedProps.add(normName(m[1]) + '.' + m[2]);
   for (const n of names) {
     const ip = indexParts(n);
     if (ip && ip.base !== n && has(ip.base) && !Object.prototype.hasOwnProperty.call(out, n)) continue; // «v_1:…»: un elemento de v, no una variable nueva (stmt avisa)
     if (!Object.prototype.hasOwnProperty.call(out, n)) {
       out[n] = { v: NaN, r: false, loc: true, unset: true };
-      if (GEN_RE.test(s)) for (const pr of ['x', 'y', 'L', 'len', 'ang', 'r', 'd']) if (!Object.prototype.hasOwnProperty.call(out, n + '.' + pr)) out[n + '.' + pr] = { v: NaN, r: false, loc: true, unset: true }; // pto2.x, s1.L de lo que dibuja la variable (se llenan al asignarla)
+      const drawn = GEN_RE.test(s);
+      for (const pr of ['x', 'y', 'L', 'len', 'ang', 'r', 'd']) if ((drawn || usedProps.has(n + '.' + pr)) && !Object.prototype.hasOwnProperty.call(out, n + '.' + pr)) out[n + '.' + pr] = { v: NaN, r: false, loc: true, unset: true }; // pto2.x, s1.L de lo que dibuja la variable, o de un punto que le llega (pt:varargin_1, luego pt.x) (se llenan al asignarla)
     }
     else if (!out[n]?.fn && !out[n]?.loc) out[n] = { ...out[n], loc: true }; // ya existe afuera (b:-0.113) y el programa lo asigna (b:[…]): b_k es un indice aunque afuera b sea un numero; conserva su valor por si se lee antes
   }
@@ -1740,7 +1754,12 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       const q = evalExpr(ix[0], { vars, depth: depth + 1, globals }).value;
       if (!(Number.isInteger(q) && q >= 1 && q <= L.length)) throw new Error(L.length ? `Pides «${k.base}_${q}», pero «${k.base}» trae ${L.length} (revisa nargin)` : `«${k.base}» está vacío: la función no recibió valores de más (revisa nargin)`);
       const x = L[q - 1];
-      if (typeof x.str === 'string') return { str: x.str };
+      if (k.prop) { // varargin_k.x: la propiedad del objeto dibujado que llego (un punto, una linea…)
+        const pv = x.gen ? genProps(x.gen)[k.prop] : null;
+        if (!pv) throw new Error(x.gen ? `«${k.base}_${q}» no tiene «.${k.prop}»` : `«${k.base}_${q}» no es un punto, una línea ni un círculo del dibujo: no tiene «.${k.prop}»`);
+        return { v: pv.v, r: !!pv.r };
+      }
+      if (typeof x.str === 'string') return x.gen ? { str: x.str, gen: x.gen } : { str: x.str }; // gen: un punto del dibujo conserva sus datos (pt:varargin_1 y luego pt.x)
       if (x.mat) return wd({ m: x.mat, ...(x.mi ? { mi: x.mi } : {}) }, x.d);
       return { v: x.v, ...(x.im ? { im: x.im } : {}), r: !!x.r, d: x.d };
     }

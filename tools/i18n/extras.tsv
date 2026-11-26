@@ -239,3 +239,7 @@ No hay nada dibujado	Nothing is drawn
 La página ya está ajustada a lo dibujado	The page is already fitted to what is drawn
 Página ajustada: lo dibujado ocupa {0} hojas	Page fitted: what is drawn takes {0} sheets
 Página ajustada a lo dibujado	Page fitted to what is drawn
+«{0}{1}»: un nombre con guion bajo es un elemento (un índice), no lleva «{2}». Guarda el punto en un nombre sin guion bajo (q) y lee q{3}	«{0}{1}»: a name with an underscore is an element (an index), it takes no «{2}». Store the point in a name without an underscore (q) and read q{3}
+«{0}_{1}» no tiene «.{2}»	«{0}_{1}» has no «.{2}»
+«{0}_{1}» no es un punto, una línea ni un círculo del dibujo: no tiene «.{2}»	«{0}_{1}» is not a point, a line or a circle of the drawing: it has no «.{2}»
+«{0}» es una llamada suelta y no se evalúa. Para usar «{1}», asígnala (r:{2}) o muéstrala ({3}=)	«{0}» is a loose call and is not evaluated. To use «{1}», assign it (r:{2}) or display it ({3}=)
