@@ -2,6 +2,15 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## Sin publicar
+
+### Nuevo
+
+- Cálculo: **`varargin_i.x` y `varargin_i.y`**. Un punto del dibujo (`p17`) que llega a una función propia como valor de más conserva sus coordenadas: se leen con `varargin_1.x` (también en un `for`, `varargin_i.x`) o se guarda en un nombre sin guion bajo, `q:varargin_1`, y se lee `q.x`. Antes el punto llegaba solo como nombre y `.x` daba «Carácter no válido «.»». Un nombre con guion bajo (`pt_i`) es un índice y no lleva `.x`: ahora el mensaje lo dice y cómo arreglarlo.
+- Cálculo: **`error("mensaje")`** detiene el cálculo con ese mensaje (en una función, `else: error("solo se admite T, L o R")`), que sale marcado en el texto con el nombre de la función.
+- Dibujo generado: **aviso de una llamada suelta**. Una línea que llama a una función propia sin `=` ni asignación (`$$iso("T", p17, p18)$$`) no se evaluaba y fallaba en silencio: no mostraba, no dibujaba y tampoco daba error. Ahora avisa y dice cómo usarla (`r:iso(…)` para dibujar o guardar, `iso(…)=` para mostrar).
+- Ayuda: `nargin` cuenta también los parámetros fijos (con `f(a; varargin)`, los de `varargin` son `nargin-1`); lo dice la referencia, porque un `for i in 1..nargin` pedía un elemento de más.
+
 ## v2.9.5 (2026-11-26)
 
 ### Nuevo
