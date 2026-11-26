@@ -44,6 +44,7 @@ import { iconSvg, ICONS } from './icons.js';
 import { setIconSource } from './iconpaths.js';
 setIconSource(ICONS); // los iconos de la app que un texto puede mostrar: ![Linea](icon:line)
 import { buildTree, kindOf, conLabel, ctrDescribe } from './tree.js';
+import { ctrIssues, removeDupEdges, mergeCoincident } from './repair.js';
 import { cleanFileBase } from './files.js';
 import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProblem, libFileName, libPayload, legacyLibPath, newLibPath } from './library.js';
 import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX, imgRect, syncImages, ensureImagePoints, anchorPoint } from './images.js';
@@ -513,6 +514,22 @@ function treeDissolveCtr(id) {
   pushUndo();
   const n = dissolveCtr(doc, id);
   toast(`Contorno disuelto: ${n} elementos siguen en el dibujo`);
+  afterChange();
+}
+function treeRemoveDups(id) {
+  pushUndo();
+  const n = removeDupEdges(doc, ctrMembers(doc, id));
+  sel = sel.filter(exists);
+  solve(doc, []);
+  toast(n === 1 ? 'Se quitó 1 elemento repetido' : `Se quitaron ${n} elementos repetidos`);
+  afterChange();
+}
+function treeMergePoints(id) {
+  pushUndo();
+  const r = mergeCoincident(doc, ctrMembers(doc, id));
+  sel = sel.filter(exists);
+  solve(doc, []);
+  toast(r.skipped.length ? `Se unieron ${r.merged}; no se pudo con ${r.skipped.length}: ${r.skipped[0]}` : r.merged === 1 ? 'Se unió 1 par de puntos' : `Se unieron ${r.merged} pares de puntos`);
   afterChange();
 }
 function treeDeleteCtr(id) {
@@ -5630,6 +5647,14 @@ function openCtrProps(id, body) {
     mkb('Seleccionar', 'Selecciona todos los elementos del contorno', () => { $('dlgR').close(); sel = ctrMembers(doc, id).filter(exists); afterChange(); }),
     mkb('Disolver', 'Disuelve el contorno: los elementos se quedan sin grupo', () => { $('dlgR').close(); treeDissolveCtr(id); }),
     mkb('Borrar con sus elementos', 'Borra el contorno y todos sus elementos', () => { $('dlgR').close(); treeDeleteCtr(id); })));
+  // reparar: aristas dibujadas dos veces y puntos distintos en el mismo lugar entre los extremos de sus elementos
+  const iss = ctrIssues(doc, id), nDup = iss.dups.reduce((s, g) => s + g.dups.length, 0), nPts = iss.clusters.length;
+  if (nDup || nPts) {
+    const fix = [];
+    if (nDup) fix.push(mkb(`Quitar repetidas (${nDup})`, 'Quita los elementos dibujados dos veces y deja uno de cada', () => { $('dlgR').close(); treeRemoveDups(id); }));
+    if (nPts) fix.push(mkb(`Unir puntos coincidentes (${nPts})`, 'Une en uno los puntos distintos que están en el mismo lugar: lo que usaba uno pasa a usar el otro', () => { $('dlgR').close(); treeMergePoints(id); }));
+    body.appendChild(propRow('Reparar', ...fix));
+  }
   $('prCons').textContent = ''; $('prAdd').textContent = ''; $('prConsH').style.display = 'none'; // un grupo no tiene restricciones propias
   if (!$('dlgR').open) $('dlgR').showModal();
 }

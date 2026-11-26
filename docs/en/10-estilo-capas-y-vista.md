@@ -1,4 +1,4 @@
-<!-- es: 6935cded33 -->
+<!-- es: d1906dbb1a -->
 # 10. Style, layers and view
 
 Color, line type, width and fills; layers; what the view shows; and the element tree.
@@ -127,6 +127,7 @@ A group is a declaration of yours: its lines and arcs now live **under it**, in 
 - **Dissolve** (*Dissolve the contour*): the elements stay where they were, without a group, and go back to "Lines" and "Arcs".
 - **Delete** (the trash can): deletes the group **and** its elements.
 - An element is in only one group. A circle, a vector, a construction element or a closed spline cannot join.
+- **Repair** (in the group properties, only when needed): the state warns about **repeated edges** (the same element drawn twice, which leaves the contour "branched") and **unconstrained joints** (two different points in the same place). *Remove repeated* keeps one of each, the one with the most relations; *Join coincident points* joins each pair into one, and whatever used one now uses the other (relations between the two points disappear, and it refuses if a line, an arc or a spline uses both). Both can be undone.
 - **Copying** a **complete** group (paste, arrays, mirror copy) forms a new group **without a name** for each copy; if you copy only some of its elements, the copy inherits nothing. Splitting an element leaves the pieces in the group, and a fillet or chamfer between two elements of the same group adds the new piece to the group. If a group is left with fewer than two elements, it disappears on its own.
 
 ---

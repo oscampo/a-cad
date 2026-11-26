@@ -2,6 +2,7 @@
 import { dist } from './geom.js';
 import { conRefs, conTag, ctrMembers, ctrName } from './model.js';
 import { dimValue, dimText, DIAM } from './dims.js';
+import { dupEdges } from './repair.js';
 
 const f = (v, d = 2) => String(Math.round(v * 10 ** d) / 10 ** d);
 
@@ -149,8 +150,10 @@ export function ctrDescribe(doc, id) {
   for (const m of st.members) cnt[m.k] = (cnt[m.k] || 0) + 1;
   const what = Object.entries(cnt).map(([k, n]) => `${n} ${KN[k][n > 1 ? 1 : 0]}`).join(', ');
   const c = st.comp;
-  const state = c ? `${c.closed ? 'cerrado' : c.branched ? 'ramificado' : 'abierto'}${gapText(c, 0)}${c.loose ? ` · ${c.loose} ${c.loose > 1 ? 'uniones' : 'unión'} sin restricción` : ''}` : `desconectado (${st.parts} ${st.parts > 1 ? 'partes' : 'parte'})`;
-  return { state, what, members: st.members };
+  const dups = dupEdges(doc, st.members).reduce((s, g) => s + g.dups.length, 0); // aristas dibujadas dos veces: el contorno sale «ramificado»
+  const state = (c ? `${c.closed ? 'cerrado' : c.branched ? 'ramificado' : 'abierto'}${gapText(c, 0)}${c.loose ? ` · ${c.loose} ${c.loose > 1 ? 'uniones' : 'unión'} sin restricción` : ''}` : `desconectado (${st.parts} ${st.parts > 1 ? 'partes' : 'parte'})`)
+    + (dups ? ` · ${dups} ${dups > 1 ? 'aristas repetidas' : 'arista repetida'}` : '');
+  return { state, what, members: st.members, dups };
 }
 
 // Estado de un grupo de contorno: sus miembros y si forman UNA cadena conectada (comp: el contorno medido, con closed/branched/loose/gap) o varias partes.
