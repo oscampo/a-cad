@@ -54,3 +54,28 @@ export function applyStyleProp(doc, sel, prop, value) {
 
 // Que tipos hay en la seleccion (para mostrar solo las filas del panel que sirven).
 export const kindsOf = (doc, sel) => new Set(styleObjects(doc, sel).map((t) => t.kind));
+
+// ---- Capa: se asigna a lo que la lleva (lineas, circulos, arcos, elipses, splines, rellenos, textos, y de las relaciones solo las cotas y las lineas
+// indicativas, en la propia relacion). No es una propiedad de estilo (no cambia lo nuevo que se dibuje: eso es la capa actual).
+export function layerObjects(doc, sel) {
+  const out = [];
+  for (const s of sel || []) {
+    let obj = null;
+    if (COLL[s.k]) obj = doc[COLL[s.k]]?.[s.id];
+    else if (s.k === 'co') { const c = doc.cons?.[s.id]; if (c && (c.v !== undefined || c.t === 'LEAD')) obj = c; }
+    if (obj) out.push({ k: s.k, id: s.id, obj });
+  }
+  return out;
+}
+// { n: a cuantos aplica, mixed: no todos en la misma capa, value: la del primero ('' = ninguna) }.
+export function layerState(doc, sel) {
+  const ts = layerObjects(doc, sel), vals = ts.map((t) => (t.obj.layer && doc.layers?.[t.obj.layer] ? t.obj.layer : ''));
+  return { n: ts.length, mixed: new Set(vals).size > 1, value: vals[0] };
+}
+// Asigna la capa (id, o '' para ninguna); devuelve a cuantos. Una capa que no existe no se asigna.
+export function applyLayer(doc, sel, id) {
+  if (id && !doc.layers?.[id]) return 0;
+  const ts = layerObjects(doc, sel);
+  for (const t of ts) { if (id) t.obj.layer = id; else delete t.obj.layer; }
+  return ts.length;
+}

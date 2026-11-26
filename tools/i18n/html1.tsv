@@ -89,7 +89,7 @@ Alto (mm)	Height (mm)
 Márgenes (mm)	Margins (mm)
 Restricciones y cotas	Constraints and dimensions
 Filtrar la selección	Filter the selection
-Solo se podrá seleccionar (al tocar o con el cuadro) lo que esté marcado.	Only what is checked can be selected (by tapping or with the box).
+Solo se podrá seleccionar (al tocar o con el cuadro) lo que esté marcado. Si no marcas ningún tipo de línea, no se filtra por tipo.	Only what is checked can be selected (by tapping or with the box). If you check no line type, nothing is filtered by type.
 Tipos de línea	Line types
 (líneas, círculos, arcos, splines y elipses)	(lines, circles, arcs, splines and ellipses)
 Qué se define	What is defined

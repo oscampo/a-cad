@@ -13,6 +13,8 @@ Color, tipo de línea, grosor y rellenos; capas; lo que muestra la vista; y el �
 - **Color.**
 - **Tipo de línea:** continua, oculta, eje, fantasma, discontinua, punteada, traza y punto, o uno nuevo con su patrón.
 - **Grosor:** fino, normal, grueso.
+- **Capa:** asigna la selección a una capa (o a «Ninguna»). Aparece cuando lo seleccionado puede llevar capa (líneas, círculos, arcos, elipses, splines, rellenos, textos, cotas y líneas indicativas) y, si están en capas distintas, dice «(varios)». No cambia la capa actual, la de lo nuevo. Si eliges una capa apagada, lo asignado se oculta. Se deshace.
+- **Capa:** asigna la selección a una capa (o a «Ninguna»). Aparece cuando lo seleccionado puede llevar capa (líneas, círculos, arcos, elipses, splines, rellenos, textos, cotas y líneas indicativas) y, si están en capas distintas, dice «(varios)». No cambia la capa actual, la de lo nuevo. Si eliges una capa apagada, lo asignado se oculta. Se deshace.
 
 **Selección mixta.** Cada propiedad cambia solo los elementos a los que aplica: el color llega a líneas, textos y rellenos; el tipo de línea y el grosor, a los gráficos (líneas, círculos, arcos, elipses, splines, líneas indicativas y trazados), no al texto ni al relleno; la **fuente** y la **altura** (filas que aparecen cuando hay un texto seleccionado), solo a los textos. Las filas que no sirven a lo seleccionado se ven atenuadas. Si los elementos tienen valores distintos, el control dice «(varios)» y solo cambia lo que tú elijas.
 

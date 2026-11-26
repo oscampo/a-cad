@@ -1,7 +1,7 @@
 // SmartStyle: una propiedad se escribe solo en los elementos de la seleccion a los que aplica.
 import assert from 'node:assert/strict';
-import { newDoc, addPoint, addLine, addCircle, addText, addCon } from '../src/model.js';
-import { STYLE_PROPS, styleObjects, targetsOf, styleState, applyStyleProp, kindsOf } from '../src/smartstyle.js';
+import { newDoc, addPoint, addLine, addCircle, addText, addCon, addLayer } from '../src/model.js';
+import { STYLE_PROPS, styleObjects, targetsOf, styleState, applyStyleProp, kindsOf, applyLayer, layerState, layerObjects } from '../src/smartstyle.js';
 import { CLINE_STYLE } from '../src/shapes.js';
 
 let passed = 0;
@@ -106,6 +106,38 @@ t('la tabla cubre todos los tipos de elemento del dibujo: uno nuevo obliga a dec
     assert.ok(SIN_ESTILO.includes(key) || CON_ESTILO[key], `el tipo «${key}» del dibujo no esta en SmartStyle: decide si tiene estilo y a que propiedades aplica`);
   }
   for (const kind of Object.values(CON_ESTILO)) assert.ok(Object.values(STYLE_PROPS).some((ks) => ks.includes(kind)), `«${kind}» no aplica a ninguna propiedad`);
+});
+
+// ---- Capa
+t('capa: se asigna a lineas, circulos, textos, rellenos y cotas; un punto suelto no la lleva', () => {
+  const { d, ln, ci, tx, sel } = mixto();
+  const y = addLayer(d, 'Cotas');
+  const dim = addCon(d, { t: 'DIST', refs: Object.keys(d.pts).slice(0, 2), v: 10 });
+  const all = [...sel, { k: 'co', id: dim }];
+  assert.equal(applyLayer(d, all, y), 5);
+  for (const o of [d.lines[ln], d.circles[ci], d.texts[tx], d.hatches.h1, d.cons[dim]]) assert.equal(o.layer, y);
+  assert.equal(Object.values(d.pts).some((p) => p.layer), false);
+});
+
+t('capa: estado de la seleccion (una, varias, ninguna) y quitar la capa', () => {
+  const { d, ln, ci, sel } = mixto();
+  const y1 = addLayer(d, 'A'), y2 = addLayer(d, 'B');
+  assert.deepEqual(layerState(d, sel), { n: 4, mixed: false, value: '' });
+  applyLayer(d, [{ k: 'ln', id: ln }], y1);
+  applyLayer(d, [{ k: 'ci', id: ci }], y2);
+  assert.equal(layerState(d, sel).mixed, true);
+  assert.equal(layerState(d, [{ k: 'ln', id: ln }]).value, y1);
+  applyLayer(d, sel, '');
+  assert.equal(d.lines[ln].layer, undefined);
+  assert.equal(layerState(d, sel).mixed, false);
+});
+
+t('capa: una capa que no existe no se asigna; una restriccion que no es cota no entra', () => {
+  const { d, ln } = mixto();
+  assert.equal(applyLayer(d, [{ k: 'ln', id: ln }], 'y99'), 0);
+  assert.equal(d.lines[ln].layer, undefined);
+  const k = addCon(d, { t: 'H', refs: [ln] });
+  assert.equal(layerObjects(d, [{ k: 'co', id: k }]).length, 0);
 });
 
 console.log(`${passed} pruebas de SmartStyle`);

@@ -16,7 +16,7 @@ import { crossPoints } from './snapx.js';
 import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, pasteClip } from './edit.js';
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
-import { STYLE_PROPS, styleState, applyStyleProp, styleObjects } from './smartstyle.js';
+import { STYLE_PROPS, styleState, applyStyleProp, styleObjects, layerState, applyLayer, layerObjects } from './smartstyle.js';
 import { regenerate, isGen, genOwners, releaseGen } from './gen.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, dimH, ARROW, ARROW_HW, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, diamGeom, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
@@ -520,20 +520,33 @@ function treeDissolveCtr(id) {
   toast(`Contorno disuelto: ${n} elementos siguen en el dibujo`);
   afterChange();
 }
+// Las relaciones que desaparecen al ensayar una operacion en una copia (trial): [{ id, text }] con su nombre y los elementos que relacionaban, para mostrarlas al pedir confirmacion.
+function lostCons(trial) {
+  return Object.entries(doc.cons).filter(([id]) => !trial.cons[id]).map(([id, k]) => ({ id, text: '• ' + conLabel(doc, k) + ((k.refs || []).length ? ' (' + k.refs.join(', ') + ')' : '') }));
+}
+// Pide confirmacion mostrando la lista de lo que se pierde. Si el usuario no acepta, esas relaciones quedan seleccionadas (y en el arbol) para que las revise o edite.
+function confirmLost(head, lost, tail) {
+  const shown = lost.slice(0, 12).map((l) => l.text);
+  if (lost.length > 12) shown.push(`… y ${lost.length - 12} más`);
+  if (confirm([head, '', ...shown, '', tail].join('\n'))) return true;
+  sel = lost.map((l) => ({ k: 'co', id: l.id }));
+  afterChange();
+  toast('Esas relaciones quedaron seleccionadas: edítalas y vuelve a intentarlo');
+  return false;
+}
 // Fusionar los puntos seleccionados en uno (el que mas pesa se queda). Se ensaya en una copia: si hay relaciones entre ellos que se perderian, o los puntos no
 // estan en el mismo lugar, se avisa y se pide confirmacion antes de tocar el dibujo.
 function mergeSelected() {
   const ids = sel.filter((s) => s.k === 'pt' && doc.pts[s.id]).map((s) => s.id);
   if (ids.length < 2) { toast('Selecciona 2 o más puntos para fusionarlos'); return; }
-  const trial = clone(doc), c0 = Object.keys(trial.cons).length, tr0 = mergeGroup(trial, ids);
+  const trial = clone(doc), tr0 = mergeGroup(trial, ids);
   if (!tr0.merged) { toast(tr0.skipped[0] || 'No se pudieron fusionar'); return; }
-  const lost = c0 - Object.keys(trial.cons).length, K = doc.pts[tr0.keep];
+  const lost = lostCons(trial), K = doc.pts[tr0.keep];
   let apart = 0;
   for (const id of ids) apart = Math.max(apart, dist(K, doc.pts[id]));
-  const warn = [];
-  if (apart > 1e-3) warn.push(`Los puntos están hasta ${Math.round(apart * 1000) / 1000} separados: lo que usa uno se moverá al otro.`);
-  if (lost) warn.push(lost === 1 ? 'Se perderá 1 relación entre ellos.' : `Se perderán ${lost} relaciones entre ellos.`);
-  if (warn.length && !confirm(warn.join(' ') + ' ¿Fusionar de todos modos?')) return;
+  const far = apart > 1e-3 ? `Los puntos están hasta ${Math.round(apart * 1000) / 1000} separados: lo que usa uno se moverá al otro.` : '';
+  if (lost.length) { if (!confirmLost((far ? far + ' ' : '') + (lost.length === 1 ? 'Se perderá esta relación entre ellos:' : `Se perderán estas ${lost.length} relaciones entre ellos:`), lost, '¿Fusionar de todos modos?')) return; }
+  else if (far && !confirm(far + ' ¿Fusionar de todos modos?')) return;
   pushUndo();
   const r = mergeGroup(doc, ids);
   sel = [{ k: 'pt', id: r.keep }];
@@ -547,10 +560,10 @@ function separateSelected() {
   const pts = sel.filter((s) => s.k === 'pt' && doc.pts[s.id]);
   if (pts.length !== 1) { toast('Selecciona un punto (y, si quieres, los elementos que se separan)'); return; }
   const els = sel.filter((s) => s.k !== 'pt').map((s) => ({ k: s.k, id: s.id }));
-  const trial = clone(doc), c0 = Object.keys(trial.cons).length, r0 = separatePoint(trial, pts[0].id, els);
+  const trial = clone(doc), r0 = separatePoint(trial, pts[0].id, els);
   if (!r0.ok) { toast(r0.msg); return; }
-  const lost = c0 - Object.keys(trial.cons).length;
-  if (lost && !confirm(lost === 1 ? 'Al separar el punto se perderá 1 relación (la que unía las partes). ¿Separar de todos modos?' : `Al separar el punto se perderán ${lost} relaciones (las que unían las partes). ¿Separar de todos modos?`)) return;
+  const lost = lostCons(trial);
+  if (lost.length && !confirmLost(lost.length === 1 ? 'Al separar el punto se perderá esta relación (la que unía las partes):' : `Al separar el punto se perderán estas ${lost.length} relaciones (las que unían las partes):`, lost, '¿Separar de todos modos?')) return;
   pushUndo();
   const r = separatePoint(doc, pts[0].id, els);
   sel = [{ k: 'pt', id: r.pts[0] }];
@@ -563,10 +576,10 @@ function separateSelected() {
 function dissolveSelected() {
   const ids = sel.filter((s) => s.k === 'pt' && doc.pts[s.id]).map((s) => s.id);
   if (ids.length !== 1) { toast('Selecciona un punto para disolverlo'); return; }
-  const trial = clone(doc), c0 = Object.keys(trial.cons).length, r0 = dissolvePoint(trial, ids[0]);
+  const trial = clone(doc), r0 = dissolvePoint(trial, ids[0]);
   if (!r0.ok) { toast(r0.msg); return; }
-  const lost = c0 - Object.keys(trial.cons).length;
-  if (lost && !confirm(lost === 1 ? 'Al disolver el punto se perderá 1 relación (la del punto o la de la parte que se absorbe). ¿Disolver de todos modos?' : `Al disolver el punto se perderán ${lost} relaciones (las del punto y las de la parte que se absorbe). ¿Disolver de todos modos?`)) return;
+  const lost = lostCons(trial);
+  if (lost.length && !confirmLost(lost.length === 1 ? 'Al disolver el punto se perderá esta relación (la del punto o la de la parte que se absorbe):' : `Al disolver el punto se perderán estas ${lost.length} relaciones (las del punto y las de la parte que se absorbe):`, lost, '¿Disolver de todos modos?')) return;
   pushUndo();
   dissolvePoint(doc, ids[0]);
   sel = [];
@@ -1133,7 +1146,14 @@ function snapAt(sx, sy, o = {}) {
 
 // Filtro de seleccion (boton Filtrar): entidades y tipos de linea que no se pueden seleccionar.
 const fkOn = (k) => !(opts.filtKinds || []).includes(k);
-const fltOk = (o) => !(opts.filtLt || []).includes(o.ltype ?? 'continua');
+// Si no queda marcado ningun tipo de linea, no se filtra por tipo (no tiene sentido «ningun tipo»: dejaba sin seleccionar lineas, arcos y demas aunque su entidad estuviera marcada).
+let ltMemo = { ex: null, n: -1, off: false };
+function ltOff() {
+  const ex = opts.filtLt || [], n = Object.keys(doc.ltypes || {}).length; // barato: se recalcula solo si cambia la lista o los tipos propios
+  if (ltMemo.ex !== ex || ltMemo.n !== n) ltMemo = { ex, n, off: ex.length > 0 && Object.keys(allLtypes(doc)).every((k) => ex.includes(k)) };
+  return ltMemo.off;
+}
+const fltOk = (o) => ltOff() || !(opts.filtLt || []).includes(o.ltype ?? 'continua');
 const selOk = (x) => {
   if (!fkOn(x.k)) return false;
   const o = x.k === 'ln' ? doc.lines[x.id] : x.k === 'ci' ? doc.circles[x.id] : x.k === 'ar' ? doc.arcs[x.id] : x.k === 'sp' ? doc.splines[x.id] : x.k === 'el' ? doc.ellipses[x.id] : null;
@@ -2625,6 +2645,15 @@ function toolDown(p) {
 function finishBox(d, p) {
   const a = toModel(d.p0.x, d.p0.y), b = toModel(p.x, p.y);
   const all = boxSelect(doc, { x0: a.x, y0: a.y, x1: b.x, y1: b.y }, { cross: p.x < d.p0.x, shown: shownPoints(), textBox: (t) => textCorners(doc, t, measureRel) }).filter(selOk); // un texto, por su caja
+  // las cotas y restricciones (sus etiquetas) solo entran al cuadro si hay un filtro activo que las deja: sin filtro, el cuadro sigue tomando solo elementos
+  if ((opts.filtKinds || []).length && fkOn('co')) {
+    const x0 = Math.min(d.p0.x, p.x), x1 = Math.max(d.p0.x, p.x), y0 = Math.min(d.p0.y, p.y), y1 = Math.max(d.p0.y, p.y), cross = p.x < d.p0.x, seen = new Set();
+    for (const h of labelHits) {
+      if (seen.has(h.id)) continue;
+      const inWin = h.x >= x0 && h.x + h.w <= x1 && h.y >= y0 && h.y + h.h <= y1, touch = h.x <= x1 && h.x + h.w >= x0 && h.y <= y1 && h.y + h.h >= y0;
+      if (cross ? touch : inWin) { seen.add(h.id); all.push({ k: 'co', id: h.id }); }
+    }
+  }
   const found = all.filter((x) => x.k !== 'gr'), gfound = fkOn('ac') ? all.filter((x) => x.k === 'gr').map((x) => x.id) : []; // las graficas siguen el filtro de actuadores
   const keep = shiftDown ? sel.filter((x) => !found.some((f) => same(f, x))) : [];
   const gkeep = shiftDown ? [...multiGraphs()] : [], gids = [...new Set([...gkeep, ...gfound])];
@@ -4291,6 +4320,16 @@ function syncPanel() {
   const hasDim = sel.some((s) => s.k === 'co' && doc.cons[s.id]?.v !== undefined), styled = hasDim || styleObjects(doc, sel).length > 0;
   const apply = (el, ok) => { if (!el) return; el.classList.toggle('st-off', styled && !ok); el.title = styled && !ok ? 'No aplica a lo seleccionado' : ''; }; // con solo puntos o relaciones seleccionados sigue valiendo para lo nuevo
   apply($('swatches'), stC.n > 0); apply($('ltype').closest('.row'), stT.n > 0); apply($('ltprev'), stT.n > 0); apply($('ltEl').closest('.row'), stT.n > 0); apply($('weight').closest('.row'), stW.n > 0); apply($('dimFs').closest('.row'), hasDim);
+  // capa de la seleccion (SmartStyle): la de todos, o «(varios)»; no cambia la capa actual (la de lo nuevo)
+  const stL = layerState(doc, sel);
+  $('stLayerRow').hidden = !stL.n;
+  if (stL.n) {
+    const sl = $('stLayer');
+    sl.textContent = '';
+    for (const [lid, l] of [['', 'Ninguna'], ...Object.entries(doc.layers || {}).map(([k, l]) => [k, l.name + (l.on ? '' : ' (apagada)')])]) sl.add(new Option(l, lid));
+    mix('stLayer', stL, '__mixed__');
+    if (!stL.mixed) sl.value = stL.value;
+  }
   $('stFontRow').hidden = !stF.n; $('stHRow').hidden = !stH.n;
   if (stF.n && !stF.mixed) $('stFont').value = stF.value || '';
   if (stH.n) { $('stHLabel').textContent = doc.page ? 'Altura (pt)' : 'Altura'; $('stH').value = stH.mixed ? '' : String(doc.page ? ptOf(stH.value) : Math.round(stH.value * 1000) / 1000); $('stH').placeholder = stH.mixed ? '(varios)' : ''; }
@@ -6183,6 +6222,15 @@ $('del').onclick = () => {
 };
 $('weight').onchange = (e) => applyStyle('w', Number(e.target.value));
 for (const f of FONTS) $('stFont').add(new Option(f[1], f[0]));
+// Asignar capa a la seleccion: si la capa esta apagada, lo asignado se oculta y sale de la seleccion (como al cambiarla en las propiedades)
+$('stLayer').onchange = (e) => {
+  if (e.target.value === '__mixed__' || !sel.length) return;
+  pushUndo();
+  if (!applyLayer(doc, sel, e.target.value)) { undoStack.pop(); syncPanel(); return; }
+  const hid = layerObjects(doc, sel).filter((t) => isHidden(doc, t.obj));
+  if (hid.length) { sel = sel.filter((s) => !hid.some((t) => t.k === s.k && t.id === s.id)); toast('Lo asignado quedó en una capa apagada: se ocultó'); }
+  afterChange();
+};
 $('stFont').onchange = (e) => { if (e.target.value !== '__mixed__') applyStyle('font', e.target.value); };
 $('stH').onchange = (e) => { const n = Number(String(e.target.value).replace(',', '.')); if (n > 0) applyStyle('h', doc.page ? n * PT : n); else syncPanel(); };
 $('dimFs').onchange = (e) => {
@@ -6928,6 +6976,6 @@ async function boot() {
     navigator.serviceWorker.register('sw.js').then((reg) => reg.update()).catch(() => {}); // reg.update(): mira si hay un service worker nuevo en cada arranque
     document.addEventListener('visibilitychange', checkNewBuild);
   }
-  window.__cad = { snd: { importFile: importSoundFile, play: playSounds }, blobs: { get: blobGet, has: blobHas, entries: blobEntries, ready: () => blobsReady }, load: (d) => { loadDoc(d); fitView(); afterChange(); draw(); }, hitTest, get doc() { return doc; }, select: (s) => { sel = s; afterChange(); }, get view() { return view; }, solve, setTool, toScreen, toModel, applyCon, get sel() { return sel; }, set sel(v) { sel = v; afterChange(); } };
+  window.__cad = { snd: { importFile: importSoundFile, play: playSounds }, blobs: { get: blobGet, has: blobHas, entries: blobEntries, ready: () => blobsReady }, load: (d) => { loadDoc(d); fitView(); afterChange(); draw(); }, hitTest, get doc() { return doc; }, select: (s) => { sel = s; afterChange(); }, box: (x0, y0, x1, y1) => { finishBox({ p0: { x: x0, y: y0 } }, { x: x1, y: y1 }); return sel.map((s) => s.k + ':' + s.id); }, get view() { return view; }, solve, setTool, toScreen, toModel, applyCon, get sel() { return sel; }, set sel(v) { sel = v; afterChange(); } };
 }
 boot();
