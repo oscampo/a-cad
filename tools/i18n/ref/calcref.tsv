@@ -201,6 +201,7 @@ vorr0eo	Coordenadas de un punto.	Coordinates of a point.
 xd5hca1b	Longitud de una línea y su ángulo, en radianes.	Length of a line and its angle, in radians.
 xw7cm13	Radio, diámetro y centro de un círculo.	Radius, diameter and center of a circle.
 1ceywm7q	Radio y centro de un arco.	Radius and center of an arc.
+1wldl5v3n	Perímetro de un grupo de contorno (la suma de sus elementos) y su área, que solo existe si los elementos forman una cadena cerrada.	Perimeter of a contour group (the sum of its elements) and its area, which only exists if the elements form a closed chain.
 g3qsymq	Fuente y formato del texto	Font and text format
 lthodj9	Propiedad	Property
 1jr9eo46	Fuente	Font

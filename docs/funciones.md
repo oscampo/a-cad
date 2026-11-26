@@ -278,6 +278,7 @@ Nombres que una fórmula puede leer. Siempre valen lo que tiene el dibujo en ese
 | `l3.len` (`l3.L`), `l3.ang` | Longitud de una línea y su ángulo (de su inicio a su fin, en radianes). |  |  |
 | `c1.r`, `c1.d`, `c1.x`, `c1.y` | Radio, diámetro y centro de un círculo. |  |  |
 | `a2.r`, `a2.x`, `a2.y` | Radio y centro de un arco. |  |  |
+| `k1.L` (`k1.len`), `k1.area` | Perímetro de un grupo de contorno (la suma de sus elementos) y su área, que solo existe si los elementos forman una cadena cerrada. |  |  |
 | `x:…` | Variables de los textos, leídas de arriba a abajo y de izquierda a derecha. |  |  |
 | `t` | El tiempo, en los actuadores y las gráficas. |  |  |
 | `MR1`, `ML1`, `MR1.v` | En las gráficas: el desplazamiento de un actuador (también `.d`) y su velocidad. |  |  |

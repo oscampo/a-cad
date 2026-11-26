@@ -211,6 +211,7 @@ They are used in any formula: Dimensions, texts (`p12.x=`), actuators and Graphs
 | `l3.len` (`l3.L`), `l3.ang` | Length of a line and its angle, in radians. |
 | `c1.r`, `c1.d`, `c1.x`, `c1.y` | Radius, diameter and center of a circle. |
 | `a2.r`, `a2.x`, `a2.y` | Radius and center of an arc. |
+| `k1.L` (`k1.len`), `k1.area` | Perimeter of a contour group (the sum of its elements) and its area, which only exists if the elements form a closed chain. |
 
 ## Font and text format
 

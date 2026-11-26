@@ -211,6 +211,7 @@ Se usan en cualquier fórmula: cotas, textos (`p12.x=`), actuadores y gráficas.
 | `l3.len` (`l3.L`), `l3.ang` | Longitud de una línea y su ángulo, en radianes. |
 | `c1.r`, `c1.d`, `c1.x`, `c1.y` | Radio, diámetro y centro de un círculo. |
 | `a2.r`, `a2.x`, `a2.y` | Radio y centro de un arco. |
+| `k1.L` (`k1.len`), `k1.area` | Perímetro de un grupo de contorno (la suma de sus elementos) y su área, que solo existe si los elementos forman una cadena cerrada. |
 
 ## Fuente y formato del texto
 

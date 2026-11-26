@@ -278,6 +278,7 @@ Names that a formula can read. They always equal what the drawing has at that mo
 | `l3.len` (`l3.L`), `l3.ang` | Length of a line and its angle (from its start to its end, in radians). |  |  |
 | `c1.r`, `c1.d`, `c1.x`, `c1.y` | Radius, diameter and center of a circle. |  |  |
 | `a2.r`, `a2.x`, `a2.y` | Radius and center of an arc. |  |  |
+| `k1.L` (`k1.len`), `k1.area` | Perimeter of a contour group (the sum of its elements) and its area, which only exists if the elements form a closed chain. |  |  |
 | `x:…` | Variables of the texts, read from top to bottom and from left to right. |  |  |
 | `t` | Time, in actuators and graphs. |  |  |
 | `MR1`, `ML1`, `MR1.v` | In graphs: the displacement of an actuator (also `.d`) and its velocity. |  |  |

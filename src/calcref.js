@@ -216,6 +216,7 @@ export const CALC_GROUPS = [
       [c('l3.len') + ' (' + c('l3.L') + '), ' + c('l3.ang'), 'Longitud de una línea y su ángulo, en radianes.'],
       [c('c1.r', 'c1.d', 'c1.x', 'c1.y'), 'Radio, diámetro y centro de un círculo.'],
       [c('a2.r', 'a2.x', 'a2.y'), 'Radio y centro de un arco.'],
+      [c('k1.L') + ' (' + c('k1.len') + '), ' + c('k1.area'), 'Perímetro de un grupo de contorno (la suma de sus elementos) y su área, que solo existe si los elementos forman una cadena cerrada.'],
     ],
   },
   {

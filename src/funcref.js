@@ -261,6 +261,7 @@ export const FUNC_GROUPS = [
       ['<code>l3.len</code> (<code>l3.L</code>), <code>l3.ang</code>', 'Longitud de una línea y su ángulo (de su inicio a su fin, en radianes).', '', '', ''],
       ['<code>c1.r</code>, <code>c1.d</code>, <code>c1.x</code>, <code>c1.y</code>', 'Radio, diámetro y centro de un círculo.', '', '', ''],
       ['<code>a2.r</code>, <code>a2.x</code>, <code>a2.y</code>', 'Radio y centro de un arco.', '', '', ''],
+      ['<code>k1.L</code> (<code>k1.len</code>), <code>k1.area</code>', 'Perímetro de un grupo de contorno (la suma de sus elementos) y su área, que solo existe si los elementos forman una cadena cerrada.', '', '', ''],
       ['<code>x:…</code>', 'Variables de los textos, leídas de arriba a abajo y de izquierda a derecha.', '', '', ''],
       ['<code>t</code>', 'El tiempo, en los actuadores y las gráficas.', '', '', ''],
       ['<code>MR1</code>, <code>ML1</code>, <code>MR1.v</code>', 'En las gráficas: el desplazamiento de un actuador (también <code>.d</code>) y su velocidad.', '', '', ''],

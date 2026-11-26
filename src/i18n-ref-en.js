@@ -203,6 +203,7 @@ export const REF_EN = {
   "xd5hca1b": "Length of a line and its angle, in radians.",
   "xw7cm13": "Radius, diameter and center of a circle.",
   "1ceywm7q": "Radius and center of an arc.",
+  "1wldl5v3n": "Perimeter of a contour group (the sum of its elements) and its area, which only exists if the elements form a closed chain.",
   "g3qsymq": "Font and text format",
   "lthodj9": "Property",
   "1jr9eo46": "Font",

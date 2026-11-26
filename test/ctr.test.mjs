@@ -1,7 +1,9 @@
 // Grupos de contorno (doc.ctrs, atributo ctr de cada elemento miembro): modelo, copiar, dividir y limpieza.
 import assert from 'node:assert/strict';
-import { newDoc, addPoint, addLine, addArc, addCircle, addSpline, addLayer, addCtr, dissolveCtr, deleteCtrAndMembers, ctrMembers, ctrEligible, ctrName, deleteItems, cleanup } from '../src/model.js';
+import { newDoc, addPoint, addLine, addArc, addCircle, addSpline, addLayer, addText, addCtr, dissolveCtr, deleteCtrAndMembers, ctrMembers, ctrEligible, ctrName, deleteItems, cleanup } from '../src/model.js';
 import { buildTree } from '../src/tree.js';
+import { geoVars, isGeoName, geoPoints } from '../src/geo.js';
+import { textVars } from '../src/params.js';
 import { clipOf, pasteClip, linearArray } from '../src/edit.js';
 import { splitElement } from '../src/split.js';
 
@@ -221,6 +223,60 @@ t('arbol: por capa, los miembros de un grupo tampoco aparecen en su tipo', () =>
   const capa = tree.find((g) => g.layerId === y);
   assert.equal(grp(capa.children, 'g:ln').children.length, 1, 'solo la linea suelta');
   assert.equal(grp(tree, 'g:ct').children[0].children.length, 4);
+});
+
+// ---- propiedades de un grupo en las formulas: k1.L (perimetro) y k1.area (solo cerrado)
+const near = (a, b, tol = 1e-9) => assert.ok(Math.abs(a - b) <= tol * Math.max(1, Math.abs(b)), `${a} vs ${b}`);
+
+t('formulas: el perimetro y el area de un cuadrado de 10 (k.L = 40, k.area = 100)', () => {
+  const d = newDoc();
+  const p = [addPoint(d, 0, 0), addPoint(d, 10, 0), addPoint(d, 10, 10), addPoint(d, 0, 10)];
+  const items = [[0, 1], [1, 2], [2, 3], [3, 0]].map(([a, b]) => ({ k: 'ln', id: addLine(d, p[a], p[b]) }));
+  const { id } = addCtr(d, items);
+  const v = geoVars(d);
+  near(v[id + '.L'].v, 40); near(v[id + '.len'].v, 40); near(v[id + '.area'].v, 100);
+  assert.equal(v[id + '.L'].r, false);
+  assert.ok(isGeoName(d, id + '.area'));
+});
+
+t('formulas: un semicirculo (diametro de 10 y arco) da 10 + 5π y 12.5π', () => {
+  const d = newDoc();
+  const O = addPoint(d, 0, 0), A = addPoint(d, 5, 0), B = addPoint(d, -5, 0);
+  const diam = addLine(d, B, A), arc = addArc(d, O, A, B, 5); // antihorario de A a B: pasa por (0, 5)
+  const { id } = addCtr(d, [{ k: 'ln', id: diam }, { k: 'ar', id: arc }]);
+  const v = geoVars(d);
+  near(v[id + '.L'].v, 10 + 5 * Math.PI, 1e-12);
+  near(v[id + '.area'].v, 12.5 * Math.PI, 1e-4);
+});
+
+t('formulas: un grupo abierto tiene perimetro pero no area', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 10, 0), c = addPoint(d, 10, 10);
+  const { id } = addCtr(d, [addLine(d, a, b), addLine(d, b, c)].map((l) => ({ k: 'ln', id: l })));
+  const v = geoVars(d);
+  near(v[id + '.L'].v, 20); assert.equal(v[id + '.area'], undefined);
+  assert.equal(isGeoName(d, id + '.area'), false);
+});
+
+t('formulas: un texto lee k.L y k.area; al disolver el grupo dejan de existir', () => {
+  const d = newDoc();
+  const p = [addPoint(d, 0, 0), addPoint(d, 6, 0), addPoint(d, 6, 4), addPoint(d, 0, 4)];
+  const items = [[0, 1], [1, 2], [2, 3], [3, 0]].map(([a, b]) => ({ k: 'ln', id: addLine(d, p[a], p[b]) }));
+  const { id } = addCtr(d, items);
+  addText(d, addPoint(d, -50, -50), `$$perim:${id}.L
+area:${id}.area$$`, {});
+  let st = textVars(d);
+  assert.deepEqual([...st.errs], []);
+  near(st.vals.perim.v, 20); near(st.vals.area.v, 24);
+  dissolveCtr(d, id);
+  st = textVars(d);
+  assert.ok(st.errs.size >= 1, 'sin el grupo, k.L ya no se reconoce');
+});
+
+t('formulas: un grupo de contorno depende de los puntos de todos sus elementos', () => {
+  const { d, p, items } = square();
+  const { id } = addCtr(d, items);
+  assert.deepEqual(geoPoints(d, id + '.L').sort(), [...p].sort());
 });
 
 console.log(`${passed} pruebas de grupos de contorno`);
