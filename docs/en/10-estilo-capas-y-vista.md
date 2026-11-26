@@ -1,4 +1,4 @@
-<!-- es: c1db553041 -->
+<!-- es: 226ce66665 -->
 # 10. Style, layers and view
 
 Color, line type, width and fills; layers; what the view shows; and the element tree.
