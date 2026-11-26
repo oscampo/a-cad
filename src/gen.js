@@ -7,7 +7,7 @@
 import { setGenSink, GEN_RE } from './expr.js';
 import { textVars } from './params.js';
 import { calcStmts } from './tvars.js';
-import { addPoint, addLine, addCircle, addArc, addSpline, allLtypes, deleteItems } from './model.js';
+import { addPoint, addLine, addCircle, addArc, addSpline, allLtypes, deleteItems, nextId, dissolveCtr } from './model.js';
 
 const EPS = 1e-9;
 const DIM = new Set(['DIST', 'DISTPL', 'ANG', 'ANG4', 'RAD']);
@@ -45,7 +45,7 @@ export function genOwners(doc, sel) {
 // Lo que piden las llamadas, por texto. Llaves: «texto/nombre» (punto), «texto/a|b» (linea, sin orden), «texto/o:centro#i» (i-esimo circulo de
 // ese centro), «texto/a:centro|a|b» (arco) y «texto/s:a|b|c» (spline).
 function collector() {
-  const req = { pts: new Map(), lines: new Map(), circles: new Map(), arcs: new Map(), splines: new Map(), errs: [] };
+  const req = { pts: new Map(), lines: new Map(), circles: new Map(), arcs: new Map(), splines: new Map(), contours: new Map(), errs: [] };
   let ns = null; const radii = new Map();
   // Un punto que viene de OTRO texto (la variable que lo guarda lleva su texto de origen, o): en la llave se escribe «origen.nombre» para no confundirlo con uno local.
   const qn = (name, o) => (o && o !== ns ? o + '.' + name : name);
@@ -79,6 +79,11 @@ function collector() {
       const key = ns + '/s:' + names.join('|') + (closed ? '|cerrado' : '');
       if (!req.splines.has(key)) req.splines.set(key, { ns, names, closed, style });
       else if (style !== undefined) req.splines.get(key).style = style;
+    },
+    contour(names, closed, name) {
+      const key = ns + '/k:' + names.join('|') + (closed ? '|cerrado' : '');
+      if (!req.contours.has(key)) req.contours.set(key, { ns, names, closed, name });
+      else if (name !== undefined) req.contours.get(key).name = name;
     },
   };
   return { req, sink };
@@ -135,15 +140,15 @@ export function regenerate(doc) {
   for (const [ns, dimName] of loops(doc)) {
     out.errs.push(`La cota «${dimName}» mide algo que este texto dibuja y el mismo texto la lee: dependencia circular; lo generado queda como estaba`);
     badNs.add(ns);
-    for (const m of [req.pts, req.lines, req.circles, req.arcs, req.splines]) for (const key of [...m.keys()]) if (key.startsWith(ns + '/')) m.delete(key);
+    for (const m of [req.pts, req.lines, req.circles, req.arcs, req.splines, req.contours]) for (const key of [...m.keys()]) if (key.startsWith(ns + '/')) m.delete(key);
   }
   doc.gen ||= { map: {} };
   // lo soltado: lo que ya no existe se olvida (el script lo vuelve a generar si sigue llamandolo); lo que se pide y esta soltado no se genera
-  const rel = doc.gen.rel || {}, alive = (id) => !!(doc.pts[id] || doc.lines[id] || doc.circles[id] || doc.arcs[id] || doc.splines?.[id]);
+  const rel = doc.gen.rel || {}, alive = (id) => !!(doc.pts[id] || doc.lines[id] || doc.circles[id] || doc.arcs[id] || doc.splines?.[id] || doc.ctrs?.[id]);
   for (const [key, id] of Object.entries(rel)) if (!alive(id)) { delete rel[key]; out.changed = true; }
-  const asked = (key) => [req.pts, req.lines, req.circles, req.arcs, req.splines].some((m) => m.has(key));
+  const asked = (key) => [req.pts, req.lines, req.circles, req.arcs, req.splines, req.contours].some((m) => m.has(key));
   for (const key of Object.keys(rel)) if (!asked(key) && !badNs.has(key.split('/')[0])) delete rel[key]; // el script (o su texto) ya no lo llama: es un elemento normal del todo
-  for (const m of [req.pts, req.lines, req.circles, req.arcs, req.splines]) for (const key of [...m.keys()]) if (key in rel) m.delete(key);
+  for (const m of [req.pts, req.lines, req.circles, req.arcs, req.splines, req.contours]) for (const key of [...m.keys()]) if (key in rel) m.delete(key);
   const map = doc.gen.map, seen = new Set(), note = (m) => out.errs.push(m);
   const ltOk = (s) => s === undefined || s in allLtypes(doc);
   const STYLE = (s) => ({ color: 'auto', ltype: s || 'continua', w: 2, ls: 1 });
@@ -211,6 +216,36 @@ export function regenerate(doc) {
     if (!!o.closed !== !!r.closed) { o.closed = !!r.closed; delete o.ts; out.changed = true; }
     if (r.style !== undefined && o.ltype !== r.style) { o.ltype = r.style; out.changed = true; }
   }
+  // contornos: agrupan lo que este texto dibujo entre puntos consecutivos (una linea A-B o un arco de A a B); el grupo (doc.ctrs) tambien es generado
+  const mineIds = (ns) => Object.entries(map).filter(([k]) => k.startsWith(ns + '/')).map(([, id]) => id);
+  for (const [key, r] of req.contours) {
+    const ids = r.names.map((n) => pid(r.ns, n)), miss = r.names.find((n, i) => !has(ids[i]));
+    if (miss !== undefined) { note(`contour: falta el punto «${miss}»: créalo antes con point("${miss}"; x; y)`); continue; }
+    const mine = mineIds(r.ns), pairs = ids.map((a, i) => [a, ids[(i + 1) % ids.length]]);
+    if (!r.closed) pairs.pop();
+    const members = [];
+    let bad = null;
+    for (const [a, b] of pairs) {
+      const same = (x, y) => (x === a && y === b) || (x === b && y === a);
+      const ln = mine.find((id) => doc.lines[id] && same(doc.lines[id].a, doc.lines[id].b)), ar = mine.find((id) => doc.arcs[id] && same(doc.arcs[id].a, doc.arcs[id].b));
+      if (ln) members.push({ k: 'ln', id: ln }); else if (ar) members.push({ k: 'ar', id: ar }); else { bad = [a, b]; break; }
+    }
+    const nm = (p) => r.names[ids.indexOf(p)] ?? p;
+    if (bad) { note(`contour: este texto no dibuja una línea ni un arco entre «${nm(bad[0])}» y «${nm(bad[1])}»`); continue; }
+    if (members.length < 2) { note('contour: un contorno necesita al menos 2 elementos'); continue; }
+    seen.add(key);
+    let id = map[key];
+    if (!(id && doc.ctrs?.[id])) { doc.ctrs ||= {}; id = nextId(doc, 'k'); doc.ctrs[id] = {}; map[key] = id; out.changed = true; }
+    if (r.name !== undefined && doc.ctrs[id].name !== r.name) { doc.ctrs[id].name = r.name; out.changed = true; }
+    const want = new Set(members.map((m) => m.id)), COLL = { ln: 'lines', ar: 'arcs' };
+    for (const m of members) {
+      const o = doc[COLL[m.k]][m.id];
+      if (o.ctr === id) continue;
+      if (o.ctr && doc.ctrs[o.ctr]) note(`contour: «${m.id}» ya está en otro grupo (${o.ctr}); se deja ahí`);
+      else { o.ctr = id; out.changed = true; }
+    }
+    for (const [coll, list] of [['lines', doc.lines], ['arcs', doc.arcs]]) for (const [eid, o] of Object.entries(list)) if (o.ctr === id && !want.has(eid)) { delete o.ctr; out.changed = true; }
+  }
   // lo que dejo de pedirse: lineas, circulos, arcos y splines se borran; un punto que otros elementos o cotas usan se suelta (queda como un punto normal)
   const stale = Object.entries(map).filter(([key]) => !seen.has(key) && (!badNs.has(key.split('/')[0]) || !doc.texts?.[key.split('/')[0]]));
   const staleIds = new Set(stale.map(([, id]) => id));
@@ -231,6 +266,7 @@ export function regenerate(doc) {
     else if (doc.circles[id]) items.push({ k: 'ci', id });
     else if (doc.arcs[id]) items.push({ k: 'ar', id });
     else if (doc.splines?.[id]) items.push({ k: 'sp', id });
+    else if (doc.ctrs?.[id]) { dissolveCtr(doc, id); out.changed = true; } // el script ya no pide el contorno: sus elementos quedan sin grupo
   }
   if (items.length) { deleteItems(doc, items); out.changed = true; }
   const ptsGone = [];

@@ -83,7 +83,15 @@ function cutArms(doc, C, q1, q2) {
   addCon(doc, { t: 'PONL', refs: [C.pid, C.B.id], hidden: true });
 }
 // Un relleno cuyo contorno pasaba por las dos lineas incluye tambien lo nuevo.
+// Un grupo de contorno al que pertenecian las dos piezas recortadas tambien incluye lo nuevo (si cada una era de un
+// grupo distinto, o alguna de ninguno, lo nuevo queda sin grupo: no hay a cual sumarlo).
+function growCtr(doc, aId, bId, newId) {
+  const find = (id) => ['lines', 'arcs', 'ellipses', 'splines'].map((c) => doc[c]?.[id]).find(Boolean);
+  const a = find(aId), b = find(bId), n = find(newId);
+  if (a?.ctr && a.ctr === b?.ctr && doc.ctrs?.[a.ctr] && n) n.ctr = a.ctr;
+}
 function growHatches(doc, C, id) {
+  growCtr(doc, C.A.id, C.B.id, id);
   for (const h of Object.values(doc.hatches || {})) if (h.ids.includes(C.A.id) && h.ids.includes(C.B.id)) h.ids.push(id);
 }
 
@@ -344,6 +352,7 @@ function filletBetween0(doc, A, B, r) {
     addCon(doc, { t: PON[c1.k], refs: [v, c1.id], hidden: true });
     addCon(doc, { t: PON[c2.k], refs: [v, c2.id], hidden: true });
   }
+  growCtr(doc, c1.id, c2.id, arc);
   for (const h of Object.values(doc.hatches || {})) if (h.ids.includes(c1.id) && h.ids.includes(c2.id)) h.ids.push(arc);
   return { ok: true, arc, pts: [q1, q2, cen], dims: [dim], dropped };
 }
@@ -386,6 +395,7 @@ function chamferBetween0(doc, A, B, d1, d2 = d1) {
   const dropped = cutEnd(doc, c1.k, c1.id, c1.fields[s1.dir > 0 ? 0 : 1], q1) + cutEnd(doc, c2.k, c2.id, c2.fields[s2.dir > 0 ? 0 : 1], q2);
   const line = addLine(doc, q1, q2, style);
   const dims = [addCon(doc, { t: 'DIST', refs: [v, q1], v: d1 }), addCon(doc, { t: 'DIST', refs: [v, q2], v: d2 })];
+  growCtr(doc, c1.id, c2.id, line);
   for (const h of Object.values(doc.hatches || {})) if (h.ids.includes(c1.id) && h.ids.includes(c2.id)) h.ids.push(line);
   return { ok: true, line, pts: [q1, q2], dims, dropped };
 }

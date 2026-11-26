@@ -1,11 +1,13 @@
 // Grupos de contorno (doc.ctrs, atributo ctr de cada elemento miembro): modelo, copiar, dividir y limpieza.
 import assert from 'node:assert/strict';
 import { newDoc, addPoint, addLine, addArc, addCircle, addSpline, addLayer, addText, addCtr, dissolveCtr, deleteCtrAndMembers, ctrMembers, ctrEligible, ctrName, deleteItems, cleanup } from '../src/model.js';
-import { buildTree } from '../src/tree.js';
+import { buildTree, ctrDescribe } from '../src/tree.js';
+import { regenerate } from '../src/gen.js';
 import { geoVars, isGeoName, geoPoints } from '../src/geo.js';
 import { textVars } from '../src/params.js';
 import { clipOf, pasteClip, linearArray } from '../src/edit.js';
 import { splitElement } from '../src/split.js';
+import { filletCorner, chamferCorner } from '../src/corners.js';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
@@ -277,6 +279,79 @@ t('formulas: un grupo de contorno depende de los puntos de todos sus elementos',
   const { d, p, items } = square();
   const { id } = addCtr(d, items);
   assert.deepEqual(geoPoints(d, id + '.L').sort(), [...p].sort());
+});
+
+t('redondeo y chaflan: lo nuevo hereda el grupo si las dos lineas eran del mismo grupo', () => {
+  const { d, p, items } = square();
+  const { id } = addCtr(d, items);
+  const f = filletCorner(d, p[1], 2);
+  assert.ok(f.ok, f.msg);
+  assert.equal(d.arcs[f.arc].ctr, id);
+  const c = chamferCorner(d, p[3], 2);
+  assert.ok(c.ok, c.msg);
+  assert.equal(d.lines[c.line].ctr, id);
+  assert.equal(ctrMembers(d, id).length, 6);
+});
+
+t('redondeo: si solo una de las lineas era del grupo, lo nuevo no entra', () => {
+  const { d, p, l } = square();
+  addCtr(d, [{ k: 'ln', id: l[0] }, { k: 'ln', id: l[1] }]);
+  const f = filletCorner(d, p[2], 2); // l[1] (del grupo) con l[2] (sin grupo)
+  assert.ok(f.ok, f.msg);
+  assert.equal(d.arcs[f.arc].ctr, undefined);
+});
+
+// ---- contour(...) en scripts
+const CARA = '$$w:40\nh:30\na:point("A"; 0; 0)\nb:point("B"; w; 0)\nc:point("C"; w; h)\nd:point("D"; 0; h)\nab:line(a; b)\nbc:line(b; c)\ncd:line(c; d)\nda:line(d; a)';
+function scripted(extra) {
+  const d = newDoc();
+  const tid = addText(d, addPoint(d, -100, 100), CARA + (extra ? '\n' + extra : '') + '$$', {});
+  return { d, tid };
+}
+
+t('contour(["A";"B";"C";"D"]; "cerrado"; "caja"): el script crea el grupo con sus 4 lineas y su nombre', () => {
+  const { d } = scripted('k:contour(["A", "B", "C", "D"]; "cerrado"; "caja")');
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []); assert.deepEqual(r.notes, []);
+  const ids = Object.keys(d.ctrs || {});
+  assert.equal(ids.length, 1);
+  assert.equal(d.ctrs[ids[0]].name, 'caja');
+  assert.equal(ctrMembers(d, ids[0]).length, 4);
+  assert.equal(ctrDescribe(d, ids[0]).state, 'cerrado');
+});
+
+t('contour: regenerar de nuevo no cambia nada y conserva el mismo grupo', () => {
+  const { d } = scripted('k:contour(["A", "B", "C", "D"]; "cerrado")');
+  regenerate(d);
+  const id = Object.keys(d.ctrs)[0];
+  const r = regenerate(d);
+  assert.equal(r.changed, false);
+  assert.deepEqual(Object.keys(d.ctrs), [id]);
+});
+
+t('contour abierto: con 3 puntos agrupa 2 lineas y queda abierto', () => {
+  const { d } = scripted('k:contour(["A", "B", "C"])');
+  regenerate(d);
+  const id = Object.keys(d.ctrs)[0];
+  assert.equal(ctrMembers(d, id).length, 2);
+  assert.notEqual(ctrDescribe(d, id).state, 'cerrado');
+});
+
+t('contour: si el script deja de pedirlo, el grupo se disuelve y las lineas se quedan', () => {
+  const { d, tid } = scripted('k:contour(["A", "B", "C", "D"]; "cerrado")');
+  regenerate(d);
+  d.texts[tid].text = CARA + '$$';
+  regenerate(d);
+  assert.equal(d.ctrs, undefined);
+  assert.equal(Object.keys(d.lines).length, 4);
+  assert.ok(Object.values(d.lines).every((l) => l.ctr === undefined));
+});
+
+t('contour: sin linea entre dos puntos consecutivos avisa y no crea el grupo', () => {
+  const { d } = scripted('k:contour(["A", "C", "D"])'); // A-C no se dibuja
+  const r = regenerate(d);
+  assert.ok(r.errs.some((m) => /entre «A» y «C»/.test(m)), JSON.stringify(r.errs));
+  assert.equal(d.ctrs, undefined);
 });
 
 console.log(`${passed} pruebas de grupos de contorno`);

@@ -166,3 +166,9 @@ Selecciona todos los elementos del contorno	Selects all the elements of the cont
 Disuelve el contorno: los elementos se quedan sin grupo	Dissolves the contour: the elements stay without a group
 Borrar con sus elementos	Delete with its elements
 Borra el contorno y todos sus elementos	Deletes the contour and all its elements
+contour: los puntos son un vector de nombres, p. ej. ["A", "B", "C"] (al menos 3)	contour: the points are a vector of names, e.g. ["A", "B", "C"] (at least 3)
+contour: "cerrado" y el nombre del grupo son cadenas, p. ej. "cerrado", "perfil"	contour: "closed" and the group name are strings, e.g. "closed", "profile"
+contour: falta el punto «{0}»: créalo antes con point("{1}"; x; y)	contour: the point «{0}» is missing: create it first with point("{1}"; x; y)
+contour: este texto no dibuja una línea ni un arco entre «{0}» y «{1}»	contour: this text draws no line or arc between «{0}» and «{1}»
+contour: un contorno necesita al menos 2 elementos	contour: a contour needs at least 2 elements
+contour: «{0}» ya está en otro grupo ({1}); se deja ahí	contour: «{0}» is already in another group ({1}); it stays there
