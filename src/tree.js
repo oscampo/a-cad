@@ -210,7 +210,7 @@ export function buildTree(doc, { by = 'type' } = {}) {
   const ellipses = Object.entries(doc.ellipses || {}).map(([id, e]) => elem('el', id, `${e.p1 && e.p2 ? 'Arco elíptico' : 'Elipse'} ${id}`,
     [[e.c, 'Centro:'], [e.a, 'Eje 1:'], [e.b, 'Eje 2:'], ...(e.p1 && e.p2 ? [[e.p1, 'Inicio:'], [e.p2, 'Fin:']] : [])]));
   const texts = Object.entries(doc.texts || {}).map(([id, t]) => ({
-    key: `tx:${id}`, label: `Texto «${String(t.text).split('\n')[0].slice(0, 24)}»`, sel: { k: 'tx', id },
+    key: `tx:${id}`, label: `Texto ${id} · «${String(t.text).split('\n')[0].slice(0, 24)}»`, sel: { k: 'tx', id }, // con su nombre (t29), como «Línea l5»
     children: compact([ptNode(t.pt, 'Inserción:', 'tx', id)]),
   }));
   const hatches = Object.entries(doc.hatches || {}).map(([id, h]) => ({ key: `ha:${id}`, label: `Relleno ${id} (${h.ids.length} contornos)`, sel: { k: 'ha', id } }));
