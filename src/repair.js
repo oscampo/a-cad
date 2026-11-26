@@ -1,6 +1,6 @@
 // Reparar un contorno: aristas repetidas (el mismo elemento dibujado dos veces) y puntos coincidentes (dos puntos distintos en el mismo lugar,
 // que impiden que las aristas se encadenen por punto compartido). Sin DOM: lo prueba test/repair.test.mjs.
-import { ctrMembers, cleanup, deleteItems, conRefs } from './model.js';
+import { ctrMembers, cleanup, deleteItems, conRefs, addPoint } from './model.js';
 // (no importa gen.js: expr.js -> geo.js -> tree.js -> repair.js cerraria un ciclo)
 const isGen = (doc, id) => !!doc.gen?.map && Object.values(doc.gen.map).includes(id);
 
@@ -190,4 +190,57 @@ function finishDissolve(doc, pid, gone, kind) {
   for (const h of Object.values(doc.hatches || {})) h.ids = h.ids.filter((x) => x !== gone); // el relleno sigue pasando por el elemento que queda
   deleteItems(doc, [{ k: kind, id: gone }, { k: 'pt', id: pid }]);
   return { ok: true };
+}
+
+// ---------------------------------------------------------------- separar un punto (lo contrario de fusionar)
+// Un punto que usan varios elementos (dos splines unidas por su extremo, una linea y un arco...) se separa: los elementos dados pasan a usar un punto
+// NUEVO en el mismo lugar y dejan de estar unidos al resto. Sin elementos dados, cada elemento menos el primero recibe el suyo. Las relaciones que
+// ataban el punto con lo que se separa se mueven al punto nuevo si solo tocan a los elementos que se mueven, y se pierden si unian las dos partes
+// (la interfaz las cuenta y pide confirmacion). Devuelve { ok, pts?: [ids de los puntos nuevos], msg? }.
+const USERS = [['lines', 'ln', ['a', 'b']], ['arcs', 'ar', ['a', 'b', 'c']], ['circles', 'ci', ['c']], ['ellipses', 'el', ['c', 'a', 'b', 'p1', 'p2']]];
+function pointUsers(doc, pid) {
+  const out = [];
+  for (const [coll, k, fields] of USERS) for (const [id, o] of Object.entries(doc[coll] || {})) if (fields.some((f) => o[f] === pid)) out.push({ k, id });
+  for (const [id, sp] of Object.entries(doc.splines || {})) if (sp.pts.includes(pid)) out.push({ k: 'sp', id });
+  return out;
+}
+export function separatePoint(doc, pid, items = []) {
+  const P = doc.pts[pid];
+  if (!P) return { ok: false, msg: 'Falta el punto' };
+  if (isGen(doc, pid)) return { ok: false, msg: 'Lo genera un script: se cambia la llamada' };
+  const users = pointUsers(doc, pid);
+  if (users.length < 2) return { ok: false, msg: 'Un solo elemento usa el punto: no hay nada que separar' };
+  if (Object.values(doc.texts || {}).some((t) => t.pt === pid) || Object.values(doc.acts || {}).some((a) => [a.c, a.p1, a.p2].includes(pid))
+    || Object.values(doc.lines).some((l) => l.vec && (l.vec.m === pid))) return { ok: false, msg: 'El punto también lo usa un texto, un actuador o un vector' };
+  const key = (it) => it.k + it.id, have = new Set(users.map(key));
+  let groups; // cada grupo de elementos pasa a un punto nuevo
+  if (items.length) {
+    const chosen = items.filter((it) => have.has(key(it)));
+    if (chosen.length !== items.length) return { ok: false, msg: 'Un elemento seleccionado no usa ese punto' };
+    if (chosen.length >= users.length) return { ok: false, msg: 'Quedaría todo en el punto nuevo: elige solo lo que se separa' };
+    groups = [chosen];
+  } else groups = users.slice(1).map((u) => [u]);
+  for (const it of groups.flat()) if (isGen(doc, it.id)) return { ok: false, msg: 'Un elemento lo genera un script: se cambia la llamada' };
+  const made = [];
+  for (const g of groups) {
+    const np = addPoint(doc, P.x, P.y, false);
+    if (P.layer) doc.pts[np].layer = P.layer;
+    if (P.fixed) doc.pts[np].fixed = true;
+    const moving = new Set(g.map((it) => it.id));
+    for (const it of g) {
+      const o = doc[COLL[it.k] || { ci: 'circles' }[it.k]][it.id];
+      if (it.k === 'sp') o.pts = o.pts.map((p) => (p === pid ? np : p));
+      else for (const f of Object.keys(o)) if (o[f] === pid && ['a', 'b', 'c', 'p1', 'p2'].includes(f)) o[f] = np;
+    }
+    const staying = new Set(users.filter((u) => !g.some((m) => m.id === u.id)).map((u) => u.id));
+    for (const [cid, k] of Object.entries(doc.cons)) {
+      if (!k.refs || !k.refs.includes(pid)) continue;
+      const ties = k.refs.some((r) => moving.has(r)), staysToo = k.refs.some((r) => staying.has(r));
+      if (ties && staysToo) delete doc.cons[cid]; // unia las dos partes: ya no
+      else if (ties) k.refs = k.refs.map((r) => (r === pid ? np : r)); // solo toca lo que se separa: se va con el punto nuevo
+    }
+    made.push(np);
+  }
+  cleanup(doc);
+  return { ok: true, pts: made };
 }

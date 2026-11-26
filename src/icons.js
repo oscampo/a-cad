@@ -53,6 +53,7 @@ const custom = {
   'arc-3': S('<path d="M3 20V7M3 20h13" opacity=".3" stroke-dasharray="1 3"/><path d="M3 7A13 13 0 0 1 16 20"/><circle cx="3" cy="7" r="1.8" fill="currentColor"/><circle cx="12.2" cy="10.8" r="1.8" fill="currentColor"/><circle cx="16" cy="20" r="1.8" fill="currentColor"/>'),
   // dividir: tramos separados por puntos (_._._)
   merge: S('<circle cx="4" cy="14" r="1.7" fill="currentColor"/><circle cx="20" cy="14" r="1.7" fill="currentColor"/><path d="M6 14h3M18 14h-3"/><circle cx="12" cy="14" r="2.6" fill="currentColor"/>'),
+  separate: S('<circle cx="12" cy="14" r="2.6" fill="currentColor"/><path d="M10 12L4 6M14 12l6-6M10 16l-6 6M14 16l6 6"/><circle cx="4" cy="5" r="1.5"/><circle cx="20" cy="5" r="1.5"/>'),
   dissolve: S('<path d="M1.5 14h21"/><circle cx="12" cy="14" r="2.6"/><path d="M8.5 17.5l7-7"/>'),
   split: S('<path d="M1.5 14H6"/><circle cx="8" cy="14" r="1.7" fill="currentColor"/><path d="M10 14h4"/><circle cx="16" cy="14" r="1.7" fill="currentColor"/><path d="M18 14h4.5"/>'),
   // recortar: una linea cruzada por otra; el tramo de un lado queda discontinuo (quitado)

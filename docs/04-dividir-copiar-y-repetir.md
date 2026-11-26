@@ -21,6 +21,8 @@ Sin puntos, lo divide en **n partes iguales**:
 
 **Disolver punto** es lo contrario de Dividir: con 1 punto seleccionado que es el extremo común de **dos líneas alineadas**, de dos arcos del mismo círculo que se continúan, o de dos arcos elípticos de la misma elipse, las dos partes pasan a ser **un solo elemento** y el punto desaparece. Se queda el estilo del primero, y el relleno y el grupo de contorno siguen pasando por él. Si no están alineadas, si son de círculos distintos, o si algo más usa el punto, no lo hace y dice por qué. Las relaciones del punto y de la parte que se absorbe **se pierden**: si hay alguna, la app lo avisa y **pide confirmación** antes de proceder. Ambos se deshacen.
 
+**Separar punto** es lo contrario de Fusionar: un punto que usan varios elementos (dos splines unidas por su extremo, una línea y un arco…) se separa. Con el punto **y los elementos que se separan** seleccionados, esos elementos pasan a un punto **nuevo en el mismo lugar** y dejan de estar unidos al resto; con solo el punto, cada elemento menos el primero recibe el suyo. Las relaciones que tocaban el punto y solo a lo que se separa se van con el punto nuevo; las que unían las dos partes (una tangencia entre los dos, un punto medio…) **se pierden**, y entonces la app lo avisa y **pide confirmación**. Se niega si un solo elemento usa el punto, si algo lo genera un script o si lo usa un texto o un vector. Se deshace.
+
 ## Matriz lineal
 
 ![Matriz lineal](icons/array.svg) **Matriz lineal**: selecciona lo que quieres copiar.

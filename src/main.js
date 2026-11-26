@@ -44,7 +44,7 @@ import { iconSvg, ICONS } from './icons.js';
 import { setIconSource } from './iconpaths.js';
 setIconSource(ICONS); // los iconos de la app que un texto puede mostrar: ![Linea](icon:line)
 import { buildTree, kindOf, conLabel, ctrDescribe } from './tree.js';
-import { ctrIssues, removeDupEdges, mergeCoincident, mergeGroup, dissolvePoint } from './repair.js';
+import { ctrIssues, removeDupEdges, mergeCoincident, mergeGroup, dissolvePoint, separatePoint } from './repair.js';
 import { cleanFileBase } from './files.js';
 import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProblem, libFileName, libPayload, legacyLibPath, newLibPath } from './library.js';
 import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX, imgRect, syncImages, ensureImagePoints, anchorPoint } from './images.js';
@@ -368,6 +368,7 @@ function updateEnabled() {
   $('mkint').disabled = ln + crv + n.sp !== 2;
   const nPts = sel.filter((x) => x.k === 'pt').length;
   $('mkmerge').disabled = nPts < 2;
+  $('mksep').disabled = nPts !== 1 || sel.some((x) => !['pt', 'ln', 'ar', 'ci', 'sp', 'el'].includes(x.k));
   $('mkdissolve').disabled = nPts !== 1;
   $('mksplit').disabled = !(ln + crv === 1 && !n.sp); // con puntos: divide en ellos; sin puntos: en n partes iguales
   $('mkhatch').disabled = ln + crv + n.sp + n.el < 1;
@@ -538,6 +539,23 @@ function mergeSelected() {
   sel = [{ k: 'pt', id: r.keep }];
   solve(doc, []);
   toast(r.skipped.length ? `Se fusionaron ${r.merged}; no se pudo con ${r.skipped.length}: ${r.skipped[0]}` : r.merged === 1 ? 'Se fusionaron 2 puntos' : `Se fusionaron ${r.merged + 1} puntos`);
+  afterChange();
+}
+// Separar el punto seleccionado (lo contrario de fusionar): los elementos seleccionados con el pasan a un punto nuevo en el mismo lugar; sin elementos, cada uno menos el
+// primero recibe el suyo. Las relaciones que unian las partes se pierden: se cuentan en una copia y se pide confirmacion.
+function separateSelected() {
+  const pts = sel.filter((s) => s.k === 'pt' && doc.pts[s.id]);
+  if (pts.length !== 1) { toast('Selecciona un punto (y, si quieres, los elementos que se separan)'); return; }
+  const els = sel.filter((s) => s.k !== 'pt').map((s) => ({ k: s.k, id: s.id }));
+  const trial = clone(doc), c0 = Object.keys(trial.cons).length, r0 = separatePoint(trial, pts[0].id, els);
+  if (!r0.ok) { toast(r0.msg); return; }
+  const lost = c0 - Object.keys(trial.cons).length;
+  if (lost && !confirm(lost === 1 ? 'Al separar el punto se perderá 1 relación (la que unía las partes). ¿Separar de todos modos?' : `Al separar el punto se perderán ${lost} relaciones (las que unían las partes). ¿Separar de todos modos?`)) return;
+  pushUndo();
+  const r = separatePoint(doc, pts[0].id, els);
+  sel = [{ k: 'pt', id: r.pts[0] }];
+  solve(doc, []);
+  toast(r.pts.length === 1 ? 'Punto separado' : `Punto separado en ${r.pts.length + 1}`);
   afterChange();
 }
 // Disolver el punto seleccionado (lo contrario de dividir): las dos partes pasan a ser un elemento. Las relaciones del punto y de la parte que se absorbe se pierden:
@@ -5975,6 +5993,7 @@ $('flOk').onclick = (ev) => {
 document.querySelectorAll('[data-con]').forEach((b) => { b.onclick = () => applyCon(b.dataset.con); });
 $('mksplit').onclick = splitSelected;
 $('mkmerge').onclick = mergeSelected;
+$('mksep').onclick = separateSelected;
 $('mkdissolve').onclick = dissolveSelected;
 
 // ---- matriz lineal ----

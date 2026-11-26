@@ -1,13 +1,14 @@
 // Reparar un contorno: aristas repetidas y puntos coincidentes (src/repair.js).
 import assert from 'node:assert/strict';
-import { newDoc, addPoint, addLine, addArc, addEllipse, addCon, addCtr, ctrMembers } from '../src/model.js';
+import { newDoc, addPoint, addLine, addArc, addEllipse, addSpline, addCon, addCtr, ctrMembers } from '../src/model.js';
 import { ctrDescribe } from '../src/tree.js';
-import { dupEdges, removeDupEdges, coincidentPoints, mergePoints, mergeCoincident, ctrIssues, dissolvePoint, mergeGroup } from '../src/repair.js';
+import { dupEdges, removeDupEdges, coincidentPoints, mergePoints, mergeCoincident, ctrIssues, dissolvePoint, mergeGroup, separatePoint } from '../src/repair.js';
 import { splitElement } from '../src/split.js';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
 const n = (o) => Object.keys(o || {}).length;
+const pointUsersCount = (d, p) => Object.values(d.lines).filter((l) => l.a === p || l.b === p).length;
 
 // un cuadrado cuyo ultimo vertice esta duplicado: l4 termina en q0, un punto distinto de p0 pero en el mismo lugar
 function brokenSquare() {
@@ -191,6 +192,77 @@ t('mergeGroup: une una seleccion en un punto, el de mas peso, y avisa de lo que 
   assert.equal(r.merged, 2); assert.deepEqual(r.skipped, []);
   assert.equal(n(d.pts), 2);
   assert.equal(r.keep in d.pts, true);
+});
+
+// ---- separar un punto (lo contrario de fusionar)
+t('separar: dos splines unidas por un extremo; despues de separar, cada una tiene el suyo en el mismo lugar', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 5, 5), c = addPoint(d, 10, 0), e = addPoint(d, 15, 5), f = addPoint(d, 20, 0);
+  const s1 = addSpline(d, [a, b, c], {}), s2 = addSpline(d, [c, e, f], {});
+  const r = separatePoint(d, c, [{ k: 'sp', id: s2 }]);
+  assert.ok(r.ok, r.msg);
+  assert.equal(r.pts.length, 1);
+  assert.deepEqual(d.splines[s1].pts, [a, b, c]);
+  assert.deepEqual(d.splines[s2].pts, [r.pts[0], e, f]);
+  assert.deepEqual([d.pts[r.pts[0]].x, d.pts[r.pts[0]].y], [10, 0]);
+});
+
+t('separar sin elegir elemento: cada uno menos el primero recibe su punto', () => {
+  const d = newDoc();
+  const o = addPoint(d, 0, 0), x = addPoint(d, 5, 0), y = addPoint(d, 0, 5), z = addPoint(d, -5, 0);
+  addLine(d, o, x); addLine(d, o, y); addLine(d, o, z);
+  const r = separatePoint(d, o);
+  assert.ok(r.ok, r.msg);
+  assert.equal(r.pts.length, 2);
+  assert.equal(n(d.pts), 6);
+  assert.equal(pointUsersCount(d, o), 1);
+});
+
+t('separar y fusionar son inversos: fusionar de nuevo deja los elementos unidos', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), m = addPoint(d, 5, 0), b = addPoint(d, 10, 5);
+  const l1 = addLine(d, a, m), l2 = addLine(d, m, b);
+  const r = separatePoint(d, m, [{ k: 'ln', id: l2 }]);
+  assert.ok(r.ok);
+  assert.notEqual(d.lines[l1].b, d.lines[l2].a);
+  const g = mergeGroup(d, [m, r.pts[0]]);
+  assert.equal(g.merged, 1);
+  assert.equal(d.lines[l1].b, d.lines[l2].a);
+});
+
+t('separar: una relacion que une las dos partes se pierde; la que solo toca a lo que se separa se va con el punto nuevo', () => {
+  const d = newDoc();
+  const o = addPoint(d, 0, 0), p1 = addPoint(d, 10, 0), p2 = addPoint(d, 0, 10), q = addPoint(d, 20, 20);
+  const l1 = addLine(d, o, p1), l2 = addLine(d, o, p2);
+  addCon(d, { t: 'PERP', refs: [l1, l2] });            // no toca el punto: se queda
+  addCon(d, { t: 'COL', refs: [o, l1, q] });            // toca el punto y solo l1 (que se queda con el original): sigue en el original
+  addCon(d, { t: 'PONL', refs: [o, l2] });              // el punto sobre l2: se va con l2
+  addCon(d, { t: 'MID', refs: [o, l1, l2] });           // une las dos partes: se pierde
+  const r = separatePoint(d, o, [{ k: 'ln', id: l2 }]);
+  assert.ok(r.ok, r.msg);
+  const by = (t) => Object.values(d.cons).find((k) => k.t === t);
+  assert.ok(by('PERP'));
+  assert.deepEqual(by('COL').refs, [o, l1, q]);
+  assert.deepEqual(by('PONL').refs, [r.pts[0], l2]);
+  assert.equal(by('MID'), undefined);
+});
+
+t('separar: se niega con un solo elemento, si se eligen todos o uno que no usa el punto, o si lo genera un script', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 5, 0), c = addPoint(d, 5, 5);
+  const l1 = addLine(d, a, b), l2 = addLine(d, b, c), l3 = addLine(d, a, c);
+  assert.equal(separatePoint(d, a).ok, true, 'a lo usan l1 y l3: si se puede');
+  assert.equal(separatePoint(d, c, [{ k: 'ln', id: l1 }]).ok, false, 'l1 no usa c');
+  const e = newDoc();
+  const p = addPoint(e, 0, 0), q = addPoint(e, 1, 0);
+  addLine(e, p, q);
+  assert.equal(separatePoint(e, p).ok, false, 'un solo elemento');
+  const g = newDoc();
+  const m = addPoint(g, 0, 0), u = addPoint(g, 1, 0), v = addPoint(g, 0, 1);
+  const x = addLine(g, m, u), y = addLine(g, m, v);
+  assert.equal(separatePoint(g, m, [{ k: 'ln', id: x }, { k: 'ln', id: y }]).ok, false, 'todos los elementos');
+  g.gen = { map: { 't1/m': m } };
+  assert.equal(separatePoint(g, m, [{ k: 'ln', id: x }]).ok, false, 'generado');
 });
 
 console.log(`${passed} pruebas de reparar contornos`);
