@@ -9,7 +9,9 @@ import { convertExpr, parseValue, isPlainNumber, exprRefs, renameInExpr, isReser
 import { convertCalcText, textVarState, clearCall, calcStmts, calcParse, calcSrc, evalDef, syncUserUnits, UDEF_ERR, GOAL_TOL } from './tvars.js';
 import { eqResiduals, lmRoots } from './nsolve.js';
 import { parseUnit, sameDim, autoUnit, mulDim, unitMsg, dimName } from './units.js';
-import { geoVars, isGeoName, geoPoints } from './geo.js';
+import { geoVars, isGeoName, geoPoints, propOf } from './geo.js';
+import { setTopo } from './expr.js';
+import { elementValue } from './topo.js';
 
 const DEG = Math.PI / 180;
 const named = (doc) => Object.entries(doc.cons).filter(([, k]) => isNamedDim(k) && k.name);
@@ -93,10 +95,15 @@ const probesOf = (doc) => {
   for (const t of Object.values(doc.texts || {})) for (const p of calcStmts(t.text)) { if (p.k === 'def') defs.add(normName(p.name)); else if (p.k === 'out' && clearCall(p.expr)) cl = true; }
   return named(doc).filter(([, k]) => cl || (!k.ref && k.expr) || k.scaleExpr || defs.has(k.name)).map(([id, k]) => (fz?.get(id) ?? { id, name: k.name, ...dimPos(doc, k) }));
 };
+// Mientras se evalua un texto, un elemento del dibujo (l5, c2, a8, s3, k1) puede llegar por su nombre a una funcion propia o a typeof: se arma con topo.js.
+function withTopo(doc, fn) {
+  const prev = setTopo((name) => elementValue(doc, name, (id, p) => propOf(doc, id, p)));
+  try { return fn(); } finally { setTopo(prev); }
+}
 export function textVars(doc, exceptId = null) {
   const dimVars = geoVars(doc);
   for (const [id, k] of named(doc)) if (id !== exceptId) dimVars[k.name] = varValue(doc, k);
-  return textVarState(doc, dimVars, new Set(named(doc).map(([, k]) => k.name)), probesOf(doc));
+  return withTopo(doc, () => textVarState(doc, dimVars, new Set(named(doc).map(([, k]) => k.name)), probesOf(doc)));
 }
 const hasDefs = (doc) => Object.values(doc.texts || {}).some((t) => !!t.lib || calcStmts(t.text).some((p) => p.k === 'def' || (p.k === 'out' && (!!clearCall(p.expr) || /(?:^|[^A-Za-z0-9_.])rng\s*\(/.test(p.expr))))); // rng() tambien: su resultado se fija en el orden de lectura // un clear() tambien pone en juego el orden de lectura (borra cotas)
 const NO_TV = { win: new Map(), byName: new Map(), names: new Set(), vals: {}, errs: new Map(), dimEnv: new Map() };
@@ -106,7 +113,7 @@ export function varsOf(doc, exceptId = null) {
   const out = geoVars(doc);
   for (const [id, k] of named(doc)) if (id !== exceptId) out[k.name] = varValue(doc, k);
   if (!hasDefs(doc)) return out;
-  const st = textVarState(doc, out, new Set(named(doc).map(([, k]) => k.name)), probesOf(doc));
+  const st = withTopo(doc, () => textVarState(doc, out, new Set(named(doc).map(([, k]) => k.name)), probesOf(doc)));
   for (const n of st.dimHide?.get(exceptId) || []) delete out[n]; // las cotas borradas con clear() antes de su lugar de la pagina ya no se leen
   return Object.assign(out, exceptId != null && st.dimEnv.has(exceptId) ? st.dimEnv.get(exceptId) : st.vals); // una cota con formula ve las variables de su lugar de la pagina
 }
@@ -117,7 +124,7 @@ export function varsAt(doc, top, left) {
   const out = geoVars(doc);
   for (const [, k] of named(doc)) out[k.name] = varValue(doc, k);
   if (!hasDefs(doc)) return { vars: out, later: new Set() };
-  const st = textVarState(doc, { ...out }, new Set(named(doc).map(([, k]) => k.name)), [...probesOf(doc), { id: AT, top, left }]);
+  const st = withTopo(doc, () => textVarState(doc, { ...out }, new Set(named(doc).map(([, k]) => k.name)), [...probesOf(doc), { id: AT, top, left }]));
   const here = st.dimEnv.get(AT) || {};
   for (const n of st.dimHide.get(AT) || []) delete out[n]; // cotas borradas con clear() antes de este lugar
   return { vars: Object.assign(out, here), later: new Set(Object.keys(st.vals).filter((n) => !(n in here))) };

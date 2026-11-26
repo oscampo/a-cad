@@ -1,0 +1,47 @@
+%iso(vista, k, ox, oy):
+  c:cos(π/6)
+  s:sin(π/6)
+  if vista=="T":
+    T:[c,-c,0;s,s,0;0,0,1]
+  elif vista=="L":
+    T:[c,0,0;s,1,0;0,0,1]
+  else:
+    T:[-c,0,0;s,1,0;0,0,1]
+  if isa(k; "circle"):
+    nm:["","","","","","","","","","","","","","","","","","","","","","","",""]
+    for j in 1..24:
+      t:2*π*(j-1)/24
+      Q:T*[k.c.x+k.r*cos(t);k.c.y+k.r*sin(t);1]
+      nme:"C"+k+"_"+num2str(j)
+      point(nme; ox+Q_1; oy+Q_2)
+      nm_j:nme
+    spline(nm; "cerrado")
+  else:
+    for i in 1..k.n:
+      o:k_i
+      if isa(o; "line"):
+        A:T*[o.a.x;o.a.y;1]
+        B:T*[o.b.x;o.b.y;1]
+        point("P"+o.a; ox+A_1; oy+A_2)
+        point("P"+o.b; ox+B_1; oy+B_2)
+        line("P"+o.a; "P"+o.b)
+      elif isa(o; "arc"):
+        a0:atan2(o.a.y-o.c.y; o.a.x-o.c.x)
+        sw:atan2(o.b.y-o.c.y; o.b.x-o.c.x)-a0
+        sw:if(sw<0; sw+2*π; sw)
+        nm:["","","","","","","","","","","","",""]
+        for j in 0..12:
+          t:a0+sw*j/12
+          if j==0:
+            Q:T*[o.a.x;o.a.y;1]
+            nme:"P"+o.a
+          elif j==12:
+            Q:T*[o.b.x;o.b.y;1]
+            nme:"P"+o.b
+          else:
+            Q:T*[o.c.x+o.r*cos(t);o.c.y+o.r*sin(t);1]
+            nme:"A"+o+"_"+num2str(j)
+          point(nme; ox+Q_1; oy+Q_2)
+          nm_(j+1):nme
+        spline(nm)
+  k

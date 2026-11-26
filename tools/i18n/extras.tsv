@@ -243,3 +243,6 @@ Página ajustada a lo dibujado	Page fitted to what is drawn
 «{0}_{1}» no tiene «.{2}»	«{0}_{1}» has no «.{2}»
 «{0}_{1}» no es un punto, una línea ni un círculo del dibujo: no tiene «.{2}»	«{0}_{1}» is not a point, a line or a circle of the drawing: it has no «.{2}»
 «{0}» es una llamada suelta y no se evalúa. Para usar «{1}», asígnala (r:{2}) o muéstrala ({3}=)	«{0}» is a loose call and is not evaluated. To use «{1}», assign it (r:{2}) or display it ({3}=)
+«{0}» lleva un índice: {1}_i	«{0}» takes an index: {1}_i
+Pides «{0}_{1}», pero «{2}» tiene {3} ({4}.n)	You ask for «{0}_{1}», but «{2}» has {3} ({4}.n)
+«{0}» no es un spline ni un contorno: no tiene «{1}_i» (es {2})	«{0}» is not a spline or a contour: it has no «{1}_i» (it is {2})

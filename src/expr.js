@@ -96,7 +96,7 @@ export function indexParts(raw) {
 }
 function indexOfVar(raw, vars) {
   const ip = indexParts(raw), x = ip && Object.prototype.hasOwnProperty.call(vars, ip.base) ? vars[ip.base] : null;
-  return x && (x.vec || x.mat || x.loc || x.strs) ? ip : null;
+  return x && (x.vec || x.mat || x.loc || x.strs || x.gen) ? ip : null; // gen.list: un spline o un grupo de contorno: s_i es su i-esimo punto, k1_i su i-esimo elemento
 }
 const splitIdx = (s, mode = decimalMode()) => { // «i, j+1» -> ['i', 'j+1'] (las comas de dentro de parentesis no separan)
   const out = []; let d = 0, cur = '';
@@ -212,7 +212,7 @@ function tokenize(src, vars = null, loose = false) {
       if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: vars[raw]?.fn ? 'ufn' : 'var', v: raw, i, j: i + L }); // ufn: funcion definida en un texto
       else if (vars && (ix = indexOfVar(raw, vars))) { // v_2, v_i, A_(1,2): un elemento de un vector o matriz
         // varargin_i.x: la propiedad de un punto (o linea, circulo…) que llego de mas a la funcion, como p.x en un parametro con nombre
-        const pm = vars[ix.base]?.args && !loose ? /^\.(x|y|L|len|ang|r|d)(?![A-Za-z0-9_])/.exec(src.slice(i + L)) : null;
+        const pm = (vars[ix.base]?.args || vars[ix.base]?.gen?.list) && !loose ? /^\.(x|y|L|len|ang|r|d|n|area)(?![A-Za-z0-9_])/.exec(src.slice(i + L)) : null; // tambien k1_i.len, s_i.x
         toks.push({ t: 'idx', base: ix.base, src: ix.src, ...(pm ? { prop: pm[1] } : {}), i, j: i + L + (pm ? pm[0].length : 0) });
         if (pm) i += pm[0].length;
       }
@@ -222,6 +222,7 @@ function tokenize(src, vars = null, loose = false) {
       else if (name in SFL) toks.push({ t: 'id', v: SFL[name], i, j: i + L }); // funciones de cadenas (startsWith o startswith)
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + L });
       else if (vars && (raw + '.x') in vars && (raw + '.y') in vars && !((raw + '.r') in vars) && inGenArgs(toks)) toks.push({ t: inGenArgs(toks) === 'gen' ? 'str' : 'dpt', v: raw, i, j: i + L }); // un punto del dibujo: como extremo de line/arc/spline o centro de circle es su nombre (line(p5; b)); como argumento de una funcion propia, su nombre y su lugar (pru(p5))
+      else if (TOPO && inGenArgs(toks) === 'ufn' && TOPO(raw)) toks.push({ t: 'dpt', v: raw, i, j: i + L }); // un elemento del dibujo (l5, c2, a8, s3, k1) como valor de una funcion propia o de typeof: su nombre y sus datos
       else if (FUTURE_VARS.has(raw)) throw new Error(`${reservedWhy(raw)} (todavía no tiene valor)`);
       else if (/^(nargin|varargin)(_|$)/.test(raw)) throw new Error(raw.startsWith('nargin') ? '«nargin» solo vale dentro de una función: es cuántos valores recibió' : '«varargin» solo vale dentro de una función que lo tenga como último parámetro: f(a, varargin):…');
       else throw new Error(`No reconozco «${raw}»` + (/\d/.test(raw) || raw.length === 1 ? ' (no hay una cota con ese nombre)' : ''));
@@ -1006,7 +1007,41 @@ export function genProps(g) {
   if (g?.k === 'ln' && g.a && g.b) { const dx = g.b.x - g.a.x, dy = g.b.y - g.a.y, L = Math.hypot(dx, dy); return { L: num(L), len: num(L), ang: { v: Math.atan2(dy, dx), r: true } }; }
   if (g?.k === 'ci') return { r: num(g.r), d: num(2 * g.r), x: num(g.x), y: num(g.y) };
   if (g?.k === 'ar' && g.r !== undefined) return { r: num(g.r), x: num(g.x), y: num(g.y) };
+  if (g?.k === 'ct') return { n: num(g.n), ...(g.L !== undefined ? { L: num(g.L), len: num(g.L) } : {}), ...(g.area !== undefined ? { area: num(g.area) } : {}) }; // un grupo de contorno: k1.n, k1.L, k1.area
+  if (g?.k === 'sp' && g.n !== undefined) return { n: num(g.n) };
   return {};
+}
+// Los puntos de un elemento, por su papel: e.a, e.b (linea), e.c (centro), e.p1, e.p2 (arco eliptico): [[rol, valor de punto]]. Los mismos del arbol de elementos (topo.js).
+const ROLES = ['a', 'b', 'c', 'p1', 'p2'];
+export const genRoles = (g) => (g && typeof g === 'object' ? ROLES.filter((r) => g[r]?.k === 'pt').map((r) => [r, g[r]]) : []);
+// Los nombres «objeto.propiedad» y «objeto.papel[.coordenada]» que un objeto dibujado puede tener (para borrar los de una asignacion anterior y para dejar lugar en los programas).
+const GEN_PROPS = ['x', 'y', 'L', 'len', 'ang', 'r', 'd', 'n', 'area'];
+const GEN_KEYS = [...GEN_PROPS, ...ROLES, ...ROLES.flatMap((r) => ['x', 'y'].map((c) => r + '.' + c))];
+// Escribe en vars las propiedades de un objeto dibujado bajo su nombre (nombre.x, nombre.a, nombre.a.x…); lo que habia antes bajo ese nombre se borra.
+// fill: lo que el objeto no tiene (un circulo no tiene .n ni .a) queda como «sin valor» en vez de no existir: asi una funcion que recibe de todo (varargin, typeof) puede nombrar
+// k.n en una rama y k.c.x en otra sin que falle al leerla; solo da error si esa rama se ejecuta con un objeto que no lo tiene.
+function bindGen(vars, name, g, fill = false) {
+  for (const key of GEN_KEYS) delete vars[name + '.' + key];
+  if (!g) return;
+  for (const [pr, val] of Object.entries(genProps(g))) vars[name + '.' + pr] = { ...val, loc: true };
+  for (const [role, pg] of genRoles(g)) {
+    vars[name + '.' + role] = { str: pg.id ?? '', gen: pg, loc: true };
+    for (const [pr, val] of Object.entries(genProps(pg))) vars[name + '.' + role + '.' + pr] = { ...val, loc: true };
+  }
+  if (fill) for (const key of GEN_KEYS) if (!(name + '.' + key in vars)) vars[name + '.' + key] = { v: NaN, r: false, loc: true, unset: true };
+}
+// Un objeto dibujado del dibujo (una linea, un arco, un circulo, un spline, un grupo de contorno) por su nombre: lo da params.js (textVars) mientras se evalua.
+let TOPO = null;
+export const setTopo = (fn) => { const prev = TOPO; TOPO = fn; return prev; }; // devuelve el anterior (para restaurarlo: las llamadas se anidan)
+// typeof(x): que es lo que llego: «number», «string», «strings», «matrix», «complex», «point», «line», «circle», «arc», «ellipse», «spline» o «contour».
+const GEN_TYPE = { pt: 'point', ln: 'line', ci: 'circle', ar: 'arc', el: 'ellipse', sp: 'spline', ct: 'contour' };
+function typeOf(a) {
+  if (a?.gen && GEN_TYPE[a.gen.k]) return GEN_TYPE[a.gen.k];
+  if (typeof a?.str === 'string') return 'string';
+  if (a?.strs) return 'strings';
+  if (a?.mat || a?.m) return 'matrix';
+  if (a?.im) return 'complex';
+  return 'number';
 }
 // Los miembros (variables locales que guardan un objeto dibujado) de la ultima llamada de mas afuera a una funcion propia: tvars los toma y los expone como rect.pto2.
 let LAST_MEMBERS = null;
@@ -1022,7 +1057,7 @@ function inGenArgs(toks) {
     if (t.t !== 'op') continue;
     if (t.v === ')' || t.v === ']') d++;
     else if (t.v === '[') { if (d > 0) d--; }
-    else if (t.v === '(') { if (d > 0) d--; else return toks[k - 1]?.t === 'ufn' ? 'ufn' : toks[k - 1]?.t === 'id' && ['line', 'circle', 'arc', 'spline', 'contour'].includes(toks[k - 1].v) ? 'gen' : false; }
+    else if (t.v === '(') { if (d > 0) d--; else return toks[k - 1]?.t === 'ufn' || (toks[k - 1]?.t === 'id' && ['typeof', 'isa'].includes(toks[k - 1].v)) ? 'ufn' : toks[k - 1]?.t === 'id' && ['line', 'circle', 'arc', 'spline', 'contour'].includes(toks[k - 1].v) ? 'gen' : false; }
   }
   return false;
 }
@@ -1072,6 +1107,10 @@ const SF = {
     return { str: 'contour(' + refs.length + ')' };
   } },
   circle: { n: [2, 3], f: (A) => { const c = genName(A[0], 'circle', 'el centro'), r = genNum(A[1], 'circle', 'el radio'); if (!(r > 0)) throw new Error('circle: el radio debe ser mayor que 0'); GEN?.circle(c, r, genStyle(A[2], 'circle'), { c: A[0].gen?.ns }); const p = A[0].gen; return { str: 'o(' + c + ')', ...(p?.k === 'pt' ? { gen: { k: 'ci', x: p.x, y: p.y, r } } : {}) }; } },
+  // typeof(x) dice que es x («point», «line», «circle», «arc», «spline», «contour», «number»…) e isa(x; "tipo") da 1 si lo es y 0 si no: para una funcion
+  // que recibe de todo (varargin) y decide segun lo que llega. Un objeto del dibujo (l5, c2, k1) llega a una funcion propia o a typeof por su nombre.
+  typeof: { n: [1, 1], f: (A) => ({ str: typeOf(A[0]) }) },
+  isa: { n: [2, 2], f: (A) => ({ v: typeOf(A[0]) === strArg(A[1], 'isa(x; tipo)', 'el tipo') ? 1 : 0, r: false }) },
   // error("mensaje"): detiene el calculo con ese mensaje (para validar lo que recibe una funcion: else: error("solo T, L o R"))
   error: { n: [1, 1], f: (A) => { throw rt(strArg(A[0], 'error(mensaje)', 'el mensaje')); } },
   num2str: { n: [1, 2], f: (A) => ({ str: numText(A[0], A[1] !== undefined ? intArg(A[1], 'num2str(x, n)', 'n', 0, 12) : undefined) }) },
@@ -1178,14 +1217,14 @@ function withLocals(s, vars) {
   for (const re of [ASG_RE, FOR_RE]) for (const m of s.matchAll(re)) names.add(normName(m[1]));
   const has = (n) => Object.prototype.hasOwnProperty.call(out, n) || names.has(n);
   const usedProps = new Set(); // los «nombre.prop» que el texto lee: una variable local asignada con un objeto dibujado los tendra
-  for (const m of s.matchAll(/(?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_'.])([A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*)\.(x|y|L|len|ang|r|d)(?![A-Za-z0-9_])/g)) usedProps.add(normName(m[1]) + '.' + m[2]);
+  for (const m of s.matchAll(/(?<![A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_'.])([A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*)\.((?:a|b|c|p1|p2)\.(?:x|y)|x|y|L|len|ang|r|d|n|area|a|b|c|p1|p2)(?![A-Za-z0-9_])/g)) { usedProps.add(normName(m[1]) + '.' + m[2]); if (m[2].includes('.')) usedProps.add(normName(m[1]) + '.' + m[2].split('.')[0]); } // «o.a.x» pide tambien «o.a»
   for (const n of names) {
     const ip = indexParts(n);
     if (ip && ip.base !== n && has(ip.base) && !Object.prototype.hasOwnProperty.call(out, n)) continue; // «v_1:…»: un elemento de v, no una variable nueva (stmt avisa)
     if (!Object.prototype.hasOwnProperty.call(out, n)) {
       out[n] = { v: NaN, r: false, loc: true, unset: true };
       const drawn = GEN_RE.test(s);
-      for (const pr of ['x', 'y', 'L', 'len', 'ang', 'r', 'd']) if ((drawn || usedProps.has(n + '.' + pr)) && !Object.prototype.hasOwnProperty.call(out, n + '.' + pr)) out[n + '.' + pr] = { v: NaN, r: false, loc: true, unset: true }; // pto2.x, s1.L de lo que dibuja la variable, o de un punto que le llega (pt:varargin_1, luego pt.x) (se llenan al asignarla)
+      for (const pr of GEN_KEYS) if ((drawn || usedProps.has(n + '.' + pr)) && !Object.prototype.hasOwnProperty.call(out, n + '.' + pr)) out[n + '.' + pr] = { v: NaN, r: false, loc: true, unset: true }; // pto2.x, s1.L de lo que dibuja la variable, o de un punto que le llega (pt:varargin_1, luego pt.x) (se llenan al asignarla)
     }
     else if (!out[n]?.fn && !out[n]?.loc) out[n] = { ...out[n], loc: true }; // ya existe afuera (b:-0.113) y el programa lo asigna (b:[…]): b_k es un indice aunque afuera b sea un numero; conserva su valor por si se lee antes
   }
@@ -1280,8 +1319,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       const prevLoc = LOC; LOC = k.v; // lo que dibuje el valor se llama «variable-de-la-llamada.nombre-local»
       let a;
       try { a = cmp(); } finally { LOC = prevLoc; }
-      for (const pr of ['x', 'y', 'L', 'len', 'ang', 'r', 'd']) delete vars[k.v + '.' + pr]; // las propiedades de una asignacion anterior
-      if (a.gen) for (const [pr, val] of Object.entries(genProps(a.gen))) vars[k.v + '.' + pr] = { ...val, loc: true }; // pto2.x, s1.L: lo que dibuja una variable local tiene sus propiedades
+      bindGen(vars, k.v, a.gen); // pto2.x, s1.L, e.a.x: lo que dibuja o recibe una variable local tiene sus propiedades (las de una asignacion anterior se borran)
       vars[k.v] = isS(a) ? { ...a, loc: true } : isM(a) ? wd({ mat: a.m, ...(a.mi ? { mi: a.mi } : {}), loc: true }, a.d) : { v: a.v, ...(a.im ? { im: a.im } : {}), r: !!a.r, d: a.d, loc: true };
       return a;
     }
@@ -1630,7 +1668,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     if (va) local.varargin = { args: A.slice(nFix).map(keep), loc: true };
     local.nargin = { v: A.length, r: false, loc: true };
     f.params.slice(0, nFix).forEach((q, i) => { local[q] = isS(A[i]) ? { ...A[i] } : isM(A[i]) ? wd({ mat: A[i].m, ...(A[i].mi ? { mi: A[i].mi } : {}) }, A[i].d) : { v: A[i].v, ...(A[i].im ? { im: A[i].im } : {}), r: !!A[i].r, d: A[i].d }; });
-    f.params.slice(0, nFix).forEach((q, i) => { if (A[i]?.gen) for (const [pr, val] of Object.entries(genProps(A[i].gen))) local[q + '.' + pr] = { ...val, loc: true }; }); // un parametro que es un punto, una linea…: tiene sus propiedades (p.x, l.L)
+    f.params.slice(0, nFix).forEach((q, i) => { if (A[i]?.gen) bindGen(local, q, A[i].gen, true); }); // un parametro que es un punto, una linea…: tiene sus propiedades (p.x, l.L)
     try {
       const memOut = depth === 0 ? {} : null; // la llamada de mas afuera guarda lo que sus locales dibujaron (takeMembers)
       const r = evalExpr(f.body, { radians, vars: local, allowMat: true, allowCplx: true, depth: depth + 1, globals: g, members: memOut });
@@ -1736,7 +1774,10 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     const k = toks[p++];
     if (!k) throw new Error('Expresión incompleta');
     if (k.t === 'str') return { str: k.v };
-    if (k.t === 'dpt') return { str: k.v, gen: { k: 'pt', x: vars[k.v + '.x'].v, y: vars[k.v + '.y'].v } }; // un punto del dibujo: su nombre y su lugar (p.x, p.y dentro de la funcion)
+    if (k.t === 'dpt') { // un objeto del dibujo: su nombre y sus datos (un punto: su lugar; una linea, un arco, un circulo, un spline, un grupo: ver topo.js)
+      if (!((k.v + '.r') in vars) && (k.v + '.x') in vars && (k.v + '.y') in vars) return { str: k.v, gen: { k: 'pt', id: k.v, x: vars[k.v + '.x'].v, y: vars[k.v + '.y'].v } };
+      return { str: k.v, gen: TOPO(k.v) };
+    }
     if (k.t === 'num') {
       const a = k.im ? { v: 0, im: k.im, r: false } : { v: k.v, r: false };
       if (peek()?.t !== 'unit') return a;
@@ -1748,6 +1789,20 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       return a.im ? cval([0, a.im * u.v], false, u.d) : wd({ v: a.v * u.v, r: u.r }, u.d);
     }
     if (k.t === 'unit') return { v: k.u.f, r: !!k.u.r, d: k.u.d }; // 'N, 'mm: vale su factor al SI, con su dimension
+    if (k.t === 'idx' && vars[k.base]?.gen && !vars[k.base].gen.list) throw new Error(`«${k.base}» no es un spline ni un contorno: no tiene «${k.base}_i» (es ${GEN_TYPE[vars[k.base].gen.k] || 'otra cosa'})`);
+    if (k.t === 'idx' && vars[k.base]?.gen?.list) { // s_i (el i-esimo punto de un spline), k1_i (el i-esimo elemento de un grupo de contorno); con .prop, su propiedad (k1_i.len)
+      const L = vars[k.base].gen.list, ix = splitIdx(k.src);
+      if (ix.length !== 1) throw new Error(`«${k.base}» lleva un índice: ${k.base}_i`);
+      const q = evalExpr(ix[0], { vars, depth: depth + 1, globals }).value;
+      if (!(Number.isInteger(q) && q >= 1 && q <= L.length)) throw new Error(`Pides «${k.base}_${q}», pero «${k.base}» tiene ${L.length} (${k.base}.n)`);
+      const g = L[q - 1];
+      if (k.prop) {
+        const pv = genProps(g)[k.prop];
+        if (!pv) throw new Error(`«${k.base}_${q}» no tiene «.${k.prop}»`);
+        return { v: pv.v, r: !!pv.r };
+      }
+      return { str: g.id ?? '', gen: g };
+    }
     if (k.t === 'idx' && vars[k.base]?.args) { // varargin_k: el k-esimo valor de sobra, del tipo que sea
       const L = vars[k.base].args, ix = splitIdx(k.src);
       if (ix.length !== 1) throw new Error(`«${k.base}» lleva un índice: ${k.base}_k`);

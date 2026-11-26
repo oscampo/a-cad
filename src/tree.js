@@ -2,6 +2,7 @@
 import { dist } from './geom.js';
 import { conRefs, conTag, ctrMembers, ctrName } from './model.js';
 import { dimValue, dimText, DIAM } from './dims.js';
+import { elementPoints } from './topo.js';
 import { dupEdges } from './repair.js';
 
 const f = (v, d = 2) => String(Math.round(v * 10 ** d) / 10 ** d);
@@ -227,9 +228,11 @@ export function buildTree(doc, { by = 'type' } = {}) {
     children: compact([relsNode(`${k}:${id}`, [id, ...ownedPts(k, id, pts.map(([p]) => p))]), ...pts.map(([p, role]) => ptNode(p, role, k, id)), ...extra]),
   });
 
-  const lines = Object.entries(doc.lines).map(([id, l]) => elem('ln', id, `${l.vec ? 'Vector' : 'Línea'} ${id} · ${l.vec ? '|v|' : 'L'} = ${f(dist(doc.pts[l.a], doc.pts[l.b]))}`, [[l.a, 'A:'], [l.b, 'B:']]));
-  const circles = Object.entries(doc.circles).map(([id, c]) => elem('ci', id, `Círculo ${id} · ${DIAM} = ${f(2 * c.r)}`, [[c.c, 'Centro:']]));
-  const arcs = Object.entries(doc.arcs).map(([id, a]) => elem('ar', id, `Arco ${id} · R = ${f(a.r)}`, [[a.c, 'Centro:'], [a.a, 'Inicio:'], [a.b, 'Fin:']]));
+  // los puntos de un elemento con su papel, de topo.js (la misma lista que leen los scripts: e.a.x, e.c.y…)
+  const ptsOf = (k, id) => elementPoints(doc, k, id).map((q) => [q.id, q.label]);
+  const lines = Object.entries(doc.lines).map(([id, l]) => elem('ln', id, `${l.vec ? 'Vector' : 'Línea'} ${id} · ${l.vec ? '|v|' : 'L'} = ${f(dist(doc.pts[l.a], doc.pts[l.b]))}`, ptsOf('ln', id)));
+  const circles = Object.entries(doc.circles).map(([id, c]) => elem('ci', id, `Círculo ${id} · ${DIAM} = ${f(2 * c.r)}`, ptsOf('ci', id)));
+  const arcs = Object.entries(doc.arcs).map(([id, a]) => elem('ar', id, `Arco ${id} · R = ${f(a.r)}`, ptsOf('ar', id)));
   const splines = Object.entries(doc.splines || {}).map(([id, s]) => {
     const n = elem('sp', id, `Spline ${id} · ${s.pts.length} puntos${s.closed ? ', cerrada' : ''}`, []);
     n.children = compact([relsNode(`sp:${id}`, [id, ...ownedPts('sp', id, s.pts)]), { key: `spp:${id}`, sub: true, label: `Puntos de control (${s.pts.length})`, children: compact(s.pts.map((p) => ptNode(p, '', 'sp', id))) }]);
@@ -239,8 +242,7 @@ export function buildTree(doc, { by = 'type' } = {}) {
   const ctrIds = Object.keys(doc.ctrs || {});
   const memberIds = new Set();
   for (const cid of ctrIds) for (const m of ctrMembers(doc, cid)) memberIds.add(m.id);
-  const ellipses = Object.entries(doc.ellipses || {}).map(([id, e]) => elem('el', id, `${e.p1 && e.p2 ? 'Arco elíptico' : 'Elipse'} ${id}`,
-    [[e.c, 'Centro:'], [e.a, 'Eje 1:'], [e.b, 'Eje 2:'], ...(e.p1 && e.p2 ? [[e.p1, 'Inicio:'], [e.p2, 'Fin:']] : [])]));
+  const ellipses = Object.entries(doc.ellipses || {}).map(([id, e]) => elem('el', id, `${e.p1 && e.p2 ? 'Arco elíptico' : 'Elipse'} ${id}`, ptsOf('el', id)));
   const texts = Object.entries(doc.texts || {}).map(([id, t]) => ({
     key: `tx:${id}`, label: `Texto ${id} · «${String(t.text).split('\n')[0].slice(0, 24)}»`, sel: { k: 'tx', id }, // con su nombre (t29), como «Línea l5»
     children: compact([ptNode(t.pt, 'Inserción:', 'tx', id)]),

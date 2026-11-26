@@ -202,6 +202,7 @@ Una cadena va entre comillas: `"Cumple"` (sirven las “ ” del iPad; `""` dent
 | `sprintf(formato; …)` | Formato: %d, %f, %.2f, %e, %g, %s, %%. Sin unidades: divide por la unidad que quieres (F/1'kN). | `sprintf("%.1f kN"; 12.345)=` | `“12.3 kN”` |
 | `str2double(s)`, `str2num(s)` | El número escrito en una cadena. | `str2double("3.25")*2` | `6.5` |
 | `strcat(a; b; …)` | Une cadenas (como +). | `strcat("A"; "-"; "CAD")=` | `“A-CAD”` |
+| `typeof(x)`, `isa(x; "tipo")` | Qué es lo que llegó a una función: `"number"`, `"string"`, `"strings"`, `"matrix"`, `"complex"`, o un objeto del dibujo (`"point"`, `"line"`, `"circle"`, `"arc"`, `"ellipse"`, `"spline"`, `"contour"`). `isa` da 1 si es de ese tipo y 0 si no. Sirven con `varargin`: `if isa(varargin_1; "line"): …`. | `typeof("a")=` | `“string”` |
 | `error("mensaje")` | Detiene el cálculo con ese mensaje, para validar lo que recibe una función: `else: error("solo se admite T, L o R")`. El mensaje sale marcado en el texto, con el nombre de la función. |  |  |
 | `upper`, `lower`, `strtrim`, `reverse` | Mayúsculas, minúsculas, sin espacios en los extremos, al revés. | `upper("abc")=` | `“ABC”` |
 | `strrep(s; viejo; nuevo)`, `replace(s; viejo; nuevo)` | Reemplaza todas las apariciones. | `strrep("a-b-c"; "-"; "+")=` | `“a+b+c”` |

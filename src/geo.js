@@ -4,7 +4,8 @@
 //   linea:   len (o L: longitud), ang (angulo de a hacia b, en radianes: vale como un angulo)
 //   circulo: r, d (diametro), x, y (centro)
 //   arco:    r, x, y (centro)
-//   contorno (un grupo, k1): L o len (perimetro: suma de sus elementos) y area (solo si forma UNA cadena cerrada)
+//   contorno (un grupo, k1): L o len (perimetro: suma de sus elementos), area (solo si forma UNA cadena cerrada) y n (cuantos elementos tiene)
+//   spline:  n (cuantos puntos tiene)
 import { ctrMembers, arcOf, ellipsePolyline, splinePolyline } from './model.js';
 import { ctrState } from './tree.js';
 const NAME = /^([A-Za-z]+\d+)\.([A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*)$/;
@@ -57,8 +58,9 @@ function ctrProp(doc, id, prop) {
   return num(Math.abs(A) / 2);
 }
 
-function propOf(doc, id, prop) {
-  if (doc.ctrs?.[id]) return ctrProp(doc, id, prop);
+export function propOf(doc, id, prop) {
+  if (doc.ctrs?.[id]) return prop === 'n' ? num(ctrMembers(doc, id).length) : ctrProp(doc, id, prop);
+  if (doc.splines?.[id]) return prop === 'n' ? num(doc.splines[id].pts.length) : null;
   const p = doc.pts[id];
   if (p) return prop === 'x' ? num(p.x) : prop === 'y' ? num(p.y) : null;
   const l = doc.lines[id];
@@ -77,7 +79,7 @@ function propOf(doc, id, prop) {
   if (prop === 'y') return num(C.y);
   return null;
 }
-const PROPS = { pts: ['x', 'y'], lines: ['len', 'L', 'ang'], circles: ['r', 'd', 'x', 'y'], arcs: ['r', 'x', 'y'], ctrs: ['L', 'len', 'area'] };
+const PROPS = { pts: ['x', 'y'], lines: ['len', 'L', 'ang'], circles: ['r', 'd', 'x', 'y'], arcs: ['r', 'x', 'y'], ctrs: ['L', 'len', 'area', 'n'], splines: ['n'] };
 
 // Todas las propiedades: { 'p12.x': { v, r }, ... }
 export function geoVars(doc) {
