@@ -189,7 +189,7 @@ function tokenize(src, vars = null, loose = false) {
       const dm = /^[A-Za-z]+\d+$/.test(raw) ? /^\.([A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*)/.exec(src.slice(i + raw.length)) : null; // solo nombres como p12, l3, c1
       if (dm) {
         const full = raw + '.' + dm[1];
-        if (loose || (vars && Object.prototype.hasOwnProperty.call(vars, full))) { toks.push({ t: 'var', v: full, i, j: i + full.length }); i += full.length; continue; }
+        if (loose || (vars && Object.prototype.hasOwnProperty.call(vars, full))) { const mp = memberProp(full, src, i + full.length, vars, loose), n = full.length + mp.ext; toks.push({ t: 'var', v: mp.name, i, j: i + n }); i += n; continue; }
         if (!(vars && Object.prototype.hasOwnProperty.call(vars, raw))) throw new Error(`No reconozco «${full}» (propiedades: p1.x, p1.y, l1.len, l1.ang, c1.r, c1.d)`);
       }
       // nombre de una biblioteca insertada: «UF.C_(surf)», «UF.S_e'», «UF.b_k» (alias + «.» + nombre; ver qualify.js y tvars.js)
@@ -203,8 +203,8 @@ function tokenize(src, vars = null, loose = false) {
         }
         if (m2) {
           const full = raw + '.' + normName(m2[0]), LL = L + 1 + m2[0].length;
-          if (loose) { toks.push({ t: 'var', v: full, i, j: i + LL }); i += LL; continue; }
-          if (vars && Object.prototype.hasOwnProperty.call(vars, full)) { toks.push({ t: vars[full]?.fn ? 'ufn' : 'var', v: full, i, j: i + LL }); i += LL; continue; }
+          if (loose) { const mp = memberProp(full, src, i + LL, vars, true), n = LL + mp.ext; toks.push({ t: 'var', v: mp.name, i, j: i + n }); i += n; continue; }
+          if (vars && Object.prototype.hasOwnProperty.call(vars, full)) { const mp = vars[full]?.fn ? { name: full, ext: 0 } : memberProp(full, src, i + LL, vars, false), n = LL + mp.ext; toks.push({ t: vars[full]?.fn ? 'ufn' : 'var', v: mp.name, i, j: i + n }); i += n; continue; }
           if (vars && (ix = indexOfVar(full, vars))) { toks.push({ t: 'idx', base: ix.base, src: ix.src, i, j: i + LL }); i += LL; continue; }
           if (vars && Object.keys(vars).some((k) => k.startsWith(raw + '.'))) throw new Error(`La biblioteca «${raw}» no tiene «${normName(m2[0])}»`);
         }
@@ -999,6 +999,9 @@ export function genProps(g) {
   if (g?.k === 'ar') return { r: num(g.r), x: num(g.x), y: num(g.y) };
   return {};
 }
+// Los miembros (variables locales que guardan un objeto dibujado) de la ultima llamada de mas afuera a una funcion propia: tvars los toma y los expone como rect.pto2.
+let LAST_MEMBERS = null;
+export const takeMembers = () => { const m = LAST_MEMBERS; LAST_MEMBERS = null; return m; };
 export const genAt = (ns) => { GEN?.at?.(ns); }; // el texto cuyo enunciado se evalua (los nombres son locales a el)
 export const GEN_RE = /(?:^|[^A-Za-z0-9_.])(?:point|line|circle|arc|spline)\s*\(/i;
 export const GEN_FUNCS = ['point', 'line', 'circle', 'arc', 'spline'];
@@ -1013,6 +1016,12 @@ function inGenArgs(toks) {
     else if (t.v === '(') { if (d > 0) d--; else return toks[k - 1]?.t === 'ufn' ? 'ufn' : toks[k - 1]?.t === 'id' && ['line', 'circle', 'arc', 'spline'].includes(toks[k - 1].v) ? 'gen' : false; }
   }
   return false;
+}
+// «rect.pto2.x»: tras un nombre de un miembro (rect.pto2) puede venir «.propiedad»; se toma junto si esa variable existe (o, al leer sin valores, si es una de las conocidas).
+function memberProp(full, src, at, vars, loose) {
+  const pm = /^.([A-Za-zα-ωΑ-Ωϑϕϖɛ]w*)/.exec(src.slice(at));
+  if (pm && (loose ? /^(x|y|L|len|ang|r|d)$/.test(pm[1]) : vars && Object.prototype.hasOwnProperty.call(vars, full + '.' + pm[1]))) return { name: full + '.' + pm[1], ext: pm[0].length };
+  return { name: full, ext: 0 };
 }
 const genName = (a, fn, what) => { if (typeof a?.str !== 'string' || !a.str.trim()) throw new Error(`${fn}: ${what} es un nombre entre comillas, p. ej. "A"`); return a.str.trim(); };
 const genNum = (a, fn, what) => {
@@ -1177,7 +1186,7 @@ function withUnknowns(s, vars) {
   }
   return out;
 }
-function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allowCplx = false, depth = 0, globals = null } = {}) {
+function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allowCplx = false, depth = 0, globals = null, members = null } = {}) {
   const S = String(src ?? '');
   vars = withLocals(S, withUnknowns(S, vars));
   const toks = tokenize(S, vars);
@@ -1594,7 +1603,9 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     f.params.slice(0, nFix).forEach((q, i) => { local[q] = isS(A[i]) ? { ...A[i] } : isM(A[i]) ? wd({ mat: A[i].m, ...(A[i].mi ? { mi: A[i].mi } : {}) }, A[i].d) : { v: A[i].v, ...(A[i].im ? { im: A[i].im } : {}), r: !!A[i].r, d: A[i].d }; });
     f.params.slice(0, nFix).forEach((q, i) => { if (A[i]?.gen) for (const [pr, val] of Object.entries(genProps(A[i].gen))) local[q + '.' + pr] = { ...val, loc: true }; }); // un parametro que es un punto, una linea…: tiene sus propiedades (p.x, l.L)
     try {
-      const r = evalExpr(f.body, { radians, vars: local, allowMat: true, allowCplx: true, depth: depth + 1, globals: g });
+      const memOut = depth === 0 ? {} : null; // la llamada de mas afuera guarda lo que sus locales dibujaron (takeMembers)
+      const r = evalExpr(f.body, { radians, vars: local, allowMat: true, allowCplx: true, depth: depth + 1, globals: g, members: memOut });
+      if (memOut) LAST_MEMBERS = memOut;
       if (typeof r.str === 'string') return r.gen ? { str: r.str, gen: r.gen } : { str: r.str }; // gen: los datos del objeto que dibuja (ver point)
       if (r.strs) return { strs: r.strs };
       return r.mat ? wd({ m: r.mat, ...(r.mi ? { mi: r.mi } : {}) }, r.dim) : { v: r.value, ...(r.im ? { im: r.im } : {}), r: r.rad, d: r.dim };
@@ -1863,6 +1874,8 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     else if (e?.flow) throw new Error(`«${e.flow}» va dentro de un for o un while`);
     else throw e;
   }
+  // los miembros de una llamada a funcion (la de mas afuera): las variables locales que guardan un objeto dibujado, para leerlos como rect.pto2
+  if (members) for (const [n, x] of Object.entries(vars)) if (x?.loc && typeof x.str === 'string' && x.gen && !n.includes('.')) members[n] = { str: x.str, gen: x.gen };
   // un complejo solo sale donde se acepta (los textos de calculo y las funciones); una cota, un actuador o una grafica necesitan un real
   if (isS(res)) { // una cadena solo sale en los textos de calculo (y las funciones); una cota o una grafica necesitan un numero
     if (!allowCplx) throw new Error('El resultado es una cadena: aquí hace falta un número');

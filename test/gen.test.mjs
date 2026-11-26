@@ -506,4 +506,49 @@ t('un punto del dibujo fuera de line/circle/arc/spline y de una funcion propia s
   assert.throws(() => evalExpr('p1 + 1', { vars: { 'p1.x': { v: 5, r: false }, 'p1.y': { v: 5, r: false } }, allowMat: true, allowCplx: true }), /No reconozco/);
 });
 
+// ---- los miembros de lo que una funcion dibujo: «rect:f(x)» → rect.pto2 (el punto) y rect.pto2.x (su coordenada)
+const FM = 'm(p):\n  w := 30\n  pto2 := point(p.x + w, p.y)\n  pto3 := point(pto2.x, pto2.y + 40)\n  line(pto2, pto3)';
+
+t('rect.pto2, rect.pto2.x y rect.L: se leen los objetos que la funcion dibujo y lo que devuelve', () => {
+  const { d } = mkFn(FM, 'rect:m(p1)', 'a:rect.pto2.x\nb:rect.pto3.y\nc:rect.L');
+  assert.deepEqual(regenerate(d).errs, []);
+  const v = textVars(d).vals;
+  assert.equal(v.a.v, 35); assert.equal(v.b.v, 45); assert.equal(v.c.v, 40);
+});
+
+t('un miembro se usa como argumento: line(rect.pto2; q) y funciones propias', () => {
+  const { d } = mkFn(FM, 'rect:m(p1)', 'q:point(0; 0)\nl:line(rect.pto2; q)');
+  assert.deepEqual(regenerate(d).errs, []);
+  assert.equal(n(d.lines), 2);
+  const ids = Object.values(d.gen.map);
+  const rp2 = d.gen.map[Object.keys(d.gen.map).find((k) => k.endsWith('/rect.pto2'))];
+  assert.equal(linesOf(d, rp2).length, 2, 'rect.pto2 es extremo de la linea de la funcion y de la nueva');
+});
+
+t('solo los objetos dibujados son miembros: los numeros locales (w) siguen siendo locales', () => {
+  const { d } = mkFn(FM, 'rect:m(p1)', 'k:rect.w');
+  regenerate(d);
+  assert.ok(textVars(d).errs.size >= 1 && /rect/.test([...textVars(d).errs.values()].join(' ')));
+});
+
+t('los miembros siguen al script: cambiar el parametro mueve rect.pto2.x', () => {
+  const { d, ids } = mkFn(FM, 'rect:m(p1)', 'a:rect.pto2.x');
+  regenerate(d);
+  d.texts[ids[0]].text = d.texts[ids[0]].text.replace('w := 30', 'w := 50');
+  assert.deepEqual(regenerate(d).errs, []);
+  assert.equal(textVars(d).vals.a.v, 55);
+});
+
+t('dos llamadas con nombres distintos: cada una tiene sus miembros (rect.pto2 y rect2.pto2)', () => {
+  const { d } = mkFn(FM, 'rect:m(p1)\nrect2:m(p1)', 'a:rect.pto2.x + rect2.pto3.y');
+  assert.deepEqual(regenerate(d).errs, []);
+  assert.equal(textVars(d).vals.a.v, 35 + 45);
+});
+
+t('una funcion que no dibuja, o una asignacion normal, no crea miembros', () => {
+  const { d } = mkFn('g(x):\n  y := x * 2\n  y', 'r:g(4)', 'k:r.y');
+  regenerate(d);
+  assert.ok(textVars(d).errs.size >= 1);
+});
+
 console.log(`${passed} pruebas de dibujo generado`);

@@ -4,7 +4,7 @@
 import { dataVersion } from './datastore.js';
 import { argChar, decimalMode } from './locale.js';
 const paramSep = () => (decimalMode() === ',' ? /;/ : /[;,]/); // parametros de una funcion: con coma decimal solo «;»
-import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName, rngReset, rngState, rngMix, genActive, genAt, genAsg, genProps, GEN_RE } from './expr.js';
+import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName, rngReset, rngState, rngMix, genActive, genAt, genAsg, takeMembers, genProps, GEN_RE } from './expr.js';
 import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg, setUserUnits, addUserUnit, onDocUnits, unitsVersion, UNIT_NAME_RE } from './units.js';
 import { solveEqs, splitEq, eqResiduals } from './nsolve.js';
@@ -638,14 +638,18 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
     else {
       try {
         const rg = e.script ? null : parseRange(e.expr); // un script puede llevar «1..n» de un for: no es un rango
-        genAsg(e.name);
+        genAsg(e.name); takeMembers(); // takeMembers: descarta los de una llamada anterior
         const r = rg ? evalRangeDef(rg, e.unit, cur) : evalDef(e.expr, e.unit, e.lib ? { ...cur, ...e.lib } : cur); // las funciones locales de un script
         val = valOf(r);
       } catch (err) { st.bad.add(k); st.errs.set(e.name, `«${e.name}»: ${hint(err.message)}`); }
     }
     if (val) {
       dropGen(e.name); cur[e.name] = val; env[e.name] = val; st.defVal.set(k, val); if (e.eq) st.fnEnv.set(k, { ...cur });
-      if (val.gen) { const ks = []; for (const [p, v] of Object.entries(genProps(val.gen))) { const k2 = e.name + '.' + p; cur[k2] = v; env[k2] = v; st.names.add(k2); ks.push(k2); } genKeys.set(e.name, ks); } // p2.x, s1.L…: la variable manda sobre un elemento del dibujo con ese nombre
+      const ks = [], bind = (k2, v) => { cur[k2] = v; env[k2] = v; st.names.add(k2); ks.push(k2); };
+      if (val.gen) for (const [p, v] of Object.entries(genProps(val.gen))) bind(e.name + '.' + p, v); // p2.x, s1.L…: la variable manda sobre un elemento del dibujo con ese nombre
+      const mem = e.params ? null : takeMembers(); // rect:pru(p5) → rect.pto2, rect.pto2.x: lo que la funcion dibujo en sus variables locales
+      if (mem) for (const [n, m] of Object.entries(mem)) { bind(e.name + '.' + n, m); for (const [p, v] of Object.entries(genProps(m.gen))) bind(e.name + '.' + n + '.' + p, v); }
+      if (ks.length) genKeys.set(e.name, ks);
     } else back(e.name); // una definicion que falla deja la variable sin definir (o vuelve a la cota del mismo nombre)
   }
   genAsg(null);
