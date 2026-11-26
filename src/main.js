@@ -2045,6 +2045,7 @@ cv.addEventListener('pointerdown', (e) => {
   cv.setPointerCapture(e.pointerId);
   const p = pos(e);
   pointers.set(e.pointerId, { ...p, type: e.pointerType, button: e.button, down: p });
+  tapLog(`cv:down ${e.pointerType} ${Math.round(p.x)},${Math.round(p.y)} ts=${(e.timeStamp / 1000).toFixed(3)}`);
   const touches = [...pointers.values()].filter((q) => q.type === 'touch');
   if (touches.length >= 2) { loupeCancel(); startGesture(); return; }
   if (e.pointerType === 'touch' && (opts.touch || tool === 'select')) {
@@ -2073,6 +2074,17 @@ cv.addEventListener('pointerdown', (e) => {
 // Con «?perf» en la direccion se muestra, al mover, cuanto tarda cada parte (rastreo, calculo del solver, dibujo) en este
 // dispositivo: sirve para saber que pesa en un iPad o un telefono sin adivinar.
 const PERF = new URLSearchParams(location.search).has('perf');
+// Con «?taps» en la direccion, un cuadro en pantalla cuenta que pasa en cada toque sobre un texto (eventos, tiempos, si abrio el editor o las propiedades):
+// sirve para ver donde se rompe el doble toque en un iPad sin adivinar. No hace nada si no esta la marca.
+const TAPDBG = new URLSearchParams(location.search).has('taps');
+const tapLines = [];
+function tapLog(msg) {
+  if (!TAPDBG) return;
+  tapLines.push((performance.now() / 1000).toFixed(3) + ' ' + msg); if (tapLines.length > 14) tapLines.shift();
+  let box = document.getElementById('tapBox');
+  if (!box) { box = document.createElement('pre'); box.id = 'tapBox'; box.style.cssText = 'position:fixed;left:4px;bottom:4px;max-width:calc(100vw - 8px);z-index:9999;background:rgba(0,0,0,.78);color:#fff;font:11px/1.3 monospace;padding:4px 8px;border-radius:6px;margin:0;pointer-events:none;white-space:pre-wrap'; document.body.appendChild(box); }
+  box.textContent = tapLines.join('\n');
+}
 const perfLog = [];
 let perfSolveMs = 0; // lo que tardo solo la resolucion (solver) dentro del movimiento
 function perfShow(tTrack, tMove, tDraw, dragging, tSolve = 0) {
@@ -2286,6 +2298,7 @@ function selectAt(p) {
   // Doble toque abre sus propiedades, y un toque sobre un enlace lo selecciona para mostrar su pastilla. Si no, el toque es de lo de debajo.
   if (h?.k === 'tx' && !tapMod && !sel.some((s) => same(s, h))) {
     const now = performance.now(), dblTx = lastTxTap && lastTxTap.id === h.id && now - lastTxTap.t < 450 && dist(lastTxTap, p) < 24;
+    tapLog(`tx:${h.id} dbl=${!!dblTx}`);
     lastTxTap = dblTx ? null : { id: h.id, t: now, x: p.x, y: p.y };
     if (dblTx) { sel = [h]; lastTap = null; afterChange(); openProps(h); return; }
     if (textLinkAt(doc, doc.texts[h.id], toModel(p.x, p.y), measureRel, 4 / view.s)) { sel = [h]; afterChange(); return; }
@@ -3161,6 +3174,7 @@ function startTextEdit(id, p) {
   txLayout(); draw();
   const k = textTapCaret(t, ed, p);
   txLive.focus(); txLive.setSelectionRange(k, k); ccClose();
+  tapLog('ed:open');
 }
 function txEditLayout() {
   const t = doc.texts[txState.edit];
@@ -3250,15 +3264,18 @@ txLiveBox.addEventListener('pointerdown', (e) => {
   // El tiempo se mide con la hora del propio toque (e.timeStamp), no con la de cuando se atiende: en el iPad abrir el teclado detiene la pagina un momento y el
   // segundo toque se atendia tarde (mas de 450 ms despues de abrirse la entrada) aunque el dedo hubiera sido rapido. Con el dedo, algo mas de margen en el lugar.
   const when = e.timeStamp > 1e12 ? performance.now() : e.timeStamp; // Safari antiguo da la hora en epoch: ahi no hay mejor dato
-  if (!txState?.edit || when - txState.t0 > 600) return;
+  tapLog(`box:down ${e.pointerType} ts=${(e.timeStamp / 1000).toFixed(3)} edit=${!!txState?.edit} dt=${txState?.edit ? Math.round(when - txState.t0) : '-'}ms`);
+  if (!txState?.edit || when - txState.t0 > 600) { tapLog('box:reject-time'); return; }
   const r = cv.getBoundingClientRect(), q = { x: e.clientX - r.left, y: e.clientY - r.top };
-  if (dist(q, txState.tap) > (e.pointerType === 'mouse' ? 24 : 36)) return;
+  if (dist(q, txState.tap) > (e.pointerType === 'mouse' ? 24 : 36)) { tapLog(`box:reject-far ${Math.round(dist(q, txState.tap))}px`); return; }
+  tapLog('box:DOUBLE');
   e.preventDefault();
   const id = txState.edit; endTextLive(); lastTxTap = null; sel = [{ k: 'tx', id }]; afterChange(); openProps(sel[0]);
 });
 txLive.addEventListener('click', () => ccUpdate(true));
 txLive.addEventListener('keyup', (e) => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) ccUpdate(true); else ccCheck(); });
 txLive.addEventListener('compositionend', () => setTimeout(ccUpdate, 0));
+txLive.addEventListener('blur', () => tapLog('ed:blur'));
 txLive.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== txLive) ccClose(); }, 120));
 
 // ---- Sugerencias al escribir en el cuadro de ecuacion (ver complete.js): lo que existe en ese lugar de la pagina (orden de lectura),
@@ -5558,6 +5575,7 @@ function relaxMarks() {
 }
 
 function openProps(h) {
+  tapLog(`props:${h.k}${h.id}`);
   propT = { k: h.k, id: h.id };
   const o = propObj();
   if (!o) { propT = null; return; }
@@ -5799,8 +5817,9 @@ function openProps(h) {
   }
   renderPropCons();
   if (!$('dlgR').open) $('dlgR').showModal();
+  tapLog('dlgR:open');
 }
-$('dlgR').addEventListener('close', () => { if (!$('dlgR').open) propT = null; }); // el evento llega tarde: no pisar una ventana reabierta
+$('dlgR').addEventListener('close', () => { tapLog('dlgR:close'); if (!$('dlgR').open) propT = null; }); // el evento llega tarde: no pisar una ventana reabierta
 $('dlgR').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); e.target.blur(); } });
 
 // ---- filtro de seleccion ----
@@ -6711,6 +6730,7 @@ function syncViewport() {
   document.documentElement.style.setProperty('--vvh', (v ? v.height : window.innerHeight) + 'px');
   document.documentElement.style.setProperty('--vvt', (v ? v.offsetTop : 0) + 'px');
 }
+if (TAPDBG && window.visualViewport) window.visualViewport.addEventListener('resize', () => tapLog(`vv:h=${Math.round(window.visualViewport.height)}`));
 if (window.visualViewport) { window.visualViewport.addEventListener('resize', syncViewport); window.visualViewport.addEventListener('scroll', syncViewport); }
 syncViewport();
 window.addEventListener('resize', resize);
