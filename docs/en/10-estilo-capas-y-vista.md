@@ -1,4 +1,4 @@
-<!-- es: 226ce66665 -->
+<!-- es: a125cf8ee0 -->
 # 10. Style, layers and view
 
 Color, line type, width and fills; layers; what the view shows; and the element tree.
@@ -23,6 +23,12 @@ Color, line type, width and fills; layers; what the view shows; and the element 
 ![Fill / hatch](../icons/hatch.svg) **Fill / hatch** applies to a closed outline (lines, arcs or a circle).
 
 It can be hatching, cross-hatching or solid, with angle, spacing and opacity.
+
+## Page
+
+In Settings → Page you choose the format (Letter, A4 or custom sizes), the width, the height and the margins. Sheets repeat **downward** from the top edge of the first one: whatever is drawn **above** that edge falls outside the page (for example, a script that draws upward from the origin).
+
+**Fit the page to what is drawn** moves the first sheet: its top edge a margin above the highest thing and, only if what is drawn goes past the sides, its left edge. It does not touch what is drawn, counts only what is visible (a hidden layer does not) and can be undone. If what is drawn does not fit on one sheet, the notice says how many it takes.
 
 ## Layers
 

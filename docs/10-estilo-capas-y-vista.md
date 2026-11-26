@@ -23,6 +23,12 @@ Color, tipo de línea, grosor y rellenos; capas; lo que muestra la vista; y el �
 
 Puede ser de líneas, cruzado o sólido, con ángulo, separación y opacidad.
 
+## Página
+
+En Configuración → Página eliges el formato (Carta, A4 o medidas propias), el ancho, el alto y los márgenes. Las hojas se repiten **hacia abajo** desde el borde superior de la primera: lo que se dibuja **por encima** de ese borde queda fuera de la página (por ejemplo, un script que dibuja hacia arriba desde el origen).
+
+**Ajustar la página a lo dibujado** mueve la primera hoja: su borde superior un margen por encima de lo más alto y, solo si lo dibujado se sale por los lados, su borde izquierdo. No toca lo dibujado, cuenta solo lo visible (una capa apagada no) y se deshace. Si lo dibujado no cabe en una hoja, el aviso dice cuántas ocupa.
+
 ## Capas
 
 ![Capas](icons/layers.svg) **Capas** (esquina superior izquierda del dibujo) abre la lista de capas.

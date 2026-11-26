@@ -4307,7 +4307,7 @@ function syncPanel() {
   const pg = doc.page;
   $('docPage').value = !pg ? 'none' : pageKind(pg) || 'custom';
   $('docPageW').value = pg ? +pg.w.toFixed(1) : ''; $('docPageH').value = pg ? +pageH(pg).toFixed(1) : ''; $('docMargin').value = pg ? pg.m : '';
-  $('docPageW').disabled = $('docPageH').disabled = $('docMargin').disabled = !pg;
+  $('docPageW').disabled = $('docPageH').disabled = $('docMargin').disabled = $('docPageFit').disabled = !pg;
   const first = sel.map((s) => (s.k === 'ln' ? doc.lines[s.id] : s.k === 'ci' ? doc.circles[s.id] : s.k === 'ar' ? doc.arcs[s.id] : s.k === 'sp' ? doc.splines[s.id] : s.k === 'el' ? doc.ellipses[s.id] : null)).find(Boolean);
   const hat = sel.map((s) => (s.k === 'ha' ? doc.hatches[s.id] : null)).find(Boolean);
   const txt = sel.map((s) => (s.k === 'tx' ? doc.texts[s.id] : null)).find(Boolean);
@@ -6443,6 +6443,22 @@ const pageNum = (key, min) => (e) => {
   const ok = pg && x >= min && (key === 'm' ? 2 * x < pg.w && 2 * x < pageH(pg) : 2 * pg.m < x);
   if (!ok) { syncPanel(); toast('Valor no válido'); return; }
   pushUndo(); doc.page = { ...pg, h: pageH(pg), y0: pageTop(pg), [key]: x }; afterChange(); syncPanel();
+};
+// Las hojas crecen hacia abajo desde el borde superior de la primera (y0): un dibujo que se hizo por encima de ese borde (p. ej. con un script que dibuja hacia
+// arriba) queda fuera de la pagina. Esto mueve la primera hoja: su borde superior un margen por encima de lo mas alto dibujado (como al crear la pagina)
+// y, solo si lo dibujado se sale por los lados, su borde izquierdo. No toca lo dibujado. Cuenta solo lo visible (una capa apagada no).
+$('docPageFit').onclick = () => {
+  const pg = doc.page;
+  if (!pg) return;
+  const b = contentBounds(true), t = contentTop();
+  if (!b || !isFinite(t)) { toast('No hay nada dibujado'); return; }
+  const x0 = pg.x0 || 0, outX = b.x0 < x0 || b.x1 > x0 + pg.w, ny = +(t + pg.m).toFixed(3), nx = outX ? +(b.x0 - pg.m).toFixed(3) : x0;
+  if (Math.abs(ny - pageTop(pg)) < 1e-6 && nx === x0) { toast('La página ya está ajustada a lo dibujado'); return; }
+  pushUndo();
+  doc.page = { ...pg, h: pageH(pg), y0: ny, x0: nx };
+  afterChange(); syncPanel(); fitView();
+  const hojas = Math.max(1, Math.ceil((t - contentYs().bot + pg.m) / pageH(pg)));
+  toast(hojas > 1 ? `Página ajustada: lo dibujado ocupa ${hojas} hojas` : 'Página ajustada a lo dibujado');
 };
 $('docPageW').onchange = pageNum('w', 20);
 $('docPageH').onchange = pageNum('h', 20);

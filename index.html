@@ -594,6 +594,7 @@ body.nopanel #panel { display: none; }
   <div class="row"><label for="docPageW">Ancho (mm)</label><input type="number" id="docPageW" min="20" step="0.1"></div>
   <div class="row"><label for="docPageH">Alto (mm)</label><input type="number" id="docPageH" min="20" step="0.1"></div>
   <div class="row"><label for="docMargin">Márgenes (mm)</label><input type="number" id="docMargin" min="0" step="1"></div>
+  <div class="row"><button type="button" id="docPageFit" title="Mueve la primera hoja para que lo dibujado quede dentro: su borde superior sobre lo más alto (con el margen) y, si se sale por los lados, su borde izquierdo">Ajustar la página a lo dibujado</button></div>
   <p style="margin:10px 0 2px;font-size:13px"><b>Biblioteca</b></p>
   <div class="row"><label for="libOn">Es una biblioteca</label><input type="checkbox" id="libOn" title="Una biblioteca es un documento normal cuyas funciones, scripts y variables se pueden insertar en otros documentos. Al guardarla en GitHub queda en la carpeta MyLibrary/ del repositorio, con una versión que sube sola."></div>
   <div id="libBox" hidden>
