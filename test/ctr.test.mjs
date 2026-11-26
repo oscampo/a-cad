@@ -301,16 +301,16 @@ t('redondeo: si solo una de las lineas era del grupo, lo nuevo no entra', () => 
   assert.equal(d.arcs[f.arc].ctr, undefined);
 });
 
-// ---- contour(...) en scripts
+// ---- contour(...) en scripts: se define por los elementos (variables que guardan una linea, un arco o un spline), no por los puntos
 const CARA = '$$w:40\nh:30\na:point("A"; 0; 0)\nb:point("B"; w; 0)\nc:point("C"; w; h)\nd:point("D"; 0; h)\nab:line(a; b)\nbc:line(b; c)\ncd:line(c; d)\nda:line(d; a)';
-function scripted(extra) {
+function scripted(extra, base = CARA) {
   const d = newDoc();
-  const tid = addText(d, addPoint(d, -100, 100), CARA + (extra ? '\n' + extra : '') + '$$', {});
+  const tid = addText(d, addPoint(d, -100, 100), base + (extra ? '\n' + extra : '') + '$$', {});
   return { d, tid };
 }
 
-t('contour(["A";"B";"C";"D"]; "cerrado"; "caja"): el script crea el grupo con sus 4 lineas y su nombre', () => {
-  const { d } = scripted('k:contour(["A", "B", "C", "D"]; "cerrado"; "caja")');
+t('contour(ab; bc; cd; da; "caja"): el script crea el grupo con esos 4 elementos y su nombre', () => {
+  const { d } = scripted('k:contour(ab; bc; cd; da; "caja")');
   const r = regenerate(d);
   assert.deepEqual(r.errs, []); assert.deepEqual(r.notes, []);
   const ids = Object.keys(d.ctrs || {});
@@ -321,7 +321,7 @@ t('contour(["A";"B";"C";"D"]; "cerrado"; "caja"): el script crea el grupo con su
 });
 
 t('contour: regenerar de nuevo no cambia nada y conserva el mismo grupo', () => {
-  const { d } = scripted('k:contour(["A", "B", "C", "D"]; "cerrado")');
+  const { d } = scripted('k:contour(ab; bc; cd; da)');
   regenerate(d);
   const id = Object.keys(d.ctrs)[0];
   const r = regenerate(d);
@@ -329,16 +329,27 @@ t('contour: regenerar de nuevo no cambia nada y conserva el mismo grupo', () => 
   assert.deepEqual(Object.keys(d.ctrs), [id]);
 });
 
-t('contour abierto: con 3 puntos agrupa 2 lineas y queda abierto', () => {
-  const { d } = scripted('k:contour(["A", "B", "C"])');
+t('contour abierto: solo los elementos que se dan entran y queda abierto', () => {
+  const { d } = scripted('k:contour(ab; bc)');
   regenerate(d);
   const id = Object.keys(d.ctrs)[0];
   assert.equal(ctrMembers(d, id).length, 2);
   assert.notEqual(ctrDescribe(d, id).state, 'cerrado');
+  assert.equal(Object.values(d.lines).filter((l) => l.ctr).length, 2);
+});
+
+t('contour: cambiar los elementos del script cambia los miembros sin cambiar el grupo', () => {
+  const { d, tid } = scripted('k:contour(ab; bc; cd; da)');
+  regenerate(d);
+  const id = Object.keys(d.ctrs)[0];
+  d.texts[tid].text = CARA + '\nk:contour(ab; bc; cd)$$';
+  regenerate(d);
+  assert.deepEqual(Object.keys(d.ctrs), [id]);
+  assert.equal(ctrMembers(d, id).length, 3);
 });
 
 t('contour: si el script deja de pedirlo, el grupo se disuelve y las lineas se quedan', () => {
-  const { d, tid } = scripted('k:contour(["A", "B", "C", "D"]; "cerrado")');
+  const { d, tid } = scripted('k:contour(ab; bc; cd; da)');
   regenerate(d);
   d.texts[tid].text = CARA + '$$';
   regenerate(d);
@@ -347,11 +358,33 @@ t('contour: si el script deja de pedirlo, el grupo se disuelve y las lineas se q
   assert.ok(Object.values(d.lines).every((l) => l.ctr === undefined));
 });
 
-t('contour: sin linea entre dos puntos consecutivos avisa y no crea el grupo', () => {
-  const { d } = scripted('k:contour(["A", "C", "D"])'); // A-C no se dibuja
+t('contour: entre dos puntos pasan una linea y un arco: lo que se da es lo que entra (sin ambiguedad)', () => {
+  // semicirculo: la cuerda l y el arco a unen los mismos puntos A y B; dos contornos distintos usan A y B
+  const base = '$$o:point("O"; 0; 0)\na:point("A"; 10; 0)\nb:point("B"; -10; 0)\nc:point("C"; 0; -10)\nl:line(a; b)\nar:arc(o; a; b)\nbc:line(b; c)\nca:line(c; a)';
+  const { d } = scripted('k:contour(l; ar; "medio")\nk2:contour(bc; ca; "resto")', base);
   const r = regenerate(d);
-  assert.ok(r.errs.some((m) => /entre «A» y «C»/.test(m)), JSON.stringify(r.errs));
-  assert.equal(d.ctrs, undefined);
+  assert.deepEqual(r.errs, []);
+  const names = Object.values(d.ctrs).map((c) => c.name).sort();
+  assert.deepEqual(names, ['medio', 'resto']);
+  const medio = Object.entries(d.ctrs).find(([, c]) => c.name === 'medio')[0];
+  assert.deepEqual(ctrMembers(d, medio).map((m) => m.k).sort(), ['ar', 'ln']);
+  assert.equal(ctrDescribe(d, medio).state, 'cerrado');
+});
+
+t('contour: un elemento ya agrupado en otro grupo se deja ahi y se avisa', () => {
+  const { d } = scripted('k:contour(ab; bc; cd; da)\nk2:contour(ab; bc)');
+  const r = regenerate(d);
+  assert.ok(r.errs.some((m) => /ya está en otro grupo/.test(m)), JSON.stringify(r.errs));
+  assert.equal(Object.keys(d.ctrs).length, 1);
+});
+
+t('contour: con un solo elemento, o con un punto en vez de un elemento, da error y no crea el grupo', () => {
+  for (const call of ['k:contour(ab)', 'k:contour(ab; a)']) {
+    const { d } = scripted(call);
+    regenerate(d);
+    assert.ok(textVars(d).errs.size >= 1, call + ': el texto debe marcar el error');
+    assert.equal(d.ctrs, undefined, call);
+  }
 });
 
 console.log(`${passed} pruebas de grupos de contorno`);

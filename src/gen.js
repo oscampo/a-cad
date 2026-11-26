@@ -46,7 +46,7 @@ export function genOwners(doc, sel) {
 // ese centro), «texto/a:centro|a|b» (arco) y «texto/s:a|b|c» (spline).
 function collector() {
   const req = { pts: new Map(), lines: new Map(), circles: new Map(), arcs: new Map(), splines: new Map(), contours: new Map(), errs: [] };
-  let ns = null; const radii = new Map();
+  let ns = null; const radii = new Map(), cnt = new Map();
   // Un punto que viene de OTRO texto (la variable que lo guarda lleva su texto de origen, o): en la llave se escribe «origen.nombre» para no confundirlo con uno local.
   const qn = (name, o) => (o && o !== ns ? o + '.' + name : name);
   const sink = {
@@ -80,10 +80,15 @@ function collector() {
       if (!req.splines.has(key)) req.splines.set(key, { ns, names, closed, style });
       else if (style !== undefined) req.splines.get(key).style = style;
     },
-    contour(names, closed, name) {
-      const key = ns + '/k:' + names.join('|') + (closed ? '|cerrado' : '');
-      if (!req.contours.has(key)) req.contours.set(key, { ns, names, closed, name });
-      else if (name !== undefined) req.contours.get(key).name = name;
+    // contour(elementos…): cada elemento viene con su origen (ref); la llave del elemento es la misma que la de su peticion (line, arc, spline).
+    // El grupo se identifica por el orden de la llamada dentro del texto («texto/k:#i»), no por sus miembros: cambiar sus elementos no lo reemplaza.
+    contour(refs, name) {
+      const q2 = (n, o, at) => (o && o !== at ? o + '.' + n : n);
+      const keyOf = (r) => (r.k === 'ln' ? r.ns + '/' + [q2(r.a, r.oa, r.ns), q2(r.b, r.ob, r.ns)].sort().join('|')
+        : r.k === 'ar' ? r.ns + '/a:' + [q2(r.c, r.oc, r.ns), q2(r.a, r.oa, r.ns), q2(r.b, r.ob, r.ns)].join('|')
+          : r.ns + '/s:' + r.names.join('|') + (r.closed ? '|cerrado' : ''));
+      const n = (cnt.get(ns) || 0) + 1; cnt.set(ns, n);
+      req.contours.set(ns + '/k:#' + n, { ns, keys: refs.map(keyOf), name });
     },
   };
   return { req, sink };
@@ -216,35 +221,32 @@ export function regenerate(doc) {
     if (!!o.closed !== !!r.closed) { o.closed = !!r.closed; delete o.ts; out.changed = true; }
     if (r.style !== undefined && o.ltype !== r.style) { o.ltype = r.style; out.changed = true; }
   }
-  // contornos: agrupan lo que este texto dibujo entre puntos consecutivos (una linea A-B o un arco de A a B); el grupo (doc.ctrs) tambien es generado
-  const mineIds = (ns) => Object.entries(map).filter(([k]) => k.startsWith(ns + '/')).map(([, id]) => id);
+  // contornos: agrupan los elementos que el script dio (lineas, arcos, splines generados); el grupo (doc.ctrs) tambien es generado
+  const CT = { ln: 'lines', ar: 'arcs', sp: 'splines' };
+  const kindOf = (id) => (doc.lines[id] ? 'ln' : doc.arcs[id] ? 'ar' : doc.splines?.[id] ? 'sp' : null);
   for (const [key, r] of req.contours) {
-    const ids = r.names.map((n) => pid(r.ns, n)), miss = r.names.find((n, i) => !has(ids[i]));
-    if (miss !== undefined) { note(`contour: falta el punto «${miss}»: créalo antes con point("${miss}"; x; y)`); continue; }
-    const mine = mineIds(r.ns), pairs = ids.map((a, i) => [a, ids[(i + 1) % ids.length]]);
-    if (!r.closed) pairs.pop();
     const members = [];
     let bad = null;
-    for (const [a, b] of pairs) {
-      const same = (x, y) => (x === a && y === b) || (x === b && y === a);
-      const ln = mine.find((id) => doc.lines[id] && same(doc.lines[id].a, doc.lines[id].b)), ar = mine.find((id) => doc.arcs[id] && same(doc.arcs[id].a, doc.arcs[id].b));
-      if (ln) members.push({ k: 'ln', id: ln }); else if (ar) members.push({ k: 'ar', id: ar }); else { bad = [a, b]; break; }
+    for (const k of r.keys) {
+      const eid = map[k] || rel[k], kd = eid && kindOf(eid);
+      if (kd) { if (!members.some((m) => m.id === eid)) members.push({ k: kd, id: eid }); } else { bad = k; break; }
     }
-    const nm = (p) => r.names[ids.indexOf(p)] ?? p;
-    if (bad) { note(`contour: este texto no dibuja una línea ni un arco entre «${nm(bad[0])}» y «${nm(bad[1])}»`); continue; }
-    if (members.length < 2) { note('contour: un contorno necesita al menos 2 elementos'); continue; }
+    if (bad) { note(`contour: «${bad.split('/').slice(1).join('/')}» no se dibujó (revisa su llamada): el contorno no se crea`); continue; }
+    if (members.length < 2) { note('contour: un contorno necesita al menos 2 elementos distintos'); continue; }
+    const free = (m) => { const o = doc[CT[m.k]][m.id]; return !o.ctr || !doc.ctrs?.[o.ctr] || o.ctr === map[key]; }; // libre o ya de este grupo
+    if (members.filter(free).length < 2) { for (const m of members) if (!free(m)) note(`contour: «${m.id}» ya está en otro grupo (${doc[CT[m.k]][m.id].ctr}); el contorno no se crea`); continue; }
     seen.add(key);
     let id = map[key];
     if (!(id && doc.ctrs?.[id])) { doc.ctrs ||= {}; id = nextId(doc, 'k'); doc.ctrs[id] = {}; map[key] = id; out.changed = true; }
     if (r.name !== undefined && doc.ctrs[id].name !== r.name) { doc.ctrs[id].name = r.name; out.changed = true; }
-    const want = new Set(members.map((m) => m.id)), COLL = { ln: 'lines', ar: 'arcs' };
+    const want = new Set(members.map((m) => m.id));
     for (const m of members) {
-      const o = doc[COLL[m.k]][m.id];
+      const o = doc[CT[m.k]][m.id];
       if (o.ctr === id) continue;
       if (o.ctr && doc.ctrs[o.ctr]) note(`contour: «${m.id}» ya está en otro grupo (${o.ctr}); se deja ahí`);
       else { o.ctr = id; out.changed = true; }
     }
-    for (const [coll, list] of [['lines', doc.lines], ['arcs', doc.arcs]]) for (const [eid, o] of Object.entries(list)) if (o.ctr === id && !want.has(eid)) { delete o.ctr; out.changed = true; }
+    for (const list of [doc.lines, doc.arcs, doc.splines || {}]) for (const [eid, o] of Object.entries(list)) if (o.ctr === id && !want.has(eid)) { delete o.ctr; out.changed = true; }
   }
   // lo que dejo de pedirse: lineas, circulos, arcos y splines se borran; un punto que otros elementos o cotas usan se suelta (queda como un punto normal)
   const stale = Object.entries(map).filter(([key]) => !seen.has(key) && (!badNs.has(key.split('/')[0]) || !doc.texts?.[key.split('/')[0]]));

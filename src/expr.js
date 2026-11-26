@@ -994,9 +994,9 @@ const implicitName = () => {
 export function genProps(g) {
   const num = (v) => ({ v, r: false });
   if (g?.k === 'pt') return { x: num(g.x), y: num(g.y) };
-  if (g?.k === 'ln') { const dx = g.b.x - g.a.x, dy = g.b.y - g.a.y, L = Math.hypot(dx, dy); return { L: num(L), len: num(L), ang: { v: Math.atan2(dy, dx), r: true } }; }
+  if (g?.k === 'ln' && g.a && g.b) { const dx = g.b.x - g.a.x, dy = g.b.y - g.a.y, L = Math.hypot(dx, dy); return { L: num(L), len: num(L), ang: { v: Math.atan2(dy, dx), r: true } }; }
   if (g?.k === 'ci') return { r: num(g.r), d: num(2 * g.r), x: num(g.x), y: num(g.y) };
-  if (g?.k === 'ar') return { r: num(g.r), x: num(g.x), y: num(g.y) };
+  if (g?.k === 'ar' && g.r !== undefined) return { r: num(g.r), x: num(g.x), y: num(g.y) };
   return {};
 }
 // Los miembros (variables locales que guardan un objeto dibujado) de la ultima llamada de mas afuera a una funcion propia: tvars los toma y los expone como rect.pto2.
@@ -1035,8 +1035,8 @@ const SF = {
     const nm = A.length === 3 ? genName(A[0], 'point', 'el nombre') : implicitName(), i = A.length === 3 ? 1 : 0;
     const x = genNum(A[i], 'point', 'x'), y = genNum(A[i + 1], 'point', 'y'); GEN?.point(nm, x, y); return { str: nm, gen: { k: 'pt', x, y, ...(GEN?.cur?.() ? { ns: GEN.cur() } : {}) } }; // ns: el texto que lo genero; al usar la variable en otro texto, line/arc/circle saben de donde viene
   } },
-  line: { n: [2, 3], f: (A) => { const a = genName(A[0], 'line', 'el primer punto'), b = genName(A[1], 'line', 'el segundo punto'); GEN?.line(a, b, genStyle(A[2], 'line'), { a: A[0].gen?.ns, b: A[1].gen?.ns }); const p = A[0].gen, q = A[1].gen; return { str: a + '-' + b, ...(p?.k === 'pt' && q?.k === 'pt' ? { gen: { k: 'ln', a: p, b: q } } : {}) }; } },
-  arc: { n: [3, 4], f: (A) => { const c = genName(A[0], 'arc', 'el centro'), a = genName(A[1], 'arc', 'el primer extremo'), b = genName(A[2], 'arc', 'el segundo extremo'); GEN?.arc(c, a, b, genStyle(A[3], 'arc'), { c: A[0].gen?.ns, a: A[1].gen?.ns, b: A[2].gen?.ns }); const p = A[0].gen, q = A[1].gen; return { str: 'arc(' + c + ',' + a + '-' + b + ')', ...(p?.k === 'pt' && q?.k === 'pt' ? { gen: { k: 'ar', x: p.x, y: p.y, r: Math.hypot(q.x - p.x, q.y - p.y) } } : {}) }; } },
+  line: { n: [2, 3], f: (A) => { const a = genName(A[0], 'line', 'el primer punto'), b = genName(A[1], 'line', 'el segundo punto'); GEN?.line(a, b, genStyle(A[2], 'line'), { a: A[0].gen?.ns, b: A[1].gen?.ns }); const p = A[0].gen, q = A[1].gen; return { str: a + '-' + b, gen: { k: 'ln', ref: { k: 'ln', ns: GEN?.cur?.(), a, b, oa: p?.ns, ob: q?.ns }, ...(p?.k === 'pt' && q?.k === 'pt' ? { a: p, b: q } : {}) } }; } }, // ref: de donde sale, para que contour(...) lo reconozca
+  arc: { n: [3, 4], f: (A) => { const c = genName(A[0], 'arc', 'el centro'), a = genName(A[1], 'arc', 'el primer extremo'), b = genName(A[2], 'arc', 'el segundo extremo'); GEN?.arc(c, a, b, genStyle(A[3], 'arc'), { c: A[0].gen?.ns, a: A[1].gen?.ns, b: A[2].gen?.ns }); const p = A[0].gen, q = A[1].gen; return { str: 'arc(' + c + ',' + a + '-' + b + ')', gen: { k: 'ar', ref: { k: 'ar', ns: GEN?.cur?.(), c, a, b, oc: p?.ns, oa: q?.ns, ob: A[2].gen?.ns }, ...(p?.k === 'pt' && q?.k === 'pt' ? { x: p.x, y: p.y, r: Math.hypot(q.x - p.x, q.y - p.y) } : {}) } }; } },
   spline: { n: [1, 3], f: (A) => {
     const v = A[0];
     if (!v?.strs || v.strs.length < 2) throw new Error('spline: los puntos son un vector de nombres, p. ej. ["A", "B", "C"] (al menos 2)');
@@ -1045,18 +1045,22 @@ const SF = {
     for (const o of A.slice(1)) { if (typeof o?.str !== 'string') throw new Error('spline: "cerrado" o el tipo de línea son cadenas, p. ej. "cerrado", "eje"'); const s = o.str.trim(); if (/^(cerrado|closed)$/i.test(s)) closed = true; else style = s; }
     if (closed && names.length < 3) throw new Error('spline: un spline cerrado necesita al menos 3 puntos');
     GEN?.spline(names, closed, style);
-    return { str: 'spline(' + names.join(',') + ')' };
+    return { str: 'spline(' + names.join(',') + ')', gen: { k: 'sp', ref: { k: 'sp', ns: GEN?.cur?.(), names, closed } } };
   } },
-  // contour(["A", "B", "C", "D"]; "cerrado"; "nombre"): agrupa como un contorno lo que este texto dibuja entre puntos consecutivos (la linea A-B,
-  // o un arco que va de A a B; con "cerrado", tambien D-A). Un texto que no sea "cerrado" es el nombre del grupo.
-  contour: { n: [1, 3], f: (A) => {
-    const v = A[0];
-    if (!v?.strs || v.strs.length < 3) throw new Error('contour: los puntos son un vector de nombres, p. ej. ["A", "B", "C"] (al menos 3)');
-    const names = v.strs.map((s) => s.trim());
-    let closed = false, name;
-    for (const o of A.slice(1)) { if (typeof o?.str !== 'string') throw new Error('contour: "cerrado" y el nombre del grupo son cadenas, p. ej. "cerrado", "perfil"'); const s = o.str.trim(); if (/^(cerrado|closed)$/i.test(s)) closed = true; else name = s; }
-    GEN?.contour(names, closed, name);
-    return { str: 'contour(' + names.join(',') + ')' };
+  // contour(l1; a1; l2; "nombre"): agrupa como un contorno los elementos que se dan (variables que guardan una linea, un arco o un spline
+  // dibujados por un script); un texto suelto es el nombre del grupo. Se define por los elementos y no por los puntos: entre dos puntos
+  // pueden pasar varios elementos y un mismo punto estar en mas de un contorno.
+  contour: { n: [2, 50], f: (A) => {
+    const refs = [];
+    let name;
+    for (const o of A) {
+      if (o?.gen?.ref) refs.push(o.gen.ref);
+      else if (typeof o?.str === 'string' && o.str.trim() && !o.gen) name = o.str.trim();
+      else throw new Error('contour: los elementos son variables que guardan una línea, un arco o un spline, p. ej. contour(l1; a1; "perfil")');
+    }
+    if (refs.length < 2) throw new Error('contour: un contorno necesita al menos 2 elementos (variables que guardan una línea, un arco o un spline)');
+    GEN?.contour(refs, name);
+    return { str: 'contour(' + refs.length + ')' };
   } },
   circle: { n: [2, 3], f: (A) => { const c = genName(A[0], 'circle', 'el centro'), r = genNum(A[1], 'circle', 'el radio'); if (!(r > 0)) throw new Error('circle: el radio debe ser mayor que 0'); GEN?.circle(c, r, genStyle(A[2], 'circle'), { c: A[0].gen?.ns }); const p = A[0].gen; return { str: 'o(' + c + ')', ...(p?.k === 'pt' ? { gen: { k: 'ci', x: p.x, y: p.y, r } } : {}) }; } },
   num2str: { n: [1, 2], f: (A) => ({ str: numText(A[0], A[1] !== undefined ? intArg(A[1], 'num2str(x, n)', 'n', 0, 12) : undefined) }) },
