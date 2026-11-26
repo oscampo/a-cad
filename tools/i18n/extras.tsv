@@ -189,3 +189,26 @@ Es el punto medio de un vector	It is the midpoint of a vector
 Un arco usa los dos puntos: al unirlos se deformaría	An arc uses both points: joining them would deform it
 Una elipse usa los dos puntos	An ellipse uses both points
 Un spline pasa por los dos puntos	A spline passes through both points
+Fusionar puntos	Merge points
+Disolver punto	Dissolve point
+Fusionar puntos: une los puntos seleccionados en uno solo	Merge points: joins the selected points into one
+1 punto entre dos líneas alineadas o dos arcos	1 point between two aligned lines or two arcs
+Disolver punto: lo contrario de dividir; las dos partes pasan a ser un solo elemento	Dissolve point: the opposite of split; the two parts become a single element
+Selecciona 2 o más puntos para fusionarlos	Select 2 or more points to merge them
+No se pudieron fusionar	They could not be merged
+Los puntos están hasta {0} separados: lo que usa uno se moverá al otro.	The points are up to {0} apart: whatever uses one will move to the other.
+Se perderá 1 relación entre ellos.	1 relation between them will be lost.
+Se perderán {0} relaciones entre ellos.	{0} relations between them will be lost.
+Se fusionaron {0}; no se pudo con {1}: {2}	{0} merged; {1} could not be: {2}
+Selecciona un punto para disolverlo	Select a point to dissolve it
+Un punto se disuelve si es el extremo común de dos líneas alineadas, de dos arcos del mismo círculo o de dos arcos elípticos de la misma elipse, y nada más lo usa	A point can be dissolved if it is the common end of two aligned lines, of two arcs of the same circle or of two elliptical arcs of the same ellipse, and nothing else uses it
+Una de las líneas no tiene longitud	One of the lines has no length
+Las dos líneas no están alineadas: al disolver el punto cambiaría la forma	The two lines are not aligned: dissolving the point would change the shape
+Las dos líneas unen los mismos puntos	The two lines join the same points
+Los dos arcos no son del mismo círculo	The two arcs are not of the same circle
+Los dos arcos no se continúan (uno termina donde empieza el otro)	The two arcs do not continue each other (one ends where the other starts)
+Los dos arcos elípticos no son de la misma elipse	The two elliptical arcs are not of the same ellipse
+Los dos arcos elípticos no se continúan	The two elliptical arcs do not continue each other
+¿Fusionar de todos modos?	Merge anyway?
+Al disolver el punto se perderá 1 relación (la del punto o la de la parte que se absorbe). ¿Disolver de todos modos?	Dissolving the point will lose 1 relation (the point's or the absorbed part's). Dissolve anyway?
+Al disolver el punto se perderán {0} relaciones (las del punto y las de la parte que se absorbe). ¿Disolver de todos modos?	Dissolving the point will lose {0} relations (the point's and the absorbed part's). Dissolve anyway?

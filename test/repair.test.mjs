@@ -1,8 +1,9 @@
 // Reparar un contorno: aristas repetidas y puntos coincidentes (src/repair.js).
 import assert from 'node:assert/strict';
-import { newDoc, addPoint, addLine, addEllipse, addCon, addCtr, ctrMembers } from '../src/model.js';
+import { newDoc, addPoint, addLine, addArc, addEllipse, addCon, addCtr, ctrMembers } from '../src/model.js';
 import { ctrDescribe } from '../src/tree.js';
-import { dupEdges, removeDupEdges, coincidentPoints, mergePoints, mergeCoincident, ctrIssues } from '../src/repair.js';
+import { dupEdges, removeDupEdges, coincidentPoints, mergePoints, mergeCoincident, ctrIssues, dissolvePoint, mergeGroup } from '../src/repair.js';
+import { splitElement } from '../src/split.js';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
@@ -102,6 +103,94 @@ t('ctrIssues: resume lo que hay que reparar en un grupo', () => {
   const { id } = addCtr(d, [...items, { k: 'ln', id: dup }]);
   const r = ctrIssues(d, id);
   assert.equal(r.dups.length, 1); assert.equal(r.clusters.length, 1);
+});
+
+// ---- disolver un punto (lo contrario de dividir) y fusionar una seleccion
+t('disolver: dos lineas alineadas pasan a ser una, el punto desaparece y se conserva el estilo y el grupo', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), m = addPoint(d, 5, 0), b = addPoint(d, 10, 0);
+  const l1 = addLine(d, a, m, { color: '#f00', ltype: 'continua', w: 2, ls: 1 }), l2 = addLine(d, m, b);
+  const { id } = addCtr(d, [l1, l2].map((x) => ({ k: 'ln', id: x })));
+  d.hatches.h1 = { ids: [l1, l2], kind: 'solid' };
+  const r = dissolvePoint(d, m);
+  assert.ok(r.ok, r.msg);
+  assert.deepEqual(Object.keys(d.lines), [l1]);
+  assert.deepEqual([d.lines[l1].a, d.lines[l1].b], [a, b]);
+  assert.equal(m in d.pts, false);
+  assert.equal(d.lines[l1].color, '#f00');
+  assert.deepEqual(d.hatches.h1.ids, [l1]);
+  assert.equal(d.ctrs, undefined, 'con un solo elemento el grupo ya no existe (menos de 2)');
+  assert.equal(id.startsWith('k'), true);
+});
+
+t('disolver es lo contrario de dividir: dividir y disolver devuelven la linea original', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 10, 0), q = addPoint(d, 4, 0);
+  const l = addLine(d, a, b);
+  const r = splitElement(d, l, [q]);
+  assert.ok(r.ok); assert.equal(n(d.lines), 2);
+  const x = dissolvePoint(d, q);
+  assert.ok(x.ok, x.msg);
+  assert.equal(n(d.lines), 1);
+  const L = Object.values(d.lines)[0];
+  assert.deepEqual([L.a, L.b].sort(), [a, b].sort());
+});
+
+t('disolver: las relaciones del punto y de la linea que se absorbe se pierden; las de la que queda siguen', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), m = addPoint(d, 5, 0), b = addPoint(d, 10, 0), c = addPoint(d, 5, 5);
+  const l1 = addLine(d, a, m), l2 = addLine(d, m, b);
+  addCon(d, { t: 'H', refs: [l1] });
+  addCon(d, { t: 'DIST', refs: [m, c], v: 5 });
+  addCon(d, { t: 'EQL', refs: [l1, l2] });
+  const before = n(d.cons);
+  assert.ok(dissolvePoint(d, m).ok);
+  assert.equal(before, 3);
+  assert.deepEqual(Object.values(d.cons).map((k) => k.t), ['H']);
+});
+
+t('disolver: se niega si no estan alineadas, si algo mas usa el punto o si no es el extremo de dos elementos', () => {
+  let d = newDoc();
+  let a = addPoint(d, 0, 0), m = addPoint(d, 5, 0), b = addPoint(d, 10, 5);
+  addLine(d, a, m); addLine(d, m, b);
+  assert.equal(dissolvePoint(d, m).ok, false);
+  d = newDoc(); a = addPoint(d, 0, 0); m = addPoint(d, 5, 0); b = addPoint(d, 10, 0);
+  const c = addPoint(d, 5, 5);
+  addLine(d, a, m); addLine(d, m, b); addLine(d, m, c); // tres lineas en el punto
+  assert.equal(dissolvePoint(d, m).ok, false);
+  d = newDoc(); a = addPoint(d, 0, 0); b = addPoint(d, 10, 0);
+  addLine(d, a, b);
+  assert.equal(dissolvePoint(d, a).ok, false, 'un extremo suelto no se disuelve');
+});
+
+t('disolver: dos arcos del mismo circulo que se continuan pasan a ser uno', () => {
+  const d = newDoc();
+  const o = addPoint(d, 0, 0), p1 = addPoint(d, 10, 0), p2 = addPoint(d, 0, 10), p3 = addPoint(d, -10, 0);
+  const a1 = addArc(d, o, p1, p2, 10, {}), a2 = addArc(d, o, p2, p3, 10, {});
+  const r = dissolvePoint(d, p2);
+  assert.ok(r.ok, r.msg);
+  assert.deepEqual(Object.keys(d.arcs), [a1]);
+  assert.deepEqual([d.arcs[a1].a, d.arcs[a1].b], [p1, p3]);
+  assert.equal(p2 in d.pts, false);
+  assert.equal(a2 in d.arcs, false);
+});
+
+t('disolver: dos arcos de circulos distintos no se disuelven', () => {
+  const d = newDoc();
+  const o = addPoint(d, 0, 0), o2 = addPoint(d, 3, 0), p1 = addPoint(d, 10, 0), p2 = addPoint(d, 0, 10), p3 = addPoint(d, -10, 0);
+  addArc(d, o, p1, p2, 10, {}); addArc(d, o2, p2, p3, 10, {});
+  assert.equal(dissolvePoint(d, p2).ok, false);
+});
+
+t('mergeGroup: une una seleccion en un punto, el de mas peso, y avisa de lo que no pudo', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 0, 0), c = addPoint(d, 0, 0), z = addPoint(d, 9, 9);
+  addLine(d, a, z); addLine(d, b, z); addLine(d, c, z);
+  addCon(d, { t: 'H', refs: [Object.keys(d.lines)[1]] });
+  const r = mergeGroup(d, [a, b, c]);
+  assert.equal(r.merged, 2); assert.deepEqual(r.skipped, []);
+  assert.equal(n(d.pts), 2);
+  assert.equal(r.keep in d.pts, true);
 });
 
 console.log(`${passed} pruebas de reparar contornos`);

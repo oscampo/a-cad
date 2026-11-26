@@ -15,6 +15,12 @@ Sin puntos, lo divide en **n partes iguales**:
 - En líneas, las partes quedan con restricción de igual longitud.
 - En arcos y círculos no hay restricción de igual ángulo.
 
+## Fusionar y disolver puntos
+
+**Fusionar puntos** (junto a Dividir): con 2 o más puntos seleccionados, los une en **uno solo**. Se queda el que más pesa (fijo, generado, con más relaciones, visible) y todo lo que usaba los otros pasa a usarlo a él. Sirve para arreglar dos puntos distintos que están en el mismo lugar y no deberían (los elementos no se encadenan). Se niega si una línea, un arco o un spline usa los dos puntos. Si los puntos no están en el mismo lugar, o hay relaciones entre ellos que se perderían (una cota entre los dos, por ejemplo), avisa y **pide confirmación** antes de tocar nada.
+
+**Disolver punto** es lo contrario de Dividir: con 1 punto seleccionado que es el extremo común de **dos líneas alineadas**, de dos arcos del mismo círculo que se continúan, o de dos arcos elípticos de la misma elipse, las dos partes pasan a ser **un solo elemento** y el punto desaparece. Se queda el estilo del primero, y el relleno y el grupo de contorno siguen pasando por él. Si no están alineadas, si son de círculos distintos, o si algo más usa el punto, no lo hace y dice por qué. Las relaciones del punto y de la parte que se absorbe **se pierden**: si hay alguna, la app lo avisa y **pide confirmación** antes de proceder. Ambos se deshacen.
+
 ## Matriz lineal
 
 ![Matriz lineal](icons/array.svg) **Matriz lineal**: selecciona lo que quieres copiar.

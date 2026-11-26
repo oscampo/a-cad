@@ -44,7 +44,7 @@ import { iconSvg, ICONS } from './icons.js';
 import { setIconSource } from './iconpaths.js';
 setIconSource(ICONS); // los iconos de la app que un texto puede mostrar: ![Linea](icon:line)
 import { buildTree, kindOf, conLabel, ctrDescribe } from './tree.js';
-import { ctrIssues, removeDupEdges, mergeCoincident } from './repair.js';
+import { ctrIssues, removeDupEdges, mergeCoincident, mergeGroup, dissolvePoint } from './repair.js';
 import { cleanFileBase } from './files.js';
 import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProblem, libFileName, libPayload, legacyLibPath, newLibPath } from './library.js';
 import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX, imgRect, syncImages, ensureImagePoints, anchorPoint } from './images.js';
@@ -366,6 +366,9 @@ function updateEnabled() {
   };
   document.querySelectorAll('[data-con]').forEach((b) => { b.disabled = !rules[b.dataset.con]; });
   $('mkint').disabled = ln + crv + n.sp !== 2;
+  const nPts = sel.filter((x) => x.k === 'pt').length;
+  $('mkmerge').disabled = nPts < 2;
+  $('mkdissolve').disabled = nPts !== 1;
   $('mksplit').disabled = !(ln + crv === 1 && !n.sp); // con puntos: divide en ellos; sin puntos: en n partes iguales
   $('mkhatch').disabled = ln + crv + n.sp + n.el < 1;
   $('mkarr').disabled = !sel.some((x) => ['pt', 'ln', 'ci', 'ar', 'sp', 'tx', 'el'].includes(x.k));
@@ -514,6 +517,43 @@ function treeDissolveCtr(id) {
   pushUndo();
   const n = dissolveCtr(doc, id);
   toast(`Contorno disuelto: ${n} elementos siguen en el dibujo`);
+  afterChange();
+}
+// Fusionar los puntos seleccionados en uno (el que mas pesa se queda). Se ensaya en una copia: si hay relaciones entre ellos que se perderian, o los puntos no
+// estan en el mismo lugar, se avisa y se pide confirmacion antes de tocar el dibujo.
+function mergeSelected() {
+  const ids = sel.filter((s) => s.k === 'pt' && doc.pts[s.id]).map((s) => s.id);
+  if (ids.length < 2) { toast('Selecciona 2 o más puntos para fusionarlos'); return; }
+  const trial = clone(doc), c0 = Object.keys(trial.cons).length, tr0 = mergeGroup(trial, ids);
+  if (!tr0.merged) { toast(tr0.skipped[0] || 'No se pudieron fusionar'); return; }
+  const lost = c0 - Object.keys(trial.cons).length, K = doc.pts[tr0.keep];
+  let apart = 0;
+  for (const id of ids) apart = Math.max(apart, dist(K, doc.pts[id]));
+  const warn = [];
+  if (apart > 1e-3) warn.push(`Los puntos están hasta ${Math.round(apart * 1000) / 1000} separados: lo que usa uno se moverá al otro.`);
+  if (lost) warn.push(lost === 1 ? 'Se perderá 1 relación entre ellos.' : `Se perderán ${lost} relaciones entre ellos.`);
+  if (warn.length && !confirm(warn.join(' ') + ' ¿Fusionar de todos modos?')) return;
+  pushUndo();
+  const r = mergeGroup(doc, ids);
+  sel = [{ k: 'pt', id: r.keep }];
+  solve(doc, []);
+  toast(r.skipped.length ? `Se fusionaron ${r.merged}; no se pudo con ${r.skipped.length}: ${r.skipped[0]}` : r.merged === 1 ? 'Se fusionaron 2 puntos' : `Se fusionaron ${r.merged + 1} puntos`);
+  afterChange();
+}
+// Disolver el punto seleccionado (lo contrario de dividir): las dos partes pasan a ser un elemento. Las relaciones del punto y de la parte que se absorbe se pierden:
+// se cuentan en una copia y se pide confirmacion.
+function dissolveSelected() {
+  const ids = sel.filter((s) => s.k === 'pt' && doc.pts[s.id]).map((s) => s.id);
+  if (ids.length !== 1) { toast('Selecciona un punto para disolverlo'); return; }
+  const trial = clone(doc), c0 = Object.keys(trial.cons).length, r0 = dissolvePoint(trial, ids[0]);
+  if (!r0.ok) { toast(r0.msg); return; }
+  const lost = c0 - Object.keys(trial.cons).length;
+  if (lost && !confirm(lost === 1 ? 'Al disolver el punto se perderá 1 relación (la del punto o la de la parte que se absorbe). ¿Disolver de todos modos?' : `Al disolver el punto se perderán ${lost} relaciones (las del punto y las de la parte que se absorbe). ¿Disolver de todos modos?`)) return;
+  pushUndo();
+  dissolvePoint(doc, ids[0]);
+  sel = [];
+  solve(doc, []);
+  toast('Punto disuelto');
   afterChange();
 }
 function treeRemoveDups(id) {
@@ -5934,6 +5974,8 @@ $('flOk').onclick = (ev) => {
 };
 document.querySelectorAll('[data-con]').forEach((b) => { b.onclick = () => applyCon(b.dataset.con); });
 $('mksplit').onclick = splitSelected;
+$('mkmerge').onclick = mergeSelected;
+$('mkdissolve').onclick = dissolveSelected;
 
 // ---- matriz lineal ----
 // Muestra el dialogo con el estado st; devuelve 'ok', 'cancel', 'pick1' o 'pick2' (elegir la linea de una direccion).
@@ -6867,6 +6909,6 @@ async function boot() {
     navigator.serviceWorker.register('sw.js').then((reg) => reg.update()).catch(() => {}); // reg.update(): mira si hay un service worker nuevo en cada arranque
     document.addEventListener('visibilitychange', checkNewBuild);
   }
-  window.__cad = { snd: { importFile: importSoundFile, play: playSounds }, blobs: { get: blobGet, has: blobHas, entries: blobEntries, ready: () => blobsReady }, load: (d) => { loadDoc(d); fitView(); afterChange(); draw(); }, hitTest, get doc() { return doc; }, get view() { return view; }, solve, setTool, toScreen, toModel, applyCon, get sel() { return sel; }, set sel(v) { sel = v; afterChange(); } };
+  window.__cad = { snd: { importFile: importSoundFile, play: playSounds }, blobs: { get: blobGet, has: blobHas, entries: blobEntries, ready: () => blobsReady }, load: (d) => { loadDoc(d); fitView(); afterChange(); draw(); }, hitTest, get doc() { return doc; }, select: (s) => { sel = s; afterChange(); }, get view() { return view; }, solve, setTool, toScreen, toModel, applyCon, get sel() { return sel; }, set sel(v) { sel = v; afterChange(); } };
 }
 boot();

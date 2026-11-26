@@ -1,4 +1,4 @@
-<!-- es: 8c815cd299 -->
+<!-- es: 033980d8b2 -->
 # 4. Splitting, copying and repeating
 
 Splitting an element into sections and repeating geometry with linear arrays, circular arrays and mirror copies, linked to the original or not.
@@ -15,6 +15,12 @@ With no points, it divides it into **n equal parts**:
 
 - On lines, the parts get an equal-length constraint.
 - On arcs and circles there is no equal-angle constraint.
+
+## Merge and dissolve points
+
+**Merge points** (next to Split): with 2 or more points selected, it joins them into **a single one**. The one that weighs most stays (fixed, generated, with more relations, visible) and whatever used the others now uses it. It fixes two different points that sit in the same place and should not (elements do not chain). It refuses if a line, an arc or a spline uses both points. If the points are not in the same place, or relations between them would be lost (a dimension between the two, for example), it warns and **asks for confirmation** before touching anything.
+
+**Dissolve point** is the opposite of Split: with 1 point selected that is the common end of **two aligned lines**, of two arcs of the same circle that continue each other, or of two elliptical arcs of the same ellipse, the two parts become **a single element** and the point disappears. The first one's style stays, and the fill and the contour group keep passing through it. If they are not aligned, if they belong to different circles, or if anything else uses the point, it does nothing and says why. The relations of the point and of the absorbed part **are lost**: if there are any, the app warns and **asks for confirmation** before proceeding. Both can be undone.
 
 ## Linear array
 
