@@ -1019,7 +1019,7 @@ function inGenArgs(toks) {
 }
 // «rect.pto2.x»: tras un nombre de un miembro (rect.pto2) puede venir «.propiedad»; se toma junto si esa variable existe (o, al leer sin valores, si es una de las conocidas).
 function memberProp(full, src, at, vars, loose) {
-  const pm = /^.([A-Za-zα-ωΑ-Ωϑϕϖɛ]w*)/.exec(src.slice(at));
+  const pm = /^\.([A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*)/.exec(src.slice(at));
   if (pm && (loose ? /^(x|y|L|len|ang|r|d)$/.test(pm[1]) : vars && Object.prototype.hasOwnProperty.call(vars, full + '.' + pm[1]))) return { name: full + '.' + pm[1], ext: pm[0].length };
   return { name: full, ext: 0 };
 }

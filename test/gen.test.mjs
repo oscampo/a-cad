@@ -551,4 +551,20 @@ t('una funcion que no dibuja, o una asignacion normal, no crea miembros', () => 
   assert.ok(textVars(d).errs.size >= 1);
 });
 
+t('las propiedades de un miembro: .x .y de un punto y .L .len .ang de una linea (tambien de varias letras)', () => {
+  const FL = 'm(p):\n  a := point(p.x, p.y)\n  b := point(p.x + 3, p.y + 4)\n  s := line(a, b)';
+  const { d } = mkFn(FL, 'r:m(p1)', 'x1:r.a.x', 'y1:r.b.y', 'l1:r.s.L', 'l2:r.s.len', 'l3:r.s.len + 1', 'ang1:r.s.ang'); // un texto por enunciado: uno de varias lineas se extiende hacia arriba y pasaria antes en el orden de lectura
+  assert.deepEqual(regenerate(d).errs, []);
+  const st = textVars(d), v = st.vals;
+  assert.deepEqual([...st.errs], []);
+  assert.equal(v.x1.v, 5); assert.equal(v.y1.v, 9); assert.equal(v.l1.v, 5); assert.equal(v.l2.v, 5); assert.equal(v.l3.v, 6);
+  assert.ok(Math.abs(v.ang1.v - Math.atan2(4, 3)) < 1e-12 && v.ang1.r === true, 'el angulo va en radianes');
+});
+
+t('evalExpr: nombre.miembro.propiedad con propiedades de una y de varias letras', () => {
+  const num = (v) => ({ v, r: false });
+  const vars = { 'r.s': { str: 'a-b', gen: { k: 'ln', a: { k: 'pt', x: 0, y: 0 }, b: { k: 'pt', x: 3, y: 4 } } }, 'r.s.L': num(5), 'r.s.len': num(5), 'r.s.ang': { v: 1, r: true } };
+  for (const [e, want] of [['r.s.L', 5], ['r.s.len', 5], ['r.s.ang', 1], ['r.s.len + 1', 6]]) assert.equal(evalExpr(e, { vars, allowMat: true, allowCplx: true }).value, want, e);
+});
+
 console.log(`${passed} pruebas de dibujo generado`);
