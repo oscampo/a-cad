@@ -453,4 +453,57 @@ t('circle y arc con puntos de otros textos', () => {
   assert.equal(Object.keys(d.circles).length, 1); assert.equal(Object.keys(d.arcs).length, 1);
 });
 
+// ---- funciones que dibujan: «r:f(x)» hace de r un objeto (lo que la funcion devuelve); lo que crea por dentro se llama «r.nombre-local»
+function mkFn(fnBody, ...calls) { // un texto de funcion (script «%f(x):») y textos con llamadas, en orden de lectura; un punto del usuario (p1)
+  const d = newDoc(); const u = addPoint(d, 5, 5);
+  const ids = [addText(d, addPoint(d, -50, 50), '%' + fnBody, {}), ...calls.map((c, i) => addText(d, addPoint(d, -50, 30 - 20 * i), '$$' + c + '$$', {}))];
+  return { d, u, ids };
+}
+const F2 = 'f(x):\n  pa := point(x, 0)\n  pb := point(x, 5)\n  line(pa, pb)';
+
+t('una funcion que dibuja: lo de dentro se llama «r.pa», «r.pb» y r es lo que devuelve; dos llamadas no chocan', () => {
+  const { d, ids } = mkFn(F2, 'r:f(1)\ns:f(2)\nk:r.L');
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  const keys = Object.keys(d.gen.map).map((k) => k.split('/')[1]).sort();
+  assert.deepEqual(keys, ['r.pa', 'r.pb', 'r.pa|r.pb', 's.pa', 's.pb', 's.pa|s.pb'].sort());
+  assert.equal(n(d.lines), 2);
+  assert.equal(textVars(d).vals.k.v, 5, 'r es la linea que devuelve la funcion');
+});
+
+t('dentro de la funcion, una variable local que guarda un punto tiene sus propiedades (pto2.x)', () => {
+  const { d } = mkFn('f(x):\n  a := point(x, 1)\n  b := point(a.x + 10, a.y + 5)\n  line(a, b)', 'r:f(3)');
+  assert.deepEqual(regenerate(d).errs, []);
+  const pts = Object.values(d.gen.map).map((id) => d.pts[id]).filter(Boolean);
+  assert.ok(pts.some((p) => p.x === 13 && p.y === 6));
+});
+
+t('un punto del dibujo como argumento de la funcion: p.x y p.y dentro (tambien uno generado)', () => {
+  const { d, u, ids } = mkFn('g(p):\n  q := point(p.x + 10, p.y)\n  line(p, q)', 'a:point(0; 0)\nr:g(p1)\ns:g(a)');
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  assert.equal(n(d.lines), 2);
+  assert.equal(linesOf(d, u).length, 1, 'g(p1): la linea parte del punto del usuario');
+  const q = d.pts[d.gen.map[ids[1] + '/r.q']];
+  assert.deepEqual([q.x, q.y], [15, 5]);
+});
+
+t('en un for dentro de la funcion, el mismo nombre local cuenta aparte: r.p, r.p#2', () => {
+  const { d } = mkFn('h(n):\n  for(i; 1..n; p:point(i; 0))', 'r:h(3)');
+  assert.deepEqual(regenerate(d).errs, []);
+  const keys = Object.keys(d.gen.map).map((k) => k.split('/')[1]).sort();
+  assert.deepEqual(keys, ['r.p', 'r.p#2', 'r.p#3']);
+});
+
+t('un enunciado con «=» que llama a una funcion que dibuja: no genera y avisa que se asigne', () => {
+  const { d } = mkFn(F2, 'f(1)=');
+  const r = regenerate(d);
+  assert.equal(Object.keys(d.gen?.map || {}).length, 0);
+  assert.ok(r.notes.some((m) => /solo muestra/.test(m)), r.notes.join(' | '));
+});
+
+t('un punto del dibujo fuera de line/circle/arc/spline y de una funcion propia sigue sin ser variable', () => {
+  assert.throws(() => evalExpr('p1 + 1', { vars: { 'p1.x': { v: 5, r: false }, 'p1.y': { v: 5, r: false } }, allowMat: true, allowCplx: true }), /No reconozco/);
+});
+
 console.log(`${passed} pruebas de dibujo generado`);

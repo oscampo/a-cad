@@ -216,7 +216,7 @@ function tokenize(src, vars = null, loose = false) {
       else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name) || MATFN.has(name) || name in NF) toks.push({ t: 'id', v: name, i, j: i + L });
       else if (name in SFL) toks.push({ t: 'id', v: SFL[name], i, j: i + L }); // funciones de cadenas (startsWith o startswith)
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + L });
-      else if (vars && (raw + '.x') in vars && (raw + '.y') in vars && !((raw + '.r') in vars) && inGenArgs(toks)) toks.push({ t: 'str', v: raw, i, j: i + L }); // un punto del dibujo como extremo de line/arc/spline o centro de circle: line(p5; b)
+      else if (vars && (raw + '.x') in vars && (raw + '.y') in vars && !((raw + '.r') in vars) && inGenArgs(toks)) toks.push({ t: inGenArgs(toks) === 'gen' ? 'str' : 'dpt', v: raw, i, j: i + L }); // un punto del dibujo: como extremo de line/arc/spline o centro de circle es su nombre (line(p5; b)); como argumento de una funcion propia, su nombre y su lugar (pru(p5))
       else if (FUTURE_VARS.has(raw)) throw new Error(`${reservedWhy(raw)} (todavía no tiene valor)`);
       else if (/^(nargin|varargin)(_|$)/.test(raw)) throw new Error(raw.startsWith('nargin') ? '«nargin» solo vale dentro de una función: es cuántos valores recibió' : '«varargin» solo vale dentro de una función que lo tenga como último parámetro: f(a, varargin):…');
       else throw new Error(`No reconozco «${raw}»` + (/\d/.test(raw) || raw.length === 1 ? ' (no hay una cota con ese nombre)' : ''));
@@ -979,9 +979,16 @@ export const setGenSink = (s) => { GEN = s; };
 export const genActive = () => !!GEN;
 // El nombre de lo que dibuja point(x; y) sin etiqueta es el de la variable a la que se asigna (lo pone quien evalua el enunciado: tvars.js); si el
 // enunciado dibuja varios (un for, una funcion), el 1.o lleva el nombre y los demas «nombre#2», «nombre#3»…
-let ASG = null, CNT = 0;
-export const genAsg = (name) => { ASG = name; CNT = 0; };
-const implicitName = () => { CNT++; return (ASG || '_') + (CNT > 1 ? '#' + CNT : ''); };
+// Dentro de un programa (una funcion o un seq), «pa:point(…)» es una variable LOCAL: lo que dibuja se llama «r.pa» (r: la variable a la que se asigna la llamada,
+// pa: el nombre local) y no «r», para que «r» sea solo lo que la funcion devuelve. Cada nombre base cuenta aparte: r.p, r.p#2 (un for).
+let ASG = null, LOC = null;
+const CNTS = new Map();
+export const genAsg = (name) => { ASG = name; LOC = null; CNTS.clear(); };
+const implicitName = () => {
+  const base = LOC && ASG ? ASG + '.' + LOC : ASG || '_', n = (CNTS.get(base) || 0) + 1;
+  CNTS.set(base, n);
+  return base + (n > 1 ? '#' + n : '');
+};
 // Las propiedades de lo que dibuja una variable (p2.x, s1.L, c.r…), calculadas de lo que pidio el script y no leidas del dibujo: no dependen de
 // que ya se haya regenerado ni pueden formar un lazo. Las mismas que tienen los elementos del dibujo (geo.js).
 export function genProps(g) {
@@ -1003,7 +1010,7 @@ function inGenArgs(toks) {
     if (t.t !== 'op') continue;
     if (t.v === ')' || t.v === ']') d++;
     else if (t.v === '[') { if (d > 0) d--; }
-    else if (t.v === '(') { if (d > 0) d--; else return toks[k - 1]?.t === 'id' && ['line', 'circle', 'arc', 'spline'].includes(toks[k - 1].v); }
+    else if (t.v === '(') { if (d > 0) d--; else return toks[k - 1]?.t === 'ufn' ? 'ufn' : toks[k - 1]?.t === 'id' && ['line', 'circle', 'arc', 'spline'].includes(toks[k - 1].v) ? 'gen' : false; }
   }
   return false;
 }
@@ -1138,7 +1145,10 @@ function withLocals(s, vars) {
   for (const n of names) {
     const ip = indexParts(n);
     if (ip && ip.base !== n && has(ip.base) && !Object.prototype.hasOwnProperty.call(out, n)) continue; // «v_1:…»: un elemento de v, no una variable nueva (stmt avisa)
-    if (!Object.prototype.hasOwnProperty.call(out, n)) out[n] = { v: NaN, r: false, loc: true, unset: true };
+    if (!Object.prototype.hasOwnProperty.call(out, n)) {
+      out[n] = { v: NaN, r: false, loc: true, unset: true };
+      if (GEN_RE.test(s)) for (const pr of ['x', 'y', 'L', 'len', 'ang', 'r', 'd']) if (!Object.prototype.hasOwnProperty.call(out, n + '.' + pr)) out[n + '.' + pr] = { v: NaN, r: false, loc: true, unset: true }; // pto2.x, s1.L de lo que dibuja la variable (se llenan al asignarla)
+    }
     else if (!out[n]?.fn && !out[n]?.loc) out[n] = { ...out[n], loc: true }; // ya existe afuera (b:-0.113) y el programa lo asigna (b:[…]): b_k es un indice aunque afuera b sea un numero; conserva su valor por si se lee antes
   }
   return out;
@@ -1229,7 +1239,11 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (k.t !== 'var' && k.t !== 'ufn') throw new Error(ASG_MSG());
       if (vars[k.v]?.fn && !vars[k.v].loc) throw new Error(`«${k.v}» es una función: dentro de un programa no se le puede asignar un valor`);
       p += 2;
-      const a = cmp();
+      const prevLoc = LOC; LOC = k.v; // lo que dibuje el valor se llama «variable-de-la-llamada.nombre-local»
+      let a;
+      try { a = cmp(); } finally { LOC = prevLoc; }
+      for (const pr of ['x', 'y', 'L', 'len', 'ang', 'r', 'd']) delete vars[k.v + '.' + pr]; // las propiedades de una asignacion anterior
+      if (a.gen) for (const [pr, val] of Object.entries(genProps(a.gen))) vars[k.v + '.' + pr] = { ...val, loc: true }; // pto2.x, s1.L: lo que dibuja una variable local tiene sus propiedades
       vars[k.v] = isS(a) ? { ...a, loc: true } : isM(a) ? wd({ mat: a.m, ...(a.mi ? { mi: a.mi } : {}), loc: true }, a.d) : { v: a.v, ...(a.im ? { im: a.im } : {}), r: !!a.r, d: a.d, loc: true };
       return a;
     }
@@ -1578,6 +1592,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     if (va) local.varargin = { args: A.slice(nFix).map(keep), loc: true };
     local.nargin = { v: A.length, r: false, loc: true };
     f.params.slice(0, nFix).forEach((q, i) => { local[q] = isS(A[i]) ? { ...A[i] } : isM(A[i]) ? wd({ mat: A[i].m, ...(A[i].mi ? { mi: A[i].mi } : {}) }, A[i].d) : { v: A[i].v, ...(A[i].im ? { im: A[i].im } : {}), r: !!A[i].r, d: A[i].d }; });
+    f.params.slice(0, nFix).forEach((q, i) => { if (A[i]?.gen) for (const [pr, val] of Object.entries(genProps(A[i].gen))) local[q + '.' + pr] = { ...val, loc: true }; }); // un parametro que es un punto, una linea…: tiene sus propiedades (p.x, l.L)
     try {
       const r = evalExpr(f.body, { radians, vars: local, allowMat: true, allowCplx: true, depth: depth + 1, globals: g });
       if (typeof r.str === 'string') return r.gen ? { str: r.str, gen: r.gen } : { str: r.str }; // gen: los datos del objeto que dibuja (ver point)
@@ -1681,6 +1696,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     const k = toks[p++];
     if (!k) throw new Error('Expresión incompleta');
     if (k.t === 'str') return { str: k.v };
+    if (k.t === 'dpt') return { str: k.v, gen: { k: 'pt', x: vars[k.v + '.x'].v, y: vars[k.v + '.y'].v } }; // un punto del dibujo: su nombre y su lugar (p.x, p.y dentro de la funcion)
     if (k.t === 'num') {
       const a = k.im ? { v: 0, im: k.im, r: false } : { v: k.v, r: false };
       if (peek()?.t !== 'unit') return a;

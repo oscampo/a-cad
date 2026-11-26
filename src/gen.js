@@ -120,6 +120,17 @@ export function regenerate(doc) {
   try { st = textVars(doc); } catch (e) { out.errs.push(`regenerar el dibujo: ${e.message}`); return out; } finally { setGenSink(null); }
   const badNs = new Set([...(st.genBad || []), ...[...(st.bad || [])].map((k) => String(k).split(':')[0]), ...req.errs.map((e) => e.ns)]); // un texto que falla no borra lo que ya generaba
   for (const e of req.errs) out.errs.push(e.msg);
+  // un enunciado con «=» solo muestra: si llama a una funcion propia que dibuja, no genera nada; se avisa para que se asigne (r:f(x))
+  const drawers = [...(st.win?.values() || [])].filter((w) => w.kind === 'def' && w.script && GEN_RE.test(String(w.expr || ''))).map((w) => w.name);
+  if (drawers.length) {
+    for (const t of Object.values(doc.texts || {})) {
+      for (const p of calcStmts(t.text)) {
+        if (p.k !== 'out' || GEN_RE.test(p.expr)) continue;
+        const hit = drawers.find((nm) => new RegExp('(?:^|[^A-Za-z0-9_.])' + String(nm).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\(').test(p.expr));
+        if (hit) out.notes.push(`«${p.expr.trim()}=» llama a «${hit}», que dibuja, pero un enunciado con «=» solo muestra: asígnalo (v:${p.expr.trim()}) para que dibuje`);
+      }
+    }
+  }
   // un texto en lazo con una cota de referencia: lo que genera se queda como estaba
   for (const [ns, dimName] of loops(doc)) {
     out.errs.push(`La cota «${dimName}» mide algo que este texto dibuja y el mismo texto la lee: dependencia circular; lo generado queda como estaba`);
