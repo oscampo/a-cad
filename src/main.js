@@ -1145,7 +1145,16 @@ function snapAt(sx, sy, o = {}) {
 }
 
 // Filtro de seleccion (boton Filtrar): entidades y tipos de linea que no se pueden seleccionar.
-const fkOn = (k) => !(opts.filtKinds || []).includes(k);
+// Si no queda marcada ninguna entidad no se filtra por entidad; y si ademas hay un tipo de linea elegido, solo pasan las que tienen tipo de linea
+// (lineas, circulos, arcos, elipses y splines): elegir solo «continua» es pedir lo que se dibuja en continua.
+const STROKES = ['ln', 'ci', 'ar', 'el', 'sp'];
+let fkMemo = { ex: null, none: false };
+function noKinds() {
+  const ex = opts.filtKinds || [];
+  if (fkMemo.ex !== ex) fkMemo = { ex, none: ex.length > 0 && FKINDS.every(([k]) => ex.includes(k)) };
+  return fkMemo.none;
+}
+const fkOn = (k) => (noKinds() ? (!ltOff() && (opts.filtLt || []).length > 0 ? STROKES.includes(k) : true) : !(opts.filtKinds || []).includes(k));
 // Si no queda marcado ningun tipo de linea, no se filtra por tipo (no tiene sentido «ningun tipo»: dejaba sin seleccionar lineas, arcos y demas aunque su entidad estuviera marcada).
 let ltMemo = { ex: null, n: -1, off: false };
 function ltOff() {

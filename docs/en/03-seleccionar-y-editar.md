@@ -1,4 +1,4 @@
-<!-- es: 2daf5e96e0 -->
+<!-- es: 9293aeb19b -->
 # 3. Selecting and editing
 
 Selecting (by tap, box or filter), viewing and changing an element's properties, and the tools that modify what you drew: copy, trim, extend, fillet and chamfer.
@@ -29,7 +29,7 @@ With **several elements selected**, dragging any one of them moves all of them t
 
 - **By entity:** points, lines, circles, arcs, ellipses, splines, texts, fills, dimensions.
 - **By line type.**
-  If you check **no** line type, nothing is filtered by type (so you can keep only lines, or only dimensions, without picking a type).
+  If you check **no** line type, nothing is filtered by type (so you can keep only lines, or only dimensions, without picking a type). And if you check **no entity** and choose a line type, the lines, circles, arcs, ellipses and splines of that type are taken.
 
 **Scope.** It applies to tapping and to the selection box. With an active filter that lets dimensions and constraints through, the box also takes them (by their label); with no filter, the box still takes only elements. With an active filter that lets dimensions and constraints through, the box also takes them (by their label); with no filter, the box still takes only elements.
 

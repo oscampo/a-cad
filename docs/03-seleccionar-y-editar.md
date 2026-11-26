@@ -28,7 +28,7 @@ Con **varios elementos seleccionados**, arrastrar cualquiera de ellos mueve todo
 
 - **Por entidades:** puntos, líneas, círculos, arcos, elipses, splines, textos, rellenos, cotas.
 - **Por tipo de línea.**
-  Si no marcas **ningún** tipo de línea, no se filtra por tipo (así puedes quedarte solo con líneas, o solo con cotas, sin elegir un tipo).
+  Si no marcas **ningún** tipo de línea, no se filtra por tipo (así puedes quedarte solo con líneas, o solo con cotas, sin elegir un tipo). Y si no marcas **ninguna entidad** y eliges un tipo de línea, se toman las líneas, círculos, arcos, elipses y splines de ese tipo.
 
 **Alcance.** Vale para tocar y para el cuadro de selección. Con un filtro activo que deja pasar las cotas y restricciones, el cuadro también las toma (por su etiqueta); sin filtro, el cuadro sigue tomando solo elementos. Con un filtro activo que deja pasar las cotas y restricciones, el cuadro también las toma (por su etiqueta); sin filtro, el cuadro sigue tomando solo elementos.
 

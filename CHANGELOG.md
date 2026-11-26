@@ -47,6 +47,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Corregido
 
+- Filtro de selección: **elegir solo un tipo de línea, sin marcar ninguna entidad, selecciona lo que tiene ese tipo**. Antes «ninguna entidad» dejaba todo sin seleccionar. Ahora, sin entidades marcadas no se filtra por entidad, y con un tipo de línea elegido pasan las líneas, círculos, arcos, elipses y splines de ese tipo (no puntos, textos, cotas ni rellenos, que no tienen tipo de línea).
 - Filtro de selección: **ya no hace falta marcar un tipo de línea para seleccionar líneas, arcos, splines…**: si no queda marcado ningún tipo, no se filtra por tipo (antes «ningún tipo» dejaba sin seleccionar todo lo que tiene tipo, aunque su entidad estuviera marcada). Y con un filtro activo que deja pasar las **cotas y restricciones**, el cuadro de selección también las toma (antes solo el toque).
 - Funciones propias: **un punto del dibujo como argumento admite la coma como separador**. `q:pru2(p46, 30, 10)` daba «Carácter no válido «,»» porque la coma solo se tomaba como separador tras un número, una variable o una cadena, y no tras un punto del dibujo (`p46`); con «;» ya funcionaba.
 - Recortar: **dos elipses que se cruzan ya se pueden recortar una tras otra**. Al quitar un tramo de la primera, su arco restante termina justo en el cruce, y la segunda no lo contaba como corte: se quedaba con menos de dos y recortarla la borraba entera. Ahora los extremos de un arco eliptico o de un spline abierto que tocan la curva cuentan como cortes.
