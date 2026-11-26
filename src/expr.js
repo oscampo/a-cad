@@ -1047,8 +1047,8 @@ function typeOf(a) {
 let LAST_MEMBERS = null;
 export const takeMembers = () => { const m = LAST_MEMBERS; LAST_MEMBERS = null; return m; };
 export const genAt = (ns) => { GEN?.at?.(ns); }; // el texto cuyo enunciado se evalua (los nombres son locales a el)
-export const GEN_RE = /(?:^|[^A-Za-z0-9_.])(?:point|line|circle|arc|spline|contour)\s*\(/i;
-export const GEN_FUNCS = ['point', 'line', 'circle', 'arc', 'spline', 'contour'];
+export const GEN_RE = /(?:^|[^A-Za-z0-9_.])(?:point|line|circle|arc|ellipse|earc|spline|contour)\s*\(/i;
+export const GEN_FUNCS = ['point', 'line', 'circle', 'arc', 'ellipse', 'earc', 'spline', 'contour'];
 // ¿Se esta dentro de los argumentos de line/circle/arc/spline? (los «[ ]» de spline([a; b]) no cuentan). Ahi un nombre como «p5», que no es una variable pero
 // si un punto del dibujo (tiene p5.x y p5.y), se toma como su nombre en vez de dar «No reconozco».
 function inGenArgs(toks) {
@@ -1057,7 +1057,7 @@ function inGenArgs(toks) {
     if (t.t !== 'op') continue;
     if (t.v === ')' || t.v === ']') d++;
     else if (t.v === '[') { if (d > 0) d--; }
-    else if (t.v === '(') { if (d > 0) d--; else return toks[k - 1]?.t === 'ufn' || (toks[k - 1]?.t === 'id' && ['typeof', 'isa'].includes(toks[k - 1].v)) ? 'ufn' : toks[k - 1]?.t === 'id' && ['line', 'circle', 'arc', 'spline', 'contour'].includes(toks[k - 1].v) ? 'gen' : false; }
+    else if (t.v === '(') { if (d > 0) d--; else return toks[k - 1]?.t === 'ufn' || (toks[k - 1]?.t === 'id' && ['typeof', 'isa'].includes(toks[k - 1].v)) ? 'ufn' : toks[k - 1]?.t === 'id' && ['line', 'circle', 'arc', 'ellipse', 'earc', 'spline', 'contour'].includes(toks[k - 1].v) ? 'gen' : false; }
   }
   return false;
 }
@@ -1081,6 +1081,10 @@ const SF = {
   } },
   line: { n: [2, 3], f: (A) => { const a = genName(A[0], 'line', 'el primer punto'), b = genName(A[1], 'line', 'el segundo punto'); GEN?.line(a, b, genStyle(A[2], 'line'), { a: A[0].gen?.ns, b: A[1].gen?.ns }); const p = A[0].gen, q = A[1].gen; return { str: a + '-' + b, gen: { k: 'ln', ref: { k: 'ln', ns: GEN?.cur?.(), a, b, oa: p?.ns, ob: q?.ns }, ...(p?.k === 'pt' && q?.k === 'pt' ? { a: p, b: q } : {}) } }; } }, // ref: de donde sale, para que contour(...) lo reconozca
   arc: { n: [3, 4], f: (A) => { const c = genName(A[0], 'arc', 'el centro'), a = genName(A[1], 'arc', 'el primer extremo'), b = genName(A[2], 'arc', 'el segundo extremo'); GEN?.arc(c, a, b, genStyle(A[3], 'arc'), { c: A[0].gen?.ns, a: A[1].gen?.ns, b: A[2].gen?.ns }); const p = A[0].gen, q = A[1].gen; return { str: 'arc(' + c + ',' + a + '-' + b + ')', gen: { k: 'ar', ref: { k: 'ar', ns: GEN?.cur?.(), c, a, b, oc: p?.ns, oa: q?.ns, ob: A[2].gen?.ns }, ...(p?.k === 'pt' && q?.k === 'pt' ? { x: p.x, y: p.y, r: Math.hypot(q.x - p.x, q.y - p.y) } : {}) } }; } },
+  // ellipse(c; a; b): una elipse de centro c, con a en el extremo del eje 1 y b en un punto del eje 2 (la distancia de b al eje 1 es el semieje menor); earc(c; a; b; p1; p2) es el
+  // arco eliptico de p1 a p2 en sentido antihorario (p1 y p2 sobre la elipse). Todos son puntos creados con point; el tipo de linea es opcional.
+  ellipse: { n: [3, 4], f: (A) => { const c = genName(A[0], 'ellipse', 'el centro'), a = genName(A[1], 'ellipse', 'el extremo del eje 1'), b = genName(A[2], 'ellipse', 'un punto del eje 2'); GEN?.ellipse(c, a, b, undefined, undefined, genStyle(A[3], 'ellipse'), { c: A[0].gen?.ns, a: A[1].gen?.ns, b: A[2].gen?.ns }); return { str: 'ellipse(' + c + ',' + a + ',' + b + ')', gen: { k: 'el', ref: { k: 'el', ns: GEN?.cur?.(), c, a, b, oc: A[0].gen?.ns, oa: A[1].gen?.ns, ob: A[2].gen?.ns }, ...(A[0].gen?.k === 'pt' ? { c: A[0].gen } : {}), ...(A[1].gen?.k === 'pt' ? { a: A[1].gen } : {}), ...(A[2].gen?.k === 'pt' ? { b: A[2].gen } : {}) } }; } },
+  earc: { n: [5, 6], f: (A) => { const c = genName(A[0], 'earc', 'el centro'), a = genName(A[1], 'earc', 'el extremo del eje 1'), b = genName(A[2], 'earc', 'un punto del eje 2'), p1 = genName(A[3], 'earc', 'el punto donde empieza'), p2 = genName(A[4], 'earc', 'el punto donde termina'); GEN?.ellipse(c, a, b, p1, p2, genStyle(A[5], 'earc'), { c: A[0].gen?.ns, a: A[1].gen?.ns, b: A[2].gen?.ns, p1: A[3].gen?.ns, p2: A[4].gen?.ns }); return { str: 'earc(' + c + ',' + a + ',' + b + ',' + p1 + ',' + p2 + ')', gen: { k: 'el', ref: { k: 'el', ns: GEN?.cur?.(), c, a, b, p1, p2, oc: A[0].gen?.ns, oa: A[1].gen?.ns, ob: A[2].gen?.ns, op1: A[3].gen?.ns, op2: A[4].gen?.ns }, ...(A[0].gen?.k === 'pt' ? { c: A[0].gen } : {}), ...(A[1].gen?.k === 'pt' ? { a: A[1].gen } : {}), ...(A[2].gen?.k === 'pt' ? { b: A[2].gen } : {}), ...(A[3].gen?.k === 'pt' ? { p1: A[3].gen } : {}), ...(A[4].gen?.k === 'pt' ? { p2: A[4].gen } : {}) } }; } },
   spline: { n: [1, 3], f: (A) => {
     const v = A[0];
     if (!v?.strs || v.strs.length < 2) throw new Error('spline: los puntos son un vector de nombres, p. ej. ["A", "B", "C"] (al menos 2)');
@@ -1167,6 +1171,21 @@ const SFL = Object.fromEntries(Object.keys(SF).map((k) => [k.toLowerCase(), k]))
 // Todos los nombres de funciones y constantes del evaluador (la referencia de la ayuda debe nombrarlos todos: test/funcref.test.mjs).
 export const FUNC_NAMES = [...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(NF), ...Object.keys(SF), ...Object.keys(CONSTS)];
 addCalcFns([...Object.keys(FUNCS), ...Object.keys(MULTI), ...MATFN, ...LAZY, ...Object.keys(NF), ...Object.keys(SF), 'solve']); // se dibujan como funcion (ver asciimath.js)
+// Con cadenas: un vector de cadenas es una lista (sin filas ni columnas). repmat(s; n; m) la repite n*m veces; horzcat/vertcat(a; b; …) unen cadenas y vectores de cadenas en uno.
+function strLists(name, A, sep) {
+  const items = (a) => (a.strs ? a.strs : [a.str]), LIM = 100000;
+  if (name === 'repmat') {
+    if (!isS(A[0])) throw new Error('repmat: lo que se repite es una cadena o un vector de cadenas');
+    const num = (a, w) => { if (!a || isS(a) || isM(a) || !Number.isInteger(a.v) || a.v < 1 || a.v > 10000) throw new Error(`repmat(s; n; m): ${w} debe ser un entero de 1 a 10000`); return a.v; };
+    const n = num(A[1], 'n'), m = A[2] ? num(A[2], 'm') : n, base = items(A[0]);
+    if (base.length * n * m > LIM) throw new Error(`repmat: el vector de cadenas no puede pasar de ${LIM.toLocaleString('es')} elementos`);
+    return { strs: Array.from({ length: n * m }, () => base).flat() };
+  }
+  if (!A.every(isS)) throw new Error(`${name}: no se mezclan cadenas y números (un número se convierte con num2str)`);
+  const out = A.flatMap(items);
+  if (out.length > LIM) throw new Error(`${name}: el vector de cadenas no puede pasar de ${LIM.toLocaleString('es')} elementos`);
+  return { strs: out };
+}
 // horzcat(A, B, …) y vertcat(A, B, …): como [A, B] y [A; B]
 function catM(A, horiz) {
   const Ms = A.map(asMat), d0 = Ms.find((a) => !zero0(a) && a.d)?.d;
@@ -1618,6 +1637,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === lo ? `${lo} ${lo === 1 ? 'valor' : 'valores'}` : `de ${lo} a ${hi} valores`}${sep}`);
       return SF[name].f(A, { radians });
     }
+    if ((name === 'repmat' || name === 'horzcat' || name === 'vertcat') && A.some(isS)) return strLists(name, A, sep); // vectores de cadenas: repmat("a"; 1; 24), horzcat(nm; "x")
     if (A.some((a, k) => isS(a) && !(NF[name]?.opts !== undefined && k >= NF[name].opts))) throw new Error(`«${name}» no recibe cadenas`); // opts: desde que argumento acepta opciones de texto («"extrap"»)
     if (name in NF) { // funciones de MATLAB (tanda 1)
       const [lo, hi] = NF[name].n;

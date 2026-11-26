@@ -7,7 +7,7 @@
 import { setGenSink, GEN_RE } from './expr.js';
 import { textVars } from './params.js';
 import { calcStmts, calcParse } from './tvars.js';
-import { addPoint, addLine, addCircle, addArc, addSpline, allLtypes, deleteItems, nextId, dissolveCtr } from './model.js';
+import { addPoint, addLine, addCircle, addArc, addEllipse, addSpline, allLtypes, deleteItems, nextId, dissolveCtr } from './model.js';
 
 const EPS = 1e-9;
 const DIM = new Set(['DIST', 'DISTPL', 'ANG', 'ANG4', 'RAD']);
@@ -45,7 +45,7 @@ export function genOwners(doc, sel) {
 // Lo que piden las llamadas, por texto. Llaves: «texto/nombre» (punto), «texto/a|b» (linea, sin orden), «texto/o:centro#i» (i-esimo circulo de
 // ese centro), «texto/a:centro|a|b» (arco) y «texto/s:a|b|c» (spline).
 function collector() {
-  const req = { pts: new Map(), lines: new Map(), circles: new Map(), arcs: new Map(), splines: new Map(), contours: new Map(), errs: [] };
+  const req = { pts: new Map(), lines: new Map(), circles: new Map(), arcs: new Map(), splines: new Map(), ellipses: new Map(), contours: new Map(), errs: [] };
   let ns = null; const radii = new Map(), cnt = new Map();
   // Un punto que viene de OTRO texto (la variable que lo guarda lleva su texto de origen, o): en la llave se escribe «origen.nombre» para no confundirlo con uno local.
   const qn = (name, o) => (o && o !== ns ? o + '.' + name : name);
@@ -75,6 +75,12 @@ function collector() {
       if (!req.arcs.has(key)) req.arcs.set(key, { ns, c, a, b, oc: o?.c, oa: o?.a, ob: o?.b, style });
       else if (style !== undefined) req.arcs.get(key).style = style;
     },
+    // ellipse(c; a; b) y earc(c; a; b; p1; p2): la llave es la de sus puntos (los de un arco eliptico, tambien p1 y p2)
+    ellipse(c, a, b, p1, p2, style, o) {
+      const key = ns + '/e:' + [qn(c, o?.c), qn(a, o?.a), qn(b, o?.b), ...(p1 !== undefined ? [qn(p1, o?.p1), qn(p2, o?.p2)] : [])].join('|');
+      if (!req.ellipses.has(key)) req.ellipses.set(key, { ns, c, a, b, p1, p2, oc: o?.c, oa: o?.a, ob: o?.b, op1: o?.p1, op2: o?.p2, style });
+      else if (style !== undefined) req.ellipses.get(key).style = style;
+    },
     spline(names, closed, style) {
       const key = ns + '/s:' + names.join('|') + (closed ? '|cerrado' : '');
       if (!req.splines.has(key)) req.splines.set(key, { ns, names, closed, style });
@@ -86,6 +92,7 @@ function collector() {
       const q2 = (n, o, at) => (o && o !== at ? o + '.' + n : n);
       const keyOf = (r) => (r.k === 'ln' ? r.ns + '/' + [q2(r.a, r.oa, r.ns), q2(r.b, r.ob, r.ns)].sort().join('|')
         : r.k === 'ar' ? r.ns + '/a:' + [q2(r.c, r.oc, r.ns), q2(r.a, r.oa, r.ns), q2(r.b, r.ob, r.ns)].join('|')
+          : r.k === 'el' ? r.ns + '/e:' + [q2(r.c, r.oc, r.ns), q2(r.a, r.oa, r.ns), q2(r.b, r.ob, r.ns), ...(r.p1 !== undefined ? [q2(r.p1, r.op1, r.ns), q2(r.p2, r.op2, r.ns)] : [])].join('|')
           : r.ns + '/s:' + r.names.join('|') + (r.closed ? '|cerrado' : ''));
       const n = (cnt.get(ns) || 0) + 1; cnt.set(ns, n);
       req.contours.set(ns + '/k:#' + n, { ns, keys: refs.map(keyOf), name });
@@ -163,15 +170,15 @@ export function regenerate(doc) {
   for (const [ns, dimName] of loops(doc)) {
     out.errs.push(`La cota «${dimName}» mide algo que este texto dibuja y el mismo texto la lee: dependencia circular; lo generado queda como estaba`);
     badNs.add(ns);
-    for (const m of [req.pts, req.lines, req.circles, req.arcs, req.splines, req.contours]) for (const key of [...m.keys()]) if (key.startsWith(ns + '/')) m.delete(key);
+    for (const m of [req.pts, req.lines, req.circles, req.arcs, req.splines, req.ellipses, req.contours]) for (const key of [...m.keys()]) if (key.startsWith(ns + '/')) m.delete(key);
   }
   doc.gen ||= { map: {} };
   // lo soltado: lo que ya no existe se olvida (el script lo vuelve a generar si sigue llamandolo); lo que se pide y esta soltado no se genera
-  const rel = doc.gen.rel || {}, alive = (id) => !!(doc.pts[id] || doc.lines[id] || doc.circles[id] || doc.arcs[id] || doc.splines?.[id] || doc.ctrs?.[id]);
+  const rel = doc.gen.rel || {}, alive = (id) => !!(doc.pts[id] || doc.lines[id] || doc.circles[id] || doc.arcs[id] || doc.splines?.[id] || doc.ellipses?.[id] || doc.ctrs?.[id]);
   for (const [key, id] of Object.entries(rel)) if (!alive(id)) { delete rel[key]; out.changed = true; }
-  const asked = (key) => [req.pts, req.lines, req.circles, req.arcs, req.splines, req.contours].some((m) => m.has(key));
+  const asked = (key) => [req.pts, req.lines, req.circles, req.arcs, req.splines, req.ellipses, req.contours].some((m) => m.has(key));
   for (const key of Object.keys(rel)) if (!asked(key) && !badNs.has(key.split('/')[0])) delete rel[key]; // el script (o su texto) ya no lo llama: es un elemento normal del todo
-  for (const m of [req.pts, req.lines, req.circles, req.arcs, req.splines, req.contours]) for (const key of [...m.keys()]) if (key in rel) m.delete(key);
+  for (const m of [req.pts, req.lines, req.circles, req.arcs, req.splines, req.ellipses, req.contours]) for (const key of [...m.keys()]) if (key in rel) m.delete(key);
   const map = doc.gen.map, seen = new Set(), note = (m) => out.errs.push(m);
   const ltOk = (s) => s === undefined || s in allLtypes(doc);
   const STYLE = (s) => ({ color: 'auto', ltype: s || 'continua', w: 2, ls: 1 });
@@ -239,9 +246,27 @@ export function regenerate(doc) {
     if (!!o.closed !== !!r.closed) { o.closed = !!r.closed; delete o.ts; out.changed = true; }
     if (r.style !== undefined && o.ltype !== r.style) { o.ltype = r.style; out.changed = true; }
   }
+  // elipses y arcos elipticos: centro, extremo del eje 1 (a) y un punto del eje 2 (b); con p1 y p2 es un arco eliptico (antihorario de p1 a p2)
+  for (const [key, r] of req.ellipses) {
+    const c = pid(r.ns, r.c, r.oc), a = pid(r.ns, r.a, r.oa), b = pid(r.ns, r.b, r.ob), p1 = r.p1 !== undefined ? pid(r.ns, r.p1, r.op1) : null, p2 = r.p2 !== undefined ? pid(r.ns, r.p2, r.op2) : null;
+    const nombre = `${r.p1 !== undefined ? 'earc' : 'ellipse'}("${r.c}"; "${r.a}"; "${r.b}"${r.p1 !== undefined ? `; "${r.p1}"; "${r.p2}"` : ''})`;
+    if (!(has(c) && has(a) && has(b) && (r.p1 === undefined || (has(p1) && has(p2))))) { note(`${nombre}: falta un punto: créalo antes con point(nombre; x; y)`); continue; }
+    if (!ltOk(r.style)) { note(`${nombre}: «${r.style}» no es un tipo de línea`); continue; }
+    const C = doc.pts[c], A = doc.pts[a], B = doc.pts[b], ra = Math.hypot(A.x - C.x, A.y - C.y), ux = (A.x - C.x) / (ra || 1), uy = (A.y - C.y) / (ra || 1), rb = Math.abs((B.x - C.x) * uy - (B.y - C.y) * ux);
+    if (!(ra > EPS) || !(rb > EPS)) { note(`${nombre}: «${r.a}» y «${r.b}» no definen dos ejes (el eje 1 tiene longitud ${fmt(ra)} y el 2, ${fmt(rb)})`); continue; }
+    const onEll = (q) => { const dx = q.x - C.x, dy = q.y - C.y, X = (dx * ux + dy * uy) / ra, Y = (-dx * uy + dy * ux) / rb; return Math.abs(Math.hypot(X, Y) - 1) <= 1e-6; };
+    if (r.p1 !== undefined && !(onEll(doc.pts[p1]) && onEll(doc.pts[p2]))) { note(`${nombre}: «${r.p1}» y «${r.p2}» deben estar sobre la elipse`); continue; }
+    seen.add(key);
+    let id = map[key];
+    if (!(id && doc.ellipses?.[id])) { id = addEllipse(doc, c, a, b, STYLE(r.style), p1, p2); map[key] = id; out.changed = true; }
+    const o = doc.ellipses[id];
+    if (o.c !== c || o.a !== a || o.b !== b) { o.c = c; o.a = a; o.b = b; out.changed = true; }
+    if ((o.p1 || null) !== p1 || (o.p2 || null) !== p2) { if (p1 && p2) { o.p1 = p1; o.p2 = p2; } else { delete o.p1; delete o.p2; } out.changed = true; }
+    if (r.style !== undefined && o.ltype !== r.style) { o.ltype = r.style; out.changed = true; }
+  }
   // contornos: agrupan los elementos que el script dio (lineas, arcos, splines generados); el grupo (doc.ctrs) tambien es generado
-  const CT = { ln: 'lines', ar: 'arcs', sp: 'splines' };
-  const kindOf = (id) => (doc.lines[id] ? 'ln' : doc.arcs[id] ? 'ar' : doc.splines?.[id] ? 'sp' : null);
+  const CT = { ln: 'lines', ar: 'arcs', sp: 'splines', el: 'ellipses' };
+  const kindOf = (id) => (doc.lines[id] ? 'ln' : doc.arcs[id] ? 'ar' : doc.splines?.[id] ? 'sp' : doc.ellipses?.[id] ? 'el' : null);
   for (const [key, r] of req.contours) {
     const members = [];
     let bad = null;
@@ -264,7 +289,7 @@ export function regenerate(doc) {
       if (o.ctr && doc.ctrs[o.ctr]) note(`contour: «${m.id}» ya está en otro grupo (${o.ctr}); se deja ahí`);
       else { o.ctr = id; out.changed = true; }
     }
-    for (const list of [doc.lines, doc.arcs, doc.splines || {}]) for (const [eid, o] of Object.entries(list)) if (o.ctr === id && !want.has(eid)) { delete o.ctr; out.changed = true; }
+    for (const list of [doc.lines, doc.arcs, doc.splines || {}, doc.ellipses || {}]) for (const [eid, o] of Object.entries(list)) if (o.ctr === id && !want.has(eid)) { delete o.ctr; out.changed = true; }
   }
   // lo que dejo de pedirse: lineas, circulos, arcos y splines se borran; un punto que otros elementos o cotas usan se suelta (queda como un punto normal)
   const stale = Object.entries(map).filter(([key]) => !seen.has(key) && (!badNs.has(key.split('/')[0]) || !doc.texts?.[key.split('/')[0]]));
@@ -274,7 +299,7 @@ export function regenerate(doc) {
     return Object.entries(doc.lines).some(([lid, l]) => (l.a === id || l.b === id) && !gone(lid))
       || Object.entries(doc.circles).some(([cid, c]) => c.c === id && !gone(cid))
       || Object.entries(doc.arcs).some(([aid, a]) => (a.c === id || a.a === id || a.b === id) && !gone(aid))
-      || Object.values(doc.ellipses || {}).some((e) => [e.c, e.a, e.b, e.p1, e.p2].includes(id))
+      || Object.entries(doc.ellipses || {}).some(([eid, e]) => [e.c, e.a, e.b, e.p1, e.p2].includes(id) && !gone(eid))
       || Object.entries(doc.splines || {}).some(([sid, sp]) => sp.pts.includes(id) && !gone(sid))
       || Object.values(doc.texts || {}).some((t) => t.pt === id)
       || Object.values(doc.cons || {}).some((k) => (k.refs || []).includes(id));
@@ -286,6 +311,7 @@ export function regenerate(doc) {
     else if (doc.circles[id]) items.push({ k: 'ci', id });
     else if (doc.arcs[id]) items.push({ k: 'ar', id });
     else if (doc.splines?.[id]) items.push({ k: 'sp', id });
+    else if (doc.ellipses?.[id]) items.push({ k: 'el', id });
     else if (doc.ctrs?.[id]) { dissolveCtr(doc, id); out.changed = true; } // el script ya no pide el contorno: sus elementos quedan sin grupo
   }
   if (items.length) { deleteItems(doc, items); out.changed = true; }

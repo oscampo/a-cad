@@ -643,4 +643,55 @@ t('una llamada suelta a una funcion propia (sin «=» ni asignacion) avisa; asig
   assert.deepEqual(regenerate(sinFn).notes, []);
 });
 
+// ---- elipses y arcos elipticos desde un script: ellipse(c; a; b) y earc(c; a; b; p1; p2)
+const ELL = '$$w:10\nh:4\nc:point("C"; 0; 0)\na:point("A"; w; 0)\nb:point("B"; 0; h)\nq:ellipse(c; a; b)$$';
+t('ellipse(c; a; b) crea una elipse con esos tres puntos fijos, y sigue a sus variables', () => {
+  const { d, tid } = mk(ELL);
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  assert.equal(n(d.ellipses), 1);
+  const e = Object.values(d.ellipses)[0], id = Object.keys(d.ellipses)[0];
+  assert.equal(d.gen.map[tid + '/e:C|A|B'], id);
+  assert.deepEqual([d.pts[e.c].x, d.pts[e.a].x, d.pts[e.b].y], [0, 10, 4]);
+  assert.equal(e.p1, undefined);
+  d.texts[tid].text = ELL.replace('w:10', 'w:20');
+  regenerate(d);
+  assert.equal(n(d.ellipses), 1, 'misma elipse');
+  assert.equal(d.pts[d.ellipses[id].a].x, 20);
+});
+
+t('earc(c; a; b; p1; p2): un arco eliptico antihorario de p1 a p2, con los extremos sobre la elipse', () => {
+  const f = (p1y) => '$$a:point("C"; 0; 0)\nb:point("A"; 10; 0)\nc:point("B"; 0; 4)\np:point("P"; 10*cos(π/3); 4*sin(π/3))\nq:point("Q"; 0; ' + p1y + ')\nel:earc(a; b; c; p; q)$$';
+  const { d } = mk(f(4));
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  const e = Object.values(d.ellipses)[0];
+  assert.ok(e.p1 && e.p2 && e.p1 !== e.p2);
+  assert.equal(d.pts[e.p1].x.toFixed(6), '5.000000');
+  const bad = mk(f(3));  // Q = (0,3) no esta sobre la elipse de semiejes 10 y 4
+  const rb = regenerate(bad.d);
+  assert.ok(rb.errs.some((m) => /deben estar sobre la elipse/.test(m)), JSON.stringify(rb.errs));
+  assert.equal(n(bad.d.ellipses), 0);
+});
+
+t('una elipse con ejes degenerados avisa; quitar la llamada borra la elipse', () => {
+  const { d, tid } = mk('$$c:point("C"; 0; 0)\na:point("A"; 5; 0)\nb:point("B"; 9; 0)\nq:ellipse(c; a; b)$$');   // b esta sobre el eje 1
+  assert.ok(regenerate(d).errs.some((m) => /no definen dos ejes/.test(m)));
+  d.texts[tid].text = ELL; regenerate(d);
+  assert.equal(n(d.ellipses), 1);
+  d.texts[tid].text = '$$c:point("C"; 0; 0)$$'; regenerate(d);
+  assert.equal(n(d.ellipses), 0);
+});
+
+t('un contorno puede incluir una elipse generada; typeof de una elipse es «ellipse»', () => {
+  const T = ELL.replace('q:ellipse(c; a; b)', 'q:ellipse(c; a; b)\nl:line(a; b)\nk:contour(q; l)\nty:typeof(q)');
+  const { d } = mk(T);
+  const r = regenerate(d);
+  assert.deepEqual(r.errs, []);
+  const ks = Object.values(d.ellipses)[0].ctr;
+  assert.ok(ks && d.ctrs[ks]);
+  assert.equal(Object.values(d.lines)[0].ctr, ks);
+  assert.equal(textVars(d).vals?.ty?.str ?? textVars(d).vals?.ty, 'ellipse');
+});
+
 console.log(`${passed} pruebas de dibujo generado`);

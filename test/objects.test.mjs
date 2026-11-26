@@ -1,7 +1,7 @@
 // Objetos del dibujo como valores en los scripts: pasar una linea, un arco, un circulo, un spline o un grupo de contorno a una funcion propia,
 // typeof/isa, los puntos de un elemento por su papel (e.a.x, e.c.y), k1.n y k1_i (la topologia viene de topo.js, la misma del arbol).
 import assert from 'node:assert/strict';
-import { newDoc, addPoint, addLine, addArc, addCircle, addEllipse, addSpline, addText, addCtr } from '../src/model.js';
+import { newDoc, addPoint, addLine, addArc, addCircle, addEllipse, addSpline, addText, addCtr, ellipsePolyline, ellipseRange, isPartial } from '../src/model.js';
 import { textVars } from '../src/params.js';
 import { regenerate } from '../src/gen.js';
 import { readFileSync } from 'node:fs';
@@ -121,34 +121,46 @@ t('pedir un elemento que no existe da el mensaje de siempre; k_i fuera de rango 
 });
 
 // ---- el caso que motivo todo esto: aplicar un script a un contorno cualquiera y dibujar su vista isometrica (copia viva)
-t('iso sobre un contorno con lineas y un arco, y sobre un circulo: una sola funcion con typeof/isa; el arco y el circulo salen como splines por puntos de su imagen', () => {
-  const d = newDoc();
-  const P = (x, y) => addPoint(d, x, y);
-  const p = [P(0, 0), P(30, 0), P(30, 10), P(10, 10), P(10, 30), P(0, 30)];
-  const l = [addLine(d, p[0], p[1]), addLine(d, p[1], p[2]), addLine(d, p[2], p[3]), addLine(d, p[3], p[4]), addLine(d, p[5], p[0])];
-  const arc = addArc(d, P(5, 30), p[4], p[5], 5, {});
-  const { id: k } = addCtr(d, [...l.map((id) => ({ k: 'ln', id })), { k: 'ar', id: arc }], 'L');
-  const hole = addCircle(d, P(18, 4), 2);
-  addText(d, addPoint(d, 0, 200), readFileSync(new URL('./fixtures/iso-contorno.txt', import.meta.url), 'utf8').split('\r').join('').trim(), {}); // sin los \r de una descarga en Windows
-  addText(d, addPoint(d, 0, 100), '$$r:iso("T", ' + k + ', 100, 0)$$', {});
-  addText(d, addPoint(d, 0, 80), '$$q:iso("T", ' + hole + ', 100, 0)$$', {});
-  const st = textVars(d), r = regenerate(d);
-  assert.deepEqual([...st.errs.values()], []); assert.deepEqual(r.errs, []);
-  const map = d.gen.map;
-  assert.equal(Object.keys(map).filter((x) => x.includes('|') && !x.includes('/s:')).length, 5, 'las 5 lineas del contorno');
-  assert.equal(Object.keys(d.splines).length, 2, 'el arco y el circulo, como splines');
-  // los puntos del arco estan en su imagen: al deshacer la proyeccion caen a radio 5 del centro (5,30); los del circulo, a radio 2 de (18,4)
-  const c = Math.cos(Math.PI / 6), s = Math.sin(Math.PI / 6), det = c * s + c * s;
-  const inv = (x, y) => [(s * x + c * y) / det, (-s * x + c * y) / det];
-  for (const sp of Object.values(d.splines)) {
-    const circle = sp.pts.length === 24, [cx, cy, rr] = circle ? [18, 4, 2] : [5, 30, 5];
-    assert.equal(!!sp.closed, circle);
-    for (const q of sp.pts) { const [x, y] = inv(d.pts[q].x - 100, d.pts[q].y); assert.ok(Math.abs(Math.hypot(x - cx, y - cy) - rr) < 1e-9); }
+t('iso sobre un contorno con lineas y un arco, y sobre un circulo: el arco sale como arco eliptico y el circulo como elipse, exactos, en las tres vistas (T, L y R)', () => {
+  const c = Math.cos(Math.PI / 6), s = Math.sin(Math.PI / 6);
+  const MAPS = { T: [[c, -c], [s, s]], L: [[c, 0], [s, 1]], R: [[-c, 0], [s, 1]] };
+  for (const vista of ['T', 'L', 'R']) {
+    const d = newDoc();
+    const P = (x, y) => addPoint(d, x, y);
+    const p = [P(0, 0), P(30, 0), P(30, 10), P(10, 10), P(10, 30), P(0, 30)];
+    const l = [addLine(d, p[0], p[1]), addLine(d, p[1], p[2]), addLine(d, p[2], p[3]), addLine(d, p[3], p[4]), addLine(d, p[5], p[0])];
+    const arc = addArc(d, P(5, 30), p[4], p[5], 5, {});
+    const { id: k } = addCtr(d, [...l.map((id) => ({ k: 'ln', id })), { k: 'ar', id: arc }], 'L');
+    const hole = addCircle(d, P(18, 4), 2);
+    addText(d, addPoint(d, 0, 200), readFileSync(new URL('./fixtures/iso-contorno.txt', import.meta.url), 'utf8').split('\r').join('').trim(), {}); // sin los \r de una descarga en Windows
+    addText(d, addPoint(d, 0, 100), '$$r:iso("' + vista + '", ' + k + ', 100, 0)$$', {});
+    addText(d, addPoint(d, 0, 80), '$$q:iso("' + vista + '", ' + hole + ', 100, 0)$$', {});
+    const st = textVars(d), r = regenerate(d);
+    assert.deepEqual([...st.errs.values()], [], vista); assert.deepEqual(r.errs, [], vista);
+    const map = d.gen.map;
+    assert.equal(Object.keys(map).filter((x) => x.includes('|') && !x.includes('/e:')).length, 5, vista + ': las 5 lineas del contorno');
+    assert.equal(Object.keys(d.splines).length, 0, vista + ': ya no hay splines aproximados');
+    const els = Object.values(d.ellipses);
+    assert.equal(els.length, 2, vista + ': el arco y el circulo');
+    assert.equal(els.filter((e) => isPartial(e)).length, 1, vista + ': uno es arco eliptico');
+    // exactitud: al deshacer la proyeccion, cada punto de la elipse cae a radio 5 del centro (5,30) (el arco) o a radio 2 de (18,4) (el circulo)
+    const M = MAPS[vista], det = M[0][0] * M[1][1] - M[0][1] * M[1][0];
+    const inv = (x, y) => [(M[1][1] * x - M[0][1] * y) / det, (-M[1][0] * x + M[0][0] * y) / det];
+    for (const e of els) {
+      const part = isPartial(e), [cx, cy, rr] = part ? [5, 30, 5] : [18, 4, 2];
+      for (const q of ellipsePolyline(d, e, 96)) { const [x, y] = inv(q.x - 100, q.y); assert.ok(Math.abs(Math.hypot(x - cx, y - cy) - rr) < 1e-9, vista + ': un punto de la elipse no esta en la imagen del circulo'); }
+      if (part) assert.ok(Math.abs(ellipseRange(d, e).sweep - Math.PI) < 1e-9, vista + ': el semicirculo sigue siendo la mitad (' + (det < 0 ? 'con la orientacion invertida' : 'misma orientacion') + ')');
+    }
+    // el arco eliptico termina en los mismos puntos que las lineas vecinas (se comparten, no se duplican)
+    const ae = els.find((e) => isPartial(e));
+    assert.ok(Object.values(d.lines).filter((ln) => [ae.p1, ae.p2].includes(ln.a) || [ae.p1, ae.p2].includes(ln.b)).length >= 2, vista + ': el arco eliptico comparte sus extremos con las lineas');
+    // copia viva: mover un punto del contorno original mueve el punto transformado
+    if (vista === 'T') {
+      d.pts[p[1]].x = 40; regenerate(d);
+      const gp = d.pts[map[Object.keys(map).find((x) => x.endsWith('/P' + p[1]))]];
+      assert.ok(Math.abs(gp.x - (100 + c * (40 - 0))) < 1e-9, 'el punto transformado sigue al original');
+    }
   }
-  // copia viva: mover un punto del contorno original mueve el punto transformado (se regenera con lo nuevo)
-  d.pts[p[1]].x = 40; regenerate(d);
-  const gp = d.pts[map[Object.keys(map).find((x) => x.endsWith('/P' + p[1]))]];
-  assert.ok(Math.abs(gp.x - (100 + c * (40 - 0))) < 1e-9, 'el punto transformado sigue al original');
 });
 
 t('una funcion que recibe de todo: lo que una rama no usa no falla al leerlo; solo si se ejecuta con un objeto que no lo tiene', () => {

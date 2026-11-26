@@ -7,15 +7,20 @@
     T:[c,0,0;s,1,0;0,0,1]
   else:
     T:[-c,0,0;s,1,0;0,0,1]
+  M:[T_(1,1),T_(1,2);T_(2,1),T_(2,2)]
+  Q:M*transpose(M)
+  th:0.5*atan2(2*Q_(1,2); Q_(1,1)-Q_(2,2))
+  m1:(Q_(1,1)+Q_(2,2))/2
+  m2:sqrt(((Q_(1,1)-Q_(2,2))/2)^2+Q_(1,2)^2)
+  s1:sqrt(m1+m2)
+  s2:sqrt(m1-m2)
+  dt:det(M)
   if isa(k; "circle"):
-    nm:[""]
-    for j in 1..24:
-      t:2*π*(j-1)/24
-      Q:T*[k.c.x+k.r*cos(t);k.c.y+k.r*sin(t);1]
-      nme:"C"+k+"_"+num2str(j)
-      point(nme; ox+Q_1; oy+Q_2)
-      nm_j:nme
-    spline(nm; "cerrado")
+    C:T*[k.c.x;k.c.y;1]
+    point("P"+k.c; ox+C_1; oy+C_2)
+    point("A"+k+"a"; ox+C_1+k.r*s1*cos(th); oy+C_2+k.r*s1*sin(th))
+    point("A"+k+"b"; ox+C_1-k.r*s2*sin(th); oy+C_2+k.r*s2*cos(th))
+    ellipse("P"+k.c; "A"+k+"a"; "A"+k+"b")
   else:
     for i in 1..k.n:
       o:k_i
@@ -26,22 +31,17 @@
         point("P"+o.b; ox+B_1; oy+B_2)
         line("P"+o.a; "P"+o.b)
       elif isa(o; "arc"):
-        a0:atan2(o.a.y-o.c.y; o.a.x-o.c.x)
-        sw:atan2(o.b.y-o.c.y; o.b.x-o.c.x)-a0
-        sw:if(sw<0; sw+2*π; sw)
-        nm:[""]
-        for j in 0..12:
-          t:a0+sw*j/12
-          if j==0:
-            Q:T*[o.a.x;o.a.y;1]
-            nme:"P"+o.a
-          elif j==12:
-            Q:T*[o.b.x;o.b.y;1]
-            nme:"P"+o.b
-          else:
-            Q:T*[o.c.x+o.r*cos(t);o.c.y+o.r*sin(t);1]
-            nme:"A"+o+"_"+num2str(j)
-          point(nme; ox+Q_1; oy+Q_2)
-          nm_(j+1):nme
-        spline(nm)
+        r:hypot(o.a.x-o.c.x; o.a.y-o.c.y)
+        C:T*[o.c.x;o.c.y;1]
+        A:T*[o.a.x;o.a.y;1]
+        B:T*[o.b.x;o.b.y;1]
+        point("P"+o.c; ox+C_1; oy+C_2)
+        point("P"+o.a; ox+A_1; oy+A_2)
+        point("P"+o.b; ox+B_1; oy+B_2)
+        point("A"+o+"a"; ox+C_1+r*s1*cos(th); oy+C_2+r*s1*sin(th))
+        point("A"+o+"b"; ox+C_1-r*s2*sin(th); oy+C_2+r*s2*cos(th))
+        if dt<0:
+          earc("P"+o.c; "A"+o+"a"; "A"+o+"b"; "P"+o.b; "P"+o.a)
+        else:
+          earc("P"+o.c; "A"+o+"a"; "A"+o+"b"; "P"+o.a; "P"+o.b)
   k
