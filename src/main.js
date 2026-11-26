@@ -2045,6 +2045,7 @@ cv.addEventListener('pointerdown', (e) => {
   cv.setPointerCapture(e.pointerId);
   const p = pos(e);
   pointers.set(e.pointerId, { ...p, type: e.pointerType, button: e.button, down: p });
+  lastPtrType = e.pointerType;
   tapLog(`cv:down ${e.pointerType} ${Math.round(p.x)},${Math.round(p.y)} ts=${(e.timeStamp / 1000).toFixed(3)}`);
   const touches = [...pointers.values()].filter((q) => q.type === 'touch');
   if (touches.length >= 2) { loupeCancel(); startGesture(); return; }
@@ -2215,6 +2216,10 @@ function pickLine(msg, kind = 'ln') {
 }
 
 let lastCoTap = null, lastTap = null, lastGraphTap = null, lastTxTap = null, lastImgTap = null, txTapHint = false;
+// Con el dedo o el lapiz, un toque sobre un texto NO abre el editor de inmediato: espera TX_DBL_MS a ver si llega un segundo toque (doble toque = propiedades).
+// Abrirlo antes sube el teclado del iPad, y el segundo toque nunca llegaba a la pagina (visto con ?taps). Con el raton se abre al instante.
+let lastPtrType = 'mouse', txOpenTimer = null;
+const TX_DBL_MS = 300;
 let selGraph = null; // grafica seleccionada (resaltada; se mueve y se redimensiona)
 // Graficas elegidas con un cuadro de seleccion junto con otros elementos (o varias): valen mientras sel sea el mismo arreglo (owner); cualquier
 // seleccion nueva (sel = [...]) las suelta sola. selGraph, la de un toque, tambien cuenta.
@@ -2292,6 +2297,7 @@ function selectAt(p) {
     return;
   }
   selGraph = null;
+  if (txOpenTimer) { clearTimeout(txOpenTimer); txOpenTimer = null; tapLog('tx:cancel-wait'); } // llego otro toque antes de abrir el editor
   if (txState?.edit && !commitTextLive()) return; // tocar fuera guarda la edicion en el lugar (si da error, sigue abierta)
   let h = hitTest(p.x, p.y);
   // Un texto no se selecciona con un toque (en documentos con muchos textos se agarraban sin querer): se encierra con un cuadro.
@@ -2305,7 +2311,11 @@ function selectAt(p) {
     // un toque lo edita en el lugar (el cursor donde se toco), salvo un objeto de codigo colapsado (biblioteca o script sin su codigo a la vista):
     // es un bloque pequeño y apretado, un toque ahi (mas en tablet o celular) lo abria sin querer; se edita con doble toque (propiedades)
     const tt = doc.texts[h.id], codeObj = tt.lib || (isScript(tt.text) && !tt.open);
-    if (!codeObj && !sim) { sel = []; afterChange(); startTextEdit(h.id, p); return; }
+    if (!codeObj && !sim) {
+      const open = () => { sel = []; afterChange(); startTextEdit(h.id, p); };
+      if (lastPtrType !== 'mouse') { tapLog('tx:wait'); txOpenTimer = setTimeout(() => { txOpenTimer = null; if (!txState?.edit) open(); }, TX_DBL_MS); return; }
+      open(); return;
+    }
     if (!txTapHint) { txTapHint = true; toast('Para seleccionar un texto, enciérralo con un cuadro (arrastra desde él o desde un lugar vacío); doble toque abre sus propiedades'); }
     h = hitTest(p.x, p.y, true);
   }
