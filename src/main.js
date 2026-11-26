@@ -366,7 +366,7 @@ function updateEnabled() {
   document.querySelectorAll('[data-con]').forEach((b) => { b.disabled = !rules[b.dataset.con]; });
   $('mkint').disabled = ln + crv + n.sp !== 2;
   $('mksplit').disabled = !(ln + crv === 1 && !n.sp); // con puntos: divide en ellos; sin puntos: en n partes iguales
-  $('mkhatch').disabled = ln + crv + n.sp < 1;
+  $('mkhatch').disabled = ln + crv + n.sp + n.el < 1;
   $('mkarr').disabled = !sel.some((x) => ['pt', 'ln', 'ci', 'ar', 'sp', 'tx', 'el'].includes(x.k));
   $('mkmir').disabled = $('mkarr').disabled;
   $('mkcir').disabled = $('mkarr').disabled;
