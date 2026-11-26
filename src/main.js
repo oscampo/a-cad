@@ -4237,7 +4237,7 @@ function updateHatchFromPanel() {
 }
 
 function createHatch() {
-  const ids = sel.filter((s) => s.k === 'ln' || s.k === 'ci' || s.k === 'ar' || s.k === 'sp').map((s) => s.id);
+  const ids = sel.filter((s) => s.k === 'ln' || s.k === 'ci' || s.k === 'ar' || s.k === 'sp' || s.k === 'el').map((s) => s.id);
   if (!ids.length) { toast('Selecciona las líneas, arcos o círculos que forman el contorno'); return; }
   const h = { ids, kind: $('hKind').value, angle: Number($('hAngle').value) || 0, spacing: Math.max(2, Number($('hSpace').value) || 8), alpha: Number($('hAlpha').value), color: cur.color, ...(doc.curLayer && doc.layers?.[doc.curLayer] ? { layer: doc.curLayer } : {}) };
   if (!hatchLoops(doc, h).length) { toast('El contorno debe ser cerrado (líneas y arcos encadenados) o un círculo'); return; }

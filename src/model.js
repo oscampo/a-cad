@@ -152,7 +152,7 @@ export function visibleDoc(doc) {
   out.pts = Object.fromEntries(Object.entries(doc.pts).filter(([id]) => !hp.has(id)));
   if (doc.images) out.images = Object.fromEntries(shownEntries(doc, 'images')); // una imagen en una capa apagada no se exporta
   out.cons = Object.fromEntries(Object.entries(doc.cons).filter(([, k]) => !consHidden(doc, k, hp)));
-  out.hatches = Object.fromEntries(shownEntries(doc, 'hatches').filter(([, h]) => h.ids.every((i) => i in out.lines || i in out.circles || i in out.arcs || i in out.splines)));
+  out.hatches = Object.fromEntries(shownEntries(doc, 'hatches').filter(([, h]) => h.ids.every((i) => i in out.lines || i in out.circles || i in out.arcs || i in out.splines || i in (out.ellipses || {}))));
   return out;
 }
 
@@ -386,7 +386,7 @@ export function cleanup(doc) {
       else if (t.ref && !(t.ref in doc.lines)) delete t.ref; // la linea de referencia ya no existe: queda con su desfase
     }
     for (const [id, h] of Object.entries(doc.hatches)) {
-      h.ids = h.ids.filter((e) => e in doc.lines || e in doc.circles || e in doc.arcs || e in (doc.splines || {}));
+      h.ids = h.ids.filter((e) => e in doc.lines || e in doc.circles || e in doc.arcs || e in (doc.splines || {}) || e in (doc.ellipses || {}));
       if (!h.ids.length) { delete doc.hatches[id]; changed = true; }
     }
     // grupos de contorno: un ctr sin grupo declarado sobra; un grupo con menos de 2 miembros se disuelve
@@ -443,20 +443,25 @@ export function arcSamples(doc, arc) {
 export function hatchLoops(doc, h) {
   const loops = [];
   const spl = doc.splines || {};
-  const edges = h.ids.filter((i) => i in doc.lines || i in doc.arcs || (i in spl && !spl[i].closed));
-  const ends = (id) => (id in doc.lines ? [doc.lines[id].a, doc.lines[id].b] : id in spl ? [spl[id].pts[0], spl[id].pts[spl[id].pts.length - 1]] : [doc.arcs[id].a, doc.arcs[id].b]);
+  const ell = doc.ellipses || {};
+  const edges = h.ids.filter((i) => i in doc.lines || i in doc.arcs || (i in spl && !spl[i].closed) || (i in ell && isPartial(ell[i]) && ell[i].p1 in doc.pts && ell[i].p2 in doc.pts));
+  const ends = (id) => (id in doc.lines ? [doc.lines[id].a, doc.lines[id].b] : id in spl ? [spl[id].pts[0], spl[id].pts[spl[id].pts.length - 1]] : id in ell ? [ell[id].p1, ell[id].p2] : [doc.arcs[id].a, doc.arcs[id].b]);
   const used = new Set();
   const byPoint = new Map();
+  // dos extremos son el mismo nodo si comparten punto o coinciden en el plano (dibujos con puntos duplicados en una esquina)
+  const K = (p) => { const q = doc.pts[p]; return q ? `${Math.round(q.x * 1e4)},${Math.round(q.y * 1e4)}` : p; };
   for (const id of edges) for (const p of ends(id)) {
-    if (!byPoint.has(p)) byPoint.set(p, []);
-    byPoint.get(p).push(id);
+    const k = K(p);
+    if (!byPoint.has(k)) byPoint.set(k, []);
+    byPoint.get(k).push(id);
   }
   // puntos al recorrer la arista id saliendo de 'from' (sin repetir 'from', con el extremo lejano)
   const walk = (id, from) => {
     const [ea, eb] = ends(id);
-    if (id in doc.lines) return [from === ea ? eb : ea];
-    const smp = id in spl ? splinePolyline(doc, spl[id], 12) : arcSamples(doc, doc.arcs[id]);
-    return from === ea ? smp.slice(1) : smp.slice(0, -1).reverse();
+    const fwd = K(from) === K(ea);
+    if (id in doc.lines) return [fwd ? eb : ea];
+    const smp = id in spl ? splinePolyline(doc, spl[id], 12) : id in ell ? ellipsePolyline(doc, ell[id], 96) : arcSamples(doc, doc.arcs[id]);
+    return fwd ? smp.slice(1) : smp.slice(0, -1).reverse();
   };
   const pt = (x) => (typeof x === 'string' ? doc.pts[x] && { x: doc.pts[x].x, y: doc.pts[x].y } : x);
   for (const start of edges) {
@@ -466,18 +471,19 @@ export function hatchLoops(doc, h) {
     const seq = [sa, ...walk(start, sa)];
     let cur = ends(start)[1];
     for (;;) {
-      const next = (byPoint.get(cur) || []).find((i) => !used.has(i));
+      const next = (byPoint.get(K(cur)) || []).find((i) => !used.has(i));
       if (!next) break;
       used.add(next);
       const w = walk(next, cur);
       seq.push(...w);
       const e = ends(next);
-      cur = e[0] === cur ? e[1] : e[0];
+      cur = K(e[0]) === K(cur) ? e[1] : e[0];
     }
     const pts = seq.map(pt).filter(Boolean);
     if (pts.length >= 3) loops.push({ pts });
   }
   for (const id of h.ids) if (id in spl && spl[id].closed) loops.push({ pts: splinePolyline(doc, spl[id], 12).slice(0, -1) });
+  for (const id of h.ids) if (id in ell && !isPartial(ell[id])) loops.push({ pts: ellipsePolyline(doc, ell[id], 96).slice(0, -1) });
   for (const id of h.ids) if (id in doc.circles) {
     const c = doc.circles[id];
     const p = doc.pts[c.c];
