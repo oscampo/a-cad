@@ -3247,9 +3247,12 @@ txLive.addEventListener('keydown', (e) => {
 txLive.addEventListener('input', () => { txLayout(); ccUpdate(); });
 // el segundo toque de un doble toque cae sobre la entrada que abrio el primero: deja el texto como estaba y abre sus propiedades
 txLiveBox.addEventListener('pointerdown', (e) => {
-  if (!txState?.edit || performance.now() - txState.t0 > 450) return;
+  // El tiempo se mide con la hora del propio toque (e.timeStamp), no con la de cuando se atiende: en el iPad abrir el teclado detiene la pagina un momento y el
+  // segundo toque se atendia tarde (mas de 450 ms despues de abrirse la entrada) aunque el dedo hubiera sido rapido. Con el dedo, algo mas de margen en el lugar.
+  const when = e.timeStamp > 1e12 ? performance.now() : e.timeStamp; // Safari antiguo da la hora en epoch: ahi no hay mejor dato
+  if (!txState?.edit || when - txState.t0 > 600) return;
   const r = cv.getBoundingClientRect(), q = { x: e.clientX - r.left, y: e.clientY - r.top };
-  if (dist(q, txState.tap) > 24) return;
+  if (dist(q, txState.tap) > (e.pointerType === 'mouse' ? 24 : 36)) return;
   e.preventDefault();
   const id = txState.edit; endTextLive(); lastTxTap = null; sel = [{ k: 'tx', id }]; afterChange(); openProps(sel[0]);
 });
