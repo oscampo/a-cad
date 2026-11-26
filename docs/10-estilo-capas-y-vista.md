@@ -115,6 +115,18 @@ El grupo **Contornos** junta las líneas y arcos de trazo (no constructivos), ar
 
 **Abertura.** Si un extremo libre queda cerca de otro (hasta el 1 % del tamaño del dibujo), el contorno dice cuánto mide esa **abertura** y con qué contorno («abertura 0.0143 con el 2»), o «entre sus extremos» si casi se cierra solo. Es la razón típica de que un perfil que debería ser cerrado salga abierto.
 
+### Agrupar un contorno
+
+Un contorno detectado se puede **agrupar**: el botón *Agrupar en un contorno* de su fila crea un **grupo de contorno** (`k1`, `k2`…) con sus elementos. También puedes seleccionar elementos de trazo y usar el botón de agrupar del encabezado del árbol.
+
+Un grupo es una declaración tuya: sus líneas y arcos pasan a vivir **bajo él**, en «Contornos» (y salen de «Líneas» y «Arcos»), con todo lo suyo. La fila dice su estado, que se mide cada vez: «cerrado», «abierto · abertura 0.05 entre sus extremos», o «desconectado (2 partes)» si los miembros no forman una cadena. Puedes agrupar elementos aunque no estén conectados y mirar luego el estado.
+
+- Tocar el grupo selecciona todos sus elementos.
+- **Disolver** (*Disolver el contorno*): los elementos se quedan donde estaban, sin grupo, y vuelven a «Líneas» y «Arcos».
+- **Borrar** (la papelera): borra el grupo **y** sus elementos.
+- Un elemento está en un solo grupo. Un círculo, un vector, un elemento constructivo o una spline cerrada no entran.
+- Copiar, pegar y las matrices **no** copian el grupo; dividir un elemento deja los trozos en el grupo. Si un grupo se queda con menos de dos elementos, desaparece solo.
+
 ---
 
 [← 9. Simulaciones gráficas](09-simulaciones-graficas.md) · [Índice](README.md) · [11. Archivo y exportación →](11-archivo-y-exportacion.md)

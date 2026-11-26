@@ -60,6 +60,62 @@ export function deleteLayer(doc, id) {
   if (doc.curLayer === id) doc.curLayer = null;
   return n;
 }
+
+// ---- grupos de contorno: doc.ctrs = { id: { name? } }; cada elemento de trazo miembro lleva ctr (id), como layer en las capas. Es una declaracion del
+// usuario: que los miembros formen una cadena conectada se MIDE aparte (tree.js, contours): un grupo puede estar abierto. Disolver quita el atributo (los
+// elementos siguen donde estaban); un elemento esta en un solo grupo, y un grupo con menos de 2 miembros se disuelve solo (cleanup).
+export const CTR_COLLS = { lines: 'ln', arcs: 'ar', ellipses: 'el', splines: 'sp' };
+const CTR_OF = { ln: 'lines', ar: 'arcs', el: 'ellipses', sp: 'splines' };
+// ¿Puede ser miembro? lo mismo que contours() toma como trazo: lineas (no vectores), arcos, arcos elipticos y splines abiertas, no constructivos.
+export function ctrEligible(doc, { k, id }) {
+  const o = doc[CTR_OF[k]]?.[id];
+  if (!o || o.ltype === 'constructiva') return false;
+  if (k === 'ln') return !o.vec;
+  if (k === 'el') return !!(o.p1 && o.p2);
+  if (k === 'sp') return !o.closed && o.pts.length > 1;
+  return k === 'ar';
+}
+export function ctrMembers(doc, id) {
+  const out = [];
+  for (const [coll, k] of Object.entries(CTR_COLLS)) for (const [eid, o] of Object.entries(doc[coll] || {})) if (o.ctr === id) out.push({ k, id: eid });
+  return out;
+}
+// Agrupa los elementos que pueden serlo y no estan ya en un grupo. Devuelve { id, skipped: [{k,id,why}] }; id es null si quedan menos de 2.
+export function addCtr(doc, items, name) {
+  const ok = [], skipped = [], seen = new Set();
+  for (const it of items) {
+    const key = it.k + it.id; if (seen.has(key)) continue; seen.add(key);
+    const o = doc[CTR_OF[it.k]]?.[it.id];
+    if (!ctrEligible(doc, it)) skipped.push({ ...it, why: 'tipo' });
+    else if (o.ctr && doc.ctrs?.[o.ctr]) skipped.push({ ...it, why: 'grupo', ctr: o.ctr });
+    else ok.push(it);
+  }
+  if (ok.length < 2) return { id: null, skipped };
+  doc.ctrs ||= {};
+  const id = nextId(doc, 'k');
+  doc.ctrs[id] = name ? { name } : {};
+  for (const it of ok) doc[CTR_OF[it.k]][it.id].ctr = id;
+  return { id, skipped };
+}
+// Disuelve el grupo: sus miembros quedan sin grupo y siguen en el dibujo. Devuelve cuantos eran.
+export function dissolveCtr(doc, id) {
+  if (!doc.ctrs?.[id]) return 0;
+  const m = ctrMembers(doc, id);
+  for (const it of m) delete doc[CTR_OF[it.k]][it.id].ctr;
+  delete doc.ctrs[id];
+  if (!Object.keys(doc.ctrs).length) delete doc.ctrs;
+  return m.length;
+}
+// Borra el grupo y todos sus miembros. Devuelve cuantos elementos borro.
+export function deleteCtrAndMembers(doc, id) {
+  if (!doc.ctrs?.[id]) return 0;
+  const m = ctrMembers(doc, id);
+  delete doc.ctrs[id];
+  if (!Object.keys(doc.ctrs).length) delete doc.ctrs;
+  deleteItems(doc, m);
+  return m.length;
+}
+export const ctrName = (doc, id) => doc.ctrs?.[id]?.name || id;
 // Puntos que no se ven por capas apagadas: los de una capa apagada y los que solo usan elementos ocultos.
 export function layerHiddenPoints(doc) {
   const out = new Set();
@@ -333,6 +389,13 @@ export function cleanup(doc) {
       h.ids = h.ids.filter((e) => e in doc.lines || e in doc.circles || e in doc.arcs || e in (doc.splines || {}));
       if (!h.ids.length) { delete doc.hatches[id]; changed = true; }
     }
+    // grupos de contorno: un ctr sin grupo declarado sobra; un grupo con menos de 2 miembros se disuelve
+    const ctrN = {};
+    for (const coll of Object.keys(CTR_COLLS)) for (const o of Object.values(doc[coll] || {})) {
+      if (!o.ctr) continue;
+      if (!doc.ctrs?.[o.ctr]) { delete o.ctr; changed = true; } else ctrN[o.ctr] = (ctrN[o.ctr] || 0) + 1;
+    }
+    for (const id of Object.keys(doc.ctrs || {})) if ((ctrN[id] || 0) < 2) { dissolveCtr(doc, id); changed = true; }
     const used = pointsUsed(doc);
     for (const [id, p] of Object.entries(doc.pts)) {
       if (p.auto && !used.has(id)) { delete doc.pts[id]; changed = true; }

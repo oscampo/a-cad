@@ -152,3 +152,12 @@ Convierte lo seleccionado, que genera un script, en elementos normales (el texto
 Soltado: ya es un elemento normal (el texto no cambia)	Released: it is now a normal element (the text does not change)
 Soltados {0} elementos: ya son normales (el texto no cambia)	Released {0} elements: they are now normal (the text does not change)
 «{0}=» llama a «{1}», que dibuja, pero un enunciado con «=» solo muestra: asígnalo (v:{2}) para que dibuje	«{0}=» calls «{1}», which draws, but a statement with "=" only displays: assign it (v:{2}) so it draws
+Agrupar la selección en un contorno	Group the selection into a contour
+Disolver el contorno (los elementos se quedan)	Dissolve the contour (the elements stay)
+Borrar el contorno y sus elementos	Delete the contour and its elements
+Elige al menos dos elementos de trazo para agruparlos	Choose at least two stroke elements to group them
+No hay dos elementos de trazo sin grupo: un círculo, un vector, un elemento constructivo o una spline cerrada no entran, ni los que ya tienen grupo	There are not two ungrouped stroke elements: a circle, a vector, a construction element or a closed spline cannot join, nor can those that already have a group
+Contorno {0} creado con {1} elementos; {2} no entraron (círculos, vectores, constructivos, splines cerradas o ya agrupados)	Contour {0} created with {1} elements; {2} did not join (circles, vectors, construction elements, closed splines or already grouped)
+Contorno {0} creado con {1} elementos	Contour {0} created with {1} elements
+Contorno disuelto: {0} elementos siguen en el dibujo	Contour dissolved: {0} elements remain in the drawing
+Agrupar en un contorno	Group into a contour

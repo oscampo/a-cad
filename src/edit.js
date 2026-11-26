@@ -542,19 +542,20 @@ function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvA
     if (linked) doc.pts[np].fixed = false; // la copia sigue al original
     M[pid] = np;
   }
-  for (const id of L) { const { a, b, vec, ...st } = S.lines[id]; M[id] = addLine(doc, M[a], M[b], st); made.push({ k: 'ln', id: M[id] }); if (vec) vecLines.push([M[id], vec, S.texts?.[vec.t]]); }
+  // ctr (el grupo de contorno) se separa de st en las lineas, arcos, arcos elipticos y splines: una copia NO hereda el grupo
+  for (const id of L) { const { a, b, vec, ctr, ...st } = S.lines[id]; M[id] = addLine(doc, M[a], M[b], st); made.push({ k: 'ln', id: M[id] }); if (vec) vecLines.push([M[id], vec, S.texts?.[vec.t]]); }
   for (const pid of P) { const mk = S.pts[pid].mark; if (mk && M[mk] && M[pid] && M[pid] !== pid && doc.pts[M[pid]]) doc.pts[M[pid]].mark = M[mk]; }
   for (const id of Ci) { const { c, r, ...st } = S.circles[id]; M[id] = addCircle(doc, M[c], r, st); made.push({ k: 'ci', id: M[id] }); }
   for (const id of Ar) {
-    const { c, a, b, r, ...st } = S.arcs[id];
+    const { c, a, b, r, ctr, ...st } = S.arcs[id];
     M[id] = mirror ? addArc(doc, M[c], M[b], M[a], r, st) : addArc(doc, M[c], M[a], M[b], r, st);
     made.push({ k: 'ar', id: M[id] });
   }
   for (const id of El) { // un arco eliptico reflejado intercambia sus extremos para seguir siendo antihorario
-    const { c, a, b, p1, p2, ...st } = S.ellipses[id];
+    const { c, a, b, p1, p2, ctr, ...st } = S.ellipses[id];
     M[id] = addEllipse(doc, M[c], M[a], M[b], st, p1 && M[mirror ? p2 : p1], p2 && M[mirror ? p1 : p2]); made.push({ k: 'el', id: M[id] });
   }
-  for (const id of Sp) { const { pts, closed, ...st } = S.splines[id]; M[id] = addSpline(doc, pts.map((p) => M[p]), st, closed); made.push({ k: 'sp', id: M[id] }); }
+  for (const id of Sp) { const { pts, closed, ctr, ...st } = S.splines[id]; M[id] = addSpline(doc, pts.map((p) => M[p]), st, closed); made.push({ k: 'sp', id: M[id] }); }
   for (const id of Tx) {
     const t = S.texts[id];
     if (t.vecOf) continue;

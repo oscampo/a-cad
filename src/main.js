@@ -3,7 +3,7 @@ import { initSolver, solve, solveSteps, reparamSplines, addConsSolved, projectMa
 import {
   newDoc, addLayer, deleteLayer, layerCount, shownEntries, shownValues, layerHiddenPoints, consHidden, visibleDoc, isHidden, addPoint, addLine, addCircle, addArc, addText, addSpline, splinePolyline, addCon, cleanup, deleteItems, clone, hatchLoops,
   allLtypes, arcOf, conTag, ensureNumbers, addEllipse, ellipsePolyline, ellipseOf, ellipsePoint, ellipseParam, ellipseRange, isPartial, DIM_TYPES,
-  withOp,
+  withOp, addCtr, dissolveCtr, deleteCtrAndMembers, ctrEligible, ctrMembers,
 } from './model.js';
 import {
   dist, closestOnSeg, lineLine, lineCircle, circleCircle, signedAngle, dashFromPattern, parsePattern,
@@ -390,6 +390,7 @@ function renderTree() {
   // agrupar por capa solo tiene sentido si hay capas: sin ellas el boton se oculta y el arbol va por tipo
   const hasLayers = Object.keys(doc.layers || {}).length > 0;
   $('treeBy').hidden = !hasLayers;
+  $('treeGroup').hidden = sel.filter((s) => ctrEligible(doc, s) && !(doc[s.k === 'ln' ? 'lines' : s.k === 'ar' ? 'arcs' : s.k === 'el' ? 'ellipses' : 'splines'][s.id].ctr)).length < 2;
   $('treeBy').setAttribute('aria-pressed', String(hasLayers && opts.treeBy === 'layer'));
   const tree = buildTree(doc, { by: hasLayers && opts.treeBy === 'layer' ? 'layer' : 'type' });
   // al cambiar la seleccion desde el lienzo, se abre la rama que lleva al elemento
@@ -427,6 +428,11 @@ function renderTree() {
     }
     if (n.act) { act(iconSvg('props'), 'Editar', () => treeEditAct(n.act)); act(iconSvg('trash'), 'Borrar', () => { pushUndo(); delete doc.acts?.[n.act]; delete doc.graphs?.[n.act]; delete graphData[n.act]; afterChange(); }); }
     if (n.sel && !n.link && !String(n.key).startsWith('tr:')) act(iconSvg('trash'), 'Borrar', () => treeDelete(n.sel));
+    if (n.ctrFrom) act(iconSvg('ctr-group'), 'Agrupar en un contorno', () => groupAsCtr(n.ctrFrom)); // un contorno detectado
+    if (n.ctr) { // un grupo de contorno: disolver (los elementos se quedan) o borrarlo con sus elementos
+      act(iconSvg('ctr-dissolve'), 'Disolver el contorno (los elementos se quedan)', () => treeDissolveCtr(n.ctr));
+      act(iconSvg('trash'), 'Borrar el contorno y sus elementos', () => treeDeleteCtr(n.ctr));
+    }
     if (!kids) return head;
     const d = document.createElement('details');
     d.className = n.group ? 'grp' : n.sub ? 'sub' : '';
@@ -493,6 +499,29 @@ function treeSelect(n) {
   treeSelKey = n.link ? '' : sel.map((s) => s.k + s.id).join(',');
   afterChange();
 }
+// Grupos de contorno (model.js): agrupar lo seleccionado o un contorno detectado, disolver (los elementos se quedan) o borrar con sus elementos.
+function groupAsCtr(items) {
+  pushUndo();
+  const r = addCtr(doc, items.filter(exists));
+  if (!r.id) { rollback(); toast(items.length < 2 ? 'Elige al menos dos elementos de trazo para agruparlos' : 'No hay dos elementos de trazo sin grupo: un círculo, un vector, un elemento constructivo o una spline cerrada no entran, ni los que ya tienen grupo'); return; }
+  const n = ctrMembers(doc, r.id).length;
+  toast(r.skipped.length ? `Contorno ${r.id} creado con ${n} elementos; ${r.skipped.length} no entraron (círculos, vectores, constructivos, splines cerradas o ya agrupados)` : `Contorno ${r.id} creado con ${n} elementos`);
+  afterChange();
+}
+function treeDissolveCtr(id) {
+  pushUndo();
+  const n = dissolveCtr(doc, id);
+  toast(`Contorno disuelto: ${n} elementos siguen en el dibujo`);
+  afterChange();
+}
+function treeDeleteCtr(id) {
+  pushUndo();
+  deleteCtrAndMembers(doc, id);
+  sel = sel.filter(exists);
+  solve(doc, []);
+  afterChange();
+}
+$('treeGroup').onclick = () => groupAsCtr(sel);
 function treeToggleFix(id) {
   const p = doc.pts[id]; if (!p) return;
   pushUndo(); p.fixed = !p.fixed; afterChange();

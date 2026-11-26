@@ -29,6 +29,8 @@ import listTree from 'lucide-static/icons/list-tree.svg?raw';
 import help from 'lucide-static/icons/circle-help.svg?raw';
 import copy from 'lucide-static/icons/copy.svg?raw';
 import paste from 'lucide-static/icons/clipboard-paste.svg?raw';
+import ctrGroup from 'lucide-static/icons/group.svg?raw';
+import ctrDissolve from 'lucide-static/icons/link-2-off.svg?raw';
 
 const S = (inner) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 
@@ -113,7 +115,7 @@ const custom = {
   labels: S('<path d="M4 7h16M4 12h10M4 17h16"/>'),
 };
 
-const generic = { gear: cog, undo, redo, trash, fit, grid, magnet, eye, 'eye-off': eyeOff, layers, props: settings2, hand, save, 'folder-open': folderOpen, 'file-plus': filePlus, image, download, lock, equal, select: pointer, circle, ruler, 'pencil-ruler': pencilRuler, menu, unlock, 'list-tree': listTree, help, copy, paste };
+const generic = { 'ctr-group': ctrGroup, 'ctr-dissolve': ctrDissolve, gear: cog, undo, redo, trash, fit, grid, magnet, eye, 'eye-off': eyeOff, layers, props: settings2, hand, save, 'folder-open': folderOpen, 'file-plus': filePlus, image, download, lock, equal, select: pointer, circle, ruler, 'pencil-ruler': pencilRuler, menu, unlock, 'list-tree': listTree, help, copy, paste };
 
 function clean(raw) {
   // quita comentarios de licencia y atributos de tamano; el CSS fija el tamano

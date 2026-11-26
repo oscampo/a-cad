@@ -1,6 +1,6 @@
 // Arbol de elementos del documento (sin DOM): cada elemento con sus puntos y sus relaciones.
 import { dist } from './geom.js';
-import { conRefs, conTag } from './model.js';
+import { conRefs, conTag, ctrMembers, ctrName } from './model.js';
 import { dimValue, dimText, DIAM } from './dims.js';
 
 const f = (v, d = 2) => String(Math.round(v * 10 ** d) / 10 ** d);
@@ -52,13 +52,15 @@ export const conCategory = (k) => (k.hidden ? 'auto' : DIM_T.has(k.t) ? 'dim' : 
 // lugar sin nada que los ate (loose: cuantas uniones asi tiene el contorno). Cada grupo conectado
 // de dos o mas elementos es un contorno: cerrado si cada nudo junta exactamente dos extremos, ramificado si alguno junta
 // tres o mas, abierto si no. Devuelve [{ items: [{k,id}] en el orden en que se recorren, closed, branched, loose, gap? }].
-export function contours(doc) {
+// Con { only: Set de ids } solo se miran esos elementos (los miembros de un grupo de contorno); con { exclude: Set } se dejan fuera (los ya agrupados).
+export function contours(doc, { only = null, exclude = null } = {}) {
   const solid = (o) => o.ltype !== 'constructiva';
+  const keep = (id) => (!only || only.has(id)) && !(exclude && exclude.has(id));
   const edges = [];
-  for (const [id, l] of Object.entries(doc.lines)) if (solid(l) && !l.vec) edges.push({ k: 'ln', id, ends: [l.a, l.b] });
-  for (const [id, a] of Object.entries(doc.arcs)) if (solid(a)) edges.push({ k: 'ar', id, ends: [a.a, a.b] });
-  for (const [id, e] of Object.entries(doc.ellipses || {})) if (solid(e) && e.p1 && e.p2) edges.push({ k: 'el', id, ends: [e.p1, e.p2] });
-  for (const [id, sp] of Object.entries(doc.splines || {})) if (solid(sp) && !sp.closed && sp.pts.length > 1) edges.push({ k: 'sp', id, ends: [sp.pts[0], sp.pts[sp.pts.length - 1]] });
+  for (const [id, l] of Object.entries(doc.lines)) if (keep(id) && solid(l) && !l.vec) edges.push({ k: 'ln', id, ends: [l.a, l.b] });
+  for (const [id, a] of Object.entries(doc.arcs)) if (keep(id) && solid(a)) edges.push({ k: 'ar', id, ends: [a.a, a.b] });
+  for (const [id, e] of Object.entries(doc.ellipses || {})) if (keep(id) && solid(e) && e.p1 && e.p2) edges.push({ k: 'el', id, ends: [e.p1, e.p2] });
+  for (const [id, sp] of Object.entries(doc.splines || {})) if (keep(id) && solid(sp) && !sp.closed && sp.pts.length > 1) edges.push({ k: 'sp', id, ends: [sp.pts[0], sp.pts[sp.pts.length - 1]] });
   if (edges.length < 2) return [];
   // puntos atados por COI: union-find en una sola pasada por las relaciones
   const up = new Map();
@@ -138,6 +140,16 @@ export function contours(doc) {
   return out;
 }
 
+// Estado de un grupo de contorno: sus miembros y si forman UNA cadena conectada (comp: el contorno medido, con closed/branched/loose/gap) o varias partes.
+// El grupo es una declaracion del usuario; que este conectado se mide aqui cada vez (un grupo puede estar abierto, o romperse al mover algo).
+export function ctrState(doc, id) {
+  const members = ctrMembers(doc, id);
+  const cs = contours(doc, { only: new Set(members.map((m) => m.id)) });
+  const covered = cs.reduce((s, c) => s + c.items.length, 0);
+  const parts = cs.length + (members.length - covered); // un miembro suelto cuenta como una parte
+  return { members, parts, comp: parts === 1 && cs.length === 1 ? cs[0] : null };
+}
+
 // Nodo: { key, label, sel?: {k,id}, con?: id, lock?: boolean|undefined, link?: true, sub?: true, group?: true, children?: [] }
 // Cada cosa tiene un solo lugar propio en el arbol; en los demas aparece como enlace (link: true, sin hijos).
 // - Una relacion vive en «Relaciones y cotas»; bajo un elemento hay una sola fila «Relaciones (n)» con enlaces.
@@ -207,6 +219,10 @@ export function buildTree(doc, { by = 'type' } = {}) {
     n.children = compact([relsNode(`sp:${id}`, [id, ...ownedPts('sp', id, s.pts)]), { key: `spp:${id}`, sub: true, label: `Puntos de control (${s.pts.length})`, children: compact(s.pts.map((p) => ptNode(p, '', 'sp', id))) }]);
     return n;
   });
+  // miembros de un grupo de contorno: viven bajo su grupo (en «Contornos»), no en su tipo (una cosa, un lugar)
+  const ctrIds = Object.keys(doc.ctrs || {});
+  const memberIds = new Set();
+  for (const cid of ctrIds) for (const m of ctrMembers(doc, cid)) memberIds.add(m.id);
   const ellipses = Object.entries(doc.ellipses || {}).map(([id, e]) => elem('el', id, `${e.p1 && e.p2 ? 'Arco elíptico' : 'Elipse'} ${id}`,
     [[e.c, 'Centro:'], [e.a, 'Eje 1:'], [e.b, 'Eje 2:'], ...(e.p1 && e.p2 ? [[e.p1, 'Inicio:'], [e.p2, 'Fin:']] : [])]));
   const texts = Object.entries(doc.texts || {}).map(([id, t]) => ({
@@ -217,8 +233,10 @@ export function buildTree(doc, { by = 'type' } = {}) {
   // solo los puntos sueltos: los que tienen dueño cuelgan de el (los de control, de su spline)
   const pts = Object.entries(doc.pts).filter(([id, p]) => !p.splOnly && !owner.has(id)).map(([id]) => ptNode(id));
   // grupos por tipo de los elementos que pueden tener capa: [clave, nombre, nodos, coleccion del documento]
-  const LAYERED = [['g:ln', 'Líneas', lines, 'lines'], ['g:ci', 'Círculos', circles, 'circles'], ['g:ar', 'Arcos', arcs, 'arcs'], ['g:el', 'Elipses', ellipses, 'ellipses'],
-    ['g:sp', 'Splines', splines, 'splines'], ['g:tx', 'Textos', texts, 'texts'], ['g:ha', 'Rellenos', hatches, 'hatches'], ['g:pt', 'Puntos sueltos', pts, 'pts']];
+  const free = (a) => a.filter((n) => !memberIds.has(n.sel.id));
+  const byEl = new Map([...lines, ...arcs, ...splines, ...ellipses].map((n) => [n.sel.id, n]));
+  const LAYERED = [['g:ln', 'Líneas', free(lines), 'lines'], ['g:ci', 'Círculos', circles, 'circles'], ['g:ar', 'Arcos', free(arcs), 'arcs'], ['g:el', 'Elipses', free(ellipses), 'ellipses'],
+    ['g:sp', 'Splines', free(splines), 'splines'], ['g:tx', 'Textos', texts, 'texts'], ['g:ha', 'Rellenos', hatches, 'hatches'], ['g:pt', 'Puntos sueltos', pts, 'pts']];
   const layOf = (coll, n) => { const l = doc[coll]?.[n.sel.id]?.layer; return l && doc.layers?.[l] ? l : null; };
   const typeGroups = (inLayer) => LAYERED.map(([key, label, items, coll]) => group(key, label, inLayer ? items.filter((n) => layOf(coll, n) === inLayer.id) : items));
 
@@ -265,17 +283,26 @@ export function buildTree(doc, { by = 'type' } = {}) {
   // abertura con tres cifras significativas (0.0143), con quien: el otro contorno, o «entre sus extremos» si casi se cierra solo
   const gapText = (c, i) => (c.gap ? ` · abertura ${Number(c.gap.d.toPrecision(3))} ${c.gap.with === i ? 'entre sus extremos' : `con el ${c.gap.with + 1}`}` : '');
   const KN = { ln: ['línea', 'líneas'], ar: ['arco', 'arcos'], el: ['arco elíptico', 'arcos elípticos'], sp: ['spline', 'splines'] };
-  const ctNodes = contours(doc).map((c, i) => {
+  const ctNodes = contours(doc, { exclude: memberIds }).map((c, i) => {
     const cnt = {}; for (const it of c.items) cnt[it.k] = (cnt[it.k] || 0) + 1;
     const what = Object.entries(cnt).map(([k, n]) => `${n} ${KN[k][n > 1 ? 1 : 0]}`).join(', ');
     return {
-      key: `ct:${c.items[0].k}:${c.items[0].id}`, selMany: c.items,
+      key: `ct:${c.items[0].k}:${c.items[0].id}`, selMany: c.items, ctrFrom: c.items, // ctrFrom: se puede agrupar (boton «Agrupar» de la fila)
       // el aviso va antes de la composicion: en el panel angosto la etiqueta se corta por el final
       label: `Contorno ${i + 1} · ${c.closed ? 'cerrado' : c.branched ? 'ramificado' : 'abierto'}${gapText(c, i)}${c.loose ? ` · ${c.loose} ${c.loose > 1 ? 'uniones' : 'unión'} sin restricción` : ''} · ${what}`,
       children: c.items.map((it) => ({ key: `lk:${it.k}:${it.id}`, label: `↗ ${KIND_NAME[it.k]} ${it.id}`, sel: it, link: true })),
     };
   });
-  const rest = [group('g:ct', 'Contornos', ctNodes), group('g:ac', 'Actuadores', acts), group('g:gr', 'Gráficas', graphs), { key: 'g:co', label: `Relaciones y cotas (${nCons})`, group: true, children: cons }, group('g:tr', 'Trazados', traces)];
+  // grupos de contorno: sus miembros cuelgan de ellos, con todo lo suyo (puntos, relaciones); el estado se mide (cerrado, abierto, abertura, desconectado)
+  const ctrNodes = ctrIds.map((cid) => {
+    const st = ctrState(doc, cid);
+    const cnt = {}; for (const m of st.members) cnt[m.k] = (cnt[m.k] || 0) + 1;
+    const what = Object.entries(cnt).map(([k, n]) => `${n} ${KN[k][n > 1 ? 1 : 0]}`).join(', ');
+    const c = st.comp;
+    const state = c ? `${c.closed ? 'cerrado' : c.branched ? 'ramificado' : 'abierto'}${gapText(c, 0)}${c.loose ? ` · ${c.loose} ${c.loose > 1 ? 'uniones' : 'unión'} sin restricción` : ''}` : `desconectado (${st.parts} ${st.parts > 1 ? 'partes' : 'parte'})`;
+    return { key: `ctr:${cid}`, ctr: cid, selMany: st.members, label: `Contorno ${ctrName(doc, cid)} · ${state} · ${what}`, children: st.members.map((m) => byEl.get(m.id)).filter(Boolean) };
+  });
+  const rest = [group('g:ct', 'Contornos', [...ctrNodes, ...ctNodes]), group('g:ac', 'Actuadores', acts), group('g:gr', 'Gráficas', graphs), { key: 'g:co', label: `Relaciones y cotas (${nCons})`, group: true, children: cons }, group('g:tr', 'Trazados', traces)];
   const nonEmpty = (a) => a.filter((g) => g.children.length);
   if (by !== 'layer' || !Object.keys(doc.layers || {}).length) return nonEmpty([...typeGroups(null), ...rest]);
   // por capa: todas las capas (tambien las vacias, para verlas y encenderlas) y «Sin capa» si tiene algo

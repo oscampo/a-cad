@@ -1,4 +1,4 @@
-<!-- es: 3088837abc -->
+<!-- es: 12c5aa3971 -->
 # 10. Style, layers and view
 
 Color, line type, width and fills; layers; what the view shows; and the element tree.
@@ -115,6 +115,18 @@ The **Outlines** group joins the lines and arcs with stroke (not construction), 
 **Selecting.** Tapping an outline selects all its elements; inside it they appear as links, in the order they are traversed.
 
 **Gap.** If a free end is near another (within 1 % of the drawing size), the outline says how large that **gap** is and with which outline ("gap 0.0143 with 2"), or "between its ends" if it almost closes by itself. This is the typical reason a profile that should be closed comes out open.
+
+### Grouping an outline
+
+A detected outline can be **grouped**: the *Group into a contour* button on its row creates an **outline group** (`k1`, `k2`…) with its elements. You can also select stroke elements and use the group button in the tree header.
+
+A group is a declaration of yours: its lines and arcs now live **under it**, in "Outlines" (and leave "Lines" and "Arcs"), with everything that belongs to them. The row shows its state, measured every time: "closed", "open · gap 0.05 between its ends", or "disconnected (2 parts)" if the members do not form a chain. You can group elements even if they are not connected and look at the state afterwards.
+
+- Tapping the group selects all its elements.
+- **Dissolve** (*Dissolve the contour*): the elements stay where they were, without a group, and go back to "Lines" and "Arcs".
+- **Delete** (the trash can): deletes the group **and** its elements.
+- An element is in only one group. A circle, a vector, a construction element or a closed spline cannot join.
+- Copy, paste and the arrays do **not** copy the group; splitting an element leaves the pieces in the group. If a group is left with fewer than two elements, it disappears on its own.
 
 ---
 
