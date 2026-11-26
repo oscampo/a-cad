@@ -150,7 +150,7 @@ function tokenize(src, vars = null, loose = false) {
       if (j >= src.length) { if (loose) { i = src.length; continue; } throw new Error('Falta cerrar una cadena (")'); }
       toks.push({ t: 'str', v: out, i, j: j + 1 }); i = j + 1; continue;
     }
-    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || last.t === 'ufn' || last.t === 'str' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'idx') || last.t === 'unit' || (last.t === 'op' && (last.v === ')' || last.v === ']')));
+    const last = toks[toks.length - 1], afterValue = !!last && (last.t === 'num' || last.t === 'var' || last.t === 'ufn' || last.t === 'str' || last.t === 'dpt' || (last.t === 'id' && last.v in CONSTS) || (last.t === 'idx') || last.t === 'unit' || (last.t === 'op' && (last.v === ')' || last.v === ']')));
     // separador de argumentos: «;», o una coma tras un valor («max(a, 5)»); «2,5» ya lo tomo el numero como decimal
     if (c === ';' || (c === ',' && afterValue && decimalMode() !== ',')) { // con coma decimal la coma no separa: los argumentos van con «;»
       toks.push({ t: 'sep', c, d: depth, i, j: i + 1 }); i++; continue; }

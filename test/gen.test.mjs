@@ -567,4 +567,19 @@ t('evalExpr: nombre.miembro.propiedad con propiedades de una y de varias letras'
   for (const [e, want] of [['r.s.L', 5], ['r.s.len', 5], ['r.s.ang', 1], ['r.s.len + 1', 6]]) assert.equal(evalExpr(e, { vars, allowMat: true, allowCplx: true }).value, want, e);
 });
 
+t('un punto del dibujo como primer argumento de una funcion propia admite la coma como separador (f(p5, 30, 10))', () => {
+  const d = newDoc();
+  const P = addPoint(d, 5, 5);
+  addText(d, addPoint(d, 0, 100), '%caja(p, w, h):\n  q:point(p.x+w, p.y)\n  r:point(p.x+w, p.y+h)\n  s1:line(p, q)\n  s2:line(q, r)', {});
+  const calls = [`k:caja(${P}, 30, 10)`, `k:caja(${P}; 30; 10)`];
+  for (const call of calls) {
+    const dd = JSON.parse(JSON.stringify(d));
+    addText(dd, addPoint(dd, 0, 50), '$$' + call + '$$', {});
+    const st = textVars(dd), r = regenerate(dd);
+    assert.deepEqual([...st.errs], [], call);
+    assert.deepEqual(r.errs, [], call);
+    assert.equal(Object.keys(dd.lines).length, 2, call);
+  }
+});
+
 console.log(`${passed} pruebas de dibujo generado`);
