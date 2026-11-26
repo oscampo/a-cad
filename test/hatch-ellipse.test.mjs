@@ -37,6 +37,15 @@ t('una elipse completa es un contorno por si sola', () => {
   assert.ok(Math.abs(area(L[0].pts) - Math.PI * 50) < 1);
 });
 
+t('una arista dibujada dos veces no deja el lazo sin cerrar ni agrega una cuña', () => {
+  const { d, ids } = halfEllipse(true);
+  const e = d.ellipses[ids[0]];
+  const e2 = addEllipse(d, e.c, e.a, e.b, {}, e.p1, e.p2); // la misma elipse otra vez
+  const L = hatchLoops(d, { ids: [...ids, e2] });
+  assert.equal(L.length, 1);
+  assert.ok(Math.abs(area(L[0].pts) - (Math.PI * 10 * 5) / 2) < 0.2, String(area(L[0].pts)));
+});
+
 t('limpiar y la vista conservan la elipse en el relleno', () => {
   const { d, ids } = halfEllipse(true);
   d.hatches.h1 = { ids: [...ids], kind: 'solid', angle: 45, spacing: 8, alpha: 0.2, color: 'auto' };

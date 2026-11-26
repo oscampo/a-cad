@@ -464,6 +464,14 @@ export function hatchLoops(doc, h) {
     return fwd ? smp.slice(1) : smp.slice(0, -1).reverse();
   };
   const pt = (x) => (typeof x === 'string' ? doc.pts[x] && { x: doc.pts[x].x, y: doc.pts[x].y } : x);
+  // dos aristas iguales (mismos extremos y misma forma, p. ej. una elipse dibujada dos veces) cuentan una vez:
+  // si no, la segunda se recorre de vuelta y deja el lazo sin cerrar
+  const seen = new Set();
+  for (const id of edges) {
+    const [ea, eb] = ends(id), w = walk(id, ea), m = w[Math.floor(w.length / 2)], mp = typeof m === 'string' ? doc.pts[m] : m;
+    const sig = [K(ea), K(eb)].sort().join('|') + '|' + (mp ? `${Math.round(mp.x * 1e3)},${Math.round(mp.y * 1e3)}` : '');
+    if (seen.has(sig)) used.add(id); else seen.add(sig);
+  }
   for (const start of edges) {
     if (used.has(start)) continue;
     used.add(start);
@@ -471,6 +479,7 @@ export function hatchLoops(doc, h) {
     const seq = [sa, ...walk(start, sa)];
     let cur = ends(start)[1];
     for (;;) {
+      if (K(cur) === K(sa)) break; // el lazo ya se cerro
       const next = (byPoint.get(K(cur)) || []).find((i) => !used.has(i));
       if (!next) break;
       used.add(next);
