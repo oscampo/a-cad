@@ -140,6 +140,19 @@ export function contours(doc, { only = null, exclude = null } = {}) {
   return out;
 }
 
+// abertura con tres cifras significativas (0.0143), con quien: el otro contorno, o «entre sus extremos» si casi se cierra solo
+const gapText = (c, i) => (c.gap ? ` · abertura ${Number(c.gap.d.toPrecision(3))} ${c.gap.with === i ? 'entre sus extremos' : `con el ${c.gap.with + 1}`}` : '');
+const KN = { ln: ['línea', 'líneas'], ar: ['arco', 'arcos'], el: ['arco elíptico', 'arcos elípticos'], sp: ['spline', 'splines'] };
+// El texto de un grupo de contorno: su estado medido («cerrado», «abierto · abertura 0.05 entre sus extremos», «desconectado (2 partes)») y su composicion («4 líneas»).
+export function ctrDescribe(doc, id) {
+  const st = ctrState(doc, id), cnt = {};
+  for (const m of st.members) cnt[m.k] = (cnt[m.k] || 0) + 1;
+  const what = Object.entries(cnt).map(([k, n]) => `${n} ${KN[k][n > 1 ? 1 : 0]}`).join(', ');
+  const c = st.comp;
+  const state = c ? `${c.closed ? 'cerrado' : c.branched ? 'ramificado' : 'abierto'}${gapText(c, 0)}${c.loose ? ` · ${c.loose} ${c.loose > 1 ? 'uniones' : 'unión'} sin restricción` : ''}` : `desconectado (${st.parts} ${st.parts > 1 ? 'partes' : 'parte'})`;
+  return { state, what, members: st.members };
+}
+
 // Estado de un grupo de contorno: sus miembros y si forman UNA cadena conectada (comp: el contorno medido, con closed/branched/loose/gap) o varias partes.
 // El grupo es una declaracion del usuario; que este conectado se mide aqui cada vez (un grupo puede estar abierto, o romperse al mover algo).
 export function ctrState(doc, id) {
@@ -281,8 +294,6 @@ export function buildTree(doc, { by = 'type' } = {}) {
   const graphs = Object.entries(doc.graphs || {}).map(([id, g]) => ({ key: `gr:${id}`, act: id, label: `Gráfica ${id} · ${(g.series || []).join(', ') || 'sin relaciones'}` }));
   // contornos: el contorno selecciona todos sus elementos; dentro, sus elementos como enlaces en el orden del recorrido
   // abertura con tres cifras significativas (0.0143), con quien: el otro contorno, o «entre sus extremos» si casi se cierra solo
-  const gapText = (c, i) => (c.gap ? ` · abertura ${Number(c.gap.d.toPrecision(3))} ${c.gap.with === i ? 'entre sus extremos' : `con el ${c.gap.with + 1}`}` : '');
-  const KN = { ln: ['línea', 'líneas'], ar: ['arco', 'arcos'], el: ['arco elíptico', 'arcos elípticos'], sp: ['spline', 'splines'] };
   const ctNodes = contours(doc, { exclude: memberIds }).map((c, i) => {
     const cnt = {}; for (const it of c.items) cnt[it.k] = (cnt[it.k] || 0) + 1;
     const what = Object.entries(cnt).map(([k, n]) => `${n} ${KN[k][n > 1 ? 1 : 0]}`).join(', ');
@@ -295,12 +306,8 @@ export function buildTree(doc, { by = 'type' } = {}) {
   });
   // grupos de contorno: sus miembros cuelgan de ellos, con todo lo suyo (puntos, relaciones); el estado se mide (cerrado, abierto, abertura, desconectado)
   const ctrNodes = ctrIds.map((cid) => {
-    const st = ctrState(doc, cid);
-    const cnt = {}; for (const m of st.members) cnt[m.k] = (cnt[m.k] || 0) + 1;
-    const what = Object.entries(cnt).map(([k, n]) => `${n} ${KN[k][n > 1 ? 1 : 0]}`).join(', ');
-    const c = st.comp;
-    const state = c ? `${c.closed ? 'cerrado' : c.branched ? 'ramificado' : 'abierto'}${gapText(c, 0)}${c.loose ? ` · ${c.loose} ${c.loose > 1 ? 'uniones' : 'unión'} sin restricción` : ''}` : `desconectado (${st.parts} ${st.parts > 1 ? 'partes' : 'parte'})`;
-    return { key: `ctr:${cid}`, ctr: cid, selMany: st.members, label: `Contorno ${ctrName(doc, cid)} · ${state} · ${what}`, children: st.members.map((m) => byEl.get(m.id)).filter(Boolean) };
+    const { state, what, members } = ctrDescribe(doc, cid);
+    return { key: `ctr:${cid}`, ctr: cid, selMany: members, label: `Contorno ${ctrName(doc, cid)} · ${state} · ${what}`, children: members.map((m) => byEl.get(m.id)).filter(Boolean) };
   });
   const rest = [group('g:ct', 'Contornos', [...ctrNodes, ...ctNodes]), group('g:ac', 'Actuadores', acts), group('g:gr', 'Gráficas', graphs), { key: 'g:co', label: `Relaciones y cotas (${nCons})`, group: true, children: cons }, group('g:tr', 'Trazados', traces)];
   const nonEmpty = (a) => a.filter((g) => g.children.length);

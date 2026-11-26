@@ -43,7 +43,7 @@ import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from
 import { iconSvg, ICONS } from './icons.js';
 import { setIconSource } from './iconpaths.js';
 setIconSource(ICONS); // los iconos de la app que un texto puede mostrar: ![Linea](icon:line)
-import { buildTree, kindOf, conLabel } from './tree.js';
+import { buildTree, kindOf, conLabel, ctrDescribe } from './tree.js';
 import { cleanFileBase } from './files.js';
 import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProblem, libFileName, libPayload, legacyLibPath, newLibPath } from './library.js';
 import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX, imgRect, syncImages, ensureImagePoints, anchorPoint } from './images.js';
@@ -430,6 +430,7 @@ function renderTree() {
     if (n.sel && !n.link && !String(n.key).startsWith('tr:')) act(iconSvg('trash'), 'Borrar', () => treeDelete(n.sel));
     if (n.ctrFrom) act(iconSvg('ctr-group'), 'Agrupar en un contorno', () => groupAsCtr(n.ctrFrom)); // un contorno detectado
     if (n.ctr) { // un grupo de contorno: disolver (los elementos se quedan) o borrarlo con sus elementos
+      act(iconSvg('props'), 'Propiedades del contorno', () => { sel = ctrMembers(doc, n.ctr).filter(exists); draw(); openProps({ k: 'ct', id: n.ctr }); });
       act(iconSvg('ctr-dissolve'), 'Disolver el contorno (los elementos se quedan)', () => treeDissolveCtr(n.ctr));
       act(iconSvg('trash'), 'Borrar el contorno y sus elementos', () => treeDeleteCtr(n.ctr));
     }
@@ -5475,8 +5476,8 @@ $('dlgY').addEventListener('keydown', (e) => {
 $('tLayers').onclick = () => { renderLayers(); $('dlgY').showModal(); };
 
 // ---------------------------------------------------------------- ventana de propiedades (doble toque)
-const PROP_NAMES = { pt: 'Punto', ln: 'Línea', ci: 'Círculo', ar: 'Arco', el: 'Elipse', sp: 'Spline', tx: 'Texto', ha: 'Relleno' };
-const PROP_COLL = { pt: 'pts', ln: 'lines', ci: 'circles', ar: 'arcs', el: 'ellipses', sp: 'splines', tx: 'texts', ha: 'hatches' };
+const PROP_NAMES = { pt: 'Punto', ln: 'Línea', ci: 'Círculo', ar: 'Arco', el: 'Elipse', sp: 'Spline', tx: 'Texto', ha: 'Relleno', ct: 'Contorno' }; // ct: un grupo de contorno (doc.ctrs), desde el arbol
+const PROP_COLL = { pt: 'pts', ln: 'lines', ci: 'circles', ar: 'arcs', el: 'ellipses', sp: 'splines', tx: 'texts', ha: 'hatches', ct: 'ctrs' };
 let propT = null;
 const propObj = () => (propT ? doc[PROP_COLL[propT.k]]?.[propT.id] : null);
 function pointOwned(id) {
@@ -5613,6 +5614,25 @@ function relaxMarks() {
   if (r.ok) trackAngles(doc);
 }
 
+// Propiedades de un grupo de contorno: su nombre (el que muestra el arbol; sin nombre, su id), su estado medido y sus elementos, con las acciones del grupo.
+function openCtrProps(id, body) {
+  const o = doc.ctrs[id];
+  const nm = document.createElement('input');
+  nm.type = 'text'; nm.value = o.name || ''; nm.placeholder = id; nm.maxLength = 40;
+  nm.onchange = () => propSet((x) => { const v = nm.value.trim(); if (v) x.name = v; else delete x.name; });
+  body.appendChild(propRow('Nombre', nm));
+  const d = ctrDescribe(doc, id);
+  const info = (label, text) => { const s = document.createElement('span'); s.textContent = text; s.style.cssText = 'flex:2 1 200px'; return propRow(label, s); };
+  body.appendChild(info('Estado', d.state));
+  body.appendChild(info('Elementos', d.what));
+  const mkb = (text, title, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.title = title; b.onclick = fn; return b; };
+  body.appendChild(propRow('',
+    mkb('Seleccionar', 'Selecciona todos los elementos del contorno', () => { $('dlgR').close(); sel = ctrMembers(doc, id).filter(exists); afterChange(); }),
+    mkb('Disolver', 'Disuelve el contorno: los elementos se quedan sin grupo', () => { $('dlgR').close(); treeDissolveCtr(id); }),
+    mkb('Borrar con sus elementos', 'Borra el contorno y todos sus elementos', () => { $('dlgR').close(); treeDeleteCtr(id); })));
+  $('prCons').textContent = ''; $('prAdd').textContent = ''; $('prConsH').style.display = 'none'; // un grupo no tiene restricciones propias
+  if (!$('dlgR').open) $('dlgR').showModal();
+}
 function openProps(h) {
   tapLog(`props:${h.k}${h.id}`);
   propT = { k: h.k, id: h.id };
@@ -5622,6 +5642,7 @@ function openProps(h) {
   const body = $('prBody');
   body.textContent = '';
   const k = h.k;
+  if (k === 'ct') { openCtrProps(h.id, body); return; }
   // capa (un punto que forma parte de un elemento sigue la capa de ese elemento)
   if (k !== 'pt' || !pointOwned(h.id)) {
     const lopts = [['', 'Ninguna'], ...Object.entries(doc.layers || {}).map(([id, l]) => [id, l.name + (l.on ? '' : ' (apagada)')])];

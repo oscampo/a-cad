@@ -122,6 +122,7 @@ Un contorno detectado se puede **agrupar**: el botón *Agrupar en un contorno* d
 Un grupo es una declaración tuya: sus líneas y arcos pasan a vivir **bajo él**, en «Contornos» (y salen de «Líneas» y «Arcos»), con todo lo suyo. La fila dice su estado, que se mide cada vez: «cerrado», «abierto · abertura 0.05 entre sus extremos», o «desconectado (2 partes)» si los miembros no forman una cadena. Puedes agrupar elementos aunque no estén conectados y mirar luego el estado.
 
 - Tocar el grupo selecciona todos sus elementos.
+- **Propiedades** (el botón de la fila): el **nombre** del grupo, que es el que muestra el árbol (sin nombre, su id), su estado y sus elementos; desde ahí también puedes seleccionar, disolver o borrar.
 - **Disolver** (*Disolver el contorno*): los elementos se quedan donde estaban, sin grupo, y vuelven a «Líneas» y «Arcos».
 - **Borrar** (la papelera): borra el grupo **y** sus elementos.
 - Un elemento está en un solo grupo. Un círculo, un vector, un elemento constructivo o una spline cerrada no entran.

@@ -1,4 +1,4 @@
-<!-- es: 12c5aa3971 -->
+<!-- es: af8d047e80 -->
 # 10. Style, layers and view
 
 Color, line type, width and fills; layers; what the view shows; and the element tree.
@@ -123,6 +123,7 @@ A detected outline can be **grouped**: the *Group into a contour* button on its 
 A group is a declaration of yours: its lines and arcs now live **under it**, in "Outlines" (and leave "Lines" and "Arcs"), with everything that belongs to them. The row shows its state, measured every time: "closed", "open · gap 0.05 between its ends", or "disconnected (2 parts)" if the members do not form a chain. You can group elements even if they are not connected and look at the state afterwards.
 
 - Tapping the group selects all its elements.
+- **Properties** (the row button): the group's **name**, which is what the tree shows (without a name, its id), its state and its elements; from there you can also select, dissolve or delete.
 - **Dissolve** (*Dissolve the contour*): the elements stay where they were, without a group, and go back to "Lines" and "Arcs".
 - **Delete** (the trash can): deletes the group **and** its elements.
 - An element is in only one group. A circle, a vector, a construction element or a closed spline cannot join.
