@@ -122,10 +122,10 @@ const conFor = (v) => (v.k === 'ln' ? 'PONL' : v.k === 'sp' ? 'PONS' : v.k === '
 // la poligonal en el spline). tol: tolerancia de esos cortes (los de un spline salen de su poligonal).
 export function curveCuts(doc, kind, id) {
   const raw = [];
-  let total, closed, tol = TOL, sOf, P = null, cum = null;
+  let total, closed, tol = TOL, sOf, P = null, cum = null, R0 = 0;
   if (kind === 'el') {
     const e = doc.ellipses[id], g = ellipseOf(doc, e), { t0, sweep } = ellipseRange(doc, e, g), R = Math.max(g.ra, g.rb);
-    closed = !isPartial(e); total = sweep * R;
+    closed = !isPartial(e); total = sweep * R; R0 = R;
     sOf = (p) => norm(ellipseParam(g, p) - t0) * R;
   } else {
     const sp = doc.splines[id];
@@ -146,7 +146,17 @@ export function curveCuts(doc, kind, id) {
       const c = o.k === 'ci' ? doc.circles[o.id] : doc.arcs[o.id], C = doc.pts[c.c];
       hits = kind === 'el' ? circleHits(doc, C, c.r, self) : polylineCircle(mine, C, c.r);
       if (o.k === 'ar') { const ga = arcOf(doc, c); hits = hits.filter((p) => inSweep(C, ga.a0, ga.sweep, p, tol / Math.max(c.r, 1e-9))); }
-    } else hits = polylinePolyline(mine, polyOf(doc, o));
+    } else {
+      const Q = polyOf(doc, o);
+      hits = polylinePolyline(mine, Q);
+      // los extremos de un arco eliptico o de un spline abierto que tocan esta curva tambien la cortan: al recortar una
+      // elipse, el arco que queda termina justo en el cruce, y la poligonal no siempre lo marca como cruce
+      const open = o.k === 'el' ? isPartial(doc.ellipses[o.id]) : !(doc.splines[o.id].closed && doc.splines[o.id].pts.length >= 3);
+      if (open && Q.length > 1) {
+        const tolEnd = kind === 'el' ? Math.max(tol, 1e-4 * R0) : tol; // la poligonal de la elipse se aparta de ella hasta ~4e-5 de su semieje mayor
+        for (const q of [Q[0], Q[Q.length - 1]]) { const f = closestOnPolyline(mine, q); if (f && f.d <= tolEnd) hits.push({ x: q.x, y: q.y }); }
+      }
+    }
     for (const p of hits) {
       const sv = sOf(p);
       if (!closed && (sv <= tol || total - sv <= tol)) continue;

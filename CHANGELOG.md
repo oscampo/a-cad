@@ -39,6 +39,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 
 ### Corregido
 
+- Recortar: **dos elipses que se cruzan ya se pueden recortar una tras otra**. Al quitar un tramo de la primera, su arco restante termina justo en el cruce, y la segunda no lo contaba como corte: se quedaba con menos de dos y recortarla la borraba entera. Ahora los extremos de un arco eliptico o de un spline abierto que tocan la curva cuentan como cortes.
 - Rellenos: el botón «Crear relleno» **se activaba solo con líneas, arcos, círculos o splines**: con una elipse sola seleccionada quedaba desactivado y no se podía rellenar. Ahora la cuenta.
 - Rellenos: **admiten arcos elípticos y elipses completas**, y **unen los extremos que coinciden en el plano aunque sean puntos distintos**. Una arista dibujada dos veces (por ejemplo una elipse repetida) cuenta una sola vez y el lazo se detiene al cerrarse: antes la copia se recorría de vuelta y el relleno salía con una cuña sin rellenar. Antes un relleno ignoraba los arcos elípticos (y la limpieza los sacaba de su lista), así que un contorno con ellos se cerraba con una cuerda recta y quedaban franjas mal rellenadas; y dos puntos duplicados en una esquina cortaban la cadena.
 - Árbol de elementos: los botones del encabezado con el atributo `hidden` («Agrupar por capa» sin capas, «Agrupar la selección») se veían siempre, porque `button { display: inline-flex }` le ganaba; ahora se ocultan como se pretendía.
