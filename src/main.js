@@ -18,7 +18,7 @@ import { trimAt, extendEnd, linearArray, mirrorCopy, circularArray, clipOf, past
 import { cornerOf, filletCorner, chamferCorner, maxFillet, filletBetween, chamferBetween, filletReach, cornerPair, coincidentIds } from './corners.js';
 import { rigidShape, looseShape, isRigid } from './rigid.js';
 import { STYLE_PROPS, styleState, applyStyleProp, styleObjects, layerState, applyLayer, layerObjects } from './smartstyle.js';
-import { regenerate, isGen, genOwners, releaseGen } from './gen.js';
+import { regenerate, isGen, genOwners, runGen, adoptGen, runLabel } from './gen.js';
 import { CLINE_STYLE, circleThrough3, addRectangle, polygonVertices, addPolygon, arcIsClockwise, constructionArcDash } from './shapes.js';
 import { layoutDim, dragDim, dimValue, dimScale, splitScale, splitLabel, lblIsMath, DIM_FS, dimH, ARROW, ARROW_HW, pointOnElement, endOfElement, leadBody, leadLabel, leadSpots, leadAtDefault, leadAnchorDefault, angSector, angTrue, initAngle, trackAngles, DIAM, diamGeom, dimUnit, isLenDim, dimShown, dimUnreadable } from './dims.js';
 import { makeVector, unmakeVector, syncVectors, vecArrow, revForHead } from './vectors.js';
@@ -326,7 +326,7 @@ function updateFileTag() {
 }
 // Dibujo generado por scripts (gen.js): los textos que llaman a point/line/circle se vuelven a leer tras cada cambio y lo generado se reconcilia
 // (posiciones, fijo, borrado); si algo cambio, el dibujo se vuelve a resolver con lo generado como ancla. El aviso sale una vez por mensaje.
-const GEN_MSG = 'Lo generó un script: se cambia en su texto (quita o edita la llamada que lo dibuja) o se suelta con el botón Soltar';
+const GEN_MSG = 'Lo generó un script en vivo: se cambia en su texto (quita o edita la llamada que lo dibuja) o pasa el texto a «Ejecución manual» en sus propiedades para dejarlo libre';
 let genBusy = false, lastGenMsg = '', statusOwner = null; // statusOwner: el texto que genero lo seleccionado (para ir a el desde la barra de estado)
 function regenGen() {
   if (genBusy) return;
@@ -1863,7 +1863,11 @@ function paintFrame(c, f, t, color, sc = view.s) {
     });
 }
 
+// Textos de ejecucion manual: su boton ▶ (centro y radio en pantalla), recogido al dibujar, para tocarlo.
+const playZones = [];
+const playZoneAt = (p) => { for (let i = playZones.length - 1; i >= 0; i--) { const z = playZones[i]; if (Math.hypot(p.x - z.x, p.y - z.y) <= z.r) return z; } return null; };
 function drawTexts(c, o) {
+  if (o.ui) playZones.length = 0;
   for (const [id, t] of shownEntries(doc, 'texts')) {
     const P = doc.pts[t.pt];
     if (!P || (o.ui && txState?.edit === id)) continue; // el que se edita en el lugar: la entrada ocupa su sitio
@@ -1880,6 +1884,17 @@ function drawTexts(c, o) {
     if (o.ui && isSel('tx', id)) {
       c.strokeStyle = theme.sel; c.lineWidth = 1.5 * dpr; c.setLineDash([5 * dpr, 3 * dpr]);
       c.strokeRect(f.xmin * sc * dpr, -f.ymax * sc * dpr, f.w * sc * dpr, f.hh * sc * dpr);
+    }
+    if (t.manual && o.ui) { // ejecucion manual: el texto va en un marco con un boton ▶ al final; dibuja solo al pulsarlo
+      const R = 13, bx = (f.xmin + f.w) * sc + 10 + R, by = (-f.ymax + f.hh / 2) * sc;
+      c.save(); c.setLineDash([4 * dpr, 3 * dpr]); c.strokeStyle = theme.accent; c.globalAlpha = 0.75; c.lineWidth = dpr;
+      c.strokeRect((f.xmin * sc - 4) * dpr, (-f.ymax * sc - 4) * dpr, (f.w * sc + 8) * dpr, (f.hh * sc + 8) * dpr);
+      c.restore();
+      c.save(); c.setLineDash([]); c.fillStyle = theme.accent; c.beginPath(); c.arc(bx * dpr, by * dpr, R * dpr, 0, Math.PI * 2); c.fill();
+      c.fillStyle = theme.bg; c.beginPath(); c.moveTo((bx - 4) * dpr, (by - 6) * dpr); c.lineTo((bx + 6) * dpr, by * dpr); c.lineTo((bx - 4) * dpr, (by + 6) * dpr); c.closePath(); c.fill();
+      c.restore();
+      const a = -(pose.ang * Math.PI) / 180;
+      playZones.push({ id, x: S.x + bx * Math.cos(a) - by * Math.sin(a), y: S.y + bx * Math.sin(a) + by * Math.cos(a), r: 20 });
     }
     c.restore();
   }
@@ -2380,7 +2395,20 @@ function gestureMove() {
 }
 
 function tapSelect(p) {
+  const pz = tool === 'select' && !sim ? playZoneAt(p) : null;
+  if (pz) { playText(pz.id); return; }
   if (tool === 'select') selectAt(p);
+}
+// Ejecuta una vez el texto de ejecucion manual: lo que pide se crea como elementos normales, en un grupo nuevo (cada pulsacion suma otro).
+function playText(id) {
+  if (!doc.texts[id]) return;
+  pushUndo();
+  const r = runGen(doc, id);
+  if (!r.ok) { rollback(); toast(r.errs[0] || r.notes[0] || 'No se pudo ejecutar'); draw(); return; }
+  if (r.group) sel = grpLeaves(doc, r.group).filter((s) => s.k !== 'pt');
+  toast(r.n === 1 ? 'Ejecutado: 1 elemento' : r.group ? `Ejecutado: ${r.n} elementos, en un grupo` : `Ejecutado: ${r.n} elementos`);
+  if (r.notes[0]) setTimeout(() => toast(r.notes[0]), 1800);
+  afterChange(); draw();
 }
 
 let pickResolve = null, pickKind = 'ln'; // si hay una promesa esperando, el siguiente toque elige una linea o un punto
@@ -2637,6 +2665,8 @@ function selPoints() {
 function toolDown(p) {
   hover = p;
   if (tool === 'select') {
+    const pz = !sim ? playZoneAt(p) : null;
+    if (pz) { drag = { p0: p, play: pz.id, started: true }; return; }
     const gz = !sim && fkOn('ac') ? graphCtlAt(p.x, p.y) : null;
     if (gz) { ctlDown(gz, p); return; }
     let gh = !sim && fkOn('ac') ? graphAt(p.x, p.y) : null;
@@ -2833,6 +2863,7 @@ function toolUp(p, q) {
   if (tool === 'mr' || tool === 'ml') { actTool(p); return; }
   if (tool === 'graph') { graphTool(p); return; }
   if (tool === 'select') {
+    if (d?.play) { if (dist(p, d.p0) < 10) playText(d.play); return; }
     if (d?.ctl) { ctlUp(d); return; }
     if (d?.gmove) {
       if (d.started) { if (Object.keys(d.orig).length) { recordTraces(doc, 2e-4); reparamSplines(doc); } afterChange(); return; }
@@ -4480,7 +4511,6 @@ function updateStatus(p) {
   statusOwner = null;
   { const ow = genOwners(doc, sel); if (ow.length) { statusOwner = ow[0]; txt += ` · generado por el texto ${ow.join(', ')} (toca aquí para verlo)`; } } // lo generado por un script: de que texto viene
   $('status').style.cursor = statusOwner ? 'pointer' : '';
-  $('statusRelease').hidden = !sel.some((s) => isGen(doc, s.id)); // Soltar: solo si lo seleccionado lo genero un script
   $('status').textContent = txt;
 }
 // Centra la vista en un texto (el que genero lo seleccionado, que puede estar fuera de lo que se ve).
@@ -4493,13 +4523,6 @@ function showText(id) {
   clampPage(); draw(); persist();
 }
 $('status').onclick = () => { if (statusOwner) showText(statusOwner); };
-$('statusRelease').onclick = () => {
-  if (!sel.some((s) => isGen(doc, s.id))) return;
-  pushUndo();
-  const n = releaseGen(doc, sel);
-  toast(n === 1 ? 'Soltado: ya es un elemento normal (el texto no cambia)' : `Soltados ${n} elementos: ya son normales (el texto no cambia)`);
-  afterChange();
-};
 
 // ---------------------------------------------------------------- archivo
 // Pide el nombre del archivo (Safari guarda sin preguntar). Devuelve el nombre completo o null si se cancela.
@@ -5988,6 +6011,18 @@ function openProps(h) {
     const shc = document.createElement('input');
     shc.type = 'checkbox'; shc.checked = !!o.open; shc.style.cssText = 'width:22px;height:22px;min-height:22px;margin:0;flex:none';
     shc.onchange = () => { pushUndo(); if (shc.checked) propObj().open = true; else delete propObj().open; afterChange(); };
+    if (!isScript(o.text) && !o.lib) { // ejecucion manual: ver gen.js (runGen / adoptGen)
+      const mn = document.createElement('input');
+      mn.type = 'checkbox'; mn.checked = !!o.manual; mn.style.cssText = 'width:22px;height:22px;min-height:22px;margin:0;flex:none';
+      mn.onchange = () => {
+        pushUndo();
+        const t = propObj();
+        if (mn.checked) { const n = adoptGen(doc, propT.id, runLabel(t.text)); t.manual = true; toast(n ? `Ejecución manual: lo que dibujaba en vivo (${n}) pasó a ser libre; el texto ya solo dibuja al pulsar ▶` : 'Ejecución manual: el texto dibuja solo al pulsar ▶, y lo dibujado queda libre'); }
+        else { delete t.manual; toast('Ejecución en vivo: el texto vuelve a dibujar y a gobernar lo suyo; lo que ejecutaste antes queda como objetos normales'); }
+        afterChange(); draw();
+      };
+      body.appendChild(propRow('Ejecución manual (▶ ejecuta el texto una vez y lo dibujado queda libre; si no, dibuja en vivo y no se puede soltar)', mn));
+    }
     if (isScript(o.text)) body.appendChild(propRow('Mostrar el código en el dibujo (si no, solo su nombre)', shc));
     else if (o.lib) body.appendChild(propRow('Mostrar sus nombres públicos en el dibujo (si no, solo su nombre)', shc));
     body.appendChild(propRow('Fuente', propSelect(FONTS.map((f) => [f[0], f[1]]), o.font || '', (v) => txSet('font', v))));

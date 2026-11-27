@@ -7,7 +7,7 @@
 import { setGenSink, GEN_RE } from './expr.js';
 import { textVars } from './params.js';
 import { calcStmts, calcParse } from './tvars.js';
-import { addPoint, addLine, addCircle, addArc, addEllipse, addSpline, allLtypes, deleteItems, nextId, dissolveCtr } from './model.js';
+import { addPoint, addLine, addCircle, addArc, addEllipse, addSpline, allLtypes, deleteItems, nextId, dissolveCtr, addGrp } from './model.js';
 
 const EPS = 1e-9;
 const DIM = new Set(['DIST', 'DISTPL', 'ANG', 'ANG4', 'RAD']);
@@ -44,7 +44,8 @@ export function genOwners(doc, sel) {
 
 // Lo que piden las llamadas, por texto. Llaves: «texto/nombre» (punto), «texto/a|b» (linea, sin orden), «texto/o:centro#i» (i-esimo circulo de
 // ese centro), «texto/a:centro|a|b» (arco) y «texto/s:a|b|c» (spline).
-function collector() {
+// off(ns): true si lo que pida ese texto no se recoge (un texto de ejecucion manual no dibuja en cada refresco; al ejecutarlo, solo cuenta el suyo).
+function collector(off = () => false) {
   const req = { pts: new Map(), lines: new Map(), circles: new Map(), arcs: new Map(), splines: new Map(), ellipses: new Map(), contours: new Map(), errs: [] };
   let ns = null; const radii = new Map(), cnt = new Map();
   // Un punto que viene de OTRO texto (la variable que lo guarda lleva su texto de origen, o): en la llave se escribe «origen.nombre» para no confundirlo con uno local.
@@ -53,16 +54,19 @@ function collector() {
     at: (t) => { ns = t; },
     cur: () => ns,
     point(name, x, y) {
+      if (off(ns)) return;
       const key = ns + '/' + name, o = req.pts.get(key);
       if (o && (Math.abs(o.x - x) > EPS || Math.abs(o.y - y) > EPS)) req.errs.push({ ns, msg: `el punto «${name}» se define dos veces con coordenadas distintas` });
       else if (!o) req.pts.set(key, { ns, name, x, y });
     },
     line(a, b, style, o) {
+      if (off(ns)) return;
       const key = ns + '/' + [qn(a, o?.a), qn(b, o?.b)].sort().join('|');
       if (!req.lines.has(key)) req.lines.set(key, { ns, a, b, oa: o?.a, ob: o?.b, style });
       else if (style !== undefined) req.lines.get(key).style = style;
     },
     circle(c, r, style, o) {
+      if (off(ns)) return;
       const cq = qn(c, o?.c);
       const rs = radii.get(ns + '/' + cq) || radii.set(ns + '/' + cq, []).get(ns + '/' + cq);
       let i = rs.findIndex((q) => Math.abs(q - r) < EPS);
@@ -71,17 +75,20 @@ function collector() {
       if (!req.circles.has(key)) req.circles.set(key, { ns, c, oc: o?.c, r, style });
     },
     arc(c, a, b, style, o) {
+      if (off(ns)) return;
       const key = ns + '/a:' + [qn(c, o?.c), qn(a, o?.a), qn(b, o?.b)].join('|');
       if (!req.arcs.has(key)) req.arcs.set(key, { ns, c, a, b, oc: o?.c, oa: o?.a, ob: o?.b, style });
       else if (style !== undefined) req.arcs.get(key).style = style;
     },
     // ellipse(c; a; b) y earc(c; a; b; p1; p2): la llave es la de sus puntos (los de un arco eliptico, tambien p1 y p2)
     ellipse(c, a, b, p1, p2, style, o) {
+      if (off(ns)) return;
       const key = ns + '/e:' + [qn(c, o?.c), qn(a, o?.a), qn(b, o?.b), ...(p1 !== undefined ? [qn(p1, o?.p1), qn(p2, o?.p2)] : [])].join('|');
       if (!req.ellipses.has(key)) req.ellipses.set(key, { ns, c, a, b, p1, p2, oc: o?.c, oa: o?.a, ob: o?.b, op1: o?.p1, op2: o?.p2, style });
       else if (style !== undefined) req.ellipses.get(key).style = style;
     },
     spline(names, closed, style) {
+      if (off(ns)) return;
       const key = ns + '/s:' + names.join('|') + (closed ? '|cerrado' : '');
       if (!req.splines.has(key)) req.splines.set(key, { ns, names, closed, style });
       else if (style !== undefined) req.splines.get(key).style = style;
@@ -89,6 +96,7 @@ function collector() {
     // contour(elementos…): cada elemento viene con su origen (ref); la llave del elemento es la misma que la de su peticion (line, arc, spline).
     // El grupo se identifica por el orden de la llamada dentro del texto («texto/k:#i»), no por sus miembros: cambiar sus elementos no lo reemplaza.
     contour(refs, name) {
+      if (off(ns)) return;
       const q2 = (n, o, at) => (o && o !== at ? o + '.' + n : n);
       const keyOf = (r) => (r.k === 'ln' ? r.ns + '/' + [q2(r.a, r.oa, r.ns), q2(r.b, r.ob, r.ns)].sort().join('|')
         : r.k === 'ar' ? r.ns + '/a:' + [q2(r.c, r.oc, r.ns), q2(r.a, r.oa, r.ns), q2(r.b, r.ob, r.ns)].join('|')
@@ -149,7 +157,9 @@ export function regenerate(doc) {
   out.notes.push(...bareCalls(doc));
   const had = Object.keys(doc.gen?.map || {}).length > 0 || Object.keys(doc.gen?.rel || {}).length > 0;
   if (!had && !hasGenCalls(doc)) return out;
-  const { req, sink } = collector();
+  const manual = new Set(Object.entries(doc.texts || {}).filter(([, t]) => t.manual).map(([id]) => id));
+  for (const ns of manual) if (adoptGen(doc, ns)) out.changed = true; // un texto de ejecucion manual ya no gobierna nada: lo que quedara de su dibujo en vivo pasa a ser normal
+  const { req, sink } = collector((ns) => manual.has(ns));
   let st = null;
   setGenSink(sink);
   try { st = textVars(doc); } catch (e) { out.errs.push(`regenerar el dibujo: ${e.message}`); return out; } finally { setGenSink(null); }
@@ -333,5 +343,105 @@ export function regenerate(doc) {
   if (dead.length) { deleteItems(doc, dead); out.changed = true; }
   if (!Object.keys(rel).length) delete doc.gen.rel;
   if (!Object.keys(map).length && !doc.gen.rel) delete doc.gen;
+  return out;
+}
+
+// ---- ejecucion manual: un texto con t.manual no dibuja solo. «Ejecutar» (runGen) corre ese texto UNA vez y crea lo que pide como elementos normales, con ids
+// nuevos y sin ligas (nada en doc.gen): no se vuelve a tocar al refrescar, se puede borrar, mover y restringir. Cada ejecucion suma un grupo nuevo (no
+// reemplaza la anterior). «Adoptar» (adoptGen) hace lo mismo con lo que el texto ya dibujaba en vivo: conserva los ids (y sus cotas y restricciones) y solo
+// corta el vinculo con el script.
+const KIND_OF = [['lines', 'ln'], ['circles', 'ci'], ['arcs', 'ar'], ['ellipses', 'el'], ['splines', 'sp'], ['ctrs', 'ct'], ['pts', 'pt']];
+// Agrupa en un grupo nuevo lo dado (ids de elementos, contornos y puntos); devuelve el id del grupo o null (con menos de 2 cosas no hay grupo).
+function bundle(doc, ids, name) {
+  const items = [];
+  for (const id of ids) for (const [coll, k] of KIND_OF) if (doc[coll]?.[id]) { items.push({ k, id }); break; }
+  return addGrp(doc, items, name).id;
+}
+// Cuantos elementos genera en vivo un texto (para decidir si adoptar).
+export const genCount = (doc, ns) => Object.keys(doc.gen?.map || {}).filter((k) => k.startsWith(ns + '/')).length;
+export function adoptGen(doc, ns, name) {
+  if (!doc.gen) return 0;
+  const pre = ns + '/', ids = [];
+  for (const m of [doc.gen.map || {}, doc.gen.rel || {}]) for (const [key, id] of Object.entries(m)) if (key.startsWith(pre)) { ids.push(id); delete m[key]; }
+  if (doc.gen.rel && !Object.keys(doc.gen.rel).length) delete doc.gen.rel;
+  if (!Object.keys(doc.gen.map || {}).length && !doc.gen.rel) delete doc.gen;
+  for (const id of ids) if (doc.pts[id]) doc.pts[id].fixed = false;
+  if (name !== undefined && ids.length) bundle(doc, ids, name);
+  return ids.length;
+}
+// Una etiqueta corta del texto para nombrar el grupo: su primera linea con algo, sin los «$$» ni el «r:» de asignar.
+export function runLabel(text) {
+  const ls = String(text || '').split('\n').map((s) => s.replace(/\$\$/g, '').trim()).filter(Boolean), l = ls.find((s) => s.includes('(')) || ls[0] || 'script'; // la primera con una llamada
+  return l.replace(/^[A-Za-z_À-￿][A-Za-z0-9_À-￿]*\s*:(?!=)\s*/, '').slice(0, 40);
+}
+// Ejecuta el texto ns una vez. Devuelve { ok, n (elementos creados), group, errs, notes }.
+export function runGen(doc, ns) {
+  const out = { ok: false, n: 0, group: null, errs: [], notes: [] };
+  const t = doc.texts?.[ns];
+  if (!t || typeof t.text !== 'string') return out;
+  const { req, sink } = collector((k) => k !== ns);
+  let st = null;
+  setGenSink(sink);
+  try { st = textVars(doc); } catch (e) { out.errs.push(`ejecutar: ${e.message}`); return out; } finally { setGenSink(null); }
+  const bad = new Set([...(st.genBad || []), ...[...(st.bad || [])].map((k) => String(k).split(':')[0])]);
+  for (const e of req.errs) if (e.ns === ns) out.errs.push(e.msg);
+  if (bad.has(ns) && !out.errs.length) out.errs.push('el texto tiene un error: corrígelo antes de ejecutarlo');
+  if (out.errs.length) return out;
+  const total = req.pts.size + req.lines.size + req.circles.size + req.arcs.size + req.splines.size + req.ellipses.size;
+  if (!total) { out.notes.push('el texto no dibuja nada (point, line, circle, arc, ellipse, spline)'); return out; }
+  const made = new Map(), ids = [], note = (m) => out.notes.push(m); // made: llave de la peticion -> id nuevo
+  const STYLE = (s) => ({ color: 'auto', ltype: s || 'continua', w: 2, ls: 1 });
+  const ltOk = (s) => s === undefined || s in allLtypes(doc);
+  for (const [key, r] of req.pts) { const id = addPoint(doc, r.x, r.y); made.set(key, id); ids.push(id); }
+  const pid = (name, from) => made.get((from || ns) + '/' + name) || (from ? doc.gen?.map?.[from + '/' + name] || doc.gen?.rel?.[from + '/' + name] : undefined) || (doc.pts[name] ? name : undefined);
+  const has = (id) => !!(id && doc.pts[id]);
+  const add = (key, id) => { made.set(key, id); ids.push(id); out.n++; };
+  for (const [key, r] of req.lines) {
+    const a = pid(r.a, r.oa), b = pid(r.b, r.ob);
+    if (!(has(a) && has(b))) { note(`line("${r.a}"; "${r.b}"): falta un punto`); continue; }
+    if (!ltOk(r.style)) { note(`line("${r.a}"; "${r.b}"): «${r.style}» no es un tipo de línea`); continue; }
+    add(key, addLine(doc, a, b, STYLE(r.style)));
+  }
+  for (const [key, r] of req.circles) {
+    const c = pid(r.c, r.oc);
+    if (!has(c)) { note(`circle("${r.c}"; r): falta el centro`); continue; }
+    if (!ltOk(r.style)) { note(`circle("${r.c}"; r): «${r.style}» no es un tipo de línea`); continue; }
+    add(key, addCircle(doc, c, r.r, STYLE(r.style)));
+  }
+  for (const [key, r] of req.arcs) {
+    const c = pid(r.c, r.oc), a = pid(r.a, r.oa), b = pid(r.b, r.ob);
+    if (!(has(c) && has(a) && has(b))) { note(`arc("${r.c}"; "${r.a}"; "${r.b}"): falta un punto`); continue; }
+    if (!ltOk(r.style)) { note(`arc("${r.c}"; "${r.a}"; "${r.b}"): «${r.style}» no es un tipo de línea`); continue; }
+    const C = doc.pts[c], ra = Math.hypot(doc.pts[a].x - C.x, doc.pts[a].y - C.y), rb = Math.hypot(doc.pts[b].x - C.x, doc.pts[b].y - C.y);
+    if (!(ra > EPS) || Math.abs(ra - rb) > 1e-6 * Math.max(1, ra)) { note(`arc("${r.c}"; "${r.a}"; "${r.b}"): «${r.a}» y «${r.b}» no están a la misma distancia de «${r.c}»`); continue; }
+    add(key, addArc(doc, c, a, b, ra, STYLE(r.style)));
+  }
+  for (const [key, r] of req.splines) {
+    const sp = r.names.map((n) => pid(n));
+    if (sp.some((id) => !has(id))) { note('spline: falta un punto'); continue; }
+    if (!ltOk(r.style)) { note(`spline: «${r.style}» no es un tipo de línea`); continue; }
+    add(key, addSpline(doc, sp, STYLE(r.style), r.closed));
+  }
+  for (const [key, r] of req.ellipses) {
+    const c = pid(r.c, r.oc), a = pid(r.a, r.oa), b = pid(r.b, r.ob), p1 = r.p1 !== undefined ? pid(r.p1, r.op1) : null, p2 = r.p2 !== undefined ? pid(r.p2, r.op2) : null;
+    if (!(has(c) && has(a) && has(b) && (r.p1 === undefined || (has(p1) && has(p2))))) { note(`${r.p1 !== undefined ? 'earc' : 'ellipse'}("${r.c}"; "${r.a}"; "${r.b}"): falta un punto`); continue; }
+    if (!ltOk(r.style)) { note(`ellipse: «${r.style}» no es un tipo de línea`); continue; }
+    const C = doc.pts[c], A = doc.pts[a], B = doc.pts[b], ra = Math.hypot(A.x - C.x, A.y - C.y), ux = (A.x - C.x) / (ra || 1), uy = (A.y - C.y) / (ra || 1), rb = Math.abs((B.x - C.x) * uy - (B.y - C.y) * ux);
+    if (!(ra > EPS) || !(rb > EPS)) { note(`ellipse("${r.c}"; "${r.a}"; "${r.b}"): los puntos no definen dos ejes`); continue; }
+    add(key, addEllipse(doc, c, a, b, STYLE(r.style), p1, p2));
+  }
+  const CT = { lines: 'ln', arcs: 'ar', splines: 'sp', ellipses: 'el' };
+  const kindOf = (id) => Object.entries(CT).find(([coll]) => doc[coll]?.[id])?.[0];
+  for (const [, r] of req.contours) {
+    const members = [...new Set(r.keys.map((k) => made.get(k)).filter((id) => id && kindOf(id)))];
+    if (members.length < 2) { note('contour: necesita al menos 2 elementos que se hayan dibujado'); continue; }
+    doc.ctrs ||= {};
+    const cid = nextId(doc, 'k');
+    doc.ctrs[cid] = r.name !== undefined ? { name: r.name } : {};
+    for (const id of members) doc[kindOf(id)][id].ctr = cid;
+    ids.push(cid);
+  }
+  out.ok = true;
+  out.group = bundle(doc, ids, runLabel(t.text));
   return out;
 }
