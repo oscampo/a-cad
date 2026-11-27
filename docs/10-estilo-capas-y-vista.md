@@ -145,7 +145,7 @@ Un **grupo** (`g1`, `g2`…) reúne **de todo** lo que quieras tratar como una u
 - Un elemento de un contorno entra con su **contorno entero**; un punto que usa un elemento sigue a su elemento (solo los sueltos son miembros); de las relaciones solo entran las cotas.
 - **Propiedades** (el botón de la fila): el nombre, cuántos objetos contiene, y seleccionar, disolver o borrar.
 - **Disolver** (*Disolver el grupo*): lo que contiene sube un nivel (al grupo de arriba, o a la raíz). **Borrar** (la papelera): borra el grupo y todo lo que contiene.
-- Un grupo sin nada desaparece solo. **Copiar** un elemento no lo mete en el grupo del original; **dividir** uno deja los trozos en su grupo.
+- Un grupo sin nada desaparece solo. **Copiar** (pegar, matrices y espejo) un grupo completo da un **grupo nuevo** con el mismo nombre, su jerarquía y sus contornos propios; si copias solo una parte, la copia no entra al grupo del original; **dividir** uno deja los trozos en su grupo.
 - En el árbol por capas, los grupos listan sus hijos como enlaces y cada uno sigue en su capa.
 
 ---

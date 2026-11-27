@@ -1,4 +1,4 @@
-<!-- es: b2d8592935 -->
+<!-- es: ba35d3d26d -->
 # 10. Style, layers and view
 
 Color, line type, width and fills; layers; what the view shows; and the element tree.
@@ -146,7 +146,7 @@ A **group** (`g1`, `g2`…) gathers **anything** you want to treat as one unit: 
 - An element of an outline goes in with its **whole outline**; a point used by an element follows its element (only loose points are members); of the relations only dimensions go in.
 - **Properties** (the row button): the name, how many objects it contains, and select, dissolve or delete.
 - **Dissolve** (*Dissolve the group*): what it contains moves up one level (to the group above, or to the root). **Delete** (the trash can): deletes the group and everything it contains.
-- A group with nothing left disappears on its own. **Copying** an element does not put it in the original's group; **splitting** one leaves the pieces in their group.
+- A group with nothing left disappears on its own. **Copying** (paste, arrays and mirror) a whole group gives a **new group** with the same name, its hierarchy and its own outlines; if you copy only a part, the copy does not enter the original's group; **splitting** one leaves the pieces in their group.
 - In the by-layer tree, groups list their children as links and each one stays in its layer.
 
 ---

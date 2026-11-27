@@ -1,7 +1,7 @@
 // Recortar, extender y matriz lineal. Sin DOM (se prueba en Node). Mutan doc; quien llama hace undo/solve
 // y revierte si el solver falla.
 import { makeVector } from './vectors.js';
-import { ctrMembers, shownEntries, addPoint, addLine, addArc, addCircle, addEllipse, addSpline, addText, addCon, withOp, nextId, arcOf, splinePolyline, deleteItems, arcSamples, ellipsePolyline, ellipseOf, ellipseRange, ellipsePoint, ellipseParam, isPartial, cleanup } from './model.js';
+import { GRP_COLL, grpMembers, grpLeaves, ctrMembers, shownEntries, addPoint, addLine, addArc, addCircle, addEllipse, addSpline, addText, addCon, withOp, nextId, arcOf, splinePolyline, deleteItems, arcSamples, ellipsePolyline, ellipseOf, ellipseRange, ellipsePoint, ellipseParam, isPartial, cleanup } from './model.js';
 import { dist, closestOnSeg, lineLine, lineCircle, circleCircle, polylineLine, polylineCircle, polylinePolyline, closestOnPolyline, splineSamples, inSweep, angleFrom, norm, TAU } from './geom.js';
 import { splitElement } from './split.js';
 import { rawAngle } from './text.js';
@@ -526,9 +526,40 @@ function collect(doc, items) {
   const inSet = new Set([...P, ...L, ...Ci, ...Ar, ...Sp, ...Tx, ...El]);
   const cons = Object.values(doc.cons).filter((k) => (k.refs || []).length && k.refs.every((r) => inSet.has(r)));
   const hatches = Object.values(doc.hatches || {}).filter((h) => h.ids.length && h.ids.every((i) => inSet.has(i)));
+  const conId = new Map(Object.entries(doc.cons).map(([id, k]) => [k, id])), hatId = new Map(Object.entries(doc.hatches || {}).map(([id, h]) => [h, id])); // objeto -> id, para rehacer los grupos
   // un grupo de contorno cuyos miembros van todos en la copia: la copia forma un grupo nuevo (sin nombre); si falta alguno, no hereda
   const ctrs = Object.keys(doc.ctrs || {}).filter((id) => { const m = ctrMembers(doc, id); return m.length >= 2 && m.every((it) => inSet.has(it.id)); });
-  return { P, L, Ci, Ar, Sp, Tx, El, cons, hatches, ctrs };
+  return { P, L, Ci, Ar, Sp, Tx, El, cons, hatches, ctrs, inSet, conId, hatId };
+}
+
+// Un grupo cuyos elementos van todos en la copia se copia como grupo nuevo (con su jerarquia); si falta alguno, no hereda.
+// Los grupos que no entran enteros dejan lo que si se copio en la raiz. conMap/hatMap/ctrMap: original -> copia.
+function copyGroups(doc, S, col, M, maps) {
+  const { inSet } = col;
+  const elementLeaf = (m) => ['ln', 'ci', 'ar', 'el', 'sp', 'tx', 'pt'].includes(m.k);
+  const complete = (g) => { const lv = grpLeaves(S, g).filter(elementLeaf); return lv.length > 0 && lv.every((m) => inSet.has(m.id)); };
+  const done = {};
+  const make = (g) => {
+    if (g in done) return done[g];
+    done[g] = null;
+    if (!complete(g)) return null;
+    const mem = grpMembers(S, g);
+    const mapped = mem.map((m) => {
+      if (m.k === 'gp') { const ng = make(m.id); return ng ? { k: 'gp', id: ng } : null; }
+      if (m.k === 'ct') return maps.ctr[m.id] ? { k: 'ct', id: maps.ctr[m.id] } : null;
+      if (m.k === 'co') return maps.con.has(m.id) ? { k: 'co', id: maps.con.get(m.id) } : null;
+      if (m.k === 'ha') return maps.hat.has(m.id) ? { k: 'ha', id: maps.hat.get(m.id) } : null;
+      return M[m.id] && M[m.id] !== m.id ? { k: m.k, id: M[m.id] } : null;
+    }).filter(Boolean);
+    if (!mapped.length) return null;
+    doc.grps ||= {};
+    const nid = nextId(doc, 'g');
+    doc.grps[nid] = { ...(S.grps[g].name ? { name: S.grps[g].name } : {}) };
+    for (const it of mapped) { const o = doc[GRP_COLL[it.k]]?.[it.id]; if (o) o.grp = nid; }
+    done[g] = nid;
+    return nid;
+  };
+  for (const g of Object.keys(S.grps || {})) make(g);
 }
 
 const jclone = (o) => JSON.parse(JSON.stringify(o));
@@ -540,7 +571,8 @@ const jclone = (o) => JSON.parse(JSON.stringify(o));
 // solo siguen valiendo si ese angulo es multiplo de 90 (con 90 se intercambian); si no, no se copian.
 // rotDeg: giro que se suma al angulo de los textos (en el reflejo se usa axisAng).
 function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvAngle, rotDeg = 0, linked = false, src = null } = {}) {
-  const { P, L, Ci, Ar, Sp, Tx, El, cons, hatches, ctrs = [] } = col;
+  const { P, L, Ci, Ar, Sp, Tx, El, cons, hatches, ctrs = [], conId, hatId } = col;
+  const maps = { con: new Map(), hat: new Map(), ctr: {} };
   const S = src || doc; // de donde se leen los originales (al pegar, un documento guardado al copiar)
   const M = {}, made = [], vecLines = [];
   // las partes de un vector (punto medio, texto y cota de magnitud) no se copian: la copia del vector las crea nuevas
@@ -549,7 +581,7 @@ function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvA
     if (vecMids.has(pid)) continue;
     if (reuse && reuse(pid)) { M[pid] = pid; continue; }
     const o = S.pts[pid], q = tf(o), np = addPoint(doc, q.x, q.y, !!o.auto);
-    const { x, y, mark, grp, ...flags } = o; // grp: una copia no entra al grupo del original (ver «grupos» en model.js). La marca de referencia se reasigna a la copia de su linea mas abajo
+    const { x, y, mark, grp, ...flags } = o; // grp: una copia no entra sola al grupo del original: si el grupo va entero se forma uno nuevo (copyGroups). La marca de referencia se reasigna a la copia de su linea mas abajo
     Object.assign(doc.pts[np], flags);
     if (linked) doc.pts[np].fixed = false; // la copia sigue al original
     M[pid] = np;
@@ -586,18 +618,21 @@ function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvA
       else if (m > 1e-6 && 180 - m > 1e-6) continue;
     }
     if (mirror && (n.t === 'ANG' || n.t === 'ANG4') && typeof n.v === 'number') { n.v = -n.v; if (n.sg) n.sg = -n.sg; }
-    addCon(doc, n);
+    const ncid = addCon(doc, n);
+    if (conId?.get(k)) maps.con.set(conId.get(k), ncid);
   }
-  for (const h of hatches) { const nh = { ...jclone(h), ids: h.ids.map((x) => M[x]) }; delete nh.grp; doc.hatches[nextId(doc, 'h')] = nh; }
+  for (const h of hatches) { const nh = { ...jclone(h), ids: h.ids.map((x) => M[x]) }; delete nh.grp; const nhid = nextId(doc, 'h'); doc.hatches[nhid] = nh; if (hatId?.get(h)) maps.hat.set(hatId.get(h), nhid); }
   for (const cid of ctrs) {
     const mem = ctrMembers(S, cid).filter((it) => M[it.id]);
     if (mem.length < 2) continue;
     doc.ctrs ||= {};
     const nid = nextId(doc, 'k');
     doc.ctrs[nid] = {};
+    maps.ctr[cid] = nid;
     const COLL = { ln: 'lines', ar: 'arcs', el: 'ellipses', sp: 'splines' };
     for (const it of mem) doc[COLL[it.k]][M[it.id]].ctr = nid;
   }
+  if (S.grps && Object.keys(S.grps).length) copyGroups(doc, S, col, M, maps);
   for (const [lid, v, tx] of vecLines) makeVector(doc, lid, { rev: v.rev, h: tx?.h }); // cada copia es un vector con su propia magnitud
   return { made, M };
 }
