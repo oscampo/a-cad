@@ -2,7 +2,7 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
-## Sin publicar
+## v2.9.6 (2026-11-27)
 
 ### Cambia el comportamiento
 - Se quitó el botón **Soltar** de la barra de estado: lo generado en vivo por un script ya no se suelta (al soltarlo, el script seguía activo y volvía a dibujar lo que borrabas). Para obtener un objeto libre, usa la **Ejecución manual**. Los archivos antiguos con elementos ya soltados siguen abriéndose igual.
