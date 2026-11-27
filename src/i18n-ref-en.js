@@ -204,7 +204,7 @@ export const REF_EN = {
   "xd5hca1b": "Length of a line and its angle, in radians.",
   "xw7cm13": "Radius, diameter and center of a circle.",
   "1ceywm7q": "Radius and center of an arc.",
-  "1k7qr0e4l": "An ellipse: its center, its semi-axes (1 is the one of point a and 2 is given by the distance from b to axis 1; 1 is not always the major one) and the angle of axis 1, in radians.",
+  "1lnghbl87": "An ellipse: its center, its semi-axes (1 is the one of point a and 2 is given by the distance from b to axis 1; 1 is not always the major one) and the angle of axis 1, in radians. They also work on an ellipse that reaches an own function (<code>k.ra</code>) or is a member of a group (<code>k_i.rb</code>).",
   "ulp69p44": "An elliptical arc: how much it sweeps from its start to its end counterclockwise, as the parametric angle of the ellipse (a full ellipse does not have it).",
   "1wldl5v3n": "Perimeter of a contour group (the sum of its elements) and its area, which only exists if the elements form a closed chain.",
   "pztea926": "A group: how many objects it has and its bounding box (width, height and extremes).",

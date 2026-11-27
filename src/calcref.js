@@ -217,7 +217,7 @@ export const CALC_GROUPS = [
       [c('l3.len') + ' (' + c('l3.L') + '), ' + c('l3.ang'), 'Longitud de una línea y su ángulo, en radianes.'],
       [c('c1.r', 'c1.d', 'c1.x', 'c1.y'), 'Radio, diámetro y centro de un círculo.'],
       [c('a2.r', 'a2.x', 'a2.y'), 'Radio y centro de un arco.'],
-      [c('e1.x', 'e1.y') + ', ' + c('e1.ra', 'e1.rb') + ', ' + c('e1.ang'), 'Una elipse: su centro, sus semiejes (el 1 es el del punto a y el 2 lo da la distancia de b al eje 1; no siempre el 1 es el mayor) y el ángulo del eje 1, en radianes.'],
+      [c('e1.x', 'e1.y') + ', ' + c('e1.ra', 'e1.rb') + ', ' + c('e1.ang'), 'Una elipse: su centro, sus semiejes (el 1 es el del punto a y el 2 lo da la distancia de b al eje 1; no siempre el 1 es el mayor) y el ángulo del eje 1, en radianes. También valen sobre una elipse que llega a una función propia (' + c('k.ra') + ') o es miembro de un grupo (' + c('k_i.rb') + ').'],
       [c('e1.sweep'), 'Un arco elíptico: lo que barre de su inicio a su fin en sentido antihorario, como ángulo paramétrico de la elipse (una elipse completa no lo tiene).'],
       [c('k1.L') + ' (' + c('k1.len') + '), ' + c('k1.area'), 'Perímetro de un grupo de contorno (la suma de sus elementos) y su área, que solo existe si los elementos forman una cadena cerrada.'],
       [c('g1.n', 'g1.w', 'g1.h') + ', ' + c('g1.xmin', 'g1.xmax', 'g1.ymin', 'g1.ymax'), 'Un grupo: cuántos objetos tiene y su caja envolvente (ancho, alto y extremos).'],

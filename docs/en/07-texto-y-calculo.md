@@ -212,7 +212,7 @@ They are used in any formula: Dimensions, texts (`p12.x=`), actuators and Graphs
 | `l3.len` (`l3.L`), `l3.ang` | Length of a line and its angle, in radians. |
 | `c1.r`, `c1.d`, `c1.x`, `c1.y` | Radius, diameter and center of a circle. |
 | `a2.r`, `a2.x`, `a2.y` | Radius and center of an arc. |
-| `e1.x`, `e1.y`, `e1.ra`, `e1.rb`, `e1.ang` | An ellipse: its center, its semi-axes (1 is the one of point a and 2 is given by the distance from b to axis 1; 1 is not always the major one) and the angle of axis 1, in radians. |
+| `e1.x`, `e1.y`, `e1.ra`, `e1.rb`, `e1.ang` | An ellipse: its center, its semi-axes (1 is the one of point a and 2 is given by the distance from b to axis 1; 1 is not always the major one) and the angle of axis 1, in radians. They also work on an ellipse that reaches an own function (`k.ra`) or is a member of a group (`k_i.rb`). |
 | `e1.sweep` | An elliptical arc: how much it sweeps from its start to its end counterclockwise, as the parametric angle of the ellipse (a full ellipse does not have it). |
 | `k1.L` (`k1.len`), `k1.area` | Perimeter of a contour group (the sum of its elements) and its area, which only exists if the elements form a closed chain. |
 | `g1.n`, `g1.w`, `g1.h`, `g1.xmin`, `g1.xmax`, `g1.ymin`, `g1.ymax` | A group: how many objects it has and its bounding box (width, height and extremes). |

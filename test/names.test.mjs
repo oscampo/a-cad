@@ -270,6 +270,11 @@ t('propiedades de una elipse: x, y, ra, rb, ang y, el arco eliptico, sweep (por 
   assert.equal(v[6], v[2]);
   assert.match(run(d, '$$sw2:leva.sweep=$$').err, /No reconozco/); // una elipse completa no tiene sweep
   assert.ok(varsOf(d)['leva.ra'] && varsOf(d)['tramo.sweep'] && !varsOf(d)['leva.sweep']);
+  // lo mismo como valor de una funcion propia (o.ra) y como miembro de un grupo (o_i.ra)
+  const gr = addGrp(d, [{ k: 'el', id: el }, { k: 'el', id: arc }], 'pareja').id; void gr;
+  const f = run(d, '%f(o):\n  o.x+100*o.ra+10000*o.rb', '%g(o):\n  o.sweep', '%m(o):\n  s:0\n  for i in 1..o.n:\n    s:s+o_i.ra\n  s', '$$q:f(leva)=$$', '$$w:g(tramo)=$$', '$$z:m(pareja)=$$');
+  assert.equal(f.err, ''); assert.ok(Math.abs(f.v('q') - (200 + 2000 + 100000)) < 1e-6, 'f(leva) = ' + f.v('q'));
+  assert.ok(Math.abs(f.v('w') - Math.PI / 2) < 1e-9); assert.ok(Math.abs(f.v('z') - 40) < 1e-9, 'suma de ra de los miembros: ' + f.v('z'));
 });
 
 console.log(passed + ' pruebas de nombres de elementos');

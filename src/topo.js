@@ -5,7 +5,7 @@
 //   circulo: c                          (Centro:)
 //   elipse:  c, a, b (+ p1, p2 si es un arco eliptico)   (Centro:, Eje 1:, Eje 2:, Inicio:, Fin:)
 //   spline:  p1, p2, … pn               (los puntos de control, en orden)
-import { ctrMembers, grpMembers, grpLeaves, grpName } from './model.js';
+import { ctrMembers, grpMembers, grpLeaves, grpName, ellipseOf, ellipseRange, isPartial } from './model.js';
 import { bboxOf } from './edit.js';
 
 // [{ role, label, id }] de un elemento del dibujo (kind: ln, ar, ci, el, sp); [] si no existe.
@@ -62,6 +62,14 @@ export function elementValue(doc, id, prop = () => null) {
   const pts = elementPoints(doc, k, id);
   if (k === 'sp') { out.list = pts.map((q) => pt(q.id)).filter(Boolean); out.n = out.list.length; out.closed = !!doc.splines[id].closed; return out; }
   for (const q of pts) { const g = pt(q.id); if (g) out[q.role] = g; }
+  if (k === 'el') { // una elipse: centro, semiejes (el 1 es el del punto a), angulo del eje 1 y, el arco eliptico, lo que barre (las mismas medidas de geo.js)
+    const e = doc.ellipses[id];
+    if (doc.pts[e.c] && doc.pts[e.a] && doc.pts[e.b]) {
+      const g = ellipseOf(doc, e);
+      Object.assign(out, { x: g.cx, y: g.cy, ra: g.ra, rb: g.rb, ang: Math.atan2(g.uy, g.ux) });
+      if (isPartial(e) && doc.pts[e.p1] && doc.pts[e.p2]) out.sweep = ellipseRange(doc, e, g).sweep;
+    }
+  }
   if (k === 'ci' || k === 'ar') { const o = (k === 'ci' ? doc.circles : doc.arcs)[id], C = doc.pts[o.c]; if (C) { out.x = C.x; out.y = C.y; } out.r = o.r; }
   return out;
 }
