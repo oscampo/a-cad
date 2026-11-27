@@ -1972,6 +1972,7 @@ function drawPreview(c) {
     c.save(); c.setLineDash([]); c.strokeStyle = col; c.lineWidth = 2 * dpr;
     c.beginPath(); c.arc(q.x * dpr, q.y * dpr, 9 * dpr, 0, 7);
     if (drag.snapHit.type === 'mid') { c.moveTo((q.x - 6) * dpr, (q.y + 5) * dpr); c.lineTo(q.x * dpr, (q.y - 6) * dpr); c.lineTo((q.x + 6) * dpr, (q.y + 5) * dpr); c.closePath(); }
+    else if (drag.snapHit.type === 'tan') { c.moveTo((q.x - 13) * dpr, (q.y + 9) * dpr); c.lineTo((q.x + 13) * dpr, (q.y + 9) * dpr); } // el simbolo de tangente: circulo sobre una recta
     else if (drag.snapHit.type !== 'pt') { c.moveTo((q.x - 13) * dpr, q.y * dpr); c.lineTo((q.x + 13) * dpr, q.y * dpr); }
     c.stroke(); c.restore();
   }
@@ -2798,7 +2799,7 @@ function toolMove(p) {
     { // snap al arrastrar: solo el puntero (el punto que agarras, o el lugar donde agarraste una linea o un circulo) se pega a puntos, puntos medios y bordes que no se mueven (boton «Snap al mover»); con el iman, a la cuadricula
       const ids = Object.keys(drag.orig).filter((id) => doc.pts[id]);
       if (!drag.anchor) drag.anchor = grabAnchor(doc, h, drag.m0, drag.orig); // el punto de la linea/circulo mas cercano a donde tocaste (con el dedo el toque cae a varios px del trazo)
-      const sn = (opts.dsnap || opts.snap) && ids.length ? dragSnap(doc, new Set(ids), [h.k === 'pt' && drag.orig[h.id] ? { id: h.id, x: drag.orig[h.id].x, y: drag.orig[h.id].y } : { id: '__ptr', x: drag.anchor.x, y: drag.anchor.y }], cur2, opts.dsnap ? (opts.touch ? 14 : 10) / view.s : -1, { hidden: hiddenTextPoints(), grid: opts.snap ? gridStep() : 0, gridId: h.k === 'pt' ? h.id : '__ptr' }) : null;
+      const sn = (opts.dsnap || opts.snap) && ids.length ? dragSnap(doc, new Set(ids), [h.k === 'pt' && drag.orig[h.id] ? { id: h.id, x: drag.orig[h.id].x, y: drag.orig[h.id].y } : { id: '__ptr', x: drag.anchor.x, y: drag.anchor.y }], cur2, opts.dsnap ? (opts.touch ? 14 : 10) / view.s : -1, { orig: drag.orig, hidden: hiddenTextPoints(), grid: opts.snap ? gridStep() : 0, gridId: h.k === 'pt' ? h.id : '__ptr' }) : null;
       if (sn) { cur2 = { dx: sn.dx, dy: sn.dy }; drag.snapHit = sn.hit; drag.snapRef = sn.hit ? { id: ids[0], x: drag.orig[ids[0]].x + sn.dx, y: drag.orig[ids[0]].y + sn.dy } : null; } else { drag.snapHit = null; drag.snapRef = null; } // snapRef: donde debe quedar un punto que se mueve (para saber si el solver llego)
     }
     const prev = drag.lastD || { dx: 0, dy: 0 };

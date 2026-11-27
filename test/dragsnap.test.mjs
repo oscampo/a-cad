@@ -85,8 +85,44 @@ t('toque desviado del trazo (dedo): el ancla es el punto de la linea, y al pegar
   const anchor = grabAnchor(d, { k: 'ln', id: l }, { x: 50, y: 12 }, { [a]: d.pts[a], [b]: d.pts[b] }); // el dedo toco 12 sobre la linea
   near(anchor.x, 50, 'x'); near(anchor.y, 0, 'y');
   const r = dragSnap(d, new Set([a, b]), [{ id: '__ptr', ...anchor }], { dx: 0, dy: 58 }, 5);
-  assert.equal(r.hit.type, 'ci');
+  assert.equal(r.hit.type, 'tan');
   near(r.dy, 60, 'la linea sube hasta tocar el circulo, no 12 antes');
+});
+
+t('una linea que se mueve entera queda TANGENTE a un circulo fijo (distancia del centro a la linea = r), aunque se agarre lejos del pie de la perpendicular', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 100, 0), l = addLine(d, a, b);
+  addCircle(d, addPoint(d, 70, 80), 20);                            // su borde mas bajo: y = 60
+  const orig = { [a]: { ...d.pts[a] }, [b]: { ...d.pts[b] } };
+  const r = dragSnap(d, new Set([a, b]), [{ id: '__ptr', x: 20, y: 0 }], { dx: 5, dy: 57 }, 5, { orig });
+  assert.equal(r.hit.type, 'tan');
+  near(r.dy, 60, 'la linea queda a r del centro: y = 60'); near(r.dx, 5, 'no se desplaza a lo largo de la linea');
+  near(r.hit.x, 70, 'contacto bajo el centro'); near(r.hit.y, 60, 'contacto en el borde');
+});
+
+t('tangente en la linea inclinada: la distancia del centro a la linea queda exactamente en r', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 100, 100), l = addLine(d, a, b);
+  const C = addPoint(d, 100, 0); addCircle(d, C, 20);
+  const orig = { [a]: { ...d.pts[a] }, [b]: { ...d.pts[b] } };
+  const r = dragSnap(d, new Set([a, b]), [{ id: '__ptr', x: 50, y: 50 }], { dx: 70, dy: 0 }, 5, { orig });
+  assert.equal(r.hit.type, 'tan');
+  const dist = Math.abs(100 - r.dx + r.dy) / Math.SQRT2; // distancia del centro (100, 0) a la recta y = x desplazada (r.dx, r.dy)
+  near(dist, 20, 'tangente exacta');
+});
+
+t('un circulo que se mueve queda tangente a una linea fija y a otro circulo fijo', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 100, 0); addLine(d, a, b);
+  const cp = addPoint(d, 50, 33); addCircle(d, cp, 10);              // toca la linea cuando su centro esta en y = 10
+  const orig = { [cp]: { ...d.pts[cp] } };
+  let r = dragSnap(d, new Set([cp]), [{ id: cp, x: 50, y: 33 }], { dx: 0, dy: -20 }, 5, { orig }); // centro pedido (50, 13): a 3 de y=10
+  assert.equal(r.hit.type, 'tan'); near(33 + r.dy, 10, 'tangente a la linea');
+  const e = newDoc(); const c1 = addPoint(e, 0, 0); addCircle(e, c1, 20);
+  const c2 = addPoint(e, 40, 3); addCircle(e, c2, 10);                // tangente por fuera cuando |centros| = 30
+  r = dragSnap(e, new Set([c2]), [{ id: c2, x: 40, y: 3 }], { dx: -8, dy: 0 }, 5, { orig: { [c2]: { ...e.pts[c2] } } }); // centro (32, 3): a ~32.1 del otro
+  assert.equal(r.hit.type, 'tan');
+  near(Math.hypot(40 + r.dx, 3 + r.dy), 30, 'tangente exterior');
 });
 
 console.log(`${passed} pruebas de snap al arrastrar`);

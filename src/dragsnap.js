@@ -3,12 +3,12 @@
 // desplazamiento: no crea restricciones (las que ya existan las resuelve el solver despues, como siempre).
 //   moving: Set de ids de los puntos que se mueven     anchors: [{ id, x, y }] su posicion original
 //   d: { dx, dy } el desplazamiento pedido por el cursor     tol: radio de captura en unidades del dibujo (el de pantalla / escala)
-//   o: { hidden: Set de puntos que no cuentan (puntos de texto ocultos), grid: paso de la cuadricula o 0, gridId: ancla que va a la cuadricula }
-// Devuelve { dx, dy, hit } con hit = { type: 'pt' | 'mid' | 'ln' | 'ci' | 'ar' | 'grid', x, y, anchor } o null si nada atrapo.
+//   o: { orig: posiciones originales {id:{x,y}} de los puntos que se mueven (para la tangencia, que usa la forma de lo que se mueve), hidden: Set de puntos que no cuentan (puntos de texto ocultos), grid: paso de la cuadricula o 0, gridId: ancla que va a la cuadricula }
+// Devuelve { dx, dy, hit } con hit = { type: 'pt' | 'mid' | 'tan' | 'ln' | 'ci' | 'ar' | 'grid', x, y, anchor } o null si nada atrapo.
 import { shownEntries, arcOf } from './model.js';
 import { closestOnSeg, inSweep } from './geom.js';
 
-const PRI = { pt: 0, mid: 1, ln: 2, ci: 2, ar: 2 };
+const PRI = { pt: 0, mid: 1, tan: 1.5, ln: 2, ci: 2, ar: 2 };
 
 export function dragSnap(doc, moving, anchors, d, tol, o = {}) {
   const hidden = o.hidden || new Set();
@@ -24,6 +24,53 @@ export function dragSnap(doc, moving, anchors, d, tol, o = {}) {
   const lines = shownEntries(doc, 'lines').filter(([, l]) => still(l));
   const circles = shownEntries(doc, 'circles').filter(([, c]) => !moving.has(c.c));
   const arcs = shownEntries(doc, 'arcs').filter(([, a]) => !moving.has(a.c));
+  // Tangencia: al mover una linea (con sus dos extremos) o un circulo, se busca el desplazamiento mas cercano al pedido que la deje exactamente tangente a un
+  // circulo, arco o linea que no se mueve. No depende del puntero sino de la forma de lo que se mueve, por eso el «pegado» al borde no basta.
+  const O = (id) => (o.orig && o.orig[id]) || doc.pts[id];
+  const offerShift = (sx, sy, hx, hy) => {
+    const dist = Math.hypot(sx, sy);
+    if (dist > tol) return;
+    if (!best || PRI.tan < PRI[best.type] || (PRI.tan === PRI[best.type] && dist < best.dist)) best = { type: 'tan', dist, ddx: sx, ddy: sy, x: hx, y: hy, anchor: A[0] ? A[0].id : null };
+  };
+  const slack = tol;
+  const stillCi = [...circles.map(([, c]) => ({ c: doc.pts[c.c], r: c.r })), ...arcs.map(([, a]) => ({ c: doc.pts[a.c], r: a.r, ar: a }))];
+  const nearest = (vals) => vals.reduce((m, v) => (Math.abs(v) < Math.abs(m) ? v : m), Infinity);
+  for (const [, l] of shownEntries(doc, 'lines').filter(([, l]) => moving.has(l.a) && moving.has(l.b)).slice(0, 20)) { // una linea que se mueve entera, contra circulos y arcos fijos
+    const A0 = O(l.a), B0 = O(l.b);
+    if (!A0 || !B0) continue;
+    const P = { x: A0.x + d.dx, y: A0.y + d.dy }, len = Math.hypot(B0.x - A0.x, B0.y - A0.y);
+    if (len < 1e-9) continue;
+    const u = { x: (B0.x - A0.x) / len, y: (B0.y - A0.y) / len }, n = { x: -u.y, y: u.x };
+    for (const s of stillCi) {
+      const s0 = (s.c.x - P.x) * n.x + (s.c.y - P.y) * n.y, k = nearest([s0 - s.r, s0 + s.r]); // distancia con signo del centro a la linea; k la acerca a +r o -r
+      if (!isFinite(k)) continue;
+      const sg = s0 - k, T = { x: s.c.x - n.x * sg, y: s.c.y - n.y * sg }, t = (T.x - (P.x + n.x * k)) * u.x + (T.y - (P.y + n.y * k)) * u.y;
+      if (t < -slack || t > len + slack) continue;
+      if (s.ar) { const g = arcOf(doc, s.ar); if (!inSweep(s.c, g.a0, g.sweep, T, 1e-3)) continue; }
+      offerShift(n.x * k, n.y * k, T.x, T.y);
+    }
+  }
+  for (const [, ci] of shownEntries(doc, 'circles').filter(([, c]) => moving.has(c.c)).slice(0, 20)) { // un circulo que se mueve, contra lineas y circulos fijos
+    const C0 = O(ci.c);
+    if (!C0) continue;
+    const C = { x: C0.x + d.dx, y: C0.y + d.dy };
+    for (const [, l] of lines) {
+      const P = doc.pts[l.a], Q = doc.pts[l.b], len = Math.hypot(Q.x - P.x, Q.y - P.y);
+      if (len < 1e-9) continue;
+      const u = { x: (Q.x - P.x) / len, y: (Q.y - P.y) / len }, n = { x: -u.y, y: u.x }, s0 = (C.x - P.x) * n.x + (C.y - P.y) * n.y, k = nearest([ci.r - s0, -ci.r - s0]);
+      const sg = s0 + k, T = { x: C.x + n.x * k - n.x * sg, y: C.y + n.y * k - n.y * sg }, t = (T.x - P.x) * u.x + (T.y - P.y) * u.y;
+      if (t < -slack || t > len + slack) continue;
+      offerShift(n.x * k, n.y * k, T.x, T.y);
+    }
+    for (const s of stillCi) {
+      const vx = C.x - s.c.x, vy = C.y - s.c.y, dd = Math.hypot(vx, vy);
+      if (dd < 1e-9) continue;
+      const k = nearest([s.r + ci.r - dd, Math.abs(s.r - ci.r) - dd]); // tangente por fuera o por dentro
+      const T = { x: s.c.x + (vx / dd) * s.r, y: s.c.y + (vy / dd) * s.r };
+      if (s.ar) { const g = arcOf(doc, s.ar); if (!inSweep(s.c, g.a0, g.sweep, T, 1e-3)) continue; }
+      offerShift((vx / dd) * k, (vy / dd) * k, T.x, T.y);
+    }
+  }
   for (const a of A) {
     const p = { x: a.x + d.dx, y: a.y + d.dy };
     for (const [, q] of pts) offer('pt', p, q.x, q.y, a.id);
