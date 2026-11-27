@@ -253,4 +253,23 @@ t('copiar una elipse o un spline no hereda el nombre; renombrarlos actualiza las
   assert.ok(Object.values(d.texts).some((x) => x.text.includes('contorno2.n')));
 });
 
+t('propiedades de una elipse: x, y, ra, rb, ang y, el arco eliptico, sweep (por nombre y por id)', () => {
+  const d = newDoc();
+  const c = addPoint(d, 200, 100), a = addPoint(d, 200 + 20 * Math.cos(0.5), 100 + 20 * Math.sin(0.5)), b = addPoint(d, 200 - 10 * Math.sin(0.5), 100 + 10 * Math.cos(0.5));
+  const el = addEllipse(d, c, a, b, {}); d.ellipses[el].name = 'leva';
+  const p1 = addPoint(d, a.x ?? 0, 0), q = d.pts;
+  q[p1].x = q[a].x; q[p1].y = q[a].y; // p1 en el extremo del eje 1 (parametro 0)
+  const p2 = addPoint(d, q[b].x, q[b].y); // p2 en el extremo del eje 2 (parametro pi/2)
+  const arc = addEllipse(d, c, a, b, {}, p1, p2); d.ellipses[arc].name = 'tramo';
+  const r = run(d, '$$cx:leva.x=$$', '$$cy:leva.y=$$', '$$ra1:leva.ra=$$', '$$rb1:leva.rb=$$', '$$an1:leva.ang=$$', '$$sw:tramo.sweep=$$', `$$id1:${el}.ra=$$`);
+  assert.equal(r.err, ''); const v = ['cx', 'cy', 'ra1', 'rb1', 'an1', 'sw', 'id1'].map(r.v);
+  assert.ok(Math.abs(v[0] - 200) < 1e-9 && Math.abs(v[1] - 100) < 1e-9, 'centro');
+  assert.ok(Math.abs(v[2] - 20) < 1e-9 && Math.abs(v[3] - 10) < 1e-9, 'semiejes: ' + v[2] + ', ' + v[3]);
+  assert.ok(Math.abs(v[4] - 0.5) < 1e-9, 'angulo del eje 1: ' + v[4]);
+  assert.ok(Math.abs(v[5] - Math.PI / 2) < 1e-9, 'barrido de p1 a p2: ' + v[5]);
+  assert.equal(v[6], v[2]);
+  assert.match(run(d, '$$sw2:leva.sweep=$$').err, /No reconozco/); // una elipse completa no tiene sweep
+  assert.ok(varsOf(d)['leva.ra'] && varsOf(d)['tramo.sweep'] && !varsOf(d)['leva.sweep']);
+});
+
 console.log(passed + ' pruebas de nombres de elementos');

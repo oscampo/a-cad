@@ -231,7 +231,7 @@ function tokenize(src, vars = null, loose = false) {
       else if (name in FUNCS || name in MULTI || name in CONSTS || LAZY.has(name) || MATFN.has(name) || name in NF) toks.push({ t: 'id', v: name, i, j: i + L });
       else if (name in SFL) toks.push({ t: 'id', v: SFL[name], i, j: i + L }); // funciones de cadenas (startsWith o startswith)
       else if (loose) toks.push({ t: 'var', v: raw, i, j: i + L });
-      else if (vars && (raw + '.x') in vars && (raw + '.y') in vars && !((raw + '.r') in vars) && inGenArgs(toks)) toks.push({ t: inGenArgs(toks) === 'gen' ? 'str' : 'dpt', v: raw, i, j: i + L }); // un punto del dibujo: como extremo de line/arc/spline o centro de circle es su nombre (line(p5; b)); como argumento de una funcion propia, su nombre y su lugar (pru(p5))
+      else if (vars && (raw + '.x') in vars && (raw + '.y') in vars && !((raw + '.r') in vars) && !((raw + '.ra') in vars) && inGenArgs(toks)) toks.push({ t: inGenArgs(toks) === 'gen' ? 'str' : 'dpt', v: raw, i, j: i + L }); // un punto del dibujo: como extremo de line/arc/spline o centro de circle es su nombre (line(p5; b)); como argumento de una funcion propia, su nombre y su lugar (pru(p5))
       else if (TOPO && inGenArgs(toks) === 'ufn' && TOPO(raw)) toks.push({ t: 'dpt', v: raw, i, j: i + L }); // un elemento del dibujo (l5, c2, a8, s3, k1) como valor de una funcion propia o de typeof: su nombre y sus datos
       else if (FUTURE_VARS.has(raw)) throw new Error(`${reservedWhy(raw)} (todavía no tiene valor)`);
       else if (/^(nargin|varargin)(_|$)/.test(raw)) throw new Error(raw.startsWith('nargin') ? '«nargin» solo vale dentro de una función: es cuántos valores recibió' : '«varargin» solo vale dentro de una función que lo tenga como último parámetro: f(a, varargin):…');
@@ -1852,7 +1852,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     if (!k) throw new Error('Expresión incompleta');
     if (k.t === 'str') return { str: k.v };
     if (k.t === 'dpt') { // un objeto del dibujo: su nombre y sus datos (un punto: su lugar; una linea, un arco, un circulo, un spline, un grupo: ver topo.js)
-      if (!((k.v + '.r') in vars) && (k.v + '.x') in vars && (k.v + '.y') in vars) return { str: k.v, gen: { k: 'pt', id: k.v, x: vars[k.v + '.x'].v, y: vars[k.v + '.y'].v } };
+      if (!((k.v + '.r') in vars) && !((k.v + '.ra') in vars) && (k.v + '.x') in vars && (k.v + '.y') in vars) return { str: k.v, gen: { k: 'pt', id: k.v, x: vars[k.v + '.x'].v, y: vars[k.v + '.y'].v } };
       return { str: k.v, gen: TOPO(k.v) };
     }
     if (k.t === 'num') {

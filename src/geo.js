@@ -6,7 +6,8 @@
 //   arco:    r, x, y (centro)
 //   contorno (un grupo, k1): L o len (perimetro: suma de sus elementos), area (solo si forma UNA cadena cerrada) y n (cuantos elementos tiene)
 //   spline:  n (cuantos puntos tiene)
-import { ctrMembers, grpLeaves, arcOf, ellipsePolyline, splinePolyline } from './model.js';
+//   elipse:  x, y (centro), ra, rb (semiejes 1 y 2), ang (angulo del eje 1, en radianes) y, el arco eliptico, sweep (lo que barra de p1 a p2: angulo parametrico)
+import { ctrMembers, grpLeaves, arcOf, ellipsePolyline, splinePolyline, ellipseOf, ellipseRange, isPartial } from './model.js';
 import { elementValue } from './topo.js';
 import { ctrState } from './tree.js';
 import { normName } from './expr.js';
@@ -64,6 +65,18 @@ function ctrProp(doc, id, prop) {
 export function propOf(doc, id, prop) {
   if (doc.ctrs?.[id]) return prop === 'n' ? num(ctrMembers(doc, id).length) : ctrProp(doc, id, prop);
   if (doc.splines?.[id]) return prop === 'n' ? num(doc.splines[id].pts.length) : null;
+  const el = doc.ellipses?.[id]; // una elipse: centro, semiejes (el 1 es el del punto a, el 2 lo da la distancia de b al eje 1), angulo del eje 1 y, el arco eliptico, lo que barre
+  if (el) {
+    if (!(doc.pts[el.c] && doc.pts[el.a] && doc.pts[el.b])) return null;
+    const g = ellipseOf(doc, el);
+    if (prop === 'x') return num(g.cx);
+    if (prop === 'y') return num(g.cy);
+    if (prop === 'ra') return num(g.ra);
+    if (prop === 'rb') return num(g.rb);
+    if (prop === 'ang') return ang(Math.atan2(g.uy, g.ux));
+    if (prop === 'sweep' && isPartial(el) && doc.pts[el.p1] && doc.pts[el.p2]) return ang(ellipseRange(doc, el, g).sweep); // el angulo parametrico de p1 a p2, antihorario
+    return null;
+  }
   if (doc.grps?.[id]) { const v = GRP_PROPS.includes(prop) ? elementValue(doc, id) : null; return v && Number.isFinite(v[prop]) ? num(v[prop]) : null; } // un grupo: cuantos objetos tiene y su caja envolvente
   const p = doc.pts[id];
   if (p) return prop === 'x' ? num(p.x) : prop === 'y' ? num(p.y) : null;
@@ -84,7 +97,7 @@ export function propOf(doc, id, prop) {
   return null;
 }
 const GRP_PROPS = ['n', 'xmin', 'xmax', 'ymin', 'ymax', 'w', 'h'];
-const PROPS = { pts: ['x', 'y'], lines: ['len', 'L', 'ang'], circles: ['r', 'd', 'x', 'y'], arcs: ['r', 'x', 'y'], ctrs: ['L', 'len', 'area', 'n'], splines: ['n'], grps: GRP_PROPS };
+const PROPS = { pts: ['x', 'y'], lines: ['len', 'L', 'ang'], circles: ['r', 'd', 'x', 'y'], arcs: ['r', 'x', 'y'], ctrs: ['L', 'len', 'area', 'n'], splines: ['n'], ellipses: ['x', 'y', 'ra', 'rb', 'ang', 'sweep'], grps: GRP_PROPS };
 
 // Los nombres que el usuario puso a puntos, lineas, circulos, arcos, grupos y contornos (name): nombre normalizado -> id. Solo los que pueden usarse como nombre (ver names.js) y no chocan
 // con una cota (la cota gana, como una variable de texto: un dibujo anterior no cambia). Un nombre repetido no llama a ninguno.
@@ -141,6 +154,7 @@ export function geoPoints(doc, name) {
     }
     return [...out];
   }
+  if (doc.ellipses?.[id]) { const e = doc.ellipses[id]; return [e.c, e.a, e.b, e.p1, e.p2].filter(Boolean); }
   if (doc.lines[id]) return [doc.lines[id].a, doc.lines[id].b];
   const o = doc.circles[id] || doc.arcs[id];
   return o ? [o.c] : [];
