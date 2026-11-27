@@ -264,7 +264,7 @@ Crear un contorno con estos elementos	Create a contour from these elements
 Propiedades del grupo	Group properties
 Disolver el grupo (lo que contiene se queda)	Dissolve the group (what it contains stays)
 Borrar el grupo y todo lo que contiene	Delete the group and everything it contains
-Elige al menos dos cosas que se puedan agrupar	Choose at least two things that can be grouped
+Elige al menos dos objetos que se puedan agrupar	Choose at least two objects that can be grouped
 No se pudo agrupar	Could not group
 Grupo {0} creado con {1} elementos; {2} no entraron (parte de un contorno, o un punto que usa un elemento)	Group {0} created with {1} elements; {2} did not go in (part of a contour, or a point used by an element)
 Grupo {0} creado con {1} elementos	Group {0} created with {1} elements

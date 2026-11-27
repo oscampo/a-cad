@@ -525,7 +525,7 @@ function groupSelection() {
   const plan = grpPlan(doc, sel);
   pushUndo();
   const r = addGrp(doc, sel.filter(exists));
-  if (!r.id) { rollback(); toast(plan.ok.length < 2 ? 'Elige al menos dos cosas que se puedan agrupar' : 'No se pudo agrupar'); return; }
+  if (!r.id) { rollback(); toast(plan.ok.length < 2 ? 'Elige al menos dos objetos que se puedan agrupar' : 'No se pudo agrupar'); return; }
   const n = grpMembers(doc, r.id).length, why = r.skipped.length;
   toast(why ? `Grupo ${r.id} creado con ${n} elementos; ${why} no entraron (parte de un contorno, o un punto que usa un elemento)` : `Grupo ${r.id} creado con ${n} elementos`);
   sel = grpLeaves(doc, r.id).filter(exists);
@@ -5777,7 +5777,7 @@ function openGrpProps(id, body) {
   body.appendChild(propRow('Nombre', nm));
   const info = (label, text) => { const s = document.createElement('span'); s.textContent = text; s.style.cssText = 'flex:2 1 200px'; return propRow(label, s); };
   const direct = grpMembers(doc, id), all = grpLeaves(doc, id);
-  body.appendChild(info('Contiene', `${direct.length} ${direct.length === 1 ? 'cosa' : 'cosas'} (${all.length} ${all.length === 1 ? 'elemento' : 'elementos'} en total)`));
+  body.appendChild(info('Contiene', `${direct.length} ${direct.length === 1 ? 'objeto' : 'objetos'} (${all.length} ${all.length === 1 ? 'elemento' : 'elementos'} en total)`));
   const mkb = (text, title, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.title = title; b.onclick = fn; return b; };
   body.appendChild(propRow('',
     mkb('Seleccionar', 'Selecciona todo lo que contiene el grupo', () => { $('dlgR').close(); sel = grpLeaves(doc, id).filter(exists); afterChange(); }),

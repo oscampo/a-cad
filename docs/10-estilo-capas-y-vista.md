@@ -140,10 +140,10 @@ Un grupo es una declaración tuya: sus líneas y arcos pasan a vivir **bajo él*
 
 Un **grupo** (`g1`, `g2`…) reúne **de todo** lo que quieras tratar como una unidad: elementos, textos, cotas, rellenos, puntos sueltos, contornos y otros grupos, aunque no estén conectados (la vista frontal de una pieza: su contorno, un círculo, sus cotas y su título). Lo crea el botón *Agrupar la selección* del encabezado del árbol; el que crea un contorno es *Crear un contorno con la selección*.
 
-- Es una **jerarquía**: cada cosa tiene **un solo grupo**. Un grupo puede estar dentro de otro; al agrupar cosas que ya están en un mismo grupo, el nuevo queda ahí, y si vienen de sitios distintos, en la raíz.
+- Es una **jerarquía**: cada objeto tiene **un solo grupo**. Un grupo puede estar dentro de otro; al agrupar objetos que ya están en un mismo grupo, el nuevo queda ahí, y si vienen de sitios distintos, en la raíz.
 - En el árbol sus hijos **cuelgan del grupo** (en «Grupos») y salen de su lista por tipo. Tocar el grupo selecciona todo lo que contiene.
 - Un elemento de un contorno entra con su **contorno entero**; un punto que usa un elemento sigue a su elemento (solo los sueltos son miembros); de las relaciones solo entran las cotas.
-- **Propiedades** (el botón de la fila): el nombre, cuántas cosas contiene, y seleccionar, disolver o borrar.
+- **Propiedades** (el botón de la fila): el nombre, cuántos objetos contiene, y seleccionar, disolver o borrar.
 - **Disolver** (*Disolver el grupo*): lo que contiene sube un nivel (al grupo de arriba, o a la raíz). **Borrar** (la papelera): borra el grupo y todo lo que contiene.
 - Un grupo sin nada desaparece solo. **Copiar** un elemento no lo mete en el grupo del original; **dividir** uno deja los trozos en su grupo.
 - En el árbol por capas, los grupos listan sus hijos como enlaces y cada uno sigue en su capa.
