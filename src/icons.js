@@ -66,6 +66,8 @@ const custom = {
   array: S('<rect x="2.5" y="8.5" width="5" height="7" rx="1"/><rect x="9.5" y="8.5" width="5" height="7" rx="1" opacity=".65"/><rect x="16.5" y="8.5" width="5" height="7" rx="1" opacity=".35"/>'),
   // bloqueo suave: tres ramas que salen de un nodo (direcciones que "atrapan" la linea)
   'soft-lock': S('<path d="M4.5 5 12 12.5M19.5 6 12 12.5M12 12.5 6 19"/><circle cx="4.5" cy="5" r="1.9" fill="currentColor"/><circle cx="19.5" cy="6" r="1.9" fill="currentColor"/><circle cx="6" cy="19" r="1.9" fill="currentColor"/><circle cx="12" cy="12.5" r="2.3" fill="currentColor"/>'),
+  // snap al mover: un punto que se arrastra (relleno) y el objeto al que se pega (anillo y cruz)
+  'snap-drag': S('<circle cx="16.5" cy="7.5" r="3.2"/><path d="M16.5 2.5v2M16.5 10.5v2M11.5 7.5h2M19.5 7.5h2"/><path d="M4.5 19.5 12.5 11" stroke-dasharray="2 2.5" opacity=".6"/><circle cx="4.5" cy="19.5" r="2.2" fill="currentColor"/>'),
   // matriz circular: el original y copias girando alrededor de un centro
   'array-circ': S('<circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="4.5" r="2.2"/><circle cx="18.9" cy="15.5" r="2.2" opacity=".65"/><circle cx="5.1" cy="15.5" r="2.2" opacity=".35"/><path d="M12 12V6.7" opacity=".4" stroke-dasharray="1.5 2.5"/>'),
   // copia espejo: eje discontinuo con un triangulo y su reflejo

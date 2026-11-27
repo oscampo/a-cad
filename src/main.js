@@ -10,6 +10,7 @@ import {
   arcThrough3, inSweep, TAU, splineSamples, resamplePolyline, closestOnPolyline, polylineLine, polylineCircle, polylinePolyline,
 } from './geom.js';
 import { startTrace, recordTraces, traceToSpline, offsetPolyline } from './curves.js';
+import { dragSnap } from './dragsnap.js';
 import { splitElement } from './split.js';
 import { boxSelect } from './boxsel.js';
 import { crossPoints } from './snapx.js';
@@ -96,7 +97,7 @@ const BASE_TOOL = { ...CONS_TOOLS, earc: 'ellipse' }; // earc: elipse parcial (a
 let sel = []; // [{k:'pt'|'ln'|'ci'|'ha', id}]
 let cur = { color: 'auto', ltype: 'continua', w: 2, ls: 1, tx: { h: null, ang: 0, anchor: 'bl', readable: true } };
 let txState = null, txHint = false; // entrada directa de texto abierta: { sUp } (donde va el texto, como un punto de toque)
-const opts = { grid: true, snap: false, cons: true, pts: true, dims: true, texts: true, touch: false, ltScale: 1, labels: true, lock: true, lockDeg: 45, intMs: 80, arrLink: true, arrDims: false, filtKinds: [], filtLt: [], grp: {}, polyN: 6, polyCirc: false, sections: {} };
+const opts = { grid: true, snap: false, dsnap: true, cons: true, pts: true, dims: true, texts: true, touch: false, ltScale: 1, labels: true, lock: true, lockDeg: 45, intMs: 80, arrLink: true, arrDims: false, filtKinds: [], filtLt: [], grp: {}, polyN: 6, polyCirc: false, sections: {} };
 let undoStack = [], redoStack = [];
 let pending = null; // estado de la herramienta en curso
 let clip = null; // lo copiado (Copiar / Pegar)
@@ -1966,6 +1967,14 @@ function drawPreview(c) {
     c.save(); c.globalAlpha = 0.1; c.fillStyle = crossing ? theme.sel : theme.accent; c.fillRect(x, y, w, h); c.globalAlpha = 1;
     c.strokeStyle = crossing ? theme.sel : theme.accent; c.lineWidth = 1.5 * dpr; c.setLineDash(crossing ? [6 * dpr, 4 * dpr] : []); c.strokeRect(x, y, w, h); c.restore();
   }
+  if (tool === 'select' && drag?.started && drag.snapHit && drag.snapHit.type !== 'grid') { // snap al arrastrar: donde se pega y que atrapo
+    const q = toScreen(drag.snapHit), col = drag.snapHit.type === 'pt' ? theme.warn : theme.accent;
+    c.save(); c.setLineDash([]); c.strokeStyle = col; c.lineWidth = 2 * dpr;
+    c.beginPath(); c.arc(q.x * dpr, q.y * dpr, 9 * dpr, 0, 7);
+    if (drag.snapHit.type === 'mid') { c.moveTo((q.x - 6) * dpr, (q.y + 5) * dpr); c.lineTo(q.x * dpr, (q.y - 6) * dpr); c.lineTo((q.x + 6) * dpr, (q.y + 5) * dpr); c.closePath(); }
+    else if (drag.snapHit.type !== 'pt') { c.moveTo((q.x - 13) * dpr, q.y * dpr); c.lineTo((q.x + 13) * dpr, q.y * dpr); }
+    c.stroke(); c.restore();
+  }
   if (tool === 'trim' && drag?.trail?.length > 1) { // trazo de recorte
     c.strokeStyle = theme.warn; c.lineWidth = 2 * dpr; c.setLineDash([3 * dpr, 4 * dpr]);
     c.beginPath(); drag.trail.forEach((q, i) => (i ? c.lineTo(q.x * dpr, q.y * dpr) : c.moveTo(q.x * dpr, q.y * dpr))); c.stroke();
@@ -2784,7 +2793,13 @@ function toolMove(p) {
     if (!res.ok) ci.r = r0;
   } else {
     // con trazados activos se interpola el movimiento en pasos cortos para que la trayectoria salga continua
-    const cur2 = { dx: m.x - drag.m0.x, dy: m.y - drag.m0.y }, prev = drag.lastD || { dx: 0, dy: 0 };
+    let cur2 = { dx: m.x - drag.m0.x, dy: m.y - drag.m0.y };
+    { // snap al arrastrar: los puntos que se mueven se pegan a puntos, puntos medios y bordes que no se mueven (boton «Snap al mover»); con el iman, a la cuadricula
+      const ids = Object.keys(drag.orig).filter((id) => doc.pts[id]);
+      const sn = (opts.dsnap || opts.snap) && ids.length ? dragSnap(doc, new Set(ids), ids.map((id) => ({ id, x: drag.orig[id].x, y: drag.orig[id].y })), cur2, opts.dsnap ? (opts.touch ? 14 : 10) / view.s : -1, { hidden: hiddenTextPoints(), grid: opts.snap ? gridStep() : 0, gridId: h.k === 'pt' ? h.id : ids[0] }) : null;
+      if (sn) { cur2 = { dx: sn.dx, dy: sn.dy }; drag.snapHit = sn.hit; } else drag.snapHit = null;
+    }
+    const prev = drag.lastD || { dx: 0, dy: 0 };
     const tracing = Object.keys(doc.traces).length > 0;
     const steps = tracing ? Math.min(40, Math.max(1, Math.ceil((Math.hypot(cur2.dx - prev.dx, cur2.dy - prev.dy) * view.s) / 8))) : 1;
     for (let i = 1; i <= steps; i++) {
@@ -2793,6 +2808,10 @@ function toolMove(p) {
       const ts0 = PERF ? performance.now() : 0;
       const reac = hasReactive(doc);
       const r = dragToStops(doc, tg, (t2) => (reac ? settle(doc, solveSteps, t2, { maxIter: 20 }) : solve(doc, t2)), !reac); // con cotas que leen medidas, se actualizan mientras arrastras; con «tope en bordes» el elemento llega hasta el borde
+      if (r.ok && i === steps && drag.snapHit && drag.snapHit.type !== 'grid') { // llegar justo encima de otro punto: la atraccion de distancia cero del solver se indefine y a veces se queda corto; otras pasadas, ya cerca, lo terminan
+        const an = doc.pts[drag.snapHit.anchor];
+        for (let k = 0; an && k < 5 && Math.hypot(an.x - drag.snapHit.x, an.y - drag.snapHit.y) > 1e-6; k++) dragToStops(doc, tg, (t2) => (reac ? settle(doc, solveSteps, t2, { maxIter: 20 }) : solve(doc, t2)), !reac); // cada pasada acerca un poco mas
+      }
       if (PERF) perfSolveMs += performance.now() - ts0;
       if (r.ok) trackAngles(doc);
       if (r.ok && tracing) recordTraces(doc, r.stopped ? 2e-4 : 1.5 / view.s); // al llegar a un tope se guarda la posicion exacta, por corto que sea el ultimo paso
@@ -6463,7 +6482,7 @@ function toggle(id, key) {
   b.setAttribute('aria-pressed', String(opts[key]));
 }
 toggle('tGrid', 'grid'); toggle('tSnap', 'snap'); toggle('tCons', 'cons'); toggle('tTouch', 'touch');
-toggle('tLock', 'lock');
+toggle('tLock', 'lock'); toggle('tDSnap', 'dsnap');
 for (const [id, key, min, max, def] of [['intMs', 'intMs', 0, 2000, 80], ['lockDeg', 'lockDeg', 1, 90, 45]]) {
   $(id).onchange = (e) => { const v = Number(String(e.target.value).replace(',', '.')); opts[key] = Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : def; e.target.value = String(opts[key]); persist(); draw(); };
 } toggle('tPts', 'pts'); toggle('tDims', 'dims'); toggle('tTexts', 'texts');
@@ -7038,7 +7057,7 @@ async function boot() {
     }
   } catch { /* sin estado previo */ }
   $('intMs').value = String(opts.intMs); $('lockDeg').value = String(opts.lockDeg);
-  for (const [id, key] of [['tGrid', 'grid'], ['tSnap', 'snap'], ['tCons', 'cons'], ['tTouch', 'touch'], ['tPts', 'pts'], ['tDims', 'dims'], ['tTexts', 'texts'], ['tLock', 'lock']]) $(id).setAttribute('aria-pressed', String(opts[key]));
+  for (const [id, key] of [['tGrid', 'grid'], ['tSnap', 'snap'], ['tCons', 'cons'], ['tTouch', 'touch'], ['tPts', 'pts'], ['tDims', 'dims'], ['tTexts', 'texts'], ['tLock', 'lock'], ['tDSnap', 'dsnap']]) $(id).setAttribute('aria-pressed', String(opts[key]));
   $('ltScale').value = String(opts.ltScale);
   hydrateIcons(); wireGroups(); wireLongPressHints(); wireSections(); applyLabels(); applyChrome(); updateEnabled();
   initLang(); // idioma guardado en este dispositivo: traduce la interfaz ya escrita

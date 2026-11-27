@@ -110,7 +110,7 @@ Ayuda de fórmulas	Formula help
 Admite fórmulas: 3π/4, 10*sin(30), 10+1/3, √2, 2^3. Con la unidad en grados, sin/cos/tan usan grados (radianes si el argumento lleva π); con radianes, todo va en radianes. También puedes usar el nombre de otra cota (D1, A1, R2, O3 o el que le hayas puesto): D1*sin(A1). Un ángulo vale su medida en radianes (como π), así que R*A1 es una longitud de arco. La cota se recalcula sola cuando cambia aquella de la que depende. Las cotas de solo lectura (referencia) también se pueden leer: la cota se recalcula con la medida y se repite hasta que concuerden.	Formulas are accepted: 3π/4, 10*sin(30), 10+1/3, √2, 2^3. With the unit in degrees, sin/cos/tan use degrees (radians if the argument has π); with radians, everything is in radians. You can also use the name of another dimension (D1, A1, R2, O3 or the one you gave it): D1*sin(A1). An angle is worth its measure in radians (like π), so R*A1 is an arc length. The dimension recalculates itself when the one it depends on changes. Read-only (reference) dimensions can also be read: the dimension is recalculated with the measurement and repeated until they agree.
 Solo lectura (referencia): mide y muestra el valor en cursiva, sin restringir la geometría	Read-only (reference): measures and shows the value in italics, without constraining the geometry
 Escala (×)	Scale (×)
-Árbol de elementos	Element tree
+Árbol de objetos	Object tree
 Punto (P)	Point (P)
 Punto	Point
 Polígono regular: centro, radio y número de lados (G)	Regular polygon: center, radius and number of sides (G)
@@ -211,3 +211,5 @@ p. ej. 90*t, 30*sin(2π*t)	e.g. 90*t, 30*sin(2π*t)
 Cómo lee la gráfica sin, cos, tan y en qué unidad dibuja un ángulo. Las variables de los textos siguen la opción del documento.	How the graph reads sin, cos, tan and in which unit it plots an angle. Text variables follow the document option.
 Buscar en la ayuda	Search the help
 vacío = sin escala; 10, k, 2*D1	empty = no scale; 10, k, 2*D1
+Al arrastrar puntos, líneas o una selección, los puntos que se mueven se pegan a otros puntos, a puntos medios y al borde de líneas, círculos y arcos que no se mueven	When dragging points, lines or a selection, the points that move snap to other points, midpoints and the edge of lines, circles and arcs that do not move
+Snap al mover	Snap when moving
