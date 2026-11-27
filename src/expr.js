@@ -1118,7 +1118,7 @@ const SF = {
   // typeof(x) dice que es x («point», «line», «circle», «arc», «spline», «contour», «number»…) e isa(x; "tipo") da 1 si lo es y 0 si no: para una funcion
   // que recibe de todo (varargin) y decide segun lo que llega. Un objeto del dibujo (l5, c2, k1) llega a una funcion propia o a typeof por su nombre.
   typeof: { n: [1, 1], f: (A) => ({ str: typeOf(A[0]) }) },
-  isa: { n: [2, 2], f: (A) => ({ v: typeOf(A[0]) === strArg(A[1], 'isa(x; tipo)', 'el tipo') ? 1 : 0, r: false }) },
+  isa: { n: [2, 2], f: (A) => { const t = strArg(A[1], 'isa(x; tipo)', 'el tipo'); return { v: (t === 'earc' ? A[0]?.gen?.k === 'el' && A[0].gen.p1?.k === 'pt' : typeOf(A[0]) === t) ? 1 : 0, r: false }; } }, // «earc»: un arco eliptico (typeof dice «ellipse» de los dos; el arco tiene p1 y p2)
   // error("mensaje"): detiene el calculo con ese mensaje (para validar lo que recibe una funcion: else: error("solo T, L o R"))
   error: { n: [1, 1], f: (A) => { throw rt(strArg(A[0], 'error(mensaje)', 'el mensaje')); } },
   num2str: { n: [1, 2], f: (A) => ({ str: numText(A[0], A[1] !== undefined ? intArg(A[1], 'num2str(x, n)', 'n', 0, 12) : undefined) }) },

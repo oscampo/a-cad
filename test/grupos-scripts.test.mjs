@@ -1,6 +1,6 @@
 // Grupos desde los scripts (fase 3): un grupo (g1) llega a una funcion propia como objeto: g.n, g_i, g.w/g.h/g.xmin…, typeof "group"; y un texto y una cota como objetos.
 import assert from 'node:assert/strict';
-import { newDoc, addPoint, addLine, addCircle, addText, addCon, addCtr, addGrp } from '../src/model.js';
+import { newDoc, addPoint, addLine, addCircle, addEllipse, addText, addCon, addCtr, addGrp } from '../src/model.js';
 import { textVars } from '../src/params.js';
 import { elementValue, kindOfId } from '../src/topo.js';
 
@@ -81,6 +81,27 @@ t('un texto como objeto: t.x, t.y; una funcion que recibe de todo puede pregunta
   const r = run(d, F, `r:f(${tx})`);
   assert.equal(r.err, '');
   assert.equal(num(r), 0 + 400);
+});
+
+
+
+t('isa(x; "earc"): un arco eliptico si, una elipse completa no; los dos son «ellipse» para typeof e isa(x; "ellipse")', () => {
+  const d = newDoc(), c = addPoint(d, 0, 0), a = addPoint(d, 20, 0), b = addPoint(d, 0, 10), p1 = addPoint(d, 20, 0), p2 = addPoint(d, 0, 10);
+  const full = addEllipse(d, c, a, b, {}), arco = addEllipse(d, c, a, b, {}, p1, p2);
+  const F = '%f(x):\n  100*isa(x; "earc")+10*isa(x; "ellipse")+isa(x; "line")';
+  for (const [id, want] of [[full, 10], [arco, 110]]) { const r = run(d, F, `r:f(${id})`); assert.equal(r.err, '', id + ': ' + r.err); assert.equal(num(r), want, id); }
+  const T = '%g(x):\n  typeof(x)';
+  for (const id of [full, arco]) { const r = run(d, T, `r:g(${id})`); assert.equal(r.val?.str ?? r.win?.value, 'ellipse'); }
+});
+
+t('isa(x; "earc") dentro de un grupo: g_i distingue los dos tipos, y un numero o una linea dan 0', () => {
+  const d = newDoc(), c = addPoint(d, 0, 0), a = addPoint(d, 20, 0), b = addPoint(d, 0, 10), p1 = addPoint(d, 20, 0), p2 = addPoint(d, 0, 10);
+  const arco = addEllipse(d, c, a, b, {}, p1, p2), full = addEllipse(d, c, a, b, {}), ln = addLine(d, c, a);
+  const g = addGrp(d, [{ k: 'el', id: arco }, { k: 'el', id: full }, { k: 'ln', id: ln }], 'Mixto').id;
+  const F = '%f(o):\n  s:0\n  for i in 1..o.n:\n    s:s*10+isa(o_i; "earc")\n  s';
+  const r = run(d, F, `r:f(${g})`);
+  assert.equal(r.err, ''); assert.equal(num(r), 10); // el grupo lista por tipo: la linea (0), el arco eliptico (1), la elipse completa (0)
+  assert.equal(num(run(d, '%h(x):\n  isa(x; "earc")', 'r:h(5)')), 0);
 });
 
 console.log(`${passed} pruebas de grupos en scripts`);
