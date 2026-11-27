@@ -1,7 +1,7 @@
 // Snap al arrastrar (src/dragsnap.js): los puntos que se mueven se pegan a puntos, puntos medios y bordes que no se mueven; el iman lleva el ancla a la cuadricula.
 import assert from 'node:assert/strict';
 import { newDoc, addPoint, addLine, addCircle } from '../src/model.js';
-import { dragSnap } from '../src/dragsnap.js';
+import { dragSnap, grabAnchor } from '../src/dragsnap.js';
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
@@ -76,6 +76,17 @@ t('los puntos de texto ocultos no atrapan', () => {
   const { d, m, b } = mk();
   const r = dragSnap(d, new Set([m]), anc(d, m), { dx: 69, dy: -49 }, 3, { hidden: new Set([b]) });
   assert.notEqual(r.hit?.anchor && r.hit.type === 'pt' && Math.abs(30 + r.dx - 100) < 1e-9, true);
+});
+
+t('toque desviado del trazo (dedo): el ancla es el punto de la linea, y al pegarse la LINEA toca el circulo', () => {
+  const d = newDoc();
+  const a = addPoint(d, 0, 0), b = addPoint(d, 100, 0), l = addLine(d, a, b);
+  const c = addCircle(d, addPoint(d, 50, 80), 20);               // su borde mas bajo: (50, 60)
+  const anchor = grabAnchor(d, { k: 'ln', id: l }, { x: 50, y: 12 }, { [a]: d.pts[a], [b]: d.pts[b] }); // el dedo toco 12 sobre la linea
+  near(anchor.x, 50, 'x'); near(anchor.y, 0, 'y');
+  const r = dragSnap(d, new Set([a, b]), [{ id: '__ptr', ...anchor }], { dx: 0, dy: 58 }, 5);
+  assert.equal(r.hit.type, 'ci');
+  near(r.dy, 60, 'la linea sube hasta tocar el circulo, no 12 antes');
 });
 
 console.log(`${passed} pruebas de snap al arrastrar`);

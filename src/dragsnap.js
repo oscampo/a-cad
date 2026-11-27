@@ -51,3 +51,16 @@ export function dragSnap(doc, moving, anchors, d, tol, o = {}) {
   }
   return { dx: d.dx, dy: d.dy, hit: null };
 }
+
+// El ancla de un arrastre por el cuerpo de una linea, circulo o arco: el punto de ESE objeto mas cercano al toque m0 (con el dedo el toque cae a varios
+// px del trazo; si el ancla fuera m0, el «pegado» dejaria el objeto a esa distancia). orig: posiciones originales de los puntos que se mueven.
+export function grabAnchor(doc, h, m0, orig = {}) {
+  const O = (id) => orig[id] || doc.pts[id];
+  let a = { x: m0.x, y: m0.y };
+  if (h.k === 'ln' && doc.lines[h.id]) { const l = doc.lines[h.id]; if (O(l.a) && O(l.b)) a = closestOnSeg(a, O(l.a), O(l.b)); }
+  else if (h.k === 'ci' || h.k === 'ar') {
+    const e = doc.circles[h.id] || doc.arcs[h.id], C = e && O(e.c), r = C && Math.hypot(a.x - C.x, a.y - C.y);
+    if (C && r > 1e-9) a = { x: C.x + ((a.x - C.x) / r) * e.r, y: C.y + ((a.y - C.y) / r) * e.r };
+  }
+  return { x: a.x, y: a.y };
+}

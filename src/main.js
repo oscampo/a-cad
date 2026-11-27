@@ -10,7 +10,7 @@ import {
   arcThrough3, inSweep, TAU, splineSamples, resamplePolyline, closestOnPolyline, polylineLine, polylineCircle, polylinePolyline,
 } from './geom.js';
 import { startTrace, recordTraces, traceToSpline, offsetPolyline } from './curves.js';
-import { dragSnap } from './dragsnap.js';
+import { dragSnap, grabAnchor } from './dragsnap.js';
 import { splitElement } from './split.js';
 import { boxSelect } from './boxsel.js';
 import { crossPoints } from './snapx.js';
@@ -2797,7 +2797,8 @@ function toolMove(p) {
     let cur2 = { dx: m.x - drag.m0.x, dy: m.y - drag.m0.y };
     { // snap al arrastrar: solo el puntero (el punto que agarras, o el lugar donde agarraste una linea o un circulo) se pega a puntos, puntos medios y bordes que no se mueven (boton «Snap al mover»); con el iman, a la cuadricula
       const ids = Object.keys(drag.orig).filter((id) => doc.pts[id]);
-      const sn = (opts.dsnap || opts.snap) && ids.length ? dragSnap(doc, new Set(ids), [h.k === 'pt' && drag.orig[h.id] ? { id: h.id, x: drag.orig[h.id].x, y: drag.orig[h.id].y } : { id: '__ptr', x: drag.m0.x, y: drag.m0.y }], cur2, opts.dsnap ? (opts.touch ? 14 : 10) / view.s : -1, { hidden: hiddenTextPoints(), grid: opts.snap ? gridStep() : 0, gridId: h.k === 'pt' ? h.id : '__ptr' }) : null;
+      if (!drag.anchor) drag.anchor = grabAnchor(doc, h, drag.m0, drag.orig); // el punto de la linea/circulo mas cercano a donde tocaste (con el dedo el toque cae a varios px del trazo)
+      const sn = (opts.dsnap || opts.snap) && ids.length ? dragSnap(doc, new Set(ids), [h.k === 'pt' && drag.orig[h.id] ? { id: h.id, x: drag.orig[h.id].x, y: drag.orig[h.id].y } : { id: '__ptr', x: drag.anchor.x, y: drag.anchor.y }], cur2, opts.dsnap ? (opts.touch ? 14 : 10) / view.s : -1, { hidden: hiddenTextPoints(), grid: opts.snap ? gridStep() : 0, gridId: h.k === 'pt' ? h.id : '__ptr' }) : null;
       if (sn) { cur2 = { dx: sn.dx, dy: sn.dy }; drag.snapHit = sn.hit; drag.snapRef = sn.hit ? { id: ids[0], x: drag.orig[ids[0]].x + sn.dx, y: drag.orig[ids[0]].y + sn.dy } : null; } else { drag.snapHit = null; drag.snapRef = null; } // snapRef: donde debe quedar un punto que se mueve (para saber si el solver llego)
     }
     const prev = drag.lastD || { dx: 0, dy: 0 };
