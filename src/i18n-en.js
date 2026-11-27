@@ -493,7 +493,7 @@ export const EN = {
   "Cómo lee la gráfica sin, cos, tan y en qué unidad dibuja un ángulo. Las variables de los textos siguen la opción del documento.": "How the graph reads sin, cos, tan and in which unit it plots an angle. Text variables follow the document option.",
   "Buscar en la ayuda": "Search the help",
   "vacío = sin escala; 10, k, 2*D1": "empty = no scale; 10, k, 2*D1",
-  "Al arrastrar puntos, líneas o una selección, los puntos que se mueven se pegan a otros puntos, a puntos medios y al borde de líneas, círculos y arcos que no se mueven": "When dragging points, lines or a selection, the points that move snap to other points, midpoints and the edge of lines, circles and arcs that do not move",
+  "Al arrastrar, el puntero (el punto que agarras, o el lugar donde agarraste una línea) se pega a otros puntos, a puntos medios y al borde de líneas, círculos y arcos que no se mueven": "When dragging, the pointer (the point you grab, or the place where you grabbed a line) snaps to other points, midpoints and the edge of lines, circles and arcs that do not move",
   "Snap al mover": "Snap when moving",
   "Fila no válida «{0}»: escribe «tiempo; valor»": "Invalid row «{0}»: type «time; value»",
   "La tabla necesita al menos 2 filas": "The table needs at least 2 rows",

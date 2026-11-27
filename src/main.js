@@ -2794,10 +2794,10 @@ function toolMove(p) {
   } else {
     // con trazados activos se interpola el movimiento en pasos cortos para que la trayectoria salga continua
     let cur2 = { dx: m.x - drag.m0.x, dy: m.y - drag.m0.y };
-    { // snap al arrastrar: los puntos que se mueven se pegan a puntos, puntos medios y bordes que no se mueven (boton «Snap al mover»); con el iman, a la cuadricula
+    { // snap al arrastrar: solo el puntero (el punto que agarras, o el lugar donde agarraste una linea o un circulo) se pega a puntos, puntos medios y bordes que no se mueven (boton «Snap al mover»); con el iman, a la cuadricula
       const ids = Object.keys(drag.orig).filter((id) => doc.pts[id]);
-      const sn = (opts.dsnap || opts.snap) && ids.length ? dragSnap(doc, new Set(ids), ids.map((id) => ({ id, x: drag.orig[id].x, y: drag.orig[id].y })), cur2, opts.dsnap ? (opts.touch ? 14 : 10) / view.s : -1, { hidden: hiddenTextPoints(), grid: opts.snap ? gridStep() : 0, gridId: h.k === 'pt' ? h.id : ids[0] }) : null;
-      if (sn) { cur2 = { dx: sn.dx, dy: sn.dy }; drag.snapHit = sn.hit; } else drag.snapHit = null;
+      const sn = (opts.dsnap || opts.snap) && ids.length ? dragSnap(doc, new Set(ids), [h.k === 'pt' && drag.orig[h.id] ? { id: h.id, x: drag.orig[h.id].x, y: drag.orig[h.id].y } : { id: '__ptr', x: drag.m0.x, y: drag.m0.y }], cur2, opts.dsnap ? (opts.touch ? 14 : 10) / view.s : -1, { hidden: hiddenTextPoints(), grid: opts.snap ? gridStep() : 0, gridId: h.k === 'pt' ? h.id : '__ptr' }) : null;
+      if (sn) { cur2 = { dx: sn.dx, dy: sn.dy }; drag.snapHit = sn.hit; drag.snapRef = sn.hit ? { id: ids[0], x: drag.orig[ids[0]].x + sn.dx, y: drag.orig[ids[0]].y + sn.dy } : null; } else { drag.snapHit = null; drag.snapRef = null; } // snapRef: donde debe quedar un punto que se mueve (para saber si el solver llego)
     }
     const prev = drag.lastD || { dx: 0, dy: 0 };
     const tracing = Object.keys(doc.traces).length > 0;
@@ -2809,8 +2809,8 @@ function toolMove(p) {
       const reac = hasReactive(doc);
       const r = dragToStops(doc, tg, (t2) => (reac ? settle(doc, solveSteps, t2, { maxIter: 20 }) : solve(doc, t2)), !reac); // con cotas que leen medidas, se actualizan mientras arrastras; con «tope en bordes» el elemento llega hasta el borde
       if (r.ok && i === steps && drag.snapHit && drag.snapHit.type !== 'grid') { // llegar justo encima de otro punto: la atraccion de distancia cero del solver se indefine y a veces se queda corto; otras pasadas, ya cerca, lo terminan
-        const an = doc.pts[drag.snapHit.anchor];
-        for (let k = 0; an && k < 5 && Math.hypot(an.x - drag.snapHit.x, an.y - drag.snapHit.y) > 1e-6; k++) dragToStops(doc, tg, (t2) => (reac ? settle(doc, solveSteps, t2, { maxIter: 20 }) : solve(doc, t2)), !reac); // cada pasada acerca un poco mas
+        const an = doc.pts[drag.snapRef?.id], ref = drag.snapRef;
+        for (let k = 0; an && k < 5 && Math.hypot(an.x - ref.x, an.y - ref.y) > 1e-6; k++) dragToStops(doc, tg, (t2) => (reac ? settle(doc, solveSteps, t2, { maxIter: 20 }) : solve(doc, t2)), !reac); // cada pasada acerca un poco mas
       }
       if (PERF) perfSolveMs += performance.now() - ts0;
       if (r.ok) trackAngles(doc);

@@ -1,4 +1,4 @@
-<!-- es: 6fe8653161 -->
+<!-- es: dec003bb2d -->
 # 10. Style, layers and view
 
 Color, line type, width and fills; layers; what the view shows; and the element tree.
@@ -71,7 +71,7 @@ With the layer off they are not visible and are not exported, but a dimension st
 - **Grid.**
 - **Magnet** (to the grid).
 - **Soft lock** (and every how many degrees).
-- **Snap when moving**: when dragging points, lines or a selection, the points that move snap to other points, midpoints and the edge of lines, circles and arcs that do not move (a ring shows where it snaps). With no object nearby, and the **Magnet** on, they fall on the grid. It creates no constraints.
+- **Snap when moving**: when dragging, the pointer (the point you grab, or the place where you grabbed a line) snaps to other points, midpoints and the edge of lines, circles and arcs that do not move (a ring shows where it snaps). With no object nearby, and the **Magnet** on, they fall on the grid. It creates no constraints.
 - **Time for the snap** to intersections.
 - **Show or hide** constraints, points, dimensions and texts.
 - **Finger draws.**
