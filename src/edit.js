@@ -549,25 +549,25 @@ function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvA
     if (vecMids.has(pid)) continue;
     if (reuse && reuse(pid)) { M[pid] = pid; continue; }
     const o = S.pts[pid], q = tf(o), np = addPoint(doc, q.x, q.y, !!o.auto);
-    const { x, y, mark, ...flags } = o; // la marca de referencia se reasigna a la copia de su linea mas abajo
+    const { x, y, mark, grp, ...flags } = o; // grp: una copia no entra al grupo del original (ver «grupos» en model.js). La marca de referencia se reasigna a la copia de su linea mas abajo
     Object.assign(doc.pts[np], flags);
     if (linked) doc.pts[np].fixed = false; // la copia sigue al original
     M[pid] = np;
   }
   // ctr (el grupo de contorno) se separa de st en las lineas, arcos, arcos elipticos y splines: una copia suelta NO hereda el grupo (si va el grupo completo, se forma uno nuevo mas abajo)
-  for (const id of L) { const { a, b, vec, ctr, ...st } = S.lines[id]; M[id] = addLine(doc, M[a], M[b], st); made.push({ k: 'ln', id: M[id] }); if (vec) vecLines.push([M[id], vec, S.texts?.[vec.t]]); }
+  for (const id of L) { const { a, b, vec, ctr, grp, ...st } = S.lines[id]; M[id] = addLine(doc, M[a], M[b], st); made.push({ k: 'ln', id: M[id] }); if (vec) vecLines.push([M[id], vec, S.texts?.[vec.t]]); }
   for (const pid of P) { const mk = S.pts[pid].mark; if (mk && M[mk] && M[pid] && M[pid] !== pid && doc.pts[M[pid]]) doc.pts[M[pid]].mark = M[mk]; }
-  for (const id of Ci) { const { c, r, ...st } = S.circles[id]; M[id] = addCircle(doc, M[c], r, st); made.push({ k: 'ci', id: M[id] }); }
+  for (const id of Ci) { const { c, r, grp, ...st } = S.circles[id]; M[id] = addCircle(doc, M[c], r, st); made.push({ k: 'ci', id: M[id] }); }
   for (const id of Ar) {
-    const { c, a, b, r, ctr, ...st } = S.arcs[id];
+    const { c, a, b, r, ctr, grp, ...st } = S.arcs[id];
     M[id] = mirror ? addArc(doc, M[c], M[b], M[a], r, st) : addArc(doc, M[c], M[a], M[b], r, st);
     made.push({ k: 'ar', id: M[id] });
   }
   for (const id of El) { // un arco eliptico reflejado intercambia sus extremos para seguir siendo antihorario
-    const { c, a, b, p1, p2, ctr, ...st } = S.ellipses[id];
+    const { c, a, b, p1, p2, ctr, grp, ...st } = S.ellipses[id];
     M[id] = addEllipse(doc, M[c], M[a], M[b], st, p1 && M[mirror ? p2 : p1], p2 && M[mirror ? p1 : p2]); made.push({ k: 'el', id: M[id] });
   }
-  for (const id of Sp) { const { pts, closed, ctr, ...st } = S.splines[id]; M[id] = addSpline(doc, pts.map((p) => M[p]), st, closed); made.push({ k: 'sp', id: M[id] }); }
+  for (const id of Sp) { const { pts, closed, ctr, grp, ...st } = S.splines[id]; M[id] = addSpline(doc, pts.map((p) => M[p]), st, closed); made.push({ k: 'sp', id: M[id] }); }
   for (const id of Tx) {
     const t = S.texts[id];
     if (t.vecOf) continue;
@@ -578,6 +578,7 @@ function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvA
   }
   for (const k of linked ? [] : cons.filter((k) => !k.vec && !k.refs.some((r) => vecMids.has(r)))) { // vinculadas: las restricciones internas las hereda la copia por estar atada al original
     const n = { ...jclone(k), refs: k.refs.map((r) => M[r]) };
+    delete n.grp; // una cota copiada no entra al grupo de la original
     if (n.shape) { n.shape = M[n.shape]; if (!n.shape) delete n.shape; } // la forma fija sigue al spline copiado
     if (hvAngle !== undefined && (n.t === 'H' || n.t === 'V')) {
       const m = ((hvAngle % 180) + 180) % 180;
@@ -587,7 +588,7 @@ function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvA
     if (mirror && (n.t === 'ANG' || n.t === 'ANG4') && typeof n.v === 'number') { n.v = -n.v; if (n.sg) n.sg = -n.sg; }
     addCon(doc, n);
   }
-  for (const h of hatches) doc.hatches[nextId(doc, 'h')] = { ...jclone(h), ids: h.ids.map((x) => M[x]) };
+  for (const h of hatches) { const nh = { ...jclone(h), ids: h.ids.map((x) => M[x]) }; delete nh.grp; doc.hatches[nextId(doc, 'h')] = nh; }
   for (const cid of ctrs) {
     const mem = ctrMembers(S, cid).filter((it) => M[it.id]);
     if (mem.length < 2) continue;

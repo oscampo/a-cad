@@ -124,7 +124,7 @@ El grupo **Contornos** junta las líneas y arcos de trazo (no constructivos), ar
 
 ### Agrupar un contorno
 
-Un contorno detectado se puede **agrupar**: el botón *Agrupar en un contorno* de su fila crea un **grupo de contorno** (`k1`, `k2`…) con sus elementos. También puedes seleccionar elementos de trazo y usar el botón de agrupar del encabezado del árbol.
+Un contorno detectado se puede **agrupar**: el botón *Crear un contorno con estos elementos* de su fila crea un **grupo de contorno** (`k1`, `k2`…) con sus elementos. También puedes seleccionar elementos de trazo y usar el botón *Crear un contorno con la selección* del encabezado del árbol.
 
 Un grupo es una declaración tuya: sus líneas y arcos pasan a vivir **bajo él**, en «Contornos» (y salen de «Líneas» y «Arcos»), con todo lo suyo. La fila dice su estado, que se mide cada vez: «cerrado», «abierto · abertura 0.05 entre sus extremos», o «desconectado (2 partes)» si los miembros no forman una cadena. Puedes agrupar elementos aunque no estén conectados y mirar luego el estado.
 
@@ -135,6 +135,18 @@ Un grupo es una declaración tuya: sus líneas y arcos pasan a vivir **bajo él*
 - Un elemento está en un solo grupo. Un círculo, un vector, un elemento constructivo o una spline cerrada no entran.
 - **Reparar** (en las propiedades del grupo, solo si hace falta): el estado avisa de las **aristas repetidas** (el mismo elemento dibujado dos veces, que deja el contorno «ramificado») y de las **uniones sin restricción** (dos puntos distintos en el mismo lugar). *Quitar repetidas* deja uno de cada, el que más relaciones tiene; *Unir puntos coincidentes* une cada par en uno solo, y lo que usaba uno pasa a usar el otro (las relaciones entre los dos puntos desaparecen, y se niega si una línea, un arco o un spline usa los dos). Ambos se deshacen.
 - **Copiar** un grupo **completo** (pegar, matrices, copia espejo) forma un grupo nuevo **sin nombre** por cada copia; si copias solo una parte de sus elementos, la copia no hereda nada. Dividir un elemento deja los trozos en el grupo, y el redondeo y el chaflán entre dos elementos del mismo grupo suman lo nuevo al grupo. Si un grupo se queda con menos de dos elementos, desaparece solo.
+
+### Grupos
+
+Un **grupo** (`g1`, `g2`…) reúne **de todo** lo que quieras tratar como una unidad: elementos, textos, cotas, rellenos, puntos sueltos, contornos y otros grupos, aunque no estén conectados (la vista frontal de una pieza: su contorno, un círculo, sus cotas y su título). Lo crea el botón *Agrupar la selección* del encabezado del árbol; el que crea un contorno es *Crear un contorno con la selección*.
+
+- Es una **jerarquía**: cada cosa tiene **un solo grupo**. Un grupo puede estar dentro de otro; al agrupar cosas que ya están en un mismo grupo, el nuevo queda ahí, y si vienen de sitios distintos, en la raíz.
+- En el árbol sus hijos **cuelgan del grupo** (en «Grupos») y salen de su lista por tipo. Tocar el grupo selecciona todo lo que contiene.
+- Un elemento de un contorno entra con su **contorno entero**; un punto que usa un elemento sigue a su elemento (solo los sueltos son miembros); de las relaciones solo entran las cotas.
+- **Propiedades** (el botón de la fila): el nombre, cuántas cosas contiene, y seleccionar, disolver o borrar.
+- **Disolver** (*Disolver el grupo*): lo que contiene sube un nivel (al grupo de arriba, o a la raíz). **Borrar** (la papelera): borra el grupo y todo lo que contiene.
+- Un grupo sin nada desaparece solo. **Copiar** un elemento no lo mete en el grupo del original; **dividir** uno deja los trozos en su grupo.
+- En el árbol por capas, los grupos listan sus hijos como enlaces y cada uno sigue en su capa.
 
 ---
 

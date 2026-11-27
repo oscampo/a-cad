@@ -1,6 +1,6 @@
 // Arbol de elementos del documento (sin DOM): cada elemento con sus puntos y sus relaciones.
 import { dist } from './geom.js';
-import { conRefs, conTag, ctrMembers, ctrName } from './model.js';
+import { conRefs, conTag, ctrMembers, ctrName, grpMembers, grpLeaves, grpName } from './model.js';
 import { dimValue, dimText, DIAM } from './dims.js';
 import { elementPoints } from './topo.js';
 import { dupEdges } from './repair.js';
@@ -177,6 +177,12 @@ export function ctrState(doc, id) {
 export function buildTree(doc, { by = 'type' } = {}) {
   const compact = (a) => a.filter(Boolean);
   const group = (key, label, items) => ({ key, label: `${label} (${items.length})`, group: true, children: items });
+  // Grupos (model.js, doc.grps): una jerarquia. En el arbol por tipo sus hijos cuelgan de ellos (una cosa, un lugar) y salen de su lista; en el de capas siguen
+  // en su capa y el grupo los lista como enlaces.
+  const linkMode = by === 'layer';
+  const gDirect = new Set();
+  if (!linkMode) for (const gid of Object.keys(doc.grps || {})) for (const m of grpMembers(doc, gid)) gDirect.add(m.k + ':' + m.id);
+  const inG = (k, id) => gDirect.has(k + ':' + id);
 
   // indice de relaciones por elemento, una sola pasada (antes se recorrian todas por cada elemento)
   const consBy = new Map();
@@ -251,10 +257,11 @@ export function buildTree(doc, { by = 'type' } = {}) {
   // solo los puntos sueltos: los que tienen dueño cuelgan de el (los de control, de su spline)
   const pts = Object.entries(doc.pts).filter(([id, p]) => !p.splOnly && !owner.has(id)).map(([id]) => ptNode(id));
   // grupos por tipo de los elementos que pueden tener capa: [clave, nombre, nodos, coleccion del documento]
-  const free = (a) => a.filter((n) => !memberIds.has(n.sel.id));
+  const free = (a, k) => a.filter((n) => !memberIds.has(n.sel.id) && !inG(k, n.sel.id)); // ni de un contorno ni hijo directo de un grupo: esos cuelgan de su dueño
   const byEl = new Map([...lines, ...arcs, ...splines, ...ellipses].map((n) => [n.sel.id, n]));
-  const LAYERED = [['g:ln', 'Líneas', free(lines), 'lines'], ['g:ci', 'Círculos', circles, 'circles'], ['g:ar', 'Arcos', free(arcs), 'arcs'], ['g:el', 'Elipses', free(ellipses), 'ellipses'],
-    ['g:sp', 'Splines', free(splines), 'splines'], ['g:tx', 'Textos', texts, 'texts'], ['g:ha', 'Rellenos', hatches, 'hatches'], ['g:pt', 'Puntos sueltos', pts, 'pts']];
+  const byIdOf = (a) => new Map(a.map((n) => [n.sel.id, n]));
+  const LAYERED = [['g:ln', 'Líneas', free(lines, 'ln'), 'lines'], ['g:ci', 'Círculos', free(circles, 'ci'), 'circles'], ['g:ar', 'Arcos', free(arcs, 'ar'), 'arcs'], ['g:el', 'Elipses', free(ellipses, 'el'), 'ellipses'],
+    ['g:sp', 'Splines', free(splines, 'sp'), 'splines'], ['g:tx', 'Textos', free(texts, 'tx'), 'texts'], ['g:ha', 'Rellenos', free(hatches, 'ha'), 'hatches'], ['g:pt', 'Puntos sueltos', free(pts, 'pt'), 'pts']];
   const layOf = (coll, n) => { const l = doc[coll]?.[n.sel.id]?.layer; return l && doc.layers?.[l] ? l : null; };
   const typeGroups = (inLayer) => LAYERED.map(([key, label, items, coll]) => group(key, label, inLayer ? items.filter((n) => layOf(coll, n) === inLayer.id) : items));
 
@@ -271,6 +278,7 @@ export function buildTree(doc, { by = 'type' } = {}) {
   // sin origen (dibujos anteriores, o al dibujar sobre un elemento), por tipo
   const autoBy = new Map();
   for (const [cid, k] of Object.entries(doc.cons)) {
+    if (inG('co', cid)) continue; // una cota que es hija de un grupo cuelga de el
     const c = conCategory(k);
     if (c !== 'auto') { cats[c].push(conNode(cid, k)); continue; }
     const o = autoOrigin(doc, k);
@@ -314,9 +322,31 @@ export function buildTree(doc, { by = 'type' } = {}) {
     const { state, what, members } = ctrDescribe(doc, cid);
     return { key: `ctr:${cid}`, ctr: cid, selMany: members, label: `Contorno ${ctrName(doc, cid)} · ${state} · ${what}`, children: members.map((m) => byEl.get(m.id)).filter(Boolean) };
   });
-  const rest = [group('g:ct', 'Contornos', [...ctrNodes, ...ctNodes]), group('g:ac', 'Actuadores', acts), group('g:gr', 'Gráficas', graphs), { key: 'g:co', label: `Relaciones y cotas (${nCons})`, group: true, children: cons }, group('g:tr', 'Trazados', traces)];
+  // grupos (jerarquia, model.js): un nodo por grupo, con sus hijos (elementos, textos, cotas, contornos y grupos); tocarlo selecciona todo lo que contiene
+  const ctrNodeBy = new Map(ctrNodes.map((n) => [n.ctr, n]));
+  const nodesBy = { ci: byIdOf(circles), tx: byIdOf(texts), ha: byIdOf(hatches), pt: byIdOf(pts) };
+  const KG = { gp: ['grupo', 'grupos'], ct: ['contorno', 'contornos'], ln: ['línea', 'líneas'], ci: ['círculo', 'círculos'], ar: ['arco', 'arcos'], el: ['elipse', 'elipses'], sp: ['spline', 'splines'], tx: ['texto', 'textos'], ha: ['relleno', 'rellenos'], co: ['cota', 'cotas'], pt: ['punto', 'puntos'] };
+  const memberNode = (m) => {
+    if (m.k === 'gp') return gpNode(m.id);
+    if (linkMode) { // en el arbol por capa: un enlace al lugar propio del elemento
+      const label = `↗ ${m.k === 'ct' ? 'Contorno ' + ctrName(doc, m.id) : KG[m.k][0][0].toUpperCase() + KG[m.k][0].slice(1) + ' ' + m.id}`;
+      return { key: `lk:${m.k}:${m.id}`, label, link: true, ...(m.k === 'ct' ? { selMany: ctrMembers(doc, m.id) } : { sel: m }) };
+    }
+    if (m.k === 'ct') return ctrNodeBy.get(m.id);
+    if (m.k === 'co') return doc.cons[m.id] ? conNode(m.id, doc.cons[m.id]) : null;
+    return (byEl.get(m.id) && ['ln', 'ar', 'sp', 'el'].includes(m.k) ? byEl.get(m.id) : nodesBy[m.k]?.get(m.id)) || null;
+  };
+  function gpNode(gid) {
+    const mem = grpMembers(doc, gid), cnt = {};
+    for (const m of mem) cnt[m.k] = (cnt[m.k] || 0) + 1;
+    const what = Object.entries(cnt).map(([k, c]) => `${c} ${KG[k][c > 1 ? 1 : 0]}`).join(', ');
+    return { key: `gp:${gid}`, gp: gid, selMany: grpLeaves(doc, gid), label: `Grupo ${grpName(doc, gid)} · ${what}`, children: compact(mem.map(memberNode)) };
+  }
+  const gpRoots = Object.keys(doc.grps || {}).filter((g) => !doc.grps[g].grp || !doc.grps[doc.grps[g].grp]);
+  const gpCat = group('g:gp', 'Grupos', gpRoots.map(gpNode));
+  const rest = [group('g:ct', 'Contornos', [...ctrNodes.filter((n) => !inG('ct', n.ctr)), ...ctNodes]), group('g:ac', 'Actuadores', acts), group('g:gr', 'Gráficas', graphs), { key: 'g:co', label: `Relaciones y cotas (${nCons})`, group: true, children: cons }, group('g:tr', 'Trazados', traces)];
   const nonEmpty = (a) => a.filter((g) => g.children.length);
-  if (by !== 'layer' || !Object.keys(doc.layers || {}).length) return nonEmpty([...typeGroups(null), ...rest]);
+  if (by !== 'layer' || !Object.keys(doc.layers || {}).length) return nonEmpty([gpCat, ...typeGroups(null), ...rest]);
   // por capa: todas las capas (tambien las vacias, para verlas y encenderlas) y «Sin capa» si tiene algo
   const layerGroups = [...Object.entries(doc.layers).map(([id, l]) => ({ id, l })), { id: null }].map(({ id, l }) => {
     const kids = nonEmpty(typeGroups({ id }));
@@ -324,5 +354,5 @@ export function buildTree(doc, { by = 'type' } = {}) {
     if (!id && !n) return null;
     return { key: `g:y:${id ?? '-'}`, group: true, layerId: id, label: id ? `${l.name} (${n})${l.on ? '' : ' · apagada'}` : `Sin capa (${n})`, children: kids };
   });
-  return [...compact(layerGroups), ...nonEmpty(rest)];
+  return [...nonEmpty([gpCat]), ...compact(layerGroups), ...nonEmpty(rest)];
 }

@@ -3,7 +3,7 @@ import { initSolver, solve, solveSteps, reparamSplines, addConsSolved, projectMa
 import {
   newDoc, addLayer, deleteLayer, layerCount, shownEntries, shownValues, layerHiddenPoints, consHidden, visibleDoc, isHidden, addPoint, addLine, addCircle, addArc, addText, addSpline, splinePolyline, addCon, cleanup, deleteItems, clone, hatchLoops,
   allLtypes, arcOf, conTag, ensureNumbers, addEllipse, ellipsePolyline, ellipseOf, ellipsePoint, ellipseParam, ellipseRange, isPartial, DIM_TYPES,
-  withOp, addCtr, dissolveCtr, deleteCtrAndMembers, ctrEligible, ctrMembers,
+  withOp, addCtr, dissolveCtr, deleteCtrAndMembers, ctrEligible, ctrMembers, addGrp, dissolveGrp, deleteGrpAndMembers, grpPlan, grpName, grpMembers, grpLeaves,
 } from './model.js';
 import {
   dist, closestOnSeg, lineLine, lineCircle, circleCircle, signedAngle, dashFromPattern, parsePattern,
@@ -395,7 +395,8 @@ function renderTree() {
   // agrupar por capa solo tiene sentido si hay capas: sin ellas el boton se oculta y el arbol va por tipo
   const hasLayers = Object.keys(doc.layers || {}).length > 0;
   $('treeBy').hidden = !hasLayers;
-  $('treeGroup').hidden = sel.filter((s) => ctrEligible(doc, s) && !(doc[s.k === 'ln' ? 'lines' : s.k === 'ar' ? 'arcs' : s.k === 'el' ? 'ellipses' : 'splines'][s.id].ctr)).length < 2;
+  $('treeGroup').hidden = grpPlan(doc, sel).ok.length < 2; // dos o mas cosas que puedan agruparse (elementos, textos, cotas, contornos, grupos…)
+  $('treeCtr').hidden = sel.filter((s) => ctrEligible(doc, s) && !(doc[s.k === 'ln' ? 'lines' : s.k === 'ar' ? 'arcs' : s.k === 'el' ? 'ellipses' : 'splines'][s.id].ctr)).length < 2;
   $('treeBy').setAttribute('aria-pressed', String(hasLayers && opts.treeBy === 'layer'));
   const tree = buildTree(doc, { by: hasLayers && opts.treeBy === 'layer' ? 'layer' : 'type' });
   // al cambiar la seleccion desde el lienzo, se abre la rama que lleva al elemento
@@ -433,7 +434,12 @@ function renderTree() {
     }
     if (n.act) { act(iconSvg('props'), 'Editar', () => treeEditAct(n.act)); act(iconSvg('trash'), 'Borrar', () => { pushUndo(); delete doc.acts?.[n.act]; delete doc.graphs?.[n.act]; delete graphData[n.act]; afterChange(); }); }
     if (n.sel && !n.link && !String(n.key).startsWith('tr:')) act(iconSvg('trash'), 'Borrar', () => treeDelete(n.sel));
-    if (n.ctrFrom) act(iconSvg('ctr-group'), 'Agrupar en un contorno', () => groupAsCtr(n.ctrFrom)); // un contorno detectado
+    if (n.ctrFrom) act(iconSvg('ctr-make'), 'Crear un contorno con estos elementos', () => groupAsCtr(n.ctrFrom)); // un contorno detectado
+    if (n.gp) { // un grupo: propiedades, disolver (los hijos suben un nivel) o borrarlo con todo lo que contiene
+      act(iconSvg('props'), 'Propiedades del grupo', () => { sel = grpLeaves(doc, n.gp).filter(exists); draw(); openProps({ k: 'gp', id: n.gp }); });
+      act(iconSvg('ungroup'), 'Disolver el grupo (lo que contiene se queda)', () => treeDissolveGrp(n.gp));
+      act(iconSvg('trash'), 'Borrar el grupo y todo lo que contiene', () => treeDeleteGrp(n.gp));
+    }
     if (n.ctr) { // un grupo de contorno: disolver (los elementos se quedan) o borrarlo con sus elementos
       act(iconSvg('props'), 'Propiedades del contorno', () => { sel = ctrMembers(doc, n.ctr).filter(exists); draw(); openProps({ k: 'ct', id: n.ctr }); });
       act(iconSvg('ctr-dissolve'), 'Disolver el contorno (los elementos se quedan)', () => treeDissolveCtr(n.ctr));
@@ -512,6 +518,30 @@ function groupAsCtr(items) {
   if (!r.id) { rollback(); toast(items.length < 2 ? 'Elige al menos dos elementos de trazo para agruparlos' : 'No hay dos elementos de trazo sin grupo: un círculo, un vector, un elemento constructivo o una spline cerrada no entran, ni los que ya tienen grupo'); return; }
   const n = ctrMembers(doc, r.id).length;
   toast(r.skipped.length ? `Contorno ${r.id} creado con ${n} elementos; ${r.skipped.length} no entraron (círculos, vectores, constructivos, splines cerradas o ya agrupados)` : `Contorno ${r.id} creado con ${n} elementos`);
+  afterChange();
+}
+// Grupos (model.js): agrupar la seleccion; disolver (lo que contiene sube un nivel) o borrar con todo lo que contiene.
+function groupSelection() {
+  const plan = grpPlan(doc, sel);
+  pushUndo();
+  const r = addGrp(doc, sel.filter(exists));
+  if (!r.id) { rollback(); toast(plan.ok.length < 2 ? 'Elige al menos dos cosas que se puedan agrupar' : 'No se pudo agrupar'); return; }
+  const n = grpMembers(doc, r.id).length, why = r.skipped.length;
+  toast(why ? `Grupo ${r.id} creado con ${n} elementos; ${why} no entraron (parte de un contorno, o un punto que usa un elemento)` : `Grupo ${r.id} creado con ${n} elementos`);
+  sel = grpLeaves(doc, r.id).filter(exists);
+  afterChange();
+}
+function treeDissolveGrp(id) {
+  pushUndo();
+  const n = dissolveGrp(doc, id);
+  toast(`Grupo disuelto: ${n} elementos siguen en el dibujo`);
+  afterChange();
+}
+function treeDeleteGrp(id) {
+  pushUndo();
+  deleteGrpAndMembers(doc, id);
+  sel = sel.filter(exists);
+  solve(doc, []);
   afterChange();
 }
 function treeDissolveCtr(id) {
@@ -610,7 +640,8 @@ function treeDeleteCtr(id) {
   solve(doc, []);
   afterChange();
 }
-$('treeGroup').onclick = () => groupAsCtr(sel);
+$('treeCtr').onclick = () => groupAsCtr(sel);
+$('treeGroup').onclick = groupSelection;
 function treeToggleFix(id) {
   const p = doc.pts[id]; if (!p) return;
   pushUndo(); p.fixed = !p.fixed; afterChange();
@@ -5599,8 +5630,8 @@ $('dlgY').addEventListener('keydown', (e) => {
 $('tLayers').onclick = () => { renderLayers(); $('dlgY').showModal(); };
 
 // ---------------------------------------------------------------- ventana de propiedades (doble toque)
-const PROP_NAMES = { pt: 'Punto', ln: 'Línea', ci: 'Círculo', ar: 'Arco', el: 'Elipse', sp: 'Spline', tx: 'Texto', ha: 'Relleno', ct: 'Contorno' }; // ct: un grupo de contorno (doc.ctrs), desde el arbol
-const PROP_COLL = { pt: 'pts', ln: 'lines', ci: 'circles', ar: 'arcs', el: 'ellipses', sp: 'splines', tx: 'texts', ha: 'hatches', ct: 'ctrs' };
+const PROP_NAMES = { pt: 'Punto', ln: 'Línea', ci: 'Círculo', ar: 'Arco', el: 'Elipse', sp: 'Spline', tx: 'Texto', ha: 'Relleno', ct: 'Contorno', gp: 'Grupo' }; // ct: un grupo de contorno (doc.ctrs), desde el arbol
+const PROP_COLL = { pt: 'pts', ln: 'lines', ci: 'circles', ar: 'arcs', el: 'ellipses', sp: 'splines', tx: 'texts', ha: 'hatches', ct: 'ctrs', gp: 'grps' };
 let propT = null;
 const propObj = () => (propT ? doc[PROP_COLL[propT.k]]?.[propT.id] : null);
 function pointOwned(id) {
@@ -5738,6 +5769,23 @@ function relaxMarks() {
 }
 
 // Propiedades de un grupo de contorno: su nombre (el que muestra el arbol; sin nombre, su id), su estado medido y sus elementos, con las acciones del grupo.
+function openGrpProps(id, body) {
+  const o = doc.grps[id];
+  const nm = document.createElement('input');
+  nm.type = 'text'; nm.value = o.name || ''; nm.placeholder = id; nm.maxLength = 40;
+  nm.onchange = () => propSet((x) => { const v = nm.value.trim(); if (v) x.name = v; else delete x.name; });
+  body.appendChild(propRow('Nombre', nm));
+  const info = (label, text) => { const s = document.createElement('span'); s.textContent = text; s.style.cssText = 'flex:2 1 200px'; return propRow(label, s); };
+  const direct = grpMembers(doc, id), all = grpLeaves(doc, id);
+  body.appendChild(info('Contiene', `${direct.length} ${direct.length === 1 ? 'cosa' : 'cosas'} (${all.length} ${all.length === 1 ? 'elemento' : 'elementos'} en total)`));
+  const mkb = (text, title, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.title = title; b.onclick = fn; return b; };
+  body.appendChild(propRow('',
+    mkb('Seleccionar', 'Selecciona todo lo que contiene el grupo', () => { $('dlgR').close(); sel = grpLeaves(doc, id).filter(exists); afterChange(); }),
+    mkb('Disolver', 'Disuelve el grupo: lo que contiene se queda, un nivel más arriba', () => { $('dlgR').close(); treeDissolveGrp(id); }),
+    mkb('Borrar con su contenido', 'Borra el grupo y todo lo que contiene', () => { $('dlgR').close(); treeDeleteGrp(id); })));
+  $('prCons').textContent = ''; $('prAdd').textContent = ''; $('prConsH').style.display = 'none'; // un grupo no tiene restricciones propias
+  if (!$('dlgR').open) $('dlgR').showModal();
+}
 function openCtrProps(id, body) {
   const o = doc.ctrs[id];
   const nm = document.createElement('input');
@@ -5774,6 +5822,7 @@ function openProps(h) {
   body.textContent = '';
   const k = h.k;
   if (k === 'ct') { openCtrProps(h.id, body); return; }
+  if (k === 'gp') { openGrpProps(h.id, body); return; }
   // capa (un punto que forma parte de un elemento sigue la capa de ese elemento)
   if (k !== 'pt' || !pointOwned(h.id)) {
     const lopts = [['', 'Ninguna'], ...Object.entries(doc.layers || {}).map(([id, l]) => [id, l.name + (l.on ? '' : ' (apagada)')])];

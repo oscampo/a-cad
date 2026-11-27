@@ -93,15 +93,16 @@ export function addCtr(doc, items, name) {
   if (ok.length < 2) return { id: null, skipped };
   doc.ctrs ||= {};
   const id = nextId(doc, 'k');
-  doc.ctrs[id] = name ? { name } : {};
-  for (const it of ok) doc[CTR_OF[it.k]][it.id].ctr = id;
+  const parents = new Set(ok.map((it) => grpOf(doc, it.k, it.id) ?? ''));
+  doc.ctrs[id] = { ...(name ? { name } : {}), ...(parents.size === 1 && [...parents][0] ? { grp: [...parents][0] } : {}) }; // el contorno queda en el grupo de sus miembros (si era uno solo)
+  for (const it of ok) { const o = doc[CTR_OF[it.k]][it.id]; o.ctr = id; delete o.grp; } // un elemento de un contorno tiene por padre al contorno
   return { id, skipped };
 }
 // Disuelve el grupo: sus miembros quedan sin grupo y siguen en el dibujo. Devuelve cuantos eran.
 export function dissolveCtr(doc, id) {
   if (!doc.ctrs?.[id]) return 0;
-  const m = ctrMembers(doc, id);
-  for (const it of m) delete doc[CTR_OF[it.k]][it.id].ctr;
+  const m = ctrMembers(doc, id), up = doc.ctrs[id].grp;
+  for (const it of m) { const o = doc[CTR_OF[it.k]][it.id]; delete o.ctr; if (up && doc.grps?.[up]) o.grp = up; } // los miembros vuelven al grupo del contorno
   delete doc.ctrs[id];
   if (!Object.keys(doc.ctrs).length) delete doc.ctrs;
   return m.length;
@@ -116,6 +117,106 @@ export function deleteCtrAndMembers(doc, id) {
   return m.length;
 }
 export const ctrName = (doc, id) => doc.ctrs?.[id]?.name || id;
+
+// ---- grupos: doc.grps = { gN: { name?, grp? } }, una JERARQUIA. Cada cosa tiene un solo padre: un elemento, un contorno o un grupo lleva grp (el id de su
+// grupo); un grupo que lleva grp esta dentro de otro. Un grupo puede tener de todo (elementos, textos, cotas, rellenos, puntos sueltos, contornos y otros
+// grupos); a diferencia de un contorno, no pide que esten conectados. Un punto que usa un elemento sigue a su elemento (solo los sueltos son miembros), y un
+// elemento de un contorno entra al grupo con su contorno entero. Disolver sube a los hijos al padre del grupo; un grupo vacio desaparece solo (cleanup).
+export const GRP_COLL = { ln: 'lines', ci: 'circles', ar: 'arcs', el: 'ellipses', sp: 'splines', tx: 'texts', ha: 'hatches', pt: 'pts', co: 'cons', ct: 'ctrs', gp: 'grps' };
+const GRP_ORDER = ['gp', 'ct', 'ln', 'ar', 'el', 'sp', 'ci', 'tx', 'ha', 'co', 'pt'];
+const grpHolder = (doc, k, id) => doc[GRP_COLL[k]]?.[id];
+// El grupo de algo (undefined si esta en la raiz o su grupo ya no existe).
+export const grpOf = (doc, k, id) => { const g = grpHolder(doc, k, id)?.grp; return g && doc.grps?.[g] ? g : undefined; };
+// Los hijos directos de un grupo, en un orden fijo (grupos, contornos, y los elementos por tipo).
+export function grpMembers(doc, gid) {
+  const out = [];
+  for (const k of GRP_ORDER) for (const [id, o] of Object.entries(doc[GRP_COLL[k]] || {})) if (o.grp === gid && !(k === 'gp' && id === gid)) out.push({ k, id });
+  return out;
+}
+// Todo lo que contiene, a cualquier profundidad, como elementos seleccionables: los grupos se abren y un contorno da sus miembros.
+export function grpLeaves(doc, gid, seen = new Set()) {
+  if (seen.has(gid)) return [];
+  seen.add(gid);
+  const out = [];
+  for (const m of grpMembers(doc, gid)) {
+    if (m.k === 'gp') out.push(...grpLeaves(doc, m.id, seen));
+    else if (m.k === 'ct') out.push(...ctrMembers(doc, m.id));
+    else out.push(m);
+  }
+  return out;
+}
+// Los grupos que contiene a cualquier profundidad (sin contarse a si mismo).
+export function grpDescendants(doc, gid) {
+  const out = [], seen = new Set([gid]), todo = [gid];
+  while (todo.length) for (const m of grpMembers(doc, todo.pop())) if (m.k === 'gp' && !seen.has(m.id)) { seen.add(m.id); out.push(m.id); todo.push(m.id); }
+  return out;
+}
+export const grpName = (doc, id) => doc.grps?.[id]?.name || id;
+// Que de lo dado puede agruparse: { ok: [{k,id}], skipped: [{k,id,why}] }. Un elemento de un contorno se sustituye por su contorno si se da entero; un punto con dueño
+// sigue a su elemento; de las relaciones solo entran las cotas y las lineas indicativas.
+export function grpPlan(doc, items) {
+  const ok = [], skipped = [], seen = new Set();
+  const given = new Set(items.map((i) => i.k + i.id));
+  let used = null;
+  const push = (it) => { const key = it.k + it.id; if (!seen.has(key)) { seen.add(key); ok.push(it); } };
+  for (const it of items) {
+    const o = grpHolder(doc, it.k, it.id);
+    if (!o || !GRP_COLL[it.k]) { skipped.push({ ...it, why: 'tipo' }); continue; }
+    if (CTR_COLLS_K.has(it.k) && o.ctr && doc.ctrs?.[o.ctr]) {
+      const whole = ctrMembers(doc, o.ctr).every((m) => given.has(m.k + m.id));
+      if (whole) push({ k: 'ct', id: o.ctr }); else skipped.push({ ...it, why: 'contorno', ctr: o.ctr });
+      continue;
+    }
+    if (it.k === 'co' && !(o.v !== undefined || o.t === 'LEAD')) { skipped.push({ ...it, why: 'tipo' }); continue; }
+    if (it.k === 'pt') { used ||= pointsUsed(doc); if (used.has(it.id)) { skipped.push({ ...it, why: 'owned' }); continue; } }
+    push(it);
+  }
+  return { ok, skipped };
+}
+const CTR_COLLS_K = new Set(Object.values(CTR_COLLS));
+// Agrupa lo dado en un grupo nuevo. Si todo estaba en el mismo grupo (o en la raiz), el grupo nuevo queda ahi; si venia de sitios distintos, en la raiz.
+// Devuelve { id, skipped }; id es null si quedan menos de 2.
+export function addGrp(doc, items, name) {
+  const { ok, skipped } = grpPlan(doc, items);
+  if (ok.length < 2) return { id: null, skipped };
+  const parents = new Set(ok.map((it) => grpOf(doc, it.k, it.id) ?? ''));
+  const parent = parents.size === 1 ? [...parents][0] : '';
+  doc.grps ||= {};
+  const id = nextId(doc, 'g');
+  doc.grps[id] = { ...(name ? { name } : {}), ...(parent ? { grp: parent } : {}) };
+  for (const it of ok) grpHolder(doc, it.k, it.id).grp = id;
+  return { id, skipped };
+}
+// Disuelve el grupo: sus hijos suben al grupo de arriba (o a la raiz) y siguen en el dibujo. Devuelve cuantos eran.
+export function dissolveGrp(doc, id) {
+  if (!doc.grps?.[id]) return 0;
+  const up = doc.grps[id].grp, m = grpMembers(doc, id);
+  for (const it of m) { const o = grpHolder(doc, it.k, it.id); if (up && doc.grps[up]) o.grp = up; else delete o.grp; }
+  delete doc.grps[id];
+  if (!Object.keys(doc.grps).length) delete doc.grps;
+  return m.length;
+}
+// Borra el grupo, los que contiene y todo lo que tienen. Devuelve cuantos elementos borro.
+export function deleteGrpAndMembers(doc, id) {
+  if (!doc.grps?.[id]) return 0;
+  const leaves = grpLeaves(doc, id);
+  for (const g of [id, ...grpDescendants(doc, id)]) delete doc.grps[g];
+  if (!Object.keys(doc.grps).length) delete doc.grps;
+  deleteItems(doc, leaves);
+  return leaves.length;
+}
+// cleanup: un grp que apunta a un grupo que ya no existe sobra, y un grupo sin nada desaparece (repetido: uno vacio puede dejar vacio al de arriba).
+function cleanGrps(doc) {
+  if (!doc.grps) return false;
+  let changed = false;
+  for (const coll of Object.values(GRP_COLL)) for (const o of Object.values(doc[coll] || {})) if (o.grp !== undefined && !doc.grps[o.grp]) { delete o.grp; changed = true; }
+  for (let again = true; again;) {
+    again = false;
+    for (const id of Object.keys(doc.grps)) if (!grpMembers(doc, id).length) { delete doc.grps[id]; again = true; changed = true; }
+  }
+  if (!Object.keys(doc.grps).length) delete doc.grps;
+  return changed;
+}
 // Puntos que no se ven por capas apagadas: los de una capa apagada y los que solo usan elementos ocultos.
 export function layerHiddenPoints(doc) {
   const out = new Set();
@@ -396,6 +497,7 @@ export function cleanup(doc) {
       if (!doc.ctrs?.[o.ctr]) { delete o.ctr; changed = true; } else ctrN[o.ctr] = (ctrN[o.ctr] || 0) + 1;
     }
     for (const id of Object.keys(doc.ctrs || {})) if ((ctrN[id] || 0) < 2) { dissolveCtr(doc, id); changed = true; }
+    if (cleanGrps(doc)) changed = true;
     const used = pointsUsed(doc);
     for (const [id, p] of Object.entries(doc.pts)) {
       if (p.auto && !used.has(id)) { delete doc.pts[id]; changed = true; }

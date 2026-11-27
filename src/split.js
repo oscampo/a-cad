@@ -3,7 +3,7 @@
 import { addLine, addArc, addCon, withOp, addPoint, cleanup } from './model.js';
 import { closestOnSeg, dist, arcSweepOf, angleFrom, norm, TAU } from './geom.js';
 
-const styleOf = (o) => ({ color: o.color, ltype: o.ltype, w: o.w, ls: o.ls, ...(o.layer ? { layer: o.layer } : {}), ...(o.ctr ? { ctr: o.ctr } : {}) }); // los trozos siguen en el grupo de contorno del original
+const styleOf = (o) => ({ color: o.color, ltype: o.ltype, w: o.w, ls: o.ls, ...(o.layer ? { layer: o.layer } : {}), ...(o.ctr ? { ctr: o.ctr } : {}), ...(o.grp ? { grp: o.grp } : {}) }); // los trozos siguen en el grupo de contorno del original y en su grupo
 const replaceRef = (refs, from, to) => refs.map((r) => (r === from ? to : r));
 
 function retargetHatches(doc, elId, pieces) {

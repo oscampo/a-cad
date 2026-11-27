@@ -1,4 +1,4 @@
-<!-- es: a125cf8ee0 -->
+<!-- es: edcbb50374 -->
 # 10. Style, layers and view
 
 Color, line type, width and fills; layers; what the view shows; and the element tree.
@@ -125,7 +125,7 @@ The **Outlines** group joins the lines and arcs with stroke (not construction), 
 
 ### Grouping an outline
 
-A detected outline can be **grouped**: the *Group into a contour* button on its row creates an **outline group** (`k1`, `k2`…) with its elements. You can also select stroke elements and use the group button in the tree header.
+A detected outline can be **grouped**: the *Create a contour from these elements* button on its row creates an **outline group** (`k1`, `k2`…) with its elements. You can also select stroke elements and use the *Create a contour from the selection* button in the tree header.
 
 A group is a declaration of yours: its lines and arcs now live **under it**, in "Outlines" (and leave "Lines" and "Arcs"), with everything that belongs to them. The row shows its state, measured every time: "closed", "open · gap 0.05 between its ends", or "disconnected (2 parts)" if the members do not form a chain. You can group elements even if they are not connected and look at the state afterwards.
 
@@ -136,6 +136,18 @@ A group is a declaration of yours: its lines and arcs now live **under it**, in 
 - An element is in only one group. A circle, a vector, a construction element or a closed spline cannot join.
 - **Repair** (in the group properties, only when needed): the state warns about **repeated edges** (the same element drawn twice, which leaves the contour "branched") and **unconstrained joints** (two different points in the same place). *Remove repeated* keeps one of each, the one with the most relations; *Join coincident points* joins each pair into one, and whatever used one now uses the other (relations between the two points disappear, and it refuses if a line, an arc or a spline uses both). Both can be undone.
 - **Copying** a **complete** group (paste, arrays, mirror copy) forms a new group **without a name** for each copy; if you copy only some of its elements, the copy inherits nothing. Splitting an element leaves the pieces in the group, and a fillet or chamfer between two elements of the same group adds the new piece to the group. If a group is left with fewer than two elements, it disappears on its own.
+
+### Groups
+
+A **group** (`g1`, `g2`…) gathers **anything** you want to treat as one unit: elements, texts, dimensions, fills, loose points, outlines and other groups, even if they are not connected (the front view of a part: its outline, a circle, its dimensions and its title). The *Group the selection* button in the tree header creates it; the one that creates an outline is *Create a contour from the selection*.
+
+- It is a **hierarchy**: everything has **a single group**. A group can be inside another; when you group things that are already in the same group, the new one stays there, and if they come from different places, at the root.
+- In the tree its children **hang from the group** (under "Groups") and leave their by-type list. Tapping the group selects everything it contains.
+- An element of an outline goes in with its **whole outline**; a point used by an element follows its element (only loose points are members); of the relations only dimensions go in.
+- **Properties** (the row button): the name, how many things it contains, and select, dissolve or delete.
+- **Dissolve** (*Dissolve the group*): what it contains moves up one level (to the group above, or to the root). **Delete** (the trash can): deletes the group and everything it contains.
+- A group with nothing left disappears on its own. **Copying** an element does not put it in the original's group; **splitting** one leaves the pieces in their group.
+- In the by-layer tree, groups list their children as links and each one stays in its layer.
 
 ---
 
