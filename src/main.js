@@ -39,7 +39,7 @@ import { setDataBackend, dataStore, clearDataWrites, takeDataWrites, dataName, d
 import { soundName, suggestName, reduceSound, dataUrlBytes } from './sounds.js';
 import { setBlobSink, blobGet, blobHas, blobPut, blobDel, blobEntries, blobLoad, embedBlobs, takeEmbedded, restoreEmbedded } from './blobs.js';
 import { loadAllBlobs, putBlob, delBlob } from './blobdb.js';
-import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, checkElName, settle, hasReactive, usesTextVars, textVarErrors, textVars, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
+import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, checkElName, renameElement, settle, hasReactive, usesTextVars, textVarErrors, textVars, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg, ICONS } from './icons.js';
 import { setIconSource } from './iconpaths.js';
@@ -5855,8 +5855,27 @@ function relaxMarks() {
 function nameLabel(id, input, o) {
   const v = input.value.trim();
   if (v && isValidElName(v)) { const er = checkElName(doc, v, id); if (er) { toast(er); input.value = o.name || ''; return; } }
-  propSet((x) => { if (v) x.name = v; else delete x.name; });
+  applyRename(id, v);
   if (v && !isValidElName(v)) toast('Queda como etiqueta: para llamarlo en las fórmulas el nombre lleva letras y números (Brida, iso_1)');
+}
+// El campo «Nombre» de las propiedades de un punto, linea, circulo o arco: con el nombre se llama al elemento en las formulas (names.js).
+function nameRow(id) {
+  const o = propObj(), nm = document.createElement('input');
+  nm.type = 'text'; nm.value = o.name || ''; nm.placeholder = id; nm.maxLength = 40; nm.autocomplete = 'off'; nm.spellcheck = false; nm.autocapitalize = 'off';
+  nm.onchange = () => {
+    const v = nm.value.trim(), er = v ? checkElName(doc, v, id) : null;
+    if (er) { toast(er); nm.value = propObj()?.name || ''; return; }
+    applyRename(id, v);
+  };
+  return propRow('Nombre', nm);
+}
+// Pone (o quita) el nombre y actualiza las formulas que lo usaban con el nombre viejo.
+function applyRename(id, v) {
+  pushUndo();
+  const r = renameElement(doc, id, v);
+  afterChange();
+  if (r.scripts) toast(`Nombre cambiado. Revisa ${r.scripts} programa(s) (%…) que lo usaban: no se cambian solos`);
+  else if (r.n) toast(`Nombre cambiado: se actualizaron ${r.n} fórmula(s)`);
 }
 function openGrpProps(id, body) {
   const o = doc.grps[id];
@@ -5981,6 +6000,7 @@ function openProps(h) {
     body.appendChild(propRow('Magnitud fija (restringe la longitud)', fix));
     body.appendChild(propRow('Nombre de la magnitud', nm));
   }
+  if (['ln', 'ci', 'ar'].includes(k)) body.appendChild(nameRow(h.id));
   if (['ln', 'ci', 'ar', 'el', 'sp'].includes(k)) {
     body.appendChild(propRow('Color', propColors(o, 'color')));
     body.appendChild(propRow('Tipo de línea', propSelect(Object.entries(allLtypes(doc)).map(([v, t]) => [v, t.label]), o.ltype in allLtypes(doc) ? o.ltype : 'continua', (v) => {
@@ -6106,16 +6126,7 @@ function openProps(h) {
   }
   if (k === 'pt') {
     body.appendChild(propRow('Color', propColors(o, 'color')));
-    { // el nombre con que se llama en las formulas (p_(ini).x, ini.y, f(ini)): ver names.js
-      const nm = document.createElement('input');
-      nm.type = 'text'; nm.value = o.name || ''; nm.placeholder = h.id; nm.maxLength = 40; nm.autocomplete = 'off'; nm.spellcheck = false; nm.autocapitalize = 'off';
-      nm.onchange = () => {
-        const v = nm.value.trim(), er = v ? checkElName(doc, v, h.id) : null;
-        if (er) { toast(er); nm.value = propObj()?.name || ''; return; }
-        propSet((x) => { if (v) x.name = v; else delete x.name; });
-      };
-      body.appendChild(propRow('Nombre', nm));
-    }
+    body.appendChild(nameRow(h.id)); // el nombre con que se llama en las formulas (p_(ini).x, ini.y, f(ini)): ver names.js
     const fill = () => { xi.value = String(Math.round(propObj().x * 1000) / 1000); yi.value = String(Math.round(propObj().y * 1000) / 1000); };
     const move = () => {
       const x = Number(xi.value), y = Number(yi.value);

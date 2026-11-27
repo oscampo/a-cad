@@ -9,8 +9,8 @@ import { convertExpr, parseValue, isPlainNumber, exprRefs, renameInExpr, isReser
 import { convertCalcText, textVarState, clearCall, calcStmts, calcParse, calcSrc, evalDef, syncUserUnits, UDEF_ERR, GOAL_TOL } from './tvars.js';
 import { eqResiduals, lmRoots } from './nsolve.js';
 import { parseUnit, sameDim, autoUnit, mulDim, unitMsg, dimName } from './units.js';
-import { geoVars, isGeoName, geoPoints, propOf } from './geo.js';
-import { isValidElName, ID_LIKE } from './names.js';
+import { geoVars, isGeoName, geoPoints, propOf, elementNames } from './geo.js';
+import { isValidElName, ID_LIKE, NAMED, renameWord } from './names.js';
 import { setTopo } from './expr.js';
 import { elementValue } from './topo.js';
 
@@ -211,15 +211,39 @@ export function textVarErrors(doc) {
   return out;
 }
 
-// El nombre que el usuario le pone a un punto, grupo o contorno para llamarlo en las formulas (names.js). Devuelve el motivo si no vale, o null. exceptId: el
-// elemento que se renombra.
+// Cambia el nombre de un punto, linea, circulo, arco, grupo o contorno (vacio: lo quita) y actualiza las formulas que lo llamaban por el nombre viejo: las cotas, las
+// salidas y definiciones de los textos, los actuadores y las graficas. Sin nombre nuevo, las formulas vuelven a llamarlo por su id. Los programas (%f(x):…) no se
+// tocan solos: un nombre ahi puede ser una variable local; se cuentan para avisar. Devuelve { n: formulas cambiadas, scripts: programas que usan el nombre viejo }.
+export function renameElement(doc, id, raw) {
+  const coll = NAMED.find(([c]) => doc[c]?.[id])?.[0];
+  if (!coll) return { n: 0, scripts: 0 };
+  const o = doc[coll][id], old = o.name, v = String(raw ?? '').trim();
+  const active = !!old && isValidElName(old) && elementNames(doc).get(normName(old)) === id; // el nombre viejo llamaba de verdad a este elemento
+  if (v) o.name = v; else delete o.name;
+  if (!active || old === v) return { n: 0, scripts: 0 };
+  const to = isValidElName(v) ? v : id;
+  let n = 0, scripts = 0;
+  const swap = (s) => { const r = renameWord(s, old, to); if (r !== s) n++; return r; };
+  for (const k of Object.values(doc.cons)) { if (k.expr) k.expr = swap(k.expr); if (k.scaleExpr) k.scaleExpr = swap(k.scaleExpr); }
+  for (const a of Object.values(doc.acts || {})) if (typeof a.expr === 'string') a.expr = swap(a.expr);
+  for (const g of Object.values(doc.graphs || {})) if (Array.isArray(g.series)) g.series = g.series.map((s) => (typeof s === 'string' ? swap(s) : s));
+  const ren = (p) => (p.k === 'def' || p.k === 'out' ? { ...p, expr: swap(p.expr) } : p);
+  for (const t of Object.values(doc.texts || {})) {
+    if (typeof t.text !== 'string') continue;
+    if (t.text.startsWith('%')) { if (renameWord(t.text, old, to) !== t.text) scripts++; continue; }
+    if (!calcStmts(t.text).length) continue;
+    t.text = calcSrc(calcParse(t.text).map((tk) => (tk.t === 'math' ? { ...tk, lines: tk.lines.map((l) => l.map(ren)) } : tk)));
+  }
+  return { n, scripts };
+}
+// El nombre que el usuario le pone a un elemento para llamarlo en las formulas (names.js). Devuelve el motivo si no vale, o null. exceptId: el elemento que se renombra.
 export function checkElName(doc, raw, exceptId) {
   if (!isValidElName(raw)) return ID_LIKE.test(String(raw)) ? `«${raw}» parece un id (p12, g3, k7): usa otro nombre` : 'El nombre usa letras y números, empieza con una letra y puede llevar un subíndice (iso_1, p_(ini)); no puede parecer un id (p12)';
   const name = normName(raw);
   if (isReservedName(name)) return reservedWhy(name);
-  for (const coll of ['pts', 'grps', 'ctrs']) {
+  for (const [coll] of NAMED) {
     const hit = Object.entries(doc[coll] || {}).find(([id, o]) => id !== exceptId && o.name && isValidElName(o.name) && normName(o.name) === name);
-    if (hit) return coll === 'pts' ? `Ya hay un punto llamado «${raw}»` : coll === 'grps' ? `Ya hay un grupo llamado «${raw}»` : `Ya hay un contorno llamado «${raw}»`;
+    if (hit) return coll === 'pts' ? `Ya hay un punto llamado «${raw}»` : coll === 'lines' ? `Ya hay una línea llamada «${raw}»` : coll === 'circles' ? `Ya hay un círculo llamado «${raw}»` : coll === 'arcs' ? `Ya hay un arco llamado «${raw}»` : coll === 'grps' ? `Ya hay un grupo llamado «${raw}»` : `Ya hay un contorno llamado «${raw}»`;
   }
   if (Object.values(doc.cons).some((k) => k.name === name)) return `Ya existe una cota llamada «${name}»`;
   const tv = hasDefs(doc) ? textVars(doc) : null;

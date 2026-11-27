@@ -509,7 +509,7 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
     if (isReservedName(d.name)) return reservedWhy(d.name);
     if (!TEXT_NAME_RE.test(d.name)) return `«${d.name}» no es un nombre válido`;
     const own = nameToId(normName(d.name)); // un punto, grupo o contorno ya se llama asi (names.js): nada comparte nombre
-    if (own) return doc.pts?.[own] ? `«${d.name}» ya es el nombre del punto ${own}` : doc.grps?.[own] ? `«${d.name}» ya es el nombre del grupo ${own}` : `«${d.name}» ya es el nombre del contorno ${own}`;
+    if (own) return doc.pts?.[own] ? `«${d.name}» ya es el nombre del punto ${own}` : doc.lines?.[own] ? `«${d.name}» ya es el nombre de la línea ${own}` : doc.circles?.[own] ? `«${d.name}» ya es el nombre del círculo ${own}` : doc.arcs?.[own] ? `«${d.name}» ya es el nombre del arco ${own}` : doc.grps?.[own] ? `«${d.name}» ya es el nombre del grupo ${own}` : `«${d.name}» ya es el nombre del contorno ${own}`;
     if (d.params) {
       const ps = d.params, badName = ps.find((q) => !NAME_RE.test(q)), reserved = ps.find((q) => isReservedName(q));
       if (!ps.length || ps.some((q) => !q)) return `«${d.name}(…)»: necesita al menos un parámetro, separados por «;»`;

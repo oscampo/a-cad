@@ -10,7 +10,7 @@ import { ctrMembers, grpLeaves, arcOf, ellipsePolyline, splinePolyline } from '.
 import { elementValue } from './topo.js';
 import { ctrState } from './tree.js';
 import { normName } from './expr.js';
-import { isValidElName, setNames, nameToId } from './names.js';
+import { isValidElName, setNames, nameToId, NAMED } from './names.js';
 const NAME = /^([A-Za-z]+\d+)\.([A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*)$/;
 const num = (v) => ({ v, r: false });
 const ang = (v) => ({ v, r: true });
@@ -86,14 +86,12 @@ export function propOf(doc, id, prop) {
 const GRP_PROPS = ['n', 'xmin', 'xmax', 'ymin', 'ymax', 'w', 'h'];
 const PROPS = { pts: ['x', 'y'], lines: ['len', 'L', 'ang'], circles: ['r', 'd', 'x', 'y'], arcs: ['r', 'x', 'y'], ctrs: ['L', 'len', 'area', 'n'], splines: ['n'], grps: GRP_PROPS };
 
-// Los nombres que el usuario puso a puntos, grupos y contornos (name): nombre normalizado -> id. Solo los que pueden usarse como nombre (ver names.js) y no chocan
+// Los nombres que el usuario puso a puntos, lineas, circulos, arcos, grupos y contornos (name): nombre normalizado -> id. Solo los que pueden usarse como nombre (ver names.js) y no chocan
 // con una cota (la cota gana, como una variable de texto: un dibujo anterior no cambia). Un nombre repetido no llama a ninguno.
 export function elementNames(doc) {
   const m = new Map(), dup = new Set(), cons = new Set(Object.values(doc.cons).map((k) => k.name).filter(Boolean));
   const add = (raw, id) => { if (!isValidElName(raw)) return; const n = normName(raw); if (cons.has(n)) return; if (m.has(n)) dup.add(n); else m.set(n, id); };
-  for (const [id, p] of Object.entries(doc.pts)) if (p.name) add(p.name, id);
-  for (const [id, g] of Object.entries(doc.grps || {})) if (g.name) add(g.name, id);
-  for (const [id, c] of Object.entries(doc.ctrs || {})) if (c.name) add(c.name, id);
+  for (const [coll] of NAMED) for (const [id, o] of Object.entries(doc[coll] || {})) if (o.name) add(o.name, id);
   for (const n of dup) m.delete(n); // dos elementos con el mismo nombre (una copia de un grupo lo hereda): ninguno se llama por el, en vez de elegir uno al azar
   return m;
 }

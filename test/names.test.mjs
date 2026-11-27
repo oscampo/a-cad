@@ -2,8 +2,8 @@
 // su grupo funcion_N.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { newDoc, addPoint, addLine, addText, addCtr, addGrp, addCon } from '../src/model.js';
-import { textVars, checkElName, varsOf } from '../src/params.js';
+import { newDoc, addPoint, addLine, addCircle, addArc, addText, addCtr, addGrp, addCon } from '../src/model.js';
+import { textVars, checkElName, varsOf, renameElement } from '../src/params.js';
 import { elementNames } from '../src/geo.js';
 import { isValidElName } from '../src/names.js';
 import { runGen, runName } from '../src/gen.js';
@@ -154,6 +154,71 @@ t('definir una variable o funcion con el nombre de un elemento da aviso (nada co
   assert.equal(run(d, '$$otra:7$$', '$$r:otra+1=$$').err, '');
   d.pts[p[0]].name = 'origen'; // al renombrar el punto, el nombre queda libre
   assert.equal(run(d, '$$ini:7$$').err, '');
+});
+
+// una linea, un circulo y un arco con nombre
+function mk2() {
+  const { d, p, l } = mk();
+  const c = addPoint(d, 100, 100), r0 = addPoint(d, 110, 100), r1 = addPoint(d, 100, 110);
+  const ci = addCircle(d, c, 5), ar = addArc(d, c, r0, r1, 10);
+  d.lines[l[0]].name = 'eje'; d.circles[ci].name = 'rueda'; d.arcs[ar].name = 'tramo';
+  return { d, p, l, ci, ar };
+}
+
+t('lineas, circulos y arcos por su nombre: eje.L, rueda.r, tramo.r, f(eje)', () => {
+  const { d } = mk2();
+  const r = run(d, '%f(o):\n  o.L', '$$a:eje.L=$$', '$$b:rueda.r=$$', '$$c:rueda.d=$$', '$$h:tramo.r=$$', '$$q:f(eje)=$$');
+  assert.equal(r.err, ''); assert.deepEqual(['a', 'b', 'c', 'h', 'q'].map(r.v), [40, 5, 10, 10, 40]);
+});
+
+t('checkElName y definir variables con el nombre de una linea, un circulo o un arco', () => {
+  const { d } = mk2();
+  assert.match(checkElName(d, 'eje'), /Ya hay una línea/); assert.match(checkElName(d, 'rueda'), /Ya hay un círculo/); assert.match(checkElName(d, 'tramo'), /Ya hay un arco/);
+  assert.match(run(d, '$$eje:1$$').err, /«eje» ya es el nombre de la línea/);
+  assert.match(run(d, '$$rueda:1$$').err, /ya es el nombre del círculo/); assert.match(run(d, '$$tramo:1$$').err, /ya es el nombre del arco/);
+});
+
+t('la copia de una linea, un circulo o un arco no hereda el nombre', () => {
+  const { d, l, ci, ar } = mk2();
+  const r = pasteClip(d, clipOf(d, [{ k: 'ln', id: l[0] }, { k: 'ci', id: ci }, { k: 'ar', id: ar }]), { x: 300, y: 300 });
+  assert.equal(r.ok, true);
+  for (const [coll, id] of [['lines', l[0]], ['circles', ci], ['arcs', ar]]) {
+    const nuevos = Object.entries(d[coll]).filter(([k]) => k !== id && !(coll === 'lines' && l.includes(k)));
+    assert.ok(nuevos.length >= 1 && nuevos.every(([, o]) => o.name === undefined), coll);
+  }
+  assert.equal(elementNames(d).get('eje'), l[0]);
+});
+
+t('renombrar actualiza las formulas: cotas, textos, salidas y graficas; avisa de los programas; sin nombre vuelve al id', () => {
+  const { d, p } = mk();
+  const a = Object.keys(d.pts)[0];
+  addCon(d, { t: 'DIST', refs: [p[0], p[1]], v: 40, name: 'Ancho', expr: 'ini.x+40' });
+  addText(d, addPoint(d, 0, -200), '$$u:ini.x+Esquina.x$$\n$$v:ini.y=$$', {});
+  addText(d, addPoint(d, 0, -240), '%f(o):\n  ini.x+o', {});
+  addText(d, addPoint(d, 0, -280), 'La palabra ini en una frase y `ini.x` literal', {});
+  d.graphs = { gr1: { x: 0, y: 0, w: 10, h: 10, series: ['ini.x vs t'] } };
+  const r = renameElement(d, a, 'origen');
+  assert.equal(d.pts[a].name, 'origen');
+  assert.equal(d.cons[Object.keys(d.cons).find((k) => d.cons[k].name === 'Ancho')].expr, 'origen.x+40');
+  const mat = Object.values(d.texts).find((x) => x.text.includes('$$u:')).text; assert.ok(mat.includes('origen.x+Esquina.x') && mat.includes('origen.y='), mat);
+  assert.equal(d.graphs.gr1.series[0], 'origen.x vs t');
+  assert.ok(Object.values(d.texts).some((x) => x.text.includes('La palabra ini en una frase')), 'el texto normal no se toca');
+  assert.equal(r.scripts, 1); assert.ok(r.n >= 3, 'n=' + r.n);
+  const script = Object.values(d.texts).find((x) => x.text.startsWith('%')).text; assert.ok(script.includes('ini.x'), 'un programa no se cambia solo');
+  const r2 = renameElement(d, a, ''); // sin nombre: las formulas vuelven al id
+  assert.equal(d.pts[a].name, undefined); assert.equal(d.cons[Object.keys(d.cons).find((k) => d.cons[k].name === 'Ancho')].expr, a + '.x+40'); assert.ok(r2.n >= 1);
+});
+
+t('renombrar un nombre que era solo etiqueta no toca formulas; y renombrar a otro nombre valido encadena', () => {
+  const { d, g } = mk();
+  d.grps[g].name = 'Vista frontal';
+  addText(d, addPoint(d, 0, -200), '$$a:Brida.L=$$', {});
+  assert.deepEqual(renameElement(d, g, 'Etiqueta nueva'), { n: 0, scripts: 0 });
+  const k = Object.keys(d.ctrs)[0];
+  assert.equal(renameElement(d, k, 'Pestana').n, 1);
+  assert.ok(Object.values(d.texts).some((x) => x.text.includes('Pestana.L')));
+  assert.equal(run(d).err, '');
+  assert.equal(renameElement(d, 'zz9', 'x').n, 0); // un id que no existe no hace nada
 });
 
 console.log(passed + ' pruebas de nombres de elementos');

@@ -587,11 +587,11 @@ function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvA
     M[pid] = np;
   }
   // ctr (el grupo de contorno) se separa de st en las lineas, arcos, arcos elipticos y splines: una copia suelta NO hereda el grupo (si va el grupo completo, se forma uno nuevo mas abajo)
-  for (const id of L) { const { a, b, vec, ctr, grp, ...st } = S.lines[id]; M[id] = addLine(doc, M[a], M[b], st); made.push({ k: 'ln', id: M[id] }); if (vec) vecLines.push([M[id], vec, S.texts?.[vec.t]]); }
+  for (const id of L) { const { a, b, vec, ctr, grp, name, ...st } = S.lines[id]; M[id] = addLine(doc, M[a], M[b], st); made.push({ k: 'ln', id: M[id] }); if (vec) vecLines.push([M[id], vec, S.texts?.[vec.t]]); }
   for (const pid of P) { const mk = S.pts[pid].mark; if (mk && M[mk] && M[pid] && M[pid] !== pid && doc.pts[M[pid]]) doc.pts[M[pid]].mark = M[mk]; }
-  for (const id of Ci) { const { c, r, grp, ...st } = S.circles[id]; M[id] = addCircle(doc, M[c], r, st); made.push({ k: 'ci', id: M[id] }); }
+  for (const id of Ci) { const { c, r, grp, name, ...st } = S.circles[id]; M[id] = addCircle(doc, M[c], r, st); made.push({ k: 'ci', id: M[id] }); }
   for (const id of Ar) {
-    const { c, a, b, r, ctr, grp, ...st } = S.arcs[id];
+    const { c, a, b, r, ctr, grp, name, ...st } = S.arcs[id];
     M[id] = mirror ? addArc(doc, M[c], M[b], M[a], r, st) : addArc(doc, M[c], M[a], M[b], r, st);
     made.push({ k: 'ar', id: M[id] });
   }

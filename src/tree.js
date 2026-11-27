@@ -194,9 +194,9 @@ export function buildTree(doc, { by = 'type' } = {}) {
   const owner = new Map();
   const own = (pid, k, id, name) => { if (pid && doc.pts[pid] && !owner.has(pid)) owner.set(pid, { k, id, name }); };
   // los circulos primero: su centro es mas suyo que de una linea que llega hasta el (el eje de un engrane)
-  for (const [id, c] of Object.entries(doc.circles)) own(c.c, 'ci', id, `Círculo ${id}`);
-  for (const [id, l] of Object.entries(doc.lines)) { const nm = `${l.vec ? 'Vector' : 'Línea'} ${id}`; own(l.a, 'ln', id, nm); own(l.b, 'ln', id, nm); }
-  for (const [id, a] of Object.entries(doc.arcs)) for (const p of [a.c, a.a, a.b]) own(p, 'ar', id, `Arco ${id}`);
+  for (const [id, c] of Object.entries(doc.circles)) own(c.c, 'ci', id, `Círculo ${id}${c.name ? ' «' + c.name + '»' : ''}`);
+  for (const [id, l] of Object.entries(doc.lines)) { const nm = `${l.vec ? 'Vector' : 'Línea'} ${id}${l.name ? ' «' + l.name + '»' : ''}`; own(l.a, 'ln', id, nm); own(l.b, 'ln', id, nm); }
+  for (const [id, a] of Object.entries(doc.arcs)) for (const p of [a.c, a.a, a.b]) own(p, 'ar', id, `Arco ${id}${a.name ? ' «' + a.name + '»' : ''}`);
   for (const [id, e] of Object.entries(doc.ellipses || {})) for (const p of [e.c, e.a, e.b, e.p1, e.p2]) own(p, 'el', id, `Elipse ${id}`);
   for (const [id, s] of Object.entries(doc.splines || {})) for (const p of s.pts) own(p, 'sp', id, `Spline ${id}`);
   for (const [id, t] of Object.entries(doc.texts || {})) own(t.pt, 'tx', id, `Texto ${id}`);
@@ -236,9 +236,9 @@ export function buildTree(doc, { by = 'type' } = {}) {
 
   // los puntos de un elemento con su papel, de topo.js (la misma lista que leen los scripts: e.a.x, e.c.y…)
   const ptsOf = (k, id) => elementPoints(doc, k, id).map((q) => [q.id, q.label]);
-  const lines = Object.entries(doc.lines).map(([id, l]) => elem('ln', id, `${l.vec ? 'Vector' : 'Línea'} ${id} · ${l.vec ? '|v|' : 'L'} = ${f(dist(doc.pts[l.a], doc.pts[l.b]))}`, ptsOf('ln', id)));
-  const circles = Object.entries(doc.circles).map(([id, c]) => elem('ci', id, `Círculo ${id} · ${DIAM} = ${f(2 * c.r)}`, ptsOf('ci', id)));
-  const arcs = Object.entries(doc.arcs).map(([id, a]) => elem('ar', id, `Arco ${id} · R = ${f(a.r)}`, ptsOf('ar', id)));
+  const lines = Object.entries(doc.lines).map(([id, l]) => elem('ln', id, `${l.vec ? 'Vector' : 'Línea'} ${id}${l.name ? ' «' + l.name + '»' : ''} · ${l.vec ? '|v|' : 'L'} = ${f(dist(doc.pts[l.a], doc.pts[l.b]))}`, ptsOf('ln', id)));
+  const circles = Object.entries(doc.circles).map(([id, c]) => elem('ci', id, `Círculo ${id}${c.name ? ' «' + c.name + '»' : ''} · ${DIAM} = ${f(2 * c.r)}`, ptsOf('ci', id)));
+  const arcs = Object.entries(doc.arcs).map(([id, a]) => elem('ar', id, `Arco ${id}${a.name ? ' «' + a.name + '»' : ''} · R = ${f(a.r)}`, ptsOf('ar', id)));
   const splines = Object.entries(doc.splines || {}).map(([id, s]) => {
     const n = elem('sp', id, `Spline ${id} · ${s.pts.length} puntos${s.closed ? ', cerrada' : ''}`, []);
     n.children = compact([relsNode(`sp:${id}`, [id, ...ownedPts('sp', id, s.pts)]), { key: `spp:${id}`, sub: true, label: `Puntos de control (${s.pts.length})`, children: compact(s.pts.map((p) => ptNode(p, '', 'sp', id))) }]);
