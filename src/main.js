@@ -6000,7 +6000,7 @@ function openProps(h) {
     body.appendChild(propRow('Magnitud fija (restringe la longitud)', fix));
     body.appendChild(propRow('Nombre de la magnitud', nm));
   }
-  if (['ln', 'ci', 'ar'].includes(k)) body.appendChild(nameRow(h.id));
+  if (['ln', 'ci', 'ar', 'el', 'sp'].includes(k)) body.appendChild(nameRow(h.id));
   if (['ln', 'ci', 'ar', 'el', 'sp'].includes(k)) {
     body.appendChild(propRow('Color', propColors(o, 'color')));
     body.appendChild(propRow('Tipo de línea', propSelect(Object.entries(allLtypes(doc)).map(([v, t]) => [v, t.label]), o.ltype in allLtypes(doc) ? o.ltype : 'continua', (v) => {

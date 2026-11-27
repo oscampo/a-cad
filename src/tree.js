@@ -240,7 +240,7 @@ export function buildTree(doc, { by = 'type' } = {}) {
   const circles = Object.entries(doc.circles).map(([id, c]) => elem('ci', id, `Círculo ${id}${c.name ? ' «' + c.name + '»' : ''} · ${DIAM} = ${f(2 * c.r)}`, ptsOf('ci', id)));
   const arcs = Object.entries(doc.arcs).map(([id, a]) => elem('ar', id, `Arco ${id}${a.name ? ' «' + a.name + '»' : ''} · R = ${f(a.r)}`, ptsOf('ar', id)));
   const splines = Object.entries(doc.splines || {}).map(([id, s]) => {
-    const n = elem('sp', id, `Spline ${id} · ${s.pts.length} puntos${s.closed ? ', cerrada' : ''}`, []);
+    const n = elem('sp', id, `Spline ${id}${s.name ? ' «' + s.name + '»' : ''} · ${s.pts.length} puntos${s.closed ? ', cerrada' : ''}`, []);
     n.children = compact([relsNode(`sp:${id}`, [id, ...ownedPts('sp', id, s.pts)]), { key: `spp:${id}`, sub: true, label: `Puntos de control (${s.pts.length})`, children: compact(s.pts.map((p) => ptNode(p, '', 'sp', id))) }]);
     return n;
   });
@@ -248,7 +248,7 @@ export function buildTree(doc, { by = 'type' } = {}) {
   const ctrIds = Object.keys(doc.ctrs || {});
   const memberIds = new Set();
   for (const cid of ctrIds) for (const m of ctrMembers(doc, cid)) memberIds.add(m.id);
-  const ellipses = Object.entries(doc.ellipses || {}).map(([id, e]) => elem('el', id, `${e.p1 && e.p2 ? 'Arco elíptico' : 'Elipse'} ${id}`, ptsOf('el', id)));
+  const ellipses = Object.entries(doc.ellipses || {}).map(([id, e]) => elem('el', id, `${e.p1 && e.p2 ? 'Arco elíptico' : 'Elipse'} ${id}${e.name ? ' «' + e.name + '»' : ''}`, ptsOf('el', id)));
   const texts = Object.entries(doc.texts || {}).map(([id, t]) => ({
     key: `tx:${id}`, label: `Texto ${id} · «${String(t.text).split('\n')[0].slice(0, 24)}»`, sel: { k: 'tx', id }, // con su nombre (t29), como «Línea l5»
     children: compact([ptNode(t.pt, 'Inserción:', 'tx', id)]),

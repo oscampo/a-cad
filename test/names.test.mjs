@@ -2,7 +2,7 @@
 // su grupo funcion_N.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { newDoc, addPoint, addLine, addCircle, addArc, addText, addCtr, addGrp, addCon } from '../src/model.js';
+import { newDoc, addPoint, addLine, addCircle, addArc, addEllipse, addSpline, addText, addCtr, addGrp, addCon } from '../src/model.js';
 import { textVars, checkElName, varsOf, renameElement } from '../src/params.js';
 import { elementNames } from '../src/geo.js';
 import { isValidElName } from '../src/names.js';
@@ -219,6 +219,38 @@ t('renombrar un nombre que era solo etiqueta no toca formulas; y renombrar a otr
   assert.ok(Object.values(d.texts).some((x) => x.text.includes('Pestana.L')));
   assert.equal(run(d).err, '');
   assert.equal(renameElement(d, 'zz9', 'x').n, 0); // un id que no existe no hace nada
+});
+
+// una elipse y un spline con nombre
+function mk3() {
+  const { d } = mk();
+  const c = addPoint(d, 200, 0), a = addPoint(d, 220, 0), b = addPoint(d, 200, 10);
+  const el = addEllipse(d, c, a, b, {});
+  const sp = addSpline(d, [addPoint(d, 300, 0), addPoint(d, 310, 10), addPoint(d, 320, 0), addPoint(d, 330, 10)], {});
+  d.ellipses[el].name = 'leva'; d.splines[sp].name = 'perfil';
+  return { d, el, sp };
+}
+
+t('elipses y splines por su nombre: f(leva), typeof, perfil.n; los avisos', () => {
+  const { d } = mk3();
+  const r = run(d, '%f(o):\n  typeof(o)', '$$a:perfil.n=$$', '$$b:f(leva)=$$', '$$c:f(perfil)=$$');
+  assert.equal(r.err, ''); assert.equal(r.v('a'), 4); assert.equal(r.v('b').str ?? r.v('b'), 'ellipse'); assert.equal(r.v('c').str ?? r.v('c'), 'spline');
+  assert.match(checkElName(d, 'leva'), /Ya hay una elipse/); assert.match(checkElName(d, 'perfil'), /Ya hay un spline/);
+  assert.match(run(d, '$$leva:1$$').err, /ya es el nombre de la elipse/); assert.match(run(d, '$$perfil:1$$').err, /ya es el nombre del spline/);
+});
+
+t('copiar una elipse o un spline no hereda el nombre; renombrarlos actualiza las formulas', () => {
+  const { d, el, sp } = mk3();
+  const r = pasteClip(d, clipOf(d, [{ k: 'el', id: el }, { k: 'sp', id: sp }]), { x: 500, y: 500 });
+  assert.equal(r.ok, true);
+  for (const [coll, id] of [['ellipses', el], ['splines', sp]]) {
+    const nuevos = Object.entries(d[coll]).filter(([k]) => k !== id);
+    assert.ok(nuevos.length === 1 && nuevos[0][1].name === undefined, coll);
+  }
+  assert.equal(elementNames(d).get('leva'), el); assert.equal(elementNames(d).get('perfil'), sp);
+  addText(d, addPoint(d, 0, -300), '$$n:perfil.n=$$', {});
+  assert.equal(renameElement(d, sp, 'contorno2').n, 1);
+  assert.ok(Object.values(d.texts).some((x) => x.text.includes('contorno2.n')));
 });
 
 console.log(passed + ' pruebas de nombres de elementos');

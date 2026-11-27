@@ -1,4 +1,4 @@
-// Nombres de usuario de los elementos (puntos, lineas, circulos, arcos, grupos, contornos): un elemento se puede llamar por el nombre que se le pone, no solo por su id
+// Nombres de usuario de los elementos (puntos, lineas, circulos, arcos, elipses, splines, grupos, contornos): un elemento se puede llamar por el nombre que se le pone, no solo por su id
 // (p12, l3, g3, k7). Sin DOM y sin importar nada (lo leen expr.js, geo.js, params.js y tvars.js). El nombre es un identificador («Pinion», «ini», «eje2») o uno con
 // subindice («p_(ini)», «iso_1»); no puede parecer un id (p12) y debe ser unico entre los elementos y distinto de cualquier cota, variable de texto, funcion o palabra
 // reservada (lo comprueba params.checkElName). El mapa nombre normalizado -> id lo arma geo.geoVars cada vez que se arman las variables del dibujo.
@@ -10,7 +10,7 @@ export const ID_LIKE = /^(?:[A-Za-z]|im)\d+$/; // los ids: una letra y un numero
 export const isValidElName = (raw) => typeof raw === 'string' && ELEM_NAME_RE.test(raw) && !ID_LIKE.test(raw);
 
 // Las colecciones del dibujo cuyos elementos llevan nombre (doc[coleccion][id].name) y como se dice cada una (para los avisos).
-export const NAMED = [['pts', 'punto'], ['lines', 'línea'], ['circles', 'círculo'], ['arcs', 'arco'], ['grps', 'grupo'], ['ctrs', 'contorno']];
+export const NAMED = [['pts', 'punto'], ['lines', 'línea'], ['circles', 'círculo'], ['arcs', 'arco'], ['ellipses', 'elipse'], ['splines', 'spline'], ['grps', 'grupo'], ['ctrs', 'contorno']];
 
 let MAP = new Map();
 export const setNames = (m) => { MAP = m instanceof Map ? m : new Map(); };

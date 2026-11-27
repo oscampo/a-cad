@@ -243,7 +243,7 @@ export function checkElName(doc, raw, exceptId) {
   if (isReservedName(name)) return reservedWhy(name);
   for (const [coll] of NAMED) {
     const hit = Object.entries(doc[coll] || {}).find(([id, o]) => id !== exceptId && o.name && isValidElName(o.name) && normName(o.name) === name);
-    if (hit) return coll === 'pts' ? `Ya hay un punto llamado «${raw}»` : coll === 'lines' ? `Ya hay una línea llamada «${raw}»` : coll === 'circles' ? `Ya hay un círculo llamado «${raw}»` : coll === 'arcs' ? `Ya hay un arco llamado «${raw}»` : coll === 'grps' ? `Ya hay un grupo llamado «${raw}»` : `Ya hay un contorno llamado «${raw}»`;
+    if (hit) return coll === 'pts' ? `Ya hay un punto llamado «${raw}»` : coll === 'lines' ? `Ya hay una línea llamada «${raw}»` : coll === 'circles' ? `Ya hay un círculo llamado «${raw}»` : coll === 'arcs' ? `Ya hay un arco llamado «${raw}»` : coll === 'ellipses' ? `Ya hay una elipse llamada «${raw}»` : coll === 'splines' ? `Ya hay un spline llamado «${raw}»` : coll === 'grps' ? `Ya hay un grupo llamado «${raw}»` : `Ya hay un contorno llamado «${raw}»`;
   }
   if (Object.values(doc.cons).some((k) => k.name === name)) return `Ya existe una cota llamada «${name}»`;
   const tv = hasDefs(doc) ? textVars(doc) : null;

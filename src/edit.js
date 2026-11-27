@@ -211,7 +211,7 @@ function trimEllipse(doc, id, m) {
     lo = lo || cuts[cuts.length - 1]; hi = hi || cuts[0];
     e.p1 = pointAt(doc, hi); e.p2 = pointAt(doc, lo);
   } else {
-    const { c, a, b, p1, p2, ...st } = e;
+    const { c, a, b, p1, p2, name, ...st } = e; // el trozo nuevo no hereda el nombre: lo conserva el original
     if (lo && hi) pieces.push(addEllipse(doc, c, a, b, st, pointAt(doc, hi), p2));
     if (lo) e.p2 = pointAt(doc, lo); else e.p1 = pointAt(doc, hi);
   }
@@ -245,7 +245,7 @@ function trimSpline(doc, id, m) {
     const L = cum[i + 1] - cum[i], u = L > 0 ? (sv - cum[i]) / L : 0;
     return { x: P[i].x + u * (P[i + 1].x - P[i].x), y: P[i].y + u * (P[i + 1].y - P[i].y) };
   };
-  const { pts: _p, closed: _c, ts: _t, ...st } = sp;
+  const { pts: _p, closed: _c, ts: _t, name: _n, ...st } = sp; // los trozos son splines nuevos: no heredan el nombre
   const step = total / ((closed ? n : n - 1) * SPL_FILL); // separacion de los puntos de cada trozo
   // Solo los dos tramos junto a un corte reciben puntos extra (ahi la curva original dependia del punto quitado); entre los
   // puntos que quedan no se agrega nada, para no multiplicar los puntos de control. cut0/cut1: ese extremo es un corte.
@@ -596,10 +596,10 @@ function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvA
     made.push({ k: 'ar', id: M[id] });
   }
   for (const id of El) { // un arco eliptico reflejado intercambia sus extremos para seguir siendo antihorario
-    const { c, a, b, p1, p2, ctr, grp, ...st } = S.ellipses[id];
+    const { c, a, b, p1, p2, ctr, grp, name, ...st } = S.ellipses[id];
     M[id] = addEllipse(doc, M[c], M[a], M[b], st, p1 && M[mirror ? p2 : p1], p2 && M[mirror ? p1 : p2]); made.push({ k: 'el', id: M[id] });
   }
-  for (const id of Sp) { const { pts, closed, ctr, grp, ...st } = S.splines[id]; M[id] = addSpline(doc, pts.map((p) => M[p]), st, closed); made.push({ k: 'sp', id: M[id] }); }
+  for (const id of Sp) { const { pts, closed, ctr, grp, name, ...st } = S.splines[id]; M[id] = addSpline(doc, pts.map((p) => M[p]), st, closed); made.push({ k: 'sp', id: M[id] }); }
   for (const id of Tx) {
     const t = S.texts[id];
     if (t.vecOf) continue;
