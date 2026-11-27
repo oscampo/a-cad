@@ -176,13 +176,33 @@ export function dissolvePoint(doc, pid) {
     first.b = second.b;
     return finishDissolve(doc, pid, idFirst === id1 ? id2 : id1, 'ar');
   } else {
-    const same = (x, y) => x.c === y.c && x.a === y.a && x.b === y.b;
+    // la misma elipse: los mismos puntos, o (arcos generados por script o dibujados por separado, cada uno con sus puntos de eje) el mismo centro y los
+    // mismos semiejes con una diferencia de ruido (hasta 0,2 % del semieje)
+    const same = (x, y) => {
+      if (x.c === y.c && x.a === y.a && x.b === y.b) return true;
+      const Cx = doc.pts[x.c], Cy = doc.pts[y.c], ax = doc.pts[x.a], ay = doc.pts[y.a], bx = doc.pts[x.b], by = doc.pts[y.b];
+      if (!(Cx && Cy && ax && ay && bx && by)) return false;
+      const tol = Math.max(TOL, 0.002 * Math.max(Math.hypot(ax.x - Cx.x, ax.y - Cx.y), Math.hypot(bx.x - Cx.x, bx.y - Cx.y)));
+      return Math.hypot(Cx.x - Cy.x, Cx.y - Cy.y) <= tol && Math.hypot((ax.x - Cx.x) - (ay.x - Cy.x), (ax.y - Cx.y) - (ay.y - Cy.y)) <= tol
+        && Math.hypot((bx.x - Cx.x) - (by.x - Cy.x), (bx.y - Cx.y) - (by.y - Cy.y)) <= tol;
+    };
     if (!same(o1, o2)) return { ok: false, msg: 'Los dos arcos elípticos no son de la misma elipse' };
     if (!(o1.p1 && o1.p2 && o2.p1 && o2.p2)) return BAD;
     const [first, second, idFirst] = o1.p2 === pid && o2.p1 === pid ? [o1, o2, id1] : o2.p2 === pid && o1.p1 === pid ? [o2, o1, id2] : [null, null, null];
     if (!first) return { ok: false, msg: 'Los dos arcos elípticos no se continúan' };
     first.p2 = second.p2;
-    return finishDissolve(doc, pid, idFirst === id1 ? id2 : id1, 'el');
+    const gone = idFirst === id1 ? id2 : id1, keep = idFirst, goneEl = doc.ellipses[gone];
+    for (const [cid, k] of Object.entries(doc.cons)) { // lo que se decia del arco que se absorbe pasa al que queda; lo que los unia entre si (tangencia, coincidencia) sobra
+      if (!(k.refs || []).includes(gone)) continue;
+      if (k.refs.includes(keep)) delete doc.cons[cid]; else k.refs = k.refs.map((r) => (r === gone ? keep : r));
+    }
+    const r = finishDissolve(doc, pid, gone, 'el');
+    for (const q of new Set([goneEl.a, goneEl.b, goneEl.c])) { // sus puntos de eje y centro, si eran propios y ya nadie los usa, se van con el
+      if (!doc.pts[q] || [first.a, first.b, first.c].includes(q) || pointUsers(doc, q).length) continue;
+      if (Object.values(doc.texts || {}).some((t) => t.pt === q) || Object.values(doc.cons).some((k) => (k.refs || []).includes(q))) continue;
+      deleteItems(doc, [{ k: 'pt', id: q }]);
+    }
+    return r;
   }
   return finishDissolve(doc, pid, id2, 'ln');
 }

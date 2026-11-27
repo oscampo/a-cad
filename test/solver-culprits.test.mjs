@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initSolver, solve, failCulprits, beginSession } from '../src/solver.js';
 import { newDoc, addPoint, addLine } from '../src/model.js';
+import { dissolvePoint } from '../src/repair.js';
 
 await initSolver();
 let passed = 0;
@@ -49,6 +50,14 @@ t('un dibujo sano no tiene culpables', () => {
 t('con tiempo agotado devuelve lo visto sin colgarse', () => {
   const d = load();
   assert.ok(Array.isArray(failCulprits(d, target(d), 0)));
+});
+
+t('disolver los puntos que unen los arcos elipticos de ese dibujo lo deja mover (T16 y T17 sobraban)', () => {
+  const d = load();
+  assert.equal(dissolvePoint(d, 'p1115').ok, true); assert.equal(dissolvePoint(d, 'p1121').ok, true);
+  assert.equal(d.cons.k1154, undefined); assert.deepEqual(d.cons.k1146.refs, ['l1129', 'e1140', 'p1100']);
+  beginSession(d, true);
+  assert.equal(solve(d, target(d)).ok, true);
 });
 
 console.log(passed + ' pruebas de relaciones culpables');

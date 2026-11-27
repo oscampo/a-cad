@@ -5,6 +5,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 ## Sin publicar
 
 ### Nuevo
+- Edición: **Disolver punto** también une dos arcos elípticos de la misma elipse cuando cada uno tiene sus **propios puntos de eje** (el centro y los semiejes coinciden, con hasta 0,2 % de diferencia). Es lo que deja un script `earc` ejecutado a mano en cada pieza (un contorno partido en dos arcos elípticos). Antes decía «no son de la misma elipse». Al unirlos, lo que se decía del arco absorbido (p. ej. una tangencia con una línea) pasa al que queda, solo se van las relaciones que unían los dos arcos entre sí (como una tangencia entre ellos, que además volvía el sistema singular y dejaba sin mover el dibujo), y los puntos de eje y centro propios que ya nadie usa se quitan.
 - Restricciones: **un arrastre que el solver no puede resolver ya avisa**. Antes, si el solver no convergía con el destino pedido (p. ej. por tangencias entre dos piezas de una misma elipse, que son casi la misma curva), no se movía nada y no decía por qué: ni un texto libre. Ahora un aviso nombra las relaciones cuya eliminación lo destraba (con quitar una basta; si solo sirve quitar varias a la vez, las nombra juntas) y se muestra una sola vez por arrastre, y solo si no se movió nada. La búsqueda corre en copias del dibujo y se corta a 1,5 s en dibujos grandes. No cambia ningún cálculo: solo se dice la causa. Visto en el dibujo `transforma-iso.json`, donde `k1146` y `k1154` (tangencias de la elipse partida) impedían cualquier movimiento.
 
 ## v2.9.6 (2026-11-27)

@@ -265,4 +265,36 @@ t('separar: se niega con un solo elemento, si se eligen todos o uno que no usa e
   assert.equal(separatePoint(g, m, [{ k: 'ln', id: x }]).ok, false, 'generado');
 });
 
+// Dos arcos elipticos de la misma elipse pero cada uno con sus PROPIOS puntos de eje (lo que dejan un script `earc` ejecutado a mano o dos arcos dibujados por
+// separado): el mismo centro y los mismos semiejes. Antes «Disolver punto» decia que no eran de la misma elipse.
+function dosMitades(ruido = 0) {
+  const d = newDoc(), c = addPoint(d, 0, 0), a1 = addPoint(d, 20, 0), b1 = addPoint(d, 0, 10), a2 = addPoint(d, 20 + ruido, 0), b2 = addPoint(d, 0, 10 + ruido);
+  const P = addPoint(d, -20, 0), M = addPoint(d, 20, 0.0), Q = addPoint(d, 0, 10);
+  const e1 = addEllipse(d, c, a1, b1, {}, P, Q), e2 = addEllipse(d, c, a2, b2, {}, Q, M);
+  return { d, c, a1, b1, a2, b2, P, M, Q, e1, e2 };
+}
+t('disolver un punto entre dos arcos elipticos con puntos de eje propios: queda una elipse y se van los puntos de eje sobrantes', () => {
+  const { d, a1, b1, a2, b2, P, M, Q, e1, e2 } = dosMitades(0.0005);
+  const r = dissolvePoint(d, Q);
+  assert.equal(r.ok, true, r.msg);
+  assert.equal(n(d.ellipses), 1); assert.ok(d.ellipses[e1] && !d.ellipses[e2]);
+  assert.equal(d.ellipses[e1].p1, P); assert.equal(d.ellipses[e1].p2, M);
+  assert.ok(d.pts[a1] && d.pts[b1], 'los ejes del que queda siguen');
+  assert.ok(!d.pts[a2] && !d.pts[b2], 'los ejes del absorbido se van');
+  assert.ok(!d.pts[Q], 'el punto de union se va');
+});
+t('las relaciones del arco que se absorbe pasan al que queda; las que los unian entre si se van', () => {
+  const { d, Q, e1, e2 } = dosMitades(0.0005);
+  const q = addPoint(d, 5, 5), l = addLine(d, q, addPoint(d, 9, 9));
+  const kTan = addCon(d, { t: 'TANLE', refs: [l, e2, addPoint(d, 6, 6)] }), kEE = addCon(d, { t: 'TANEE', refs: [e1, e2, Q] });
+  assert.equal(dissolvePoint(d, Q).ok, true);
+  assert.deepEqual(d.cons[kTan].refs.slice(0, 2), [l, e1]);
+  assert.equal(d.cons[kEE], undefined);
+});
+t('dos elipses distintas (semiejes que difieren de verdad) no se disuelven', () => {
+  const { d, Q } = dosMitades(3);
+  const r = dissolvePoint(d, Q);
+  assert.equal(r.ok, false); assert.match(r.msg, /misma elipse/);
+});
+
 console.log(`${passed} pruebas de reparar contornos`);
