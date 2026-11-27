@@ -1,7 +1,7 @@
 import wasmUrl from '@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url';
 import { initSolver, solve, solveSteps, reparamSplines, addConsSolved, projectMarks, isMark, assignMark, setMarkRef, resetMarks, ensureMarkRefs, redundantCons, makeGear, makeRack, checkRack, FINITE_TYPES, dragToStops, beginSession, endSession, perfStats } from './solver.js';
 import {
-  newDoc, addLayer, deleteLayer, layerCount, shownEntries, shownValues, layerHiddenPoints, consHidden, visibleDoc, isHidden, addPoint, addLine, addCircle, addArc, addText, addSpline, splinePolyline, addCon, cleanup, deleteItems, clone, hatchLoops,
+  newDoc, addLayer, deleteLayer, layerCount, shownEntries, shownValues, layerHiddenPoints, layerLockedPoints, isLocked, consHidden, visibleDoc, isHidden, addPoint, addLine, addCircle, addArc, addText, addSpline, splinePolyline, addCon, cleanup, deleteItems, clone, hatchLoops,
   allLtypes, arcOf, conTag, ensureNumbers, addEllipse, ellipsePolyline, ellipseOf, ellipsePoint, ellipseParam, ellipseRange, isPartial, DIM_TYPES,
   withOp, addCtr, dissolveCtr, deleteCtrAndMembers, ctrEligible, ctrMembers, addGrp, dissolveGrp, deleteGrpAndMembers, grpPlan, grpName, grpMembers, grpLeaves,
 } from './model.js';
@@ -428,6 +428,7 @@ function renderTree() {
       head.appendChild(b);
     };
     if (n.layerId) { const l = doc.layers[n.layerId]; act(iconSvg(l.on ? 'eye' : 'eye-off'), l.on ? 'Apagar capa' : 'Encender capa', () => toggleLayer(n.layerId)); }
+    if (n.layerId) { const l = doc.layers[n.layerId]; act(iconSvg(l.locked ? 'lock' : 'unlock'), l.locked ? 'Desbloquear capa' : 'Bloquear capa', () => toggleLockLayer(n.layerId)); }
     if (n.lock !== undefined) act(iconSvg(n.lock ? 'lock' : 'unlock'), n.lock ? 'Soltar punto' : 'Fijar punto', () => treeToggleFix(n.sel.id));
     if (n.con) {
       const k = doc.cons[n.con];
@@ -1201,25 +1202,27 @@ const selOk = (x) => {
   const o = x.k === 'ln' ? doc.lines[x.id] : x.k === 'ci' ? doc.circles[x.id] : x.k === 'ar' ? doc.arcs[x.id] : x.k === 'sp' ? doc.splines[x.id] : x.k === 'el' ? doc.ellipses[x.id] : null;
   return !o || fltOk(o);
 };
+// Lo que se puede tocar: lo visible y no bloqueado por su capa.
+const pickEntries = (key) => shownEntries(doc, key).filter(([, o]) => !isLocked(doc, o));
 function hitTest(sx, sy, noText = false) { // noText: lo que hay debajo de un texto (un toque no selecciona un texto)
   for (const h of labelHits) if (fkOn('co') && sx >= h.x && sx <= h.x + h.w && sy >= h.y && sy <= h.y + h.h) return { k: 'co', id: h.id };
   const m = toModel(sx, sy);
   let best = null, bd = 14;
-  const shown = shownPoints();
+  const shown = shownPoints(), locked = layerLockedPoints(doc);
   for (const [id, p] of Object.entries(doc.pts)) {
-    if (!shown.has(id) || !fkOn('pt')) continue;
+    if (!shown.has(id) || locked.has(id) || !fkOn('pt')) continue;
     const d = dist(toScreen(p), { x: sx, y: sy });
     // un punto generado por un script (fijo) debajo de uno del usuario no lo tapa: el del usuario es el que se puede agarrar
     if (d < bd || (best?.k === 'pt' && isGen(doc, best.id) && !isGen(doc, id) && d < bd + 1.5)) { bd = Math.min(d, bd + 1.5); best = { k: 'pt', id }; }
   }
   if (best) return best;
   // un texto se toma por su caja (antes que las lineas que pasen por debajo)
-  for (const [id, t] of noText ? [] : shownEntries(doc, 'texts')) {
+  for (const [id, t] of noText ? [] : pickEntries('texts')) {
     if (opts.texts && fkOn('tx') && doc.pts[t.pt] && textHit(doc, t, m, measureRel, 2 / view.s)) return { k: 'tx', id };
   }
   best = hitCurves(sx, sy, true);
   if (best) return best;
-  for (const [id, h] of shownEntries(doc, 'hatches')) {
+  for (const [id, h] of pickEntries('hatches')) {
     const path = hatchPath(h);
     if (fkOn('ha') && path && ctx.isPointInPath(path, sx * dpr, sy * dpr, 'evenodd')) return { k: 'ha', id };
   }
@@ -1230,26 +1233,26 @@ function hitTest(sx, sy, noText = false) { // noText: lo que hay debajo de un te
 function hitCurves(sx, sy, filt = false) {
   const m = toModel(sx, sy);
   let best = null, bd = 11;
-  for (const [id, l] of shownEntries(doc, 'lines')) {
+  for (const [id, l] of pickEntries('lines')) {
     const c = closestOnSeg(m, doc.pts[l.a], doc.pts[l.b]);
     const d = dist(toScreen(c), { x: sx, y: sy });
     if (d < bd && (!filt || (fkOn('ln') && fltOk(l)))) { bd = d; best = { k: 'ln', id }; }
   }
-  for (const [id, ci] of shownEntries(doc, 'circles')) {
+  for (const [id, ci] of pickEntries('circles')) {
     const d = Math.abs(dist(doc.pts[ci.c], m) - ci.r) * view.s;
     if (d < bd && (!filt || (fkOn('ci') && fltOk(ci)))) { bd = d; best = { k: 'ci', id }; }
   }
-  for (const [id, ar] of shownEntries(doc, 'arcs')) {
+  for (const [id, ar] of pickEntries('arcs')) {
     const cp = doc.pts[ar.c];
     const d = Math.abs(dist(cp, m) - ar.r) * view.s;
     const g = arcOf(doc, ar);
     if (d < bd && (!filt || (fkOn('ar') && fltOk(ar))) && inSweep(cp, g.a0, g.sweep, m, 8 / Math.max(ar.r * view.s, 1))) { bd = d; best = { k: 'ar', id }; }
   }
-  for (const [id, sp] of shownEntries(doc, 'splines')) {
+  for (const [id, sp] of pickEntries('splines')) {
     const d = distToPolyline(splinePolyline(doc, sp, 12).map(toScreen), sx, sy);
     if (d < bd && (!filt || (fkOn('sp') && fltOk(sp)))) { bd = d; best = { k: 'sp', id }; }
   }
-  for (const [id, e] of shownEntries(doc, 'ellipses')) {
+  for (const [id, e] of pickEntries('ellipses')) {
     const d = distToPolyline(ellipsePolyline(doc, e, 72).map(toScreen), sx, sy);
     if (d < bd && (!filt || (fkOn('el') && fltOk(e)))) { bd = d; best = { k: 'el', id }; }
   }
@@ -5594,6 +5597,7 @@ function layerBtn() {
 }
 function setCurLayer(id) {
   if (id && !doc.layers[id].on) { toast('Enciende la capa para dibujar en ella'); renderLayers(); return; }
+  if (id && doc.layers[id].locked) { toast('Desbloquea la capa para dibujar en ella'); renderLayers(); return; }
   doc.curLayer = id; layerBtn(); persist(); renderLayers(); draw();
   toast(id ? `Capa actual: ${doc.layers[id].name}` : 'Sin capa actual: lo nuevo no pertenece a ninguna capa');
 }
@@ -5607,6 +5611,19 @@ function toggleLayer(id) {
   }
   afterChange(); renderLayers();
 }
+// Bloquear: la capa se sigue viendo, pero lo suyo no se puede elegir (ni tocando ni con cuadro). Si era la actual, se dibuja sin capa.
+function toggleLockLayer(id) {
+  pushUndo();
+  const l = doc.layers[id];
+  if (l.locked) { delete l.locked; toast(`«${l.name}» desbloqueada`); }
+  else {
+    l.locked = true;
+    sel = sel.filter((s) => !isLocked(doc, s.k === 'tx' ? doc.texts[s.id] : s.k === 'ln' ? doc.lines[s.id] : s.k === 'ci' ? doc.circles[s.id] : s.k === 'ar' ? doc.arcs[s.id] : s.k === 'el' ? doc.ellipses?.[s.id] : s.k === 'sp' ? doc.splines?.[s.id] : s.k === 'ha' ? doc.hatches?.[s.id] : null));
+    if (doc.curLayer === id) { doc.curLayer = null; toast(`«${l.name}» bloqueada: ya no es la capa actual, dibujas sin capa`); }
+    else toast(`«${l.name}» bloqueada: se ve, pero no se puede elegir`);
+  }
+  afterChange(); renderLayers();
+}
 function removeLayer(id) {
   const l = doc.layers[id], n = layerCount(doc, id);
   if (!confirm(`¿Borrar la capa «${l.name}»?` + (n ? (n === 1 ? ' Su único elemento quedará sin capa («ninguna»).' : ` Sus ${n} elementos quedarán sin capa («ninguna»).`) : ''))) return;
@@ -5617,7 +5634,7 @@ function renderLayers() {
   layerBtn();
   const box = $('lyList');
   box.textContent = '';
-  const rows = [{ id: null, none: true }, ...Object.entries(doc.layers || {}).map(([id, l]) => ({ id, name: l.name, on: l.on }))];
+  const rows = [{ id: null, none: true }, ...Object.entries(doc.layers || {}).map(([id, l]) => ({ id, name: l.name, on: l.on, locked: !!l.locked }))];
   for (const r of rows) {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:6px;align-items:center;margin:4px 0';
@@ -5650,7 +5667,11 @@ function renderLayers() {
       const db = document.createElement('button');
       db.type = 'button'; db.innerHTML = iconSvg('trash'); db.title = 'Borrar la capa'; db.setAttribute('aria-label', 'Borrar la capa ' + r.name);
       db.onclick = () => removeLayer(r.id);
-      row.append(eb, db);
+      const lb = document.createElement('button');
+      lb.type = 'button'; lb.innerHTML = iconSvg(r.locked ? 'lock' : 'unlock');
+      lb.title = r.locked ? 'Desbloquear la capa' : 'Bloquear la capa (se ve, pero no se puede elegir)'; lb.setAttribute('aria-label', lb.title); lb.setAttribute('aria-pressed', String(r.locked));
+      lb.onclick = () => toggleLockLayer(r.id);
+      row.append(eb, lb, db);
     }
     box.appendChild(row);
   }

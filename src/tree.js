@@ -352,7 +352,7 @@ export function buildTree(doc, { by = 'type' } = {}) {
     const kids = nonEmpty(typeGroups({ id }));
     const n = kids.reduce((s, g) => s + g.children.length, 0);
     if (!id && !n) return null;
-    return { key: `g:y:${id ?? '-'}`, group: true, layerId: id, label: id ? `${l.name} (${n})${l.on ? '' : ' · apagada'}` : `Sin capa (${n})`, children: kids };
+    return { key: `g:y:${id ?? '-'}`, group: true, layerId: id, label: id ? `${l.name} (${n})${l.on ? '' : ' · apagada'}${l.locked ? ' · bloqueada' : ''}` : `Sin capa (${n})`, children: kids };
   });
   return [...nonEmpty([gpCat]), ...compact(layerGroups), ...nonEmpty(rest)];
 }

@@ -51,6 +51,12 @@ Apagada, sus elementos, los puntos que solo ellos usan y sus restricciones y cot
 
 Apagar la capa actual la deja sin capa actual.
 
+### Bloquear
+
+El candado ![Bloquear](icons/lock.svg) **bloquea o desbloquea** la capa: sus elementos se **siguen viendo**, pero no se pueden elegir, ni tocándolos ni con un cuadro de selección, ni se editan por accidente (tampoco al recortar o extender). Sirve para que, al trabajar en otra capa, el cuadro de selección no tome lo de la que ya terminaste. Se sigue pudiendo **imantar** a lo bloqueado.
+
+Bloquear la capa actual la deja sin capa actual, y una capa bloqueada no puede ser la actual hasta que la desbloquees. Desde el árbol agrupado por capa también se bloquea.
+
 ### Cambiar la capa de un elemento
 
 Para cambiar la capa de un elemento, toca dos veces sobre él.

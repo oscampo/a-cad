@@ -36,6 +36,8 @@ export function allLtypes(doc) {
 // layer (id) si pertenece a una capa; sin esa propiedad es de la capa "ninguna". Una capa apagada oculta sus elementos.
 const stamp = (doc) => (doc.curLayer && doc.layers?.[doc.curLayer] ? { layer: doc.curLayer } : {});
 export const isHidden = (doc, o) => !!(o && o.layer && doc.layers?.[o.layer] && !doc.layers[o.layer].on);
+// Una capa bloqueada se ve, pero lo suyo no se puede elegir (ni tocando ni con cuadro) ni editar a mano: sirve de fondo o de referencia.
+export const isLocked = (doc, o) => !!(o && o.layer && doc.layers?.[o.layer]?.locked);
 export const shownEntries = (doc, key) => Object.entries(doc[key] || {}).filter(([, o]) => !isHidden(doc, o));
 export const shownValues = (doc, key) => shownEntries(doc, key).map(([, o]) => o);
 const LAYERED = ['pts', 'lines', 'circles', 'arcs', 'ellipses', 'splines', 'texts', 'hatches', 'images', 'cons']; // de las relaciones, solo las cotas y las lineas indicativas llevan capa
@@ -217,20 +219,28 @@ function cleanGrps(doc) {
   if (!Object.keys(doc.grps).length) delete doc.grps;
   return changed;
 }
-// Puntos que no se ven por capas apagadas: los de una capa apagada y los que solo usan elementos ocultos.
-export function layerHiddenPoints(doc) {
-  const out = new Set();
-  if (!Object.values(doc.layers || {}).some((l) => !l.on)) return out;
-  const used = {};
-  const mark = (ids, o) => { const h = isHidden(doc, o); for (const p of ids) { if (!p) continue; const u = (used[p] ||= { vis: false }); if (!h) u.vis = true; } };
+// Puntos "malos" segun una prueba sobre su elemento: los de una capa que la cumple y los que solo usan elementos que la cumplen.
+function pointsWhere(doc, bad) {
+  const out = new Set(), used = {};
+  const mark = (ids, o) => { const h = bad(o); for (const p of ids) { if (!p) continue; const u = (used[p] ||= { vis: false }); if (!h) u.vis = true; } };
   for (const l of Object.values(doc.lines)) mark([l.a, l.b], l);
   for (const c of Object.values(doc.circles)) mark([c.c], c);
   for (const a of Object.values(doc.arcs)) mark([a.c, a.a, a.b], a);
   for (const e of Object.values(doc.ellipses || {})) mark([e.c, e.a, e.b, e.p1, e.p2], e);
   for (const sp of Object.values(doc.splines || {})) mark(sp.pts, sp);
   for (const t of Object.values(doc.texts || {})) mark([t.pt], t);
-  for (const [id, p] of Object.entries(doc.pts)) if (isHidden(doc, p) || (used[id] && !used[id].vis)) out.add(id);
+  for (const [id, p] of Object.entries(doc.pts)) if (bad(p) || (used[id] && !used[id].vis)) out.add(id);
   return out;
+}
+// Puntos que no se ven por capas apagadas: los de una capa apagada y los que solo usan elementos ocultos.
+export function layerHiddenPoints(doc) {
+  if (!Object.values(doc.layers || {}).some((l) => !l.on)) return new Set();
+  return pointsWhere(doc, (o) => isHidden(doc, o));
+}
+// Puntos que no se pueden elegir por capas bloqueadas (los de una capa bloqueada y los que solo usan elementos bloqueados).
+export function layerLockedPoints(doc) {
+  if (!Object.values(doc.layers || {}).some((l) => l.locked)) return new Set();
+  return pointsWhere(doc, (o) => isLocked(doc, o));
 }
 // Una restriccion o cota se oculta si alguno de sus elementos o puntos esta oculto.
 export function consHidden(doc, k, hp) {

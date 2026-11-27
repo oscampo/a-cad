@@ -1,4 +1,4 @@
-<!-- es: 1ad5bf7cbc -->
+<!-- es: 2f4e90c662 -->
 # 10. Style, layers and view
 
 Color, line type, width and fills; layers; what the view shows; and the element tree.
@@ -51,6 +51,12 @@ The eye **turns the layer off or on**.
 When it is off, its elements, the points used only by them, and their constraints and dimensions are not visible, cannot be selected, do not cut when [trimming or extending](03-seleccionar-y-editar.md#trim-x), and are not exported. They still exist and the solver respects them.
 
 Turning off the current layer leaves you with no current layer.
+
+### Lock
+
+The padlock ![Lock](../icons/lock.svg) **locks or unlocks** the layer: its elements are **still visible**, but they cannot be selected, either by tapping or with a selection box, and they are not edited by accident (not when trimming or extending either). It is useful so that, when you work on another layer, the selection box does not take what is on the layer you already finished. You can still **snap** to locked elements.
+
+Locking the current layer leaves you with no current layer, and a locked layer cannot be the current one until you unlock it. From the tree grouped by layer you can lock it too.
 
 ### Change the layer of an element
 
