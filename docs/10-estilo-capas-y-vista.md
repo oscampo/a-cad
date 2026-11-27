@@ -70,7 +70,7 @@ Con la capa apagada no se ven ni se exportan, pero una cota sigue midiendo o man
 - **Cuadrícula.**
 - **Imán** (a la cuadrícula).
 - **Bloqueo suave** (y cada cuántos grados).
-- **Snap al mover**: al arrastrar, el puntero (el punto que agarras, o el lugar donde agarraste una línea) se pega a otros puntos, a puntos medios y al borde de líneas, círculos y arcos que no se mueven (se ve un anillo donde se pega). Sin objeto cerca, con el **Imán** activo, caen en la cuadrícula. No crea restricciones.
+- **Snap al mover**: al arrastrar, el puntero (el punto que agarras, o el lugar donde agarraste una línea) se pega a otros puntos, a puntos medios y al borde de líneas, círculos y arcos que no se mueven (se ve un anillo donde se pega). Con el dedo (modo «Dedo dibuja») aparece además la lupa circular 2x sobre el dedo mientras arrastras, para ver dónde cae la mira. Sin objeto cerca, con el **Imán** activo, caen en la cuadrícula. No crea restricciones.
 - **Tiempo del imán** a intersecciones.
 - **Mostrar u ocultar** restricciones, puntos, cotas y textos.
 - **Dedo dibuja.**

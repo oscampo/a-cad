@@ -2288,6 +2288,7 @@ cv.addEventListener('pointermove', (e) => {
   trackArc(p); trackEarc(p);
   const tp1 = PERF ? performance.now() : 0;
   if (q) toolMove(p);
+  if (q && q.type === 'touch' && opts.dsnap && tool === 'select' && drag?.started && drag.hit && drag.orig) loupe = { x: p.x, y: p.y }; // arrastrar con el dedo y snap: la lupa 2x deja ver donde cae la mira (se quita sola al soltar)
   const tp2 = PERF ? performance.now() : 0;
   updateStatus(p);
   draw();
