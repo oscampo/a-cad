@@ -1886,15 +1886,15 @@ function drawTexts(c, o) {
       c.strokeRect(f.xmin * sc * dpr, -f.ymax * sc * dpr, f.w * sc * dpr, f.hh * sc * dpr);
     }
     if (t.manual && o.ui) { // ejecucion manual: el texto va en un marco con un boton ▶ al final; dibuja solo al pulsarlo
-      const R = 13, bx = (f.xmin + f.w) * sc + 10 + R, by = (-f.ymax + f.hh / 2) * sc;
+      const R = Math.max(3, t.h * sc * 0.8), k = R / 13, pad = Math.max(2, 4 * k), bx = (f.xmin + f.w) * sc + 10 * k + R, by = (-f.ymax + f.hh / 2) * sc; // el boton crece y se encoge con el texto (con el zoom); la zona tocable no baja de 12 px
       c.save(); c.setLineDash([4 * dpr, 3 * dpr]); c.strokeStyle = theme.accent; c.globalAlpha = 0.75; c.lineWidth = dpr;
-      c.strokeRect((f.xmin * sc - 4) * dpr, (-f.ymax * sc - 4) * dpr, (f.w * sc + 8) * dpr, (f.hh * sc + 8) * dpr);
+      c.strokeRect((f.xmin * sc - pad) * dpr, (-f.ymax * sc - pad) * dpr, (f.w * sc + 2 * pad) * dpr, (f.hh * sc + 2 * pad) * dpr);
       c.restore();
       c.save(); c.setLineDash([]); c.fillStyle = theme.accent; c.beginPath(); c.arc(bx * dpr, by * dpr, R * dpr, 0, Math.PI * 2); c.fill();
-      c.fillStyle = theme.bg; c.beginPath(); c.moveTo((bx - 4) * dpr, (by - 6) * dpr); c.lineTo((bx + 6) * dpr, by * dpr); c.lineTo((bx - 4) * dpr, (by + 6) * dpr); c.closePath(); c.fill();
+      c.fillStyle = theme.bg; c.beginPath(); c.moveTo((bx - 4 * k) * dpr, (by - 6 * k) * dpr); c.lineTo((bx + 6 * k) * dpr, by * dpr); c.lineTo((bx - 4 * k) * dpr, (by + 6 * k) * dpr); c.closePath(); c.fill();
       c.restore();
       const a = -(pose.ang * Math.PI) / 180;
-      playZones.push({ id, x: S.x + bx * Math.cos(a) - by * Math.sin(a), y: S.y + bx * Math.sin(a) + by * Math.cos(a), r: 20 });
+      playZones.push({ id, x: S.x + bx * Math.cos(a) - by * Math.sin(a), y: S.y + bx * Math.sin(a) + by * Math.cos(a), r: Math.max(R, 12) });
     }
     c.restore();
   }
