@@ -212,7 +212,7 @@ function tokenize(src, vars = null, loose = false) {
       if (vars && Object.prototype.hasOwnProperty.call(vars, raw)) toks.push({ t: vars[raw]?.fn ? 'ufn' : 'var', v: raw, i, j: i + L }); // ufn: funcion definida en un texto
       else if (vars && (ix = indexOfVar(raw, vars))) { // v_2, v_i, A_(1,2): un elemento de un vector o matriz
         // varargin_i.x: la propiedad de un punto (o linea, circulo…) que llego de mas a la funcion, como p.x en un parametro con nombre
-        const pm = (vars[ix.base]?.args || vars[ix.base]?.gen?.list) && !loose ? /^\.(x|y|L|len|ang|r|d|n|area)(?![A-Za-z0-9_])/.exec(src.slice(i + L)) : null; // tambien k1_i.len, s_i.x
+        const pm = (vars[ix.base]?.args || vars[ix.base]?.gen?.list) && !loose ? /^\.(x|y|L|len|ang|r|d|n|area|xmin|xmax|ymin|ymax|w|h|v)(?![A-Za-z0-9_])/.exec(src.slice(i + L)) : null; // tambien k1_i.len, s_i.x
         toks.push({ t: 'idx', base: ix.base, src: ix.src, ...(pm ? { prop: pm[1] } : {}), i, j: i + L + (pm ? pm[0].length : 0) });
         if (pm) i += pm[0].length;
       }
@@ -1007,7 +1007,11 @@ export function genProps(g) {
   if (g?.k === 'ln' && g.a && g.b) { const dx = g.b.x - g.a.x, dy = g.b.y - g.a.y, L = Math.hypot(dx, dy); return { L: num(L), len: num(L), ang: { v: Math.atan2(dy, dx), r: true } }; }
   if (g?.k === 'ci') return { r: num(g.r), d: num(2 * g.r), x: num(g.x), y: num(g.y) };
   if (g?.k === 'ar' && g.r !== undefined) return { r: num(g.r), x: num(g.x), y: num(g.y) };
-  if (g?.k === 'ct') return { n: num(g.n), ...(g.L !== undefined ? { L: num(g.L), len: num(g.L) } : {}), ...(g.area !== undefined ? { area: num(g.area) } : {}) }; // un grupo de contorno: k1.n, k1.L, k1.area
+  const box = () => Object.fromEntries(['xmin', 'xmax', 'ymin', 'ymax', 'w', 'h'].filter((q) => g[q] !== undefined).map((q) => [q, num(g[q])])); // la caja envolvente de un contorno o un grupo
+  if (g?.k === 'ct') return { n: num(g.n), ...(g.L !== undefined ? { L: num(g.L), len: num(g.L) } : {}), ...(g.area !== undefined ? { area: num(g.area) } : {}), ...box() }; // un grupo de contorno: k1.n, k1.L, k1.area, k1.xmin…
+  if (g?.k === 'gp') return { n: num(g.n), ...box() }; // un grupo: g1.n (cuantos objetos tiene), g1.w, g1.h, g1.xmin…
+  if (g?.k === 'tx') return g.x !== undefined ? { x: num(g.x), y: num(g.y) } : {}; // un texto: t3.x, t3.y (su punto de insercion)
+  if (g?.k === 'co') return g.v !== undefined ? { v: num(g.v) } : {}; // una relacion: k7.v (su valor, si lo tiene)
   if (g?.k === 'sp' && g.n !== undefined) return { n: num(g.n) };
   return {};
 }
@@ -1015,7 +1019,7 @@ export function genProps(g) {
 const ROLES = ['a', 'b', 'c', 'p1', 'p2'];
 export const genRoles = (g) => (g && typeof g === 'object' ? ROLES.filter((r) => g[r]?.k === 'pt').map((r) => [r, g[r]]) : []);
 // Los nombres «objeto.propiedad» y «objeto.papel[.coordenada]» que un objeto dibujado puede tener (para borrar los de una asignacion anterior y para dejar lugar en los programas).
-const GEN_PROPS = ['x', 'y', 'L', 'len', 'ang', 'r', 'd', 'n', 'area'];
+const GEN_PROPS = ['x', 'y', 'L', 'len', 'ang', 'r', 'd', 'n', 'area', 'xmin', 'xmax', 'ymin', 'ymax', 'w', 'h', 'v'];
 const GEN_KEYS = [...GEN_PROPS, ...ROLES, ...ROLES.flatMap((r) => ['x', 'y'].map((c) => r + '.' + c))];
 // Escribe en vars las propiedades de un objeto dibujado bajo su nombre (nombre.x, nombre.a, nombre.a.x…); lo que habia antes bajo ese nombre se borra.
 // fill: lo que el objeto no tiene (un circulo no tiene .n ni .a) queda como «sin valor» en vez de no existir: asi una funcion que recibe de todo (varargin, typeof) puede nombrar
@@ -1034,7 +1038,7 @@ function bindGen(vars, name, g, fill = false) {
 let TOPO = null;
 export const setTopo = (fn) => { const prev = TOPO; TOPO = fn; return prev; }; // devuelve el anterior (para restaurarlo: las llamadas se anidan)
 // typeof(x): que es lo que llego: «number», «string», «strings», «matrix», «complex», «point», «line», «circle», «arc», «ellipse», «spline» o «contour».
-const GEN_TYPE = { pt: 'point', ln: 'line', ci: 'circle', ar: 'arc', el: 'ellipse', sp: 'spline', ct: 'contour' };
+const GEN_TYPE = { pt: 'point', ln: 'line', ci: 'circle', ar: 'arc', el: 'ellipse', sp: 'spline', ct: 'contour', gp: 'group', tx: 'text', co: 'dimension' };
 function typeOf(a) {
   if (a?.gen && GEN_TYPE[a.gen.k]) return GEN_TYPE[a.gen.k];
   if (typeof a?.str === 'string') return 'string';

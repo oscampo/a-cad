@@ -5,7 +5,8 @@
 //   circulo: c                          (Centro:)
 //   elipse:  c, a, b (+ p1, p2 si es un arco eliptico)   (Centro:, Eje 1:, Eje 2:, Inicio:, Fin:)
 //   spline:  p1, p2, … pn               (los puntos de control, en orden)
-import { ctrMembers } from './model.js';
+import { ctrMembers, grpMembers, grpLeaves, grpName } from './model.js';
+import { bboxOf } from './edit.js';
 
 // [{ role, label, id }] de un elemento del dibujo (kind: ln, ar, ci, el, sp); [] si no existe.
 export function elementPoints(doc, kind, id) {
@@ -18,7 +19,7 @@ export function elementPoints(doc, kind, id) {
   return [];
 }
 
-// El tipo de un id del dibujo: 'pt', 'ln', 'ci', 'ar', 'el', 'sp' o 'ct' (grupo de contorno); null si no existe.
+// El tipo de un id del dibujo: 'pt', 'ln', 'ci', 'ar', 'el', 'sp', 'ct' (grupo de contorno), 'gp' (grupo), 'tx' (texto) o 'co' (relacion); null si no existe.
 export function kindOfId(doc, id) {
   if (doc.pts[id]) return 'pt';
   if (doc.lines[id]) return 'ln';
@@ -27,21 +28,35 @@ export function kindOfId(doc, id) {
   if (doc.ellipses?.[id]) return 'el';
   if (doc.splines?.[id]) return 'sp';
   if (doc.ctrs?.[id]) return 'ct';
+  if (doc.grps?.[id]) return 'gp';
+  if (doc.texts?.[id]) return 'tx';
+  if (doc.cons?.[id]) return 'co';
   return null;
 }
 
 // Un valor de script para un elemento del dibujo: { k, id, …datos } con sus puntos como valores {k:'pt', id, x, y} bajo su papel (a, b, c…),
 // un spline con su lista de puntos y un grupo de contorno con la de sus miembros (los mismos valores, uno por elemento). prop(id, 'L') pide a
 // geo.js una propiedad numerica (perimetro, area).
+// La caja envolvente de lo que contiene un contorno o un grupo: xmin, xmax, ymin, ymax, w (ancho) y h (alto).
+function boxOf(doc, items) {
+  const b = bboxOf(doc, items);
+  return b ? { xmin: b.x0, xmax: b.x1, ymin: b.y0, ymax: b.y1, w: b.x1 - b.x0, h: b.y1 - b.y0 } : {};
+}
 export function elementValue(doc, id, prop = () => null) {
   const k = kindOfId(doc, id);
   if (!k) return null;
   const pt = (pid) => { const p = doc.pts[pid]; return p ? { k: 'pt', id: pid, x: p.x, y: p.y } : null; };
   if (k === 'pt') return pt(id);
+  if (k === 'tx') { const t = doc.texts[id], p = doc.pts[t.pt]; return { k: 'tx', id, text: String(t.text ?? ''), ...(p ? { x: p.x, y: p.y } : {}) }; } // un texto: su punto de insercion y su contenido
+  if (k === 'co') { const c = doc.cons[id]; return { k: 'co', id, t: c.t, ...(typeof c.v === 'number' ? { v: c.v } : {}) }; } // una relacion (cota): su tipo y, si lo tiene, su valor
+  if (k === 'gp') { // un grupo: sus miembros directos (elementos, textos, cotas, contornos y grupos) y su caja envolvente
+    const list = grpMembers(doc, id).map((m) => elementValue(doc, m.id, prop)).filter(Boolean);
+    return { k: 'gp', id, name: grpName(doc, id), n: list.length, ...boxOf(doc, grpLeaves(doc, id)), list };
+  }
   if (k === 'ct') {
     const list = ctrMembers(doc, id).map((m) => elementValue(doc, m.id, prop)).filter(Boolean);
     const L = prop(id, 'L'), A = prop(id, 'area');
-    return { k: 'ct', id, n: list.length, ...(L ? { L: L.v } : {}), ...(A ? { area: A.v } : {}), list };
+    return { k: 'ct', id, n: list.length, ...(L ? { L: L.v } : {}), ...(A ? { area: A.v } : {}), ...boxOf(doc, ctrMembers(doc, id)), list };
   }
   const out = { k, id };
   const pts = elementPoints(doc, k, id);

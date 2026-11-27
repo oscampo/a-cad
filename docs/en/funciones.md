@@ -202,7 +202,7 @@ A string goes between quotes: `"Cumple"` (the iPad's curly quotes “ ” work t
 | `sprintf(formato; …)` | Format: %d, %f, %.2f, %e, %g, %s, %%. Without units: divide by the unit you want (F/1'kN). | `sprintf("%.1f kN"; 12.345)=` | `“12.3 kN”` |
 | `str2double(s)`, `str2num(s)` | The number written in a string. | `str2double("3.25")*2` | `6.5` |
 | `strcat(a; b; …)` | Joins strings (like +). | `strcat("A"; "-"; "CAD")=` | `“A-CAD”` |
-| `typeof(x)`, `isa(x; "tipo")` | What arrived in a function: `"number"`, `"string"`, `"strings"`, `"matrix"`, `"complex"`, or a drawing object (`"point"`, `"line"`, `"circle"`, `"arc"`, `"ellipse"`, `"spline"`, `"contour"`). `isa` gives 1 if it is of that type and 0 if not. They work with `varargin`: `if isa(varargin_1; "line"): …`. | `typeof("a")=` | `“string”` |
+| `typeof(x)`, `isa(x; "tipo")` | What arrived in a function: `"number"`, `"string"`, `"strings"`, `"matrix"`, `"complex"`, or a drawing object (`"point"`, `"line"`, `"circle"`, `"arc"`, `"ellipse"`, `"spline"`, `"contour"`, `"group"`), a text (`"text"`) or a dimension (`"dimension"`). `isa` gives 1 if it is of that type and 0 if not. They work with `varargin`: `if isa(varargin_1; "line"): …`. | `typeof("a")=` | `“string”` |
 | `error("mensaje")` | Stops the calculation with that message, to validate what a function receives: `else: error("solo se admite T, L o R")`. The message is flagged in the text, with the name of the function. |  |  |
 | `upper`, `lower`, `strtrim`, `reverse` | Uppercase, lowercase, trimmed of spaces at the ends, reversed. | `upper("abc")=` | `“ABC”` |
 | `strrep(s; viejo; nuevo)`, `replace(s; viejo; nuevo)` | Replaces all occurrences. | `strrep("a-b-c"; "-"; "+")=` | `“a+b+c”` |
