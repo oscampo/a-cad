@@ -91,6 +91,10 @@ También lista las **restricciones y cotas** del elemento, cada una con **Quitar
 
 Los cambios se aplican al momento y se pueden deshacer.
 
+## Borrar (Supr)
+
+Borra lo seleccionado. Al borrar una línea, un círculo, un arco, una elipse o un spline también se van **sus puntos que ya no usa nada**: ni otro elemento, ni un texto, ni una relación o una cota. Da igual que «Puntos» esté visible o no (un cuadro de selección toma los puntos solo si se ven, y antes eso decidía si quedaban «puntos sueltos»). Lo que genera un script no se borra a mano.
+
 ## Copiar / Pegar
 
 ![Copiar](icons/copy.svg) ![Pegar](icons/paste.svg) **Copiar / Pegar** (en el [desplegable](desplegables.md#copiar-y-pegar); Ctrl+C y Ctrl+V): el botón muestra Copiar, y después de copiar pasa a mostrar Pegar (para copiar de nuevo usa Ctrl+C o el desplegable).

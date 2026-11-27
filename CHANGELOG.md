@@ -5,6 +5,7 @@ Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo 
 ## Sin publicar
 
 ### Cambia el comportamiento
+- Borrar: al borrar una línea, un círculo, un arco, una elipse o un spline, **se van también sus puntos que ya no usa nada** (ni otro elemento, ni un texto, ni una relación o cota), sean automáticos o no. Antes solo se iban los automáticos o los que el cuadro de selección había tomado, y eso dependía de si «Puntos» estaba visible: con «Puntos» apagado quedaban como «puntos sueltos» en el árbol (los de un arco, una elipse o lo que deja un script ejecutado a mano). Un punto que usa algo más, o que genera un script, se queda. Si ponías un punto a propósito con la herramienta Punto y solo lo usaba lo que borras, ahora también se va.
 - Cálculo: **`and`, `or`, `not` y `xor` quedan reservados** (en esa minúscula exacta; `And` o `OR` siguen libres): ya no pueden ser nombres de variables, de cotas ni de funciones propias. En los dibujos revisados (los ejemplos, las guías y los dibujos de prueba) no se usaban como nombres; si uno tuyo los usa, el texto avisa «es un operador lógico» y basta renombrarlo.
 
 ### Nuevo

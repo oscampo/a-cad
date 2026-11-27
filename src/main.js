@@ -656,7 +656,7 @@ function treeEditAct(id) {
   draw(); editAct(id, false);
 }
 function treeDelete(s0) {
-  pushUndo(); deleteItems(doc, [s0]); sel = sel.filter(exists);
+  pushUndo(); deleteItems(doc, [s0], { orphans: true }); sel = sel.filter(exists);
   solve(doc, []);
   afterChange();
 }
@@ -6365,7 +6365,7 @@ $('del').onclick = () => {
   for (const id of gs) { if (doc.graphs?.[id]) { delete doc.graphs[id]; delete graphData[id]; } else dropImage(id); }
   selGraph = null; selMulti = null;
   if (sel.length) {
-    deleteItems(doc, sel); sel = [];
+    deleteItems(doc, sel, { orphans: true }); sel = [];
     const r = solve(doc, []); if (!r.ok) { /* las restricciones restantes siguen siendo validas */ }
   }
   afterChange();

@@ -1,4 +1,4 @@
-<!-- es: 9293aeb19b -->
+<!-- es: 8caef4a2cf -->
 # 3. Selecting and editing
 
 Selecting (by tap, box or filter), viewing and changing an element's properties, and the tools that modify what you drew: copy, trim, extend, fillet and chamfer.
@@ -91,6 +91,10 @@ It also lists the element's **constraints and dimensions**, each with **Remove**
 - **Arc:** radius.
 
 Changes apply immediately and can be undone.
+
+## Delete (Del)
+
+Deletes the selection. When you delete a line, circle, arc, ellipse or spline, **its points that nothing else uses** go too: no other element, no text, no relation or dimension. It makes no difference whether "Points" is visible or not (a selection box takes points only when they are shown, and that used to decide whether "loose points" were left behind). What a script generates is not deleted by hand.
 
 ## Copy / Paste
 

@@ -515,7 +515,25 @@ export function cleanup(doc) {
   }
 }
 
-export function deleteItems(doc, items) {
+// Los puntos que definen un elemento (para quitarlos con el si nadie mas los usa).
+const ownPoints = (doc, k, id) => {
+  const o = k === 'ln' ? doc.lines[id] : k === 'ci' ? doc.circles[id] : k === 'ar' ? doc.arcs[id] : k === 'el' ? doc.ellipses?.[id] : k === 'sp' ? doc.splines?.[id] : null;
+  if (!o) return [];
+  return k === 'ln' ? [o.a, o.b] : k === 'ci' ? [o.c] : k === 'ar' ? [o.c, o.a, o.b] : k === 'el' ? [o.c, o.a, o.b, o.p1, o.p2] : o.pts;
+};
+// opts.orphans: al borrar lineas, circulos, arcos, elipses o splines, sus puntos que ya no usa nada (ni otro elemento, ni un texto, ni una relacion o cota)
+// se van con ellos, sean automaticos o no, y lo que genera un script se respeta. Asi borrar no depende de si «Puntos» esta visible: con «Puntos» encendido un
+// cuadro de seleccion toma tambien los puntos, con «Puntos» apagado no, y los puntos quedaban sueltos.
+export function deleteItems(doc, items, opts = {}) {
+  const cand = opts.orphans ? [...new Set(items.flatMap(({ k, id }) => ownPoints(doc, k, id)).filter(Boolean))] : [];
+  deleteItemsRaw(doc, items);
+  if (!cand.length) return;
+  const used = pointsUsed(doc), gen = new Set(Object.values(doc.gen?.map || {}));
+  let any = false;
+  for (const id of cand) if (doc.pts[id] && !used.has(id) && !gen.has(id)) { delete doc.pts[id]; any = true; }
+  if (any) cleanup(doc);
+}
+function deleteItemsRaw(doc, items) {
   for (const { k, id } of items) {
     if (k === 'pt') {
       for (const [lid, l] of Object.entries(doc.lines)) if (l.a === id || l.b === id) delete doc.lines[lid];
