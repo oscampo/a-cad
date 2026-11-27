@@ -1,4 +1,4 @@
-<!-- es: 691ef88c6c -->
+<!-- es: f83c4b5b91 -->
 # 5. Constraints
 
 The geometric relations the solver always maintains: horizontal, parallel, tangent, coincident and the rest, with their numbering in the drawing.
@@ -129,6 +129,8 @@ Each relation is labeled with its letter and number next to the elements it invo
 **Removing them.** The **Redundant** button (Constraints group) lists them and offers to remove them; when you open a file that has them, a notice appears.
 
 **Named dimensions.** Named dimensions are not removed automatically (they may feed formulas).
+
+**If something will not move.** If you drag something and nothing moves because the solver finds no solution with the current relations, a notice says so and names the relations whose removal unblocks it (removing one is enough). A typical case: a tangency between two pieces of the same ellipse, which are almost the same curve.
 
 ## Numbering
 

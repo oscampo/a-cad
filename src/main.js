@@ -1,5 +1,5 @@
 import wasmUrl from '@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url';
-import { initSolver, solve, solveSteps, reparamSplines, addConsSolved, projectMarks, isMark, assignMark, setMarkRef, resetMarks, ensureMarkRefs, redundantCons, makeGear, makeRack, checkRack, FINITE_TYPES, dragToStops, beginSession, endSession, perfStats } from './solver.js';
+import { initSolver, solve, solveSteps, reparamSplines, addConsSolved, projectMarks, isMark, assignMark, setMarkRef, resetMarks, ensureMarkRefs, redundantCons, makeGear, makeRack, checkRack, FINITE_TYPES, dragToStops, failCulprits, beginSession, endSession, perfStats } from './solver.js';
 import {
   newDoc, addLayer, deleteLayer, layerCount, shownEntries, shownValues, layerHiddenPoints, layerLockedPoints, isLocked, consHidden, visibleDoc, isHidden, addPoint, addLine, addCircle, addArc, addText, addSpline, splinePolyline, addCon, cleanup, deleteItems, clone, hatchLoops,
   allLtypes, arcOf, conTag, ensureNumbers, addEllipse, ellipsePolyline, ellipseOf, ellipsePoint, ellipseParam, ellipseRange, isPartial, DIM_TYPES,
@@ -125,12 +125,12 @@ const same = (a, b) => a.k === b.k && a.id === b.id;
 const isSel = (k, id) => sel.some((s) => s.k === k && s.id === id);
 const fmt = (v) => localNum(Math.abs(v) >= 1000 ? v.toFixed(1) : String(Math.round(v * 1000) / 1000)); // con el indicador decimal del dibujo
 let toastTimer = 0;
-function toast(msg) {
+function toast(msg, ms = 2600) {
   const t = $('toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  toastTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
 function readTheme() {
   const cs = getComputedStyle(document.documentElement);
@@ -2767,6 +2767,19 @@ function trimStep(p, d) {
 }
 
 // toolMove solo se llama desde pointermove, que dibuja una vez al terminar: no se dibuja aqui (antes se dibujaba dos veces por movimiento)
+// Un arrastre que el solver no pudo resolver ni una sola vez: no se movio nada. Antes quedaba mudo; ahora dice que relaciones lo impiden
+// (las que, quitadas, lo dejan resolver). Un solo aviso por arrastre, y solo si nada se movio (un tropiezo aislado no avisa).
+function dragRejected(tg, r) {
+  if (drag.warned || drag.moved1 || r.ok || r.stopped) return;
+  drag.warned = true;
+  let ids = [];
+  try { ids = failCulprits(doc, tg); } catch { ids = []; }
+  if (!ids.length) { toast('No se puede mover: el solver no encuentra una solución con las relaciones actuales', 5000); return; }
+  const line = (id) => '• ' + conLabel(doc, doc.cons[id]) + ((doc.cons[id].refs || []).length ? ' (' + doc.cons[id].refs.join(', ') + ')' : '');
+  const list = ids.slice(0, 6).map(line).join('\n') + (ids.length > 6 ? `\n… y ${ids.length - 6} más` : '');
+  const head = ids.joint ? 'No se puede mover: el solver no converge. Lo destraba quitar estas relaciones a la vez:' : 'No se puede mover: el solver no converge. Quitar cualquiera de estas relaciones lo destraba:';
+  toast(head + '\n' + list, 8000);
+}
 function toolMove(p) {
   if (!drag) return;
   if (tool === 'trim') {
@@ -2785,7 +2798,7 @@ function toolMove(p) {
     if (ids.length) {
       const tg = ids.map((id) => ({ id, x: holdLeft(id, drag.orig[id].x + dx), y: drag.orig[id].y + dy })), reac = hasReactive(doc);
       const r = dragToStops(doc, tg, (t2) => (reac ? settle(doc, solveSteps, t2, { maxIter: 20 }) : solve(doc, t2)), !reac);
-      if (r.ok) trackAngles(doc);
+      if (r.ok) { trackAngles(doc); drag.moved1 = true; } else dragRejected(tg, r);
     }
     return;
   }
@@ -2849,7 +2862,7 @@ function toolMove(p) {
         for (let k = 0; an && k < 5 && Math.hypot(an.x - ref.x, an.y - ref.y) > 1e-6; k++) dragToStops(doc, tg, (t2) => (reac ? settle(doc, solveSteps, t2, { maxIter: 20 }) : solve(doc, t2)), !reac); // cada pasada acerca un poco mas
       }
       if (PERF) perfSolveMs += performance.now() - ts0;
-      if (r.ok) trackAngles(doc);
+      if (r.ok) { trackAngles(doc); drag.moved1 = true; } else dragRejected(tg, r);
       if (r.ok && tracing) recordTraces(doc, r.stopped ? 2e-4 : 1.5 / view.s); // al llegar a un tope se guarda la posicion exacta, por corto que sea el ultimo paso
     }
     drag.lastD = cur2;

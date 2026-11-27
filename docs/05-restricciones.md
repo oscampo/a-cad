@@ -129,6 +129,8 @@ Cada relación se rotula con su letra y número junto a los elementos que involu
 
 **Cotas con nombre.** Las cotas con nombre no se quitan solas (pueden alimentar fórmulas).
 
+**Si algo no se deja mover.** Si arrastras algo y no se mueve nada porque el solver no encuentra solución con las relaciones actuales, un aviso lo dice y nombra las relaciones cuya eliminación lo destraba (con quitar una basta). Un caso típico: una tangencia entre dos piezas de una misma elipse, que son casi la misma curva.
+
 ## Numeración
 
 Cada restricción lleva un número por tipo (H1, H2, ⟂1, ∥1, =1, ●1, T1...).

@@ -803,6 +803,38 @@ const finEps = (k) => (k.stop ? 1e-4 : 1e-6); // con tope se tolera un poco mas:
 // justo en el borde. run(targets) resuelve un paso (solve o settle). exact: probar antes el paso normal (sin formulas reactivas el tope
 // engranado si tiene solucion y deja el elemento exactamente en el borde).
 let noLimit = null;
+// Cuando un arrastre no tiene solucion: que relaciones lo causan. En copias del dibujo, quita grupos de relaciones y mira si el mismo destino
+// ya resuelve; va partiendo por mitades (unas pocas pruebas, no una por relacion). Devuelve las relaciones que, quitadas solas, lo destraban
+// (basta quitar una). Si solo lo destraba quitar varias a la vez, las devuelve con la marca .joint = true. No toca doc ni la sesion de cache;
+// se corta a los maxMs para no congelar un dibujo grande.
+export function failCulprits(doc, targets, maxMs = 1500) {
+  const out = [];
+  if (!g) return out;
+  const saved = session, t0 = Date.now(), all = Object.keys(doc.cons).filter((id) => !doc.cons[id].ref); // una cota de referencia solo mide
+  const ok = (ids) => {
+    const d = JSON.parse(JSON.stringify(doc));
+    for (const id of ids) delete d.cons[id];
+    return solve(d, targets).ok;
+  };
+  const find = (ids, res) => {
+    if (ids.length === 1) { res.singles.push(ids[0]); return; }
+    if (Date.now() - t0 > maxMs) return;
+    const m = ids.length >> 1, A = ids.slice(0, m), B = ids.slice(m), okA = ok(A), okB = ok(B);
+    if (!okA && !okB) { res.joints.push(ids); return; } // hace falta quitar de ambas mitades
+    if (okA) find(A, res);
+    if (okB) find(B, res);
+  };
+  try {
+    session = null;
+    if (all.length && ok(all)) {
+      const res = { singles: [], joints: [] };
+      find(all, res);
+      if (res.singles.length) out.push(...res.singles);
+      else if (res.joints.length) { out.push(...res.joints[0]); out.joint = true; }
+    }
+  } finally { session = saved; }
+  return out;
+}
 export function dragToStops(doc, targets, run, exact = true) {
   const ids = finiteIds(doc).filter((id) => { const k = doc.cons[id]; if (!k.stop) return false; try { const st = finiteState(doc, k, finEps(k)); return st.inside && Math.abs(st.gap) <= st.tol; } catch { return false; } });
   const live = targets.filter((t) => doc.pts[t.id]);

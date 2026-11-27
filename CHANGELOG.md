@@ -2,6 +2,11 @@
 
 Cada versión agrupa sus cambios en **Nuevo**, **Cambia el comportamiento** (lo que puede hacer que un dibujo anterior se vea o calcule distinto) y **Corregido**. Cada punto empieza por el área (Textos, Cotas, Árbol de elementos…) y una frase con lo esencial; el resto es el detalle. Las versiones anteriores a la v1.9.0 están en un solo bloque. Los cambios que todavía no tienen versión van en «Sin publicar».
 
+## Sin publicar
+
+### Nuevo
+- Restricciones: **un arrastre que el solver no puede resolver ya avisa**. Antes, si el solver no convergía con el destino pedido (p. ej. por tangencias entre dos piezas de una misma elipse, que son casi la misma curva), no se movía nada y no decía por qué: ni un texto libre. Ahora un aviso nombra las relaciones cuya eliminación lo destraba (con quitar una basta; si solo sirve quitar varias a la vez, las nombra juntas) y se muestra una sola vez por arrastre, y solo si no se movió nada. La búsqueda corre en copias del dibujo y se corta a 1,5 s en dibujos grandes. No cambia ningún cálculo: solo se dice la causa. Visto en el dibujo `transforma-iso.json`, donde `k1146` y `k1154` (tangencias de la elipse partida) impedían cualquier movimiento.
+
 ## v2.9.6 (2026-11-27)
 
 ### Cambia el comportamiento
