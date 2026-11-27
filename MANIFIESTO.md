@@ -151,8 +151,6 @@ Cosas donde los principios se rozan o la práctica todavía no los cumple. No so
    *Se cierra cuando:* es un riesgo permanente; la defensa es la regla de mantenimiento (un principio nuevo exige dos casos que lo respalden).
 8. **Estándar de acotado sin elegir.** Hoy A-CAD mezcla ANSI/ASME e ISO/UNE sin declarar una base; se decidió que el usuario elija (#2802).
    *Se cierra cuando:* existe la opción de elegir el estándar de acotado, con valor por defecto definido y sin cambiar los dibujos existentes.
-9. **Nombres que se tapan en silencio.** Un punto, grupo o contorno se puede llamar por el nombre que le pone el usuario, y comparte espacio con las variables de texto, las cotas y las funciones. El campo «Nombre» avisa de los choques al escribir, pero una variable que se define después con ese nombre gana sin avisar (un dibujo anterior no cambia, principio 7). Se decidió (2026-11-27) que nada comparte nombre y que una copia no hereda el nombre (se ve por su id). Roza el principio 10: lo implícito no debe cambiar el significado de lo escrito.
-   *Se cierra cuando:* al definir una variable o función con el nombre de un elemento, la app lo avisa (o lo impide); la regla de que nada comparte nombre ya está decidida, falta aplicarla del lado de las variables.
 
 ---
 

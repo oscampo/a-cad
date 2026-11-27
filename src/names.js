@@ -13,3 +13,4 @@ let MAP = new Map();
 export const setNames = (m) => { MAP = m instanceof Map ? m : new Map(); };
 export const nameToId = (n) => MAP.get(n);
 export const hasElemName = (n) => MAP.has(n);
+export const listNames = () => [...MAP.entries()].sort().flat(); // nombre, id, nombre, id… (para la clave de la memoria de tvars)

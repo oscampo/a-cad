@@ -51,12 +51,12 @@ t('como valor de una funcion propia y de typeof: el elemento', () => {
   assert.equal(r.err, ''); assert.equal(r.v('a'), 40); assert.equal(r.v('b').str ?? r.v('b'), 'point'); assert.equal(r.v('c'), 140); assert.equal(r.v('q'), 70);
 });
 
-t('una variable o una cota con ese nombre gana (un dibujo anterior no cambia)', () => {
+t('una cota con el nombre de un elemento gana (un dibujo anterior no cambia); una variable de texto da aviso al definirse', () => {
   const { d } = mk();
   const r = run(d, '$$ini:7$$', '$$a:ini+1=$$');
-  assert.equal(r.err, ''); assert.equal(r.v('a'), 8);
-  const d2 = JSON.parse(JSON.stringify(d)); const p = Object.keys(d2.pts)[3]; addCon(d2, { t: 'DIST', refs: [Object.keys(d2.pts)[0], Object.keys(d2.pts)[1]], v: 40, name: 'Esquina' });
-  assert.equal(elementNames(d2).has('Esquina'), false); void p;
+  assert.match(r.err, /«ini» ya es el nombre del punto/); // nada comparte nombre: la variable no se define (antes ganaba en silencio)
+  const d2 = JSON.parse(JSON.stringify(d)); addCon(d2, { t: 'DIST', refs: [Object.keys(d2.pts)[0], Object.keys(d2.pts)[1]], v: 40, name: 'Esquina' });
+  assert.equal(elementNames(d2).has('Esquina'), false, 'la cota ya tenia ese nombre');
 });
 
 t('un nombre desconocido o renombrado: error claro; el id sigue valiendo', () => {
@@ -141,6 +141,19 @@ t('dos elementos con el mismo nombre (solo un archivo editado a mano puede tener
   assert.equal(elementNames(d).has('EjePrincipal'), false);
   assert.match(run(d, '$$a:EjePrincipal.n=$$').err, /No reconozco/);
   assert.equal(run(d, '$$a:' + g + '.n=$$').err, '', 'por id sigue');
+});
+
+t('definir una variable o funcion con el nombre de un elemento da aviso (nada comparte nombre); lo local de un programa no cuenta', () => {
+  const { d, p } = mk();
+  assert.match(run(d, '$$ini:7$$').err, /«ini» ya es el nombre del punto/);
+  assert.match(run(d, '$$Brida:5$$').err, /«Brida» ya es el nombre del contorno/);
+  assert.match(run(d, '$$EjePrincipal:1$$').err, /«EjePrincipal» ya es el nombre del grupo/);
+  assert.match(run(d, '%ini(x):\n  x+1').err, /ya es el nombre del punto/);
+  const ok = run(d, '%f(a):\n  ini:3\n  ini+a', '$$r:f(1)=$$');
+  assert.equal(ok.err, '', 'una variable local de un programa es local: no choca'); assert.equal(ok.v('r'), 4);
+  assert.equal(run(d, '$$otra:7$$', '$$r:otra+1=$$').err, '');
+  d.pts[p[0]].name = 'origen'; // al renombrar el punto, el nombre queda libre
+  assert.equal(run(d, '$$ini:7$$').err, '');
 });
 
 console.log(passed + ' pruebas de nombres de elementos');

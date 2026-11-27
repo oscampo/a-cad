@@ -591,3 +591,6 @@ Ya hay un grupo llamado «{0}»	There is already a group named «{0}»
 Ya hay un contorno llamado «{0}»	There is already a contour named «{0}»
 Ya existe una variable o función de texto llamada «{0}»	There is already a text variable or function named «{0}»
 «{0}» es una variable de texto: «{1}» se leería como su elemento	«{0}» is a text variable: «{1}» would be read as its element
+«{0}» ya es el nombre del punto {1}	«{0}» is already the name of point {1}
+«{0}» ya es el nombre del grupo {1}	«{0}» is already the name of group {1}
+«{0}» ya es el nombre del contorno {1}	«{0}» is already the name of contour {1}

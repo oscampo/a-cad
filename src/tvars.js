@@ -5,6 +5,7 @@ import { dataVersion } from './datastore.js';
 import { argChar, decimalMode } from './locale.js';
 const paramSep = () => (decimalMode() === ',' ? /;/ : /[;,]/); // parametros de una funcion: con coma decimal solo «;»
 import { evalExpr, convertExpr, setAngleMode, angleRad, exprRefs, isReservedName, reservedWhy, TEXT_NAME_RE, NAME_RE, normName, rngReset, rngState, rngMix, genActive, genAt, genAsg, takeMembers, genProps, GEN_RE } from './expr.js';
+import { nameToId, listNames } from './names.js';
 import { splitMath } from './mathlayout.js';
 import { parseUnit, sameDim, unitMsg, setUserUnits, addUserUnit, onDocUnits, unitsVersion, UNIT_NAME_RE } from './units.js';
 import { solveEqs, splitEq, eqResiduals } from './nsolve.js';
@@ -500,13 +501,15 @@ export function textVarState(doc, dimVars = {}, dimNames = new Set(), probes = [
   const st = { vals: {}, errs: new Map(), bad: new Set(), names: new Set(), defs: [], win: new Map(), byName: new Map(), defVal: new Map(), outEnv: new Map(), fnEnv: new Map(), dimEnv: new Map(), clearRes: new Map(), outRng: new Map(), rngOut: new Map(), cleared: new Set(), dimHide: new Map(), openEnd: new Set(), at: new Map(), solveRes: new Map(), goals: [] };
   const events = readingEvents(doc, probes);
   if (!events.some((e) => e.kind !== 'dim')) return st; // sin definiciones ni salidas: nada que leer
-  const key = JSON.stringify([events, dimVars, [...dimNames], angleRad(), unitsVersion(), dataVersion()]); // dataVersion: lo que lee rfile
+  const key = JSON.stringify([events, dimVars, [...dimNames], listNames(), angleRad(), unitsVersion(), dataVersion()]); // dataVersion: lo que lee rfile
   if (key === memoKey && !genActive()) return memoSt; // las mismas definiciones, posiciones y cotas: el mismo resultado (salvo en la regeneracion, que debe ejecutar las llamadas)
   rngReset(); // rand, randn, randi: la misma secuencia en cada calculo del dibujo (ver expr.js)
   const check = (d) => { // ¿vale la definicion? (motivo si no)
     if (d.err) return `script «${d.name || '…'}»: ${d.err}`; // un script con un error de sintaxis (con su linea)
     if (isReservedName(d.name)) return reservedWhy(d.name);
     if (!TEXT_NAME_RE.test(d.name)) return `«${d.name}» no es un nombre válido`;
+    const own = nameToId(normName(d.name)); // un punto, grupo o contorno ya se llama asi (names.js): nada comparte nombre
+    if (own) return doc.pts?.[own] ? `«${d.name}» ya es el nombre del punto ${own}` : doc.grps?.[own] ? `«${d.name}» ya es el nombre del grupo ${own}` : `«${d.name}» ya es el nombre del contorno ${own}`;
     if (d.params) {
       const ps = d.params, badName = ps.find((q) => !NAME_RE.test(q)), reserved = ps.find((q) => isReservedName(q));
       if (!ps.length || ps.some((q) => !q)) return `«${d.name}(…)»: necesita al menos un parámetro, separados por «;»`;
