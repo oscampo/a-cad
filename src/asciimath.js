@@ -31,16 +31,19 @@ const KW = {
 const SYM = { // simbolos rectos sin espacios propios
   oo: '∞', infty: '∞', aleph: 'ℵ', partial: '∂', del: '∂', nabla: '∇', grad: '∇', deg: '°', cdots: '⋯', ldots: '…', dots: '…', vdots: '⋮', ddots: '⋱',
   'O/': '∅', emptyset: '∅', therefore: '∴', because: '∵', angle: '∠', frown: '⌢', triangle: '△', diamond: '⋄', square: '□',
-  CC: 'ℂ', NN: 'ℕ', QQ: 'ℚ', RR: 'ℝ', ZZ: 'ℤ', AA: '∀', forall: '∀', EE: '∃', exists: '∃', bot: '⊥', top: '⊤', TT: '⊤', not: '¬', neg: '¬',
+  CC: 'ℂ', NN: 'ℕ', QQ: 'ℚ', RR: 'ℝ', ZZ: 'ℤ', AA: '∀', forall: '∀', EE: '∃', exists: '∃', bot: '⊥', top: '⊤', TT: '⊤', not: '¬', neg: '¬', lnot: '¬',
 };
 const BIN = { cdot: '⋅', ast: '∗', star: '⋆', times: '×', xx: '×', div: '÷', pm: '±', mp: '∓', circ: '∘', oplus: '⊕', ox: '⊗', otimes: '⊗', odot: '⊙',
-  setminus: '∖', backslash: '∖', ltimes: '⋉', rtimes: '⋊', wedge: '∧', vee: '∨', vv: '∨', cap: '∩', nn: '∩', cup: '∪', uu: '∪' };
+  setminus: '∖', backslash: '∖', ltimes: '⋉', rtimes: '⋊', wedge: '∧', vee: '∨', land: '∧', lor: '∨', vv: '∨', cap: '∩', nn: '∩', cup: '∪', uu: '∪' };
 const REL = { ne: '≠', lt: '<', gt: '>', le: '≤', ge: '≥', ll: '≪', gg: '≫', mlt: '≪', mgt: '≫', prec: '≺', preceq: '⪯', succ: '≻', succeq: '⪰',
   in: '∈', notin: '∉', sub: '⊂', subset: '⊂', sup: '⊃', supset: '⊃', sube: '⊆', subseteq: '⊆', supe: '⊇', supseteq: '⊇',
   equiv: '≡', cong: '≅', approx: '≈', propto: '∝', prop: '∝', implies: '⇒', iff: '⇔', to: '→', mapsto: '↦', bowtie: '⋈', vdash: '⊢', models: '⊨',
   uarr: '↑', uparrow: '↑', darr: '↓', downarrow: '↓', rarr: '→', rightarrow: '→', larr: '←', leftarrow: '←', harr: '↔', leftrightarrow: '↔',
   rArr: '⇒', Rightarrow: '⇒', lArr: '⇐', Leftarrow: '⇐', hArr: '⇔', Leftrightarrow: '⇔', rightarrowtail: '↣', twoheadrightarrow: '↠' };
-const WORD = { and: 'and', or: 'or', if: 'if' }; // se escriben como palabra, con espacios a los lados
+const WORD = { and: 'and', or: 'or', not: 'not', xor: 'xor', if: 'if' }; // se escriben como palabra, con espacios a los lados
+// Los operadores logicos con «\»: «\and» ∧, «\or» ∨, «\xor» ⊕, «\not» ¬ (sin barra son la palabra: lo que escribes es lo que ves). Tambien «\land» «\lor» «\lnot» «\wedge» «\vee» «\neg» «\oplus».
+const BS_SYM = { and: { t: 'op', v: '∧', k: 'bin' }, or: { t: 'op', v: '∨', k: 'bin' }, xor: { t: 'op', v: '⊕', k: 'bin' }, not: { t: 'sym', v: '¬' } };
+export const BS_LOGIC = ['and', 'or', 'not', 'xor']; // con barra son simbolos, aunque sin barra sean palabras (PLAIN): el editor las ha de conocer
 const OPEN = { langle: '⟨', lfloor: '⌊', lceiling: '⌈' }, CLOSE = { rangle: '⟩', rfloor: '⌋', rceiling: '⌉' };
 
 const WORDS = new Map();
@@ -142,7 +145,7 @@ export function tokenize(s) {
     };
     if (ch === '\\' && /[A-Za-z]/.test(s[i + 1] || '')) { // «\in», «\angle», «\o+»: un simbolo de AsciiMath (la palabra mas larga que empieza ahi)
       const k = BS_KEYS.find((w) => s.startsWith(w, i + 1));
-      if (k && word({ ...WORDS.get(k) }, i + 1 + k.length)) continue;
+      if (k && word({ ...(BS_SYM[k] || WORDS.get(k)) }, i + 1 + k.length)) continue;
       const ls = SYMS.find(([w]) => /^[A-Za-z]/.test(w) && s.startsWith(w, i + 1)); // «\o+», «\o.»
       if (ls) { out.push({ ...ls[1] }); i += 1 + ls[0].length; continue; }
       out.push({ t: 'sym', v: '\\' }); i += 1; continue; // no es un simbolo: la barra se ve

@@ -9,7 +9,7 @@
 // encontraria. Esas letras no se convierten.
 // Calculo y dibujo usan la misma letra: «α» y «alpha» son la misma variable (ver normName en expr.js).
 
-import { symbolWords, GREEK, GREEK_UP } from './asciimath.js';
+import { symbolWords, GREEK, GREEK_UP, BS_LOGIC } from './asciimath.js';
 
 export const TO_GREEK = {
   a: 'α', b: 'β', c: 'χ', d: 'δ', e: 'ε', f: 'φ', g: 'γ', h: 'η', i: 'ι', j: 'ϕ', k: 'κ', l: 'λ', m: 'μ',
@@ -31,7 +31,7 @@ export function backslashGreek(v, s, e, ch) {
 // cualquier otra cosa es la griega de la primera letra mas el resto, como antes («\apx» αpx).
 // fresh: el caracter antes del cursor es una griega recien convertida desde «\letra». Devuelve { v, s, e } o null (nada que hacer).
 let SW = null;
-const words = () => (SW ||= { sym: symbolWords().filter((w) => /^[A-Za-z]+$/.test(w)), greek: { ...GREEK, ...GREEK_UP } });
+const words = () => (SW ||= { sym: [...new Set([...symbolWords(), ...BS_LOGIC])].filter((w) => /^[A-Za-z]+$/.test(w)), greek: { ...GREEK, ...GREEK_UP } });
 const isLetter = (c) => /^[A-Za-z]$/.test(c);
 const canGrow = (w) => { const W = words(); return W.sym.some((x) => x.startsWith(w)) || Object.keys(W.greek).some((x) => x.startsWith(w)); };
 const symHead = (w) => words().sym.some((x) => w.startsWith(x)); // AsciiMath toma el simbolo mas largo al comienzo: «\inx» es ∈x

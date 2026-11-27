@@ -71,6 +71,7 @@ const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
 export const TIME_VAR = 't';
 export const FUTURE_VARS = new Set([TIME_VAR, 'j', 'ω', 'θ', 'α']);
 export const LOGIC_WORDS = ['and', 'or', 'not', 'xor']; // operadores logicos: solo en esa minuscula exacta
+const LOGIC_BS = { and: 'and', wedge: 'and', land: 'and', or: 'or', vee: 'or', lor: 'or', not: 'not', neg: 'not', lnot: 'not', xor: 'xor', oplus: 'xor' }; // con barra: «\and», «\wedge», «\lor»…
 export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || LOGIC_WORDS.includes(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l in NF || l in SFL || l === 'log10' || l === 'clear' || l === 'all' || l === 'solve'; };
 export const reservedWhy = (n) => (LOGIC_WORDS.includes(n) ? `«${n}» es un operador lógico (and, or, not, xor)` : n === TIME_VAR ? `«${n}» está reservada para el tiempo` : n === 'j' ? '«j» es la unidad imaginaria (3+4j)' : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : String(n).toLowerCase() === 'all' ? `«${n}» está reservada para clear(all)` : `«${n}» es una función o constante`);
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*$/;
@@ -163,7 +164,7 @@ function tokenize(src, vars = null, loose = false) {
       try { u = parseUnit(um[1].replace(/^\((.*)\)$/, '$1')); } catch (e) { if (!loose) throw e; u = { f: 1 }; }
       toks.push({ t: 'unit', u, i, j: i + um[0].length }); i += um[0].length; continue;
     }
-    if (c === '∧' || c === '∨' || c === '¬') { toks.push({ t: 'lg', v: c === '∧' ? 'and' : c === '∨' ? 'or' : 'not', i, j: i + 1 }); i++; continue; } // ∧ ∨ ¬ = and or not
+    if (c === '∧' || c === '∨' || c === '¬' || c === '⊕') { toks.push({ t: 'lg', v: c === '∧' ? 'and' : c === '∨' ? 'or' : c === '⊕' ? 'xor' : 'not', i, j: i + 1 }); i++; continue; } // ∧ ∨ ¬ ⊕ = and or not xor
     const cm = /^(<=|>=|==|!=|~~|<|>|≤|≥|≠|≈)/.exec(src.slice(i));
     if (cm) { toks.push({ t: 'cmp', v: { '≤': '<=', '≥': '>=', '≠': '!=', '~~': '≈' }[cm[0]] || cm[0], i, j: i + cm[0].length }); i += cm[0].length; continue; } // ≈ (o ~~): casi igual
     // Notacion cientifica: 2.5e6, 3e-4, 1E3 («e» y «E» no pueden ser nombres de variable: son la constante e). «2E3» es 2000 aunque
@@ -239,6 +240,8 @@ function tokenize(src, vars = null, loose = false) {
     { // la barra invertida + cdot o times (como en las fórmulas de doble dólar) vale «⋅» o «×»
       const lx = c === '\\' ? /^\\(cdot|times)(?![A-Za-z])/.exec(src.slice(i)) : null;
       if (lx) { toks.push({ t: 'op', v: '*', ...(lx[1] === 'times' ? { x: true } : { d: true }), i, j: i + lx[0].length }); i += lx[0].length; continue; }
+      const lg = c === '\\' ? /^\\(and|or|not|xor|wedge|vee|neg|land|lor|lnot|oplus)(?![A-Za-z])/.exec(src.slice(i)) : null; // los operadores logicos con barra: «\and» ∧, «\or» ∨, «\not» ¬, «\xor» ⊕ (y sus nombres de LaTeX)
+      if (lg) { toks.push({ t: 'lg', v: LOGIC_BS[lg[1]], i, j: i + lg[0].length }); i += lg[0].length; continue; }
     }
     if ('+-*/^()[]×÷·⋅−'.includes(c)) { toks.push({ t: 'op', v: c === '×' || c === '·' || c === '⋅' ? '*' : c === '÷' ? '/' : c === '−' ? '-' : c, ...(c === '×' ? { x: true } : c === '·' || c === '⋅' ? { d: true } : {}), i, j: i + 1 }); i++; continue; }
     if (c === ',' && decimalMode() === ',') throw new Error('Con coma decimal los argumentos se separan con «;» (la coma es el decimal)');
