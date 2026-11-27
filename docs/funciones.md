@@ -18,6 +18,7 @@ Sirven en cotas, textos (`x:…` y `expr=`), actuadores y gráficas.
 | `√` | Raíz cuadrada de lo que sigue. | `√16` | `4` |
 | `;` y `, ` | Separan los valores de una función de varios. `2,5` sin espacio es el número 2,5. | `max(3; 8)` | `8` |
 | `< > <= >= == !=` | Comparan: dan 1 si se cumple y 0 si no. También `≤ ≥ ≠`. `==` y `!=` toleran el redondeo. | `0.1+0.2==0.3` | `1` |
+| `a and b`, `a or b`, `not a`, `a xor b` | Operadores lógicos (también `∧ ∨ ¬`). Un valor es verdadero si no es 0; dan 1 o 0. Orden: primero la comparación, luego `not`, `and` y al final `or` y `xor`. `and` y `or` no calculan el segundo lado si el primero ya decide (como la rama que `if` no elige), así que `n > 0 and f(n-1) > 0` puede llamarse a sí misma. Son palabras reservadas. | `2>1 and not 3<2` | `1` |
 | `if(c; a; b)` (`si`) | Si la condición `c` no es 0 vale `a`, si no `b`. Solo calcula la rama elegida. | `if(0==0; 0; 1/0)` | `0` |
 | `a ≈ b` (`a ~~ b`) | Casi igual: 1 si |a − b| ≤ tolerancia × máx(1, |a|, |b|), si no 0. La tolerancia (1e-12 por defecto) se cambia en **Configuración**. Sirve para comparar resultados con redondeo; `==` sigue siendo la igualdad de la app. Con la misma tolerancia, un resultado sin unidades (o cada elemento de un vector o una matriz) distinto de 0 y con |x| ≤ tolerancia se muestra `≈0` (ruido de redondeo, no un cero exacto). | `0.1+0.2 ~~ 0.3` | `1` |
 

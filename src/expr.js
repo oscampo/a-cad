@@ -70,8 +70,9 @@ const rt = (m) => { const e = new Error(m); e.rt = true; return e; };
 // quedan guardadas para los motores, las animaciones y los calculos dinamicos. Todavia no valen nada.
 export const TIME_VAR = 't';
 export const FUTURE_VARS = new Set([TIME_VAR, 'j', 'ω', 'θ', 'α']);
-export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l in NF || l in SFL || l === 'log10' || l === 'clear' || l === 'all' || l === 'solve'; };
-export const reservedWhy = (n) => (n === TIME_VAR ? `«${n}» está reservada para el tiempo` : n === 'j' ? '«j» es la unidad imaginaria (3+4j)' : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : String(n).toLowerCase() === 'all' ? `«${n}» está reservada para clear(all)` : `«${n}» es una función o constante`);
+export const LOGIC_WORDS = ['and', 'or', 'not', 'xor']; // operadores logicos: solo en esa minuscula exacta
+export const isReservedName = (n) => { const l = String(n).toLowerCase(); return FUTURE_VARS.has(n) || LOGIC_WORDS.includes(n) || l in FUNCS || l in MULTI || l in CONSTS || LAZY.has(l) || MATFN.has(l) || l in NF || l in SFL || l === 'log10' || l === 'clear' || l === 'all' || l === 'solve'; };
+export const reservedWhy = (n) => (LOGIC_WORDS.includes(n) ? `«${n}» es un operador lógico (and, or, not, xor)` : n === TIME_VAR ? `«${n}» está reservada para el tiempo` : n === 'j' ? '«j» es la unidad imaginaria (3+4j)' : FUTURE_VARS.has(n) ? `«${n}» está reservada para uso futuro` : String(n).toLowerCase() === 'all' ? `«${n}» está reservada para clear(all)` : `«${n}» es una función o constante`);
 export const NAME_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*$/;
 const ID_RE = /^[A-Za-zα-ωΑ-Ωϑϕϖɛ_][A-Za-z0-9α-ωΑ-Ωϑϕϖɛ_]*/;
 // Variables de texto con subindice: «var_(texto-del-subindice)». El subindice es texto libre (sin parentesis ni llaves); espacios sobrantes no cuentan.
@@ -162,6 +163,7 @@ function tokenize(src, vars = null, loose = false) {
       try { u = parseUnit(um[1].replace(/^\((.*)\)$/, '$1')); } catch (e) { if (!loose) throw e; u = { f: 1 }; }
       toks.push({ t: 'unit', u, i, j: i + um[0].length }); i += um[0].length; continue;
     }
+    if (c === '∧' || c === '∨' || c === '¬') { toks.push({ t: 'lg', v: c === '∧' ? 'and' : c === '∨' ? 'or' : 'not', i, j: i + 1 }); i++; continue; } // ∧ ∨ ¬ = and or not
     const cm = /^(<=|>=|==|!=|~~|<|>|≤|≥|≠|≈)/.exec(src.slice(i));
     if (cm) { toks.push({ t: 'cmp', v: { '≤': '<=', '≥': '>=', '≠': '!=', '~~': '≈' }[cm[0]] || cm[0], i, j: i + cm[0].length }); i += cm[0].length; continue; } // ≈ (o ~~): casi igual
     // Notacion cientifica: 2.5e6, 3e-4, 1E3 («e» y «E» no pueden ser nombres de variable: son la constante e). «2E3» es 2000 aunque
@@ -185,6 +187,7 @@ function tokenize(src, vars = null, loose = false) {
       let ix = null;
       const L = m[0].length; // largo escrito (el nombre se normaliza: «a_( b )» es «a_(b)»)
       let raw = normName(m[0]), name = raw.toLowerCase();
+      if (LOGIC_WORDS.includes(raw)) { toks.push({ t: 'lg', v: raw, i, j: i + L }); i += L; continue; } // and, or, not, xor
       // propiedad de un elemento: p12.x, l3.len (nombre + «.» + propiedad)
       const dm = /^[A-Za-z]+\d+$/.test(raw) ? /^\.([A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*)/.exec(src.slice(i + raw.length)) : null; // solo nombres como p12, l3, c1
       if (dm) {
@@ -1451,7 +1454,48 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     closeP(WHILE_MSG);
     return last;
   }
-  function cmp() {
+  // Operadores logicos, de menor a mayor precedencia: or y xor, and, not, y por fin la comparacion. Un valor es verdadero si no es 0 (como la condicion de if()).
+  // Dan 1 o 0, sin unidades. «and» y «or» cortocircuitan: si el primer valor ya decide, el otro lado no se evalua (se salta, como la rama que if() no elige).
+  const LG_STOP = { and: ['and', 'or', 'xor'], or: ['or', 'xor'] };
+  const isLg = (...w) => peek()?.t === 'lg' && w.includes(peek().v);
+  const truth = (a, w) => {
+    if (isM(a)) throw new Error(`«${w}» compara números, no vectores ni matrices`);
+    if (isC(a)) throw new Error(`«${w}» no vale con números complejos: usa abs(…), real(…) o imag(…)`);
+    if (isS(a)) throw new Error(`«${w}» no vale con cadenas: compáralas, p. ej. s == "sí"`);
+    return a.v !== 0;
+  };
+  const bool = (b) => ({ v: b ? 1 : 0, r: false });
+  function skipOperand(stops) { // salta el segundo valor de and/or sin evaluarlo: hasta el siguiente operador de su nivel o el final del argumento
+    let d = 0;
+    for (; p < toks.length; p++) {
+      const t = toks[p];
+      if (t.t === 'op' && (t.v === '(' || t.v === '[')) d++;
+      else if (t.t === 'op' && (t.v === ')' || t.v === ']')) { if (d === 0) return; d--; } else if (d === 0 && (t.t === 'sep' || (t.t === 'lg' && stops.includes(t.v)))) return;
+    }
+  }
+  function lnot() {
+    if (!isLg('not')) return cmpOp();
+    p++;
+    return bool(!truth(lnot(), 'not'));
+  }
+  function land() {
+    let a = lnot();
+    while (isLg('and')) {
+      p++;
+      if (truth(a, 'and')) a = bool(truth(lnot(), 'and')); else { skipOperand(LG_STOP.and); a = bool(false); }
+    }
+    return a;
+  }
+  function cmp() { // la expresion completa: or / xor, el nivel mas bajo
+    let a = land();
+    while (isLg('or', 'xor')) {
+      const w = peek().v; p++;
+      if (w === 'or') { if (truth(a, 'or')) { skipOperand(LG_STOP.or); a = bool(true); } else a = bool(truth(land(), 'or')); }
+      else a = bool(truth(a, 'xor') !== truth(land(), 'xor'));
+    }
+    return a;
+  }
+  function cmpOp() {
     const a = expr(), k = peek();
     if (k?.t === 'asg') throw new Error(ASG_MSG());
     if (!k || k.t !== 'cmp') return a;

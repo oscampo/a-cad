@@ -244,6 +244,7 @@ export const REF_EN = {
   "l1giwmu": "Square root of what follows.",
   "1fkchjo2k": "They separate the values of a multi-argument function. <code>2,5</code> without a space is the number 2.5.",
   "k8bet13e": "They compare: give 1 if true and 0 if not. Also <code>≤ ≥ ≠</code>. <code>==</code> and <code>!=</code> tolerate rounding.",
+  "1rjyawocc": "Logical operators (also <code>∧ ∨ ¬</code>). A value is true if it is not 0; they give 1 or 0. Order: comparison first, then <code>not</code>, <code>and</code> and finally <code>or</code> and <code>xor</code>. <code>and</code> and <code>or</code> do not calculate the second side if the first already decides (like the branch <code>if</code> does not choose), so <code>n &gt; 0 and f(n-1) &gt; 0</code> can call itself. They are reserved words.",
   "wuw2w633": "If the condition <code>c</code> is not 0 the value is <code>a</code>, otherwise <code>b</code>. It only calculates the chosen branch.",
   "qln6dhbz": "Almost equal: 1 if |a − b| ≤ tolerance × max(1, |a|, |b|), otherwise 0. The tolerance (1e-12 by default) is changed in <b>Settings</b>. Use it to compare rounded results; <code>==</code> remains the app's equality. With the same tolerance, a unitless result (or each element of a vector or matrix) other than 0 with |x| ≤ tolerance is shown as <code>≈0</code> (rounding noise, not an exact zero).",
   "16nga95a": "Constants",
