@@ -1,7 +1,7 @@
 // Objetos del dibujo como valores en los scripts: pasar una linea, un arco, un circulo, un spline o un grupo de contorno a una funcion propia,
 // typeof/isa, los puntos de un elemento por su papel (e.a.x, e.c.y), k1.n y k1_i (la topologia viene de topo.js, la misma del arbol).
 import assert from 'node:assert/strict';
-import { newDoc, addPoint, addLine, addArc, addCircle, addEllipse, addSpline, addText, addCtr, ellipsePolyline, ellipseRange, isPartial } from '../src/model.js';
+import { newDoc, addPoint, addLine, addArc, addCircle, addEllipse, addSpline, addText, addCtr, addCon, addGrp, ellipsePolyline, ellipseRange, isPartial } from '../src/model.js';
 import { textVars } from '../src/params.js';
 import { regenerate } from '../src/gen.js';
 import { readFileSync } from 'node:fs';
@@ -161,6 +161,30 @@ t('iso sobre un contorno con lineas y un arco, y sobre un circulo: el arco sale 
       assert.ok(Math.abs(gp.x - (100 + c * (40 - 0))) < 1e-9, 'el punto transformado sigue al original');
     }
   }
+});
+
+// iso sobre un grupo: recorre sus objetos (contornos, circulos, lineas sueltas y grupos de dentro) y se salta los textos, las cotas y los puntos
+t('iso sobre un grupo con un contorno, un circulo, una linea suelta, un texto, una cota y otro grupo adentro: dibuja todo lo dibujable, igual que objeto por objeto', () => {
+  const d = newDoc();
+  const P = (x, y) => addPoint(d, x, y);
+  const p = [P(0, 0), P(30, 0), P(30, 10), P(10, 10), P(10, 30), P(0, 30)];
+  const l = [addLine(d, p[0], p[1]), addLine(d, p[1], p[2]), addLine(d, p[2], p[3]), addLine(d, p[3], p[4]), addLine(d, p[5], p[0])];
+  const arc = addArc(d, P(5, 30), p[4], p[5], 5, {});
+  const { id: k } = addCtr(d, [...l.map((id) => ({ k: 'ln', id })), { k: 'ar', id: arc }], 'L');
+  const hole = addCircle(d, P(18, 4), 2);
+  const suelta = addLine(d, P(40, 0), P(40, 20));
+  const tx = addText(d, P(0, 40), 'Vista', {});
+  const dim = addCon(d, { t: 'DIST', refs: [p[0], p[1]], v: 30 });
+  const dentro = addGrp(d, [{ k: 'ci', id: hole }, { k: 'ln', id: suelta }], 'dentro').id;
+  const g = addGrp(d, [{ k: 'ct', id: k }, { k: 'gp', id: dentro }, { k: 'tx', id: tx }, { k: 'co', id: dim }], 'Vista').id;
+  addText(d, addPoint(d, 0, 200), readFileSync(new URL('./fixtures/iso-contorno.txt', import.meta.url), 'utf8').split(String.fromCharCode(13)).join('').trim(), {});
+  addText(d, addPoint(d, 0, 100), '$$r:iso("L", ' + g + ', 100, 0)$$', {});
+  const st = textVars(d), r = regenerate(d);
+  assert.deepEqual([...st.errs.values()], []); assert.deepEqual(r.errs, []);
+  assert.equal(Object.keys(d.lines).length, 5 + 1 + 5 + 1, 'las lineas originales (6) y 6 transformadas: 5 del contorno y la suelta');
+  assert.equal(Object.keys(d.ellipses).length, 2, 'el arco y el circulo');
+  assert.equal(Object.values(d.ellipses).filter((e) => isPartial(e)).length, 1);
+  assert.equal(Object.keys(d.circles).length, 1, 'el original sigue; el circulo transformado es una elipse');
 });
 
 t('una funcion que recibe de todo: lo que una rama no usa no falla al leerlo; solo si se ejecuta con un objeto que no lo tiene', () => {

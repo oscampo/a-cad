@@ -15,33 +15,36 @@
   s1:sqrt(m1+m2)
   s2:sqrt(m1-m2)
   dt:det(M)
-  if isa(k; "circle"):
+  if isa(k; "group"):
+    for i in 1..k.n:
+      iso(vista; k_i; ox; oy)
+  elif isa(k; "contour"):
+    for i in 1..k.n:
+      iso(vista; k_i; ox; oy)
+  elif isa(k; "circle"):
     C:T*[k.c.x;k.c.y;1]
     point("P"+k.c; ox+C_1; oy+C_2)
     point("A"+k+"a"; ox+C_1+k.r*s1*cos(th); oy+C_2+k.r*s1*sin(th))
     point("A"+k+"b"; ox+C_1-k.r*s2*sin(th); oy+C_2+k.r*s2*cos(th))
     ellipse("P"+k.c; "A"+k+"a"; "A"+k+"b")
-  else:
-    for i in 1..k.n:
-      o:k_i
-      if isa(o; "line"):
-        A:T*[o.a.x;o.a.y;1]
-        B:T*[o.b.x;o.b.y;1]
-        point("P"+o.a; ox+A_1; oy+A_2)
-        point("P"+o.b; ox+B_1; oy+B_2)
-        line("P"+o.a; "P"+o.b)
-      elif isa(o; "arc"):
-        r:hypot(o.a.x-o.c.x; o.a.y-o.c.y)
-        C:T*[o.c.x;o.c.y;1]
-        A:T*[o.a.x;o.a.y;1]
-        B:T*[o.b.x;o.b.y;1]
-        point("P"+o.c; ox+C_1; oy+C_2)
-        point("P"+o.a; ox+A_1; oy+A_2)
-        point("P"+o.b; ox+B_1; oy+B_2)
-        point("A"+o+"a"; ox+C_1+r*s1*cos(th); oy+C_2+r*s1*sin(th))
-        point("A"+o+"b"; ox+C_1-r*s2*sin(th); oy+C_2+r*s2*cos(th))
-        if dt<0:
-          earc("P"+o.c; "A"+o+"a"; "A"+o+"b"; "P"+o.b; "P"+o.a)
-        else:
-          earc("P"+o.c; "A"+o+"a"; "A"+o+"b"; "P"+o.a; "P"+o.b)
+  elif isa(k; "line"):
+    A:T*[k.a.x;k.a.y;1]
+    B:T*[k.b.x;k.b.y;1]
+    point("P"+k.a; ox+A_1; oy+A_2)
+    point("P"+k.b; ox+B_1; oy+B_2)
+    line("P"+k.a; "P"+k.b)
+  elif isa(k; "arc"):
+    r:hypot(k.a.x-k.c.x; k.a.y-k.c.y)
+    C:T*[k.c.x;k.c.y;1]
+    A:T*[k.a.x;k.a.y;1]
+    B:T*[k.b.x;k.b.y;1]
+    point("P"+k.c; ox+C_1; oy+C_2)
+    point("P"+k.a; ox+A_1; oy+A_2)
+    point("P"+k.b; ox+B_1; oy+B_2)
+    point("A"+k+"a"; ox+C_1+r*s1*cos(th); oy+C_2+r*s1*sin(th))
+    point("A"+k+"b"; ox+C_1-r*s2*sin(th); oy+C_2+r*s2*cos(th))
+    if dt<0:
+      earc("P"+k.c; "A"+k+"a"; "A"+k+"b"; "P"+k.b; "P"+k.a)
+    else:
+      earc("P"+k.c; "A"+k+"a"; "A"+k+"b"; "P"+k.a; "P"+k.b)
   k
