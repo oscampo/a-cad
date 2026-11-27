@@ -122,7 +122,7 @@ t('runName: sin funcion, script_N; el numero salta los nombres ocupados', () => 
   assert.equal(runName(d, '$$a:point("A"; 0; 0)$$'), 'script_2');
 });
 
-t('copiar y pegar: la copia de un punto no hereda el nombre; un grupo con nombre de llamada tampoco, pero una etiqueta si', () => {
+t('copiar y pegar: la copia de un punto no hereda el nombre (y un grupo copiado tampoco, ver grupos.test)', () => {
   const { d, p, l, g } = mk();
   const all = [...p.map((id) => ({ k: 'pt', id })), ...l.map((id) => ({ k: 'ln', id }))];
   const r = pasteClip(d, clipOf(d, all), { x: 200, y: 200 });
@@ -133,7 +133,7 @@ t('copiar y pegar: la copia de un punto no hereda el nombre; un grupo con nombre
   void g;
 });
 
-t('dos elementos con el mismo nombre (la copia de un grupo lo hereda): ninguno se llama por el', () => {
+t('dos elementos con el mismo nombre (solo un archivo editado a mano puede tenerlos): ninguno se llama por el', () => {
   const { d, g } = mk();
   const tx2 = addText(d, addPoint(d, 6, 6), 'otra', {}), tx3 = addText(d, addPoint(d, 7, 7), 'otra2', {});
   const g2 = addGrp(d, [{ k: 'tx', id: tx2 }, { k: 'tx', id: tx3 }], 'EjePrincipal').id;

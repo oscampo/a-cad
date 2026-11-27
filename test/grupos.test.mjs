@@ -135,7 +135,7 @@ t('copiar una parte de un grupo: la copia no entra al grupo del original; dividi
 const hojas = (d, g) => grpLeaves(d, g);
 const leafIds = (d, g) => new Set(hojas(d, g).map((m) => m.id));
 
-t('copiar un grupo completo (pegar): la copia es un grupo nuevo con su nombre, su contorno propio y su cota; el original no cambia', () => {
+t('copiar un grupo completo (pegar): la copia es un grupo nuevo (sin heredar el nombre: se ve por su id), con su contorno propio y su cota; el original no cambia', () => {
   const { d, c, tx, dim, k } = vista();
   const g = addGrp(d, [it('ct', k), it('ci', c), it('tx', tx), it('co', dim)], 'Vista frontal').id;
   const antes = JSON.stringify(grpLeaves(d, g));
@@ -143,7 +143,7 @@ t('copiar un grupo completo (pegar): la copia es un grupo nuevo con su nombre, s
   assert.ok(r.ok);
   assert.equal(n(d.grps), 2);
   const ng = Object.keys(d.grps).find((x) => x !== g);
-  assert.equal(grpName(d, ng), 'Vista frontal');
+  assert.equal(grpName(d, ng), ng); assert.equal(grpName(d, g), 'Vista frontal'); // la copia es otro objeto: no hereda el nombre
   assert.deepEqual(grpMembers(d, ng).map((m) => m.k), ['ct', 'ci', 'tx', 'co']);
   assert.notEqual(grpMembers(d, ng).find((m) => m.k === 'ct').id, k, 'contorno nuevo');
   assert.equal(JSON.stringify(grpLeaves(d, g)), antes);
@@ -159,7 +159,7 @@ t('copiar grupos anidados: la copia conserva la jerarquia; si falta un grupo de 
   pasteClip(d, clipOf(d, grpLeaves(d, b)), { x: 300, y: 0 });
   assert.equal(n(d.grps), 4);
   const nuevos = Object.keys(d.grps).filter((x) => x !== a && x !== b);
-  const nb = nuevos.find((x) => grpName(d, x) === 'B'), na = nuevos.find((x) => grpName(d, x) === 'A');
+  const nb = nuevos.find((x) => grpOf(d, 'gp', x) === undefined), na = nuevos.find((x) => x !== nb); // las copias no heredan el nombre: se distinguen por la jerarquia
   assert.equal(grpOf(d, 'gp', na), nb); assert.equal(grpOf(d, 'gp', nb), undefined);
   const d2 = vista();
   const e2 = addText(d2.d, addPoint(d2.d, 0, 50), 'otro', {});
@@ -179,7 +179,7 @@ t('espejo y matrices con un grupo: cada copia es un grupo nuevo', () => {
   assert.ok(l.ok); assert.equal(n(d.grps), 4);
   const c2 = circularArray(d, items, { c: { x: 0, y: -50 }, step: Math.PI / 2, n: 3 });
   assert.ok(c2.ok); assert.equal(n(d.grps), 6);
-  for (const x of Object.keys(d.grps)) assert.equal(grpName(d, x), 'V');
+  for (const x of Object.keys(d.grps)) assert.equal(grpName(d, x), x === g ? 'V' : x); // el original conserva su nombre; las copias, que son objetos nuevos, no lo heredan y se ven por su id
 });
 
 console.log(`${passed} pruebas de grupos`);

@@ -1,4 +1,4 @@
-<!-- es: 337bf6b683 -->
+<!-- es: 2b6a7a42a0 -->
 # 3. Selecting and editing
 
 Selecting (by tap, box or filter), viewing and changing an element's properties, and the tools that modify what you drew: copy, trim, extend, fillet and chamfer.
@@ -105,6 +105,8 @@ Deletes the selection. When you delete a line, circle, arc, ellipse or spline, *
 **Paste** asks for a point and places the center of the box that encloses what you copied at that point (you see the box as you move). You can paste several times; Esc or Select ends it.
 
 **Retention.** What you copied is kept even if you delete the original, but it is lost when you close the app.
+
+**Names.** A copy is a new object: it does not inherit the original's name (a name calls a single object). It is seen by its id and you give it the name you need.
 
 ## Trim (X)
 

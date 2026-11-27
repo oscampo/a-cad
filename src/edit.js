@@ -554,7 +554,7 @@ function copyGroups(doc, S, col, M, maps) {
     if (!mapped.length) return null;
     doc.grps ||= {};
     const nid = nextId(doc, 'g');
-    doc.grps[nid] = { ...(S.grps[g].name ? { name: S.grps[g].name } : {}) };
+    doc.grps[nid] = {}; // una copia es un objeto nuevo: no hereda el nombre (puede llamar a otro objeto, names.js), recibe el id que le da la app
     for (const it of mapped) { const o = doc[GRP_COLL[it.k]]?.[it.id]; if (o) o.grp = nid; }
     done[g] = nid;
     return nid;

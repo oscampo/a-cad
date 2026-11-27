@@ -105,6 +105,8 @@ Borra lo seleccionado. Al borrar una línea, un círculo, un arco, una elipse o 
 
 **Conservación.** Lo copiado se conserva aunque borres el original, pero se pierde al cerrar la app.
 
+**Nombres.** Una copia es un objeto nuevo: no hereda el nombre del original (un nombre llama a un solo objeto). Se ve por su id y le pones el nombre que necesites.
+
 ## Recortar (X)
 
 ![Recortar](icons/trim.svg) **Recortar (X)**: mantén presionado y arrastra sobre los tramos que quieres quitar (entre los cruces con otros elementos).
