@@ -213,6 +213,8 @@ They are used in any formula: Dimensions, texts (`p12.x=`), actuators and Graphs
 | `c1.r`, `c1.d`, `c1.x`, `c1.y` | Radius, diameter and center of a circle. |
 | `a2.r`, `a2.x`, `a2.y` | Radius and center of an arc. |
 | `k1.L` (`k1.len`), `k1.area` | Perimeter of a contour group (the sum of its elements) and its area, which only exists if the elements form a closed chain. |
+| `g1.n`, `g1.w`, `g1.h`, `g1.xmin`, `g1.xmax`, `g1.ymin`, `g1.ymax` | A group: how many objects it has and its bounding box (width, height and extremes). |
+| `ini.x`, `Brida.L`, `p_(fin).y` | **By its name**: a point, a group or a contour is called in formulas by the name you give it in **Properties → Name**, just like by its id (`ini.x` is `p12.x`), and it also reaches an own function by its name (`f(ini)`, `typeof(Brida)`). The name takes letters and numbers, starts with a letter and may carry a subscript (`iso_1`, `p_(ini)`); it cannot look like an id (`p12`), nor be repeated, nor be a dimension, a text variable or function, or a reserved word. A group or contour with a name of another form (`Vista frontal`) is only used by the tree. Each "Manual run" names its group with the function it calls and a number (`ort2iso_1`, `ort2iso_2`; `script_1` if it draws directly). If two elements end up with the same name (the copy of a group inherits it), neither can be called by it. |
 
 ## Font and text format
 

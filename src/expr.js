@@ -8,6 +8,7 @@ import { parseUnit, sameDim, mulDim, powDim, unitMsg, setUnitSystem, docUnitsHoo
 import { solveEqs } from './nsolve.js';
 import { dataRead, dataWrite, dataName, valueText, isEntered, soundPlay } from './datastore.js';
 import { GREEK, GREEK_UP, addCalcFns } from './asciimath.js';
+import { nameToId } from './names.js';
 import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText, localNum, setSci } from './locale.js';
 
 const TAU_DEG = 180 / Math.PI;
@@ -190,10 +191,15 @@ function tokenize(src, vars = null, loose = false) {
       let raw = normName(m[0]), name = raw.toLowerCase();
       if (LOGIC_WORDS.includes(raw)) { toks.push({ t: 'lg', v: raw, i, j: i + L }); i += L; continue; } // and, or, not, xor
       // propiedad de un elemento: p12.x, l3.len (nombre + «.» + propiedad)
-      const dm = /^[A-Za-z]+\d+$/.test(raw) ? /^\.([A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*)/.exec(src.slice(i + raw.length)) : null; // solo nombres como p12, l3, c1
+      // el nombre que el usuario le puso a un punto, grupo o contorno (names.js): vale lo mismo que su id (una cota o una variable con ese nombre gana)
+      const eid = vars && Object.prototype.hasOwnProperty.call(vars, raw) ? undefined : nameToId(raw);
+      const propNext = /^\.([A-Za-zα-ωΑ-Ωϑϕϖɛ]\w*)/.exec(src.slice(i + L));
+      let dm = (/^[A-Za-z]+\d+$/.test(raw) || eid) ? propNext : null; // solo nombres como p12, l3, c1 (o el nombre de un elemento)
+      if (eid && dm && !loose) { raw = eid; name = raw.toLowerCase(); } // «ini.x» se lee como «p3.x»
+      else if (eid && !dm && inGenArgs(toks)) { raw = eid; name = raw.toLowerCase(); } // «ini» como valor de una funcion o de typeof: el elemento
       if (dm) {
-        const full = raw + '.' + dm[1];
-        if (loose || (vars && Object.prototype.hasOwnProperty.call(vars, full))) { const mp = memberProp(full, src, i + full.length, vars, loose), n = full.length + mp.ext; toks.push({ t: 'var', v: mp.name, i, j: i + n }); i += n; continue; }
+        const full = raw + '.' + dm[1], flen = L + dm[0].length; // flen: lo escrito (el nombre del usuario puede ser mas largo o mas corto que el id)
+        if (loose || (vars && Object.prototype.hasOwnProperty.call(vars, full))) { const mp = memberProp(full, src, i + flen, vars, loose), n = flen + mp.ext; toks.push({ t: 'var', v: mp.name, i, j: i + n }); i += n; continue; }
         if (!(vars && Object.prototype.hasOwnProperty.call(vars, raw))) throw new Error(`No reconozco «${full}» (propiedades: p1.x, p1.y, l1.len, l1.ang, c1.r, c1.d)`);
       }
       // nombre de una biblioteca insertada: «UF.C_(surf)», «UF.S_e'», «UF.b_k» (alias + «.» + nombre; ver qualify.js y tvars.js)

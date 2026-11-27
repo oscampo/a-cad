@@ -581,7 +581,7 @@ function makeCopy(doc, col, tf, { mirror = false, reuse = null, axisAng = 0, hvA
     if (vecMids.has(pid)) continue;
     if (reuse && reuse(pid)) { M[pid] = pid; continue; }
     const o = S.pts[pid], q = tf(o), np = addPoint(doc, q.x, q.y, !!o.auto);
-    const { x, y, mark, grp, ...flags } = o; // grp: una copia no entra sola al grupo del original: si el grupo va entero se forma uno nuevo (copyGroups). La marca de referencia se reasigna a la copia de su linea mas abajo
+    const { x, y, mark, grp, name, ...flags } = o; // name: el nombre de usuario no se copia (cada punto tiene el suyo, names.js). grp: una copia no entra sola al grupo del original: si el grupo va entero se forma uno nuevo (copyGroups). La marca de referencia se reasigna a la copia de su linea mas abajo
     Object.assign(doc.pts[np], flags);
     if (linked) doc.pts[np].fixed = false; // la copia sigue al original
     M[pid] = np;

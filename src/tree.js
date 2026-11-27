@@ -227,7 +227,7 @@ export function buildTree(doc, { by = 'type' } = {}) {
     }
     // un punto suelto (sin dueño) lleva sus relaciones directo; uno con dueño las deja en la fila de su elemento
     const kids = o ? [] : (consBy.get(id) || []).filter((cid) => !doc.cons[cid].hidden).map(conLink);
-    return { key: `pt:${id}`, label: `${pre}Punto ${id} (${f(p.x)}, ${f(p.y)})`, sel: { k: 'pt', id }, lock: !!p.fixed, children: kids };
+    return { key: `pt:${id}`, label: `${pre}Punto ${id}${p.name ? ' «' + p.name + '»' : ''} (${f(p.x)}, ${f(p.y)})`, sel: { k: 'pt', id }, lock: !!p.fixed, children: kids };
   };
   const elem = (k, id, label, pts, extra = []) => ({
     key: `${k}:${id}`, label, sel: { k, id },

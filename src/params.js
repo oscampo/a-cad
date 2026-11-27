@@ -10,6 +10,7 @@ import { convertCalcText, textVarState, clearCall, calcStmts, calcParse, calcSrc
 import { eqResiduals, lmRoots } from './nsolve.js';
 import { parseUnit, sameDim, autoUnit, mulDim, unitMsg, dimName } from './units.js';
 import { geoVars, isGeoName, geoPoints, propOf } from './geo.js';
+import { isValidElName, ID_LIKE } from './names.js';
 import { setTopo } from './expr.js';
 import { elementValue } from './topo.js';
 
@@ -210,6 +211,23 @@ export function textVarErrors(doc) {
   return out;
 }
 
+// El nombre que el usuario le pone a un punto, grupo o contorno para llamarlo en las formulas (names.js). Devuelve el motivo si no vale, o null. exceptId: el
+// elemento que se renombra.
+export function checkElName(doc, raw, exceptId) {
+  if (!isValidElName(raw)) return ID_LIKE.test(String(raw)) ? `«${raw}» parece un id (p12, g3, k7): usa otro nombre` : 'El nombre usa letras y números, empieza con una letra y puede llevar un subíndice (iso_1, p_(ini)); no puede parecer un id (p12)';
+  const name = normName(raw);
+  if (isReservedName(name)) return reservedWhy(name);
+  for (const coll of ['pts', 'grps', 'ctrs']) {
+    const hit = Object.entries(doc[coll] || {}).find(([id, o]) => id !== exceptId && o.name && isValidElName(o.name) && normName(o.name) === name);
+    if (hit) return coll === 'pts' ? `Ya hay un punto llamado «${raw}»` : coll === 'grps' ? `Ya hay un grupo llamado «${raw}»` : `Ya hay un contorno llamado «${raw}»`;
+  }
+  if (Object.values(doc.cons).some((k) => k.name === name)) return `Ya existe una cota llamada «${name}»`;
+  const tv = hasDefs(doc) ? textVars(doc) : null;
+  if (tv?.names.has(name)) return `Ya existe una variable o función de texto llamada «${name}»`;
+  const base = /^(.+?)_[A-Za-z0-9α-ωΑ-Ω]+$/.exec(name)?.[1]; // «iso_1» podria ser el elemento 1 del vector «iso»
+  if (base && tv?.names.has(base) && !tv.vals?.[base]?.fn) return `«${base}» es una variable de texto: «${name}» se leería como su elemento`; // (una funcion no se indexa: ort2iso_1 vale)
+  return null;
+}
 // El nombre se compara como se guarda: «alpha» es «α» (ver normName).
 export function checkName(doc, raw, exceptId) {
   if (!NAME_RE.test(raw)) return 'El nombre usa letras, números y _, y empieza con una letra';

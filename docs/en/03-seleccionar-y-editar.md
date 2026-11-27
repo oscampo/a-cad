@@ -1,4 +1,4 @@
-<!-- es: 8caef4a2cf -->
+<!-- es: 337bf6b683 -->
 # 3. Selecting and editing
 
 Selecting (by tap, box or filter), viewing and changing an element's properties, and the tools that modify what you drew: copy, trim, extend, fillet and chamfer.
@@ -79,7 +79,7 @@ With the Select tool, drag from an empty spot.
 
 - **Any element:** **layer**, **color**, **line type**, **width** and **pattern scale**.
 - **Text:** all its options: the content, the **font color** or **background color** (the same swatches; two radio buttons choose which one), the **font**, the **height**, the angle, **align with** a line, **readable** and the **insertion point**. If more texts are selected, the change applies to all of them.
-- **Point:** its **color**, its X and Y coordinates, whether it is fixed and its **[reference mark](05-restricciones.md#reference-mark)**.
+- **Point:** its **color**, its **name** (to call it in formulas: `ini.x`, `p_(fin).y`; see [Properties with "."](07-texto-y-calculo.md)), its X and Y coordinates, whether it is fixed and its **[reference mark](05-restricciones.md#reference-mark)**.
 - **[Vector](02-dibujar.md#vector-w):** its **magnitude** (a value or a formula; typing it fixes it), whether it is fixed or read-only and its name.
 
 ### Constraints and dimensions

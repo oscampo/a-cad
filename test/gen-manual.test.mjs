@@ -29,7 +29,7 @@ t('ejecutar crea 4 puntos y 4 lineas normales (sin fijar, nada en doc.gen) y los
   assert.ok(Object.values(d.pts).every((p) => !p.fixed));
   assert.equal(d.gen, undefined);
   for (const id of Object.keys(d.pts)) assert.equal(isGen(d, id), false);
-  assert.ok(r.group, 'queda un grupo'); assert.equal(d.grps[r.group].name, 'point("A"; 0; 0)');
+  assert.ok(r.group, 'queda un grupo'); assert.equal(d.grps[r.group].name, 'script_1'); // un texto que dibuja directo con point/line: script_N (si llama a una funcion, funcion_N)
   assert.equal(grpLeaves(d, r.group).filter((m) => m.k === 'ln').length, 4);
 });
 

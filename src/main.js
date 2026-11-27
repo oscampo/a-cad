@@ -39,13 +39,14 @@ import { setDataBackend, dataStore, clearDataWrites, takeDataWrites, dataName, d
 import { soundName, suggestName, reduceSound, dataUrlBytes } from './sounds.js';
 import { setBlobSink, blobGet, blobHas, blobPut, blobDel, blobEntries, blobLoad, embedBlobs, takeEmbedded, restoreEmbedded } from './blobs.js';
 import { loadAllBlobs, putBlob, delBlob } from './blobdb.js';
-import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, settle, hasReactive, usesTextVars, textVarErrors, textVars, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
+import { varsOf, varsList, varsInfo, readInt, splitTop, recompute, pruneFormulas, renameDim, checkName, checkElName, settle, hasReactive, usesTextVars, textVarErrors, textVars, freezeDimOrder, thawDimOrder, setDocDecimal, splitUnit, dimEval, fillDimUnits, scaleEval, noScaleWarn } from './params.js';
 import { exportSVG, exportSVGLaser, exportDXF, extraExtents, laserClasses } from './export.js';
 import { iconSvg, ICONS } from './icons.js';
 import { setIconSource } from './iconpaths.js';
 setIconSource(ICONS); // los iconos de la app que un texto puede mostrar: ![Linea](icon:line)
 import { buildTree, kindOf, conLabel, ctrDescribe } from './tree.js';
 import { ctrIssues, removeDupEdges, mergeCoincident, mergeGroup, dissolvePoint, separatePoint } from './repair.js';
+import { isValidElName } from './names.js';
 import { cleanFileBase } from './files.js';
 import { LIB_DIR, libDefs, libClosure, defaultExports, checkLibrary, aliasProblem, libFileName, libPayload, legacyLibPath, newLibPath } from './library.js';
 import { addImage, imageSrc, docForSave, withoutAssets, unsnap, fitPixels, keepAspect, IMG_MAX, imgRect, syncImages, ensureImagePoints, anchorPoint } from './images.js';
@@ -5849,11 +5850,19 @@ function relaxMarks() {
 }
 
 // Propiedades de un grupo de contorno: su nombre (el que muestra el arbol; sin nombre, su id), su estado medido y sus elementos, con las acciones del grupo.
+// El nombre de un grupo o contorno: cualquier texto sirve de etiqueta del arbol; si tiene la forma de un nombre (letras y numeros, iso_1) tambien llama al objeto
+// en las formulas (Brida.L, f(EjePrincipal)) y entonces no puede repetirse ni chocar con una cota o variable (names.js, checkElName).
+function nameLabel(id, input, o) {
+  const v = input.value.trim();
+  if (v && isValidElName(v)) { const er = checkElName(doc, v, id); if (er) { toast(er); input.value = o.name || ''; return; } }
+  propSet((x) => { if (v) x.name = v; else delete x.name; });
+  if (v && !isValidElName(v)) toast('Queda como etiqueta: para llamarlo en las fórmulas el nombre lleva letras y números (Brida, iso_1)');
+}
 function openGrpProps(id, body) {
   const o = doc.grps[id];
   const nm = document.createElement('input');
   nm.type = 'text'; nm.value = o.name || ''; nm.placeholder = id; nm.maxLength = 40;
-  nm.onchange = () => propSet((x) => { const v = nm.value.trim(); if (v) x.name = v; else delete x.name; });
+  nm.onchange = () => nameLabel(id, nm, o);
   body.appendChild(propRow('Nombre', nm));
   const info = (label, text) => { const s = document.createElement('span'); s.textContent = text; s.style.cssText = 'flex:2 1 200px'; return propRow(label, s); };
   const direct = grpMembers(doc, id), all = grpLeaves(doc, id);
@@ -5870,7 +5879,7 @@ function openCtrProps(id, body) {
   const o = doc.ctrs[id];
   const nm = document.createElement('input');
   nm.type = 'text'; nm.value = o.name || ''; nm.placeholder = id; nm.maxLength = 40;
-  nm.onchange = () => propSet((x) => { const v = nm.value.trim(); if (v) x.name = v; else delete x.name; });
+  nm.onchange = () => nameLabel(id, nm, o);
   body.appendChild(propRow('Nombre', nm));
   const d = ctrDescribe(doc, id);
   const info = (label, text) => { const s = document.createElement('span'); s.textContent = text; s.style.cssText = 'flex:2 1 200px'; return propRow(label, s); };
@@ -6097,6 +6106,16 @@ function openProps(h) {
   }
   if (k === 'pt') {
     body.appendChild(propRow('Color', propColors(o, 'color')));
+    { // el nombre con que se llama en las formulas (p_(ini).x, ini.y, f(ini)): ver names.js
+      const nm = document.createElement('input');
+      nm.type = 'text'; nm.value = o.name || ''; nm.placeholder = h.id; nm.maxLength = 40; nm.autocomplete = 'off'; nm.spellcheck = false; nm.autocapitalize = 'off';
+      nm.onchange = () => {
+        const v = nm.value.trim(), er = v ? checkElName(doc, v, h.id) : null;
+        if (er) { toast(er); nm.value = propObj()?.name || ''; return; }
+        propSet((x) => { if (v) x.name = v; else delete x.name; });
+      };
+      body.appendChild(propRow('Nombre', nm));
+    }
     const fill = () => { xi.value = String(Math.round(propObj().x * 1000) / 1000); yi.value = String(Math.round(propObj().y * 1000) / 1000); };
     const move = () => {
       const x = Number(xi.value), y = Number(yi.value);

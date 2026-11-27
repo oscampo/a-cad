@@ -78,7 +78,7 @@ Con la herramienta Seleccionar, arrastra desde un lugar vacío.
 
 - **Cualquier elemento:** **capa**, **color**, **tipo de línea**, **grosor** y **escala del patrón**.
 - **Texto:** todas sus opciones: el contenido, el **color de fuente** o **de fondo** (las mismas muestras; se elige cuál con dos botones de radio), la **fuente**, la **altura**, el ángulo, **alinear con** una línea, **legible** y el **punto de inserción**. Si hay más textos seleccionados, el cambio se aplica a todos.
-- **Punto:** su **color**, sus coordenadas X e Y, si está fijo y su **[marca de referencia](05-restricciones.md#marca-de-referencia)**.
+- **Punto:** su **color**, su **nombre** (para llamarlo en las fórmulas: `ini.x`, `p_(fin).y`; ver [Propiedades con «.»](07-texto-y-calculo.md)), sus coordenadas X e Y, si está fijo y su **[marca de referencia](05-restricciones.md#marca-de-referencia)**.
 - **[Vector](02-dibujar.md#vector-w):** su **magnitud** (valor o fórmula; escribirla la fija), si está fija o es de solo lectura y su nombre.
 
 ### Restricciones y cotas

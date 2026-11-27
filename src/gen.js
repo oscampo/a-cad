@@ -4,8 +4,8 @@
 // texto que lo genera) y se reemplaza al regenerar, de modo que las cotas y restricciones que el usuario le puso siguen ahi. Sin DOM: lo prueba
 // test/gen.test.mjs. doc.gen = { map: { 'texto/nombre': id } } es la fuente de verdad de que es generado (no una marca en cada elemento: una
 // copia tiene un id nuevo y por eso ya no lo es).
-import { setGenSink, GEN_RE } from './expr.js';
-import { textVars } from './params.js';
+import { setGenSink, GEN_RE, GEN_FUNCS } from './expr.js';
+import { textVars, checkElName } from './params.js';
 import { calcStmts, calcParse } from './tvars.js';
 import { addPoint, addLine, addCircle, addArc, addEllipse, addSpline, allLtypes, deleteItems, nextId, dissolveCtr, addGrp } from './model.js';
 
@@ -374,6 +374,14 @@ export function runLabel(text) {
   const ls = String(text || '').split('\n').map((s) => s.replace(/\$\$/g, '').trim()).filter(Boolean), l = ls.find((s) => s.includes('(')) || ls[0] || 'script'; // la primera con una llamada
   return l.replace(/^[A-Za-z_À-￿][A-Za-z0-9_À-￿]*\s*:(?!=)\s*/, '').slice(0, 40);
 }
+// El nombre del grupo que crea una ejecucion: el de la funcion que llama el texto y un numero que no se repite (ort2iso_1, ort2iso_2), para poder llamarlo en las
+// formulas como cualquier elemento con nombre (names.js). Si el texto dibuja con point/line/... directamente, script_N. Sin un nombre valido, la etiqueta de siempre.
+export function runName(doc, text) {
+  const label = runLabel(text), m = /^([A-Za-z_À-￿][A-Za-z0-9_À-￿]*)\s*\(/.exec(label);
+  const base = m && !GEN_FUNCS.includes(m[1].toLowerCase()) ? m[1] : 'script';
+  for (let n = 1; n < 500; n++) { const name = base + '_' + n; if (!checkElName(doc, name)) return name; }
+  return label;
+}
 // Ejecuta el texto ns una vez. Devuelve { ok, n (elementos creados), group, errs, notes }.
 export function runGen(doc, ns) {
   const out = { ok: false, n: 0, group: null, errs: [], notes: [] };
@@ -442,6 +450,6 @@ export function runGen(doc, ns) {
     ids.push(cid);
   }
   out.ok = true;
-  out.group = bundle(doc, ids, runLabel(t.text));
+  out.group = bundle(doc, ids, runName(doc, t.text));
   return out;
 }
