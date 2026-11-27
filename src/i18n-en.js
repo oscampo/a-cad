@@ -275,6 +275,11 @@ export const EN = {
   "Disuelve el grupo: lo que contiene se queda, un nivel más arriba": "Dissolves the group: what it contains stays, one level up",
   "Borrar con su contenido": "Delete with its contents",
   "Borra el grupo y todo lo que contiene": "Deletes the group and everything it contains",
+  "{0} {1}: {2} {3}, ángulo {4}°, {5}": "{0} {1}: {2} {3}, angle {4}°, {5}",
+  "Círculo {0}: radio {1}, {2}": "Circle {0}: radius {1}, {2}",
+  "Arco elíptico {0} de {1}°": "Elliptical arc {0} of {1}°",
+  "Restricción/cota {0} seleccionada": "Constraint/dimension {0} selected",
+  "{0} objetos seleccionados ({1} gráfica{2})": "{0} objects selected ({1} graph{2})",
   "Distribuir ↔": "Distribute ↔",
   "Distribuir ↕": "Distribute ↕",
   "Punto medio": "Midpoint",
@@ -1633,4 +1638,5 @@ export const EN = {
   "~Abriendo ": "Opening ",
   "Actuador {0} (rotacional)": "Actuator {0} (rotary)",
   "Actuador {0} (lineal)": "Actuator {0} (linear)",
+  "Objetos": "Objects",
 };

@@ -402,6 +402,7 @@ function renderTree() {
   // al cambiar la seleccion desde el lienzo, se abre la rama que lleva al elemento
   const key = sel.map((s) => s.k + s.id).join(',');
   const reveal = key !== treeSelKey && sel.length > 0;
+  if (!key && treeSelKey) { treeOpen.clear(); body.scrollTop = 0; } // SmartCollapse: sin nada seleccionado el arbol se pliega solo
   treeSelKey = key;
   // lo que se revela: el elemento seleccionado, o la relacion elegida (que viene con sus elementos)
   const target = sel.length === 1 || sel[0]?.k === 'co' ? sel[0] : null;
@@ -4441,18 +4442,18 @@ function updateStatus(p) {
   let txt = (toolName === 'earc' && (pending?.g ? 'Elipse parcial: arrastra sobre la elipse punteada desde donde empieza el tramo hasta donde termina (o toca el inicio y luego el fin). Esc cancela.' : HINTS.earc)) || HINTS[tool];
   if (sel.length === 1) {
     const s = sel[0];
-    if (s.k === 'pt') { const q = doc.pts[s.id]; txt = `Punto (${fmt(q.x)}, ${fmt(q.y)})${q.fixed ? ' fijo' : ''}${isMark(doc, s.id) ? ' · marca de referencia en ' + q.mark : ''}`; }
-    else if (s.k === 'ln') { const [a, b] = lineEnds(s.id).map((i) => doc.pts[i]); txt = `${doc.lines[s.id].vec ? 'Vector' : 'Línea'}: ${doc.lines[s.id].vec ? 'magnitud' : 'longitud'} ${fmt(dist(a, b))}, ángulo ${fmt((Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI)}°, ${ltLabel(doc.lines[s.id])}`; }
-    else if (s.k === 'ci') txt = `Círculo: radio ${fmt(doc.circles[s.id].r)}, ${ltLabel(doc.circles[s.id])}`;
-    else if (s.k === 'tx') { const t = doc.texts[s.id]; txt = `Texto: “${t.text.split('\n')[0].slice(0, 24)}”, ${fmt(t.ang)}°, insercion ${t.anchor}${t.ref ? ', alineado con una línea' : ''}`; }
-    else if (s.k === 'sp') { const sp = doc.splines[s.id]; txt = `Spline: ${sp.pts.length} puntos, ${sp.closed ? 'cerrada' : 'abierta'}, ${ltLabel(sp)}`; }
-    else if (s.k === 'el') { const g = ellipseOf(doc, doc.ellipses[s.id]); txt = `${isPartial(doc.ellipses[s.id]) ? `Arco elíptico de ${fmt((ellipseRange(doc, doc.ellipses[s.id], g).sweep * 180) / Math.PI)}°` : 'Elipse'}: semiejes ${fmt(g.ra)} y ${fmt(g.rb)}, ${ltLabel(doc.ellipses[s.id])}`; }
-    else if (s.k === 'ar') { const g = arcOf(doc, doc.arcs[s.id]); txt = `Arco: radio ${fmt(doc.arcs[s.id].r)}, ${fmt((g.sweep * 180) / Math.PI)}°, ${ltLabel(doc.arcs[s.id])}`; }
-    else if (s.k === 'ha') txt = 'Relleno seleccionado';
-    else if (s.k === 'co') txt = 'Restricción/cota seleccionada';
-  } else if (sel.length > 1) txt = `${sel.length} elementos seleccionados`;
+    if (s.k === 'pt') { const q = doc.pts[s.id]; txt = `Punto ${s.id} (${fmt(q.x)}, ${fmt(q.y)})${q.fixed ? ' fijo' : ''}${isMark(doc, s.id) ? ' · marca de referencia en ' + q.mark : ''}`; }
+    else if (s.k === 'ln') { const [a, b] = lineEnds(s.id).map((i) => doc.pts[i]); txt = `${doc.lines[s.id].vec ? 'Vector' : 'Línea'} ${s.id}: ${doc.lines[s.id].vec ? 'magnitud' : 'longitud'} ${fmt(dist(a, b))}, ángulo ${fmt((Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI)}°, ${ltLabel(doc.lines[s.id])}`; }
+    else if (s.k === 'ci') txt = `Círculo ${s.id}: radio ${fmt(doc.circles[s.id].r)}, ${ltLabel(doc.circles[s.id])}`;
+    else if (s.k === 'tx') { const t = doc.texts[s.id]; txt = `Texto ${s.id}: “${t.text.split('\n')[0].slice(0, 24)}”, ${fmt(t.ang)}°, insercion ${t.anchor}${t.ref ? ', alineado con una línea' : ''}`; }
+    else if (s.k === 'sp') { const sp = doc.splines[s.id]; txt = `Spline ${s.id}: ${sp.pts.length} puntos, ${sp.closed ? 'cerrada' : 'abierta'}, ${ltLabel(sp)}`; }
+    else if (s.k === 'el') { const g = ellipseOf(doc, doc.ellipses[s.id]); txt = `${isPartial(doc.ellipses[s.id]) ? `Arco elíptico ${s.id} de ${fmt((ellipseRange(doc, doc.ellipses[s.id], g).sweep * 180) / Math.PI)}°` : 'Elipse ' + s.id}: semiejes ${fmt(g.ra)} y ${fmt(g.rb)}, ${ltLabel(doc.ellipses[s.id])}`; }
+    else if (s.k === 'ar') { const g = arcOf(doc, doc.arcs[s.id]); txt = `Arco ${s.id}: radio ${fmt(doc.arcs[s.id].r)}, ${fmt((g.sweep * 180) / Math.PI)}°, ${ltLabel(doc.arcs[s.id])}`; }
+    else if (s.k === 'ha') txt = `Relleno ${s.id} seleccionado`;
+    else if (s.k === 'co') txt = `Restricción/cota ${doc.cons[s.id]?.name || s.id} seleccionada`;
+  } else if (sel.length > 1) txt = `${sel.length} objetos seleccionados: ${sel.slice(0, 6).map((q) => q.id).join(', ')}${sel.length > 6 ? '…' : ''}`; // sus nombres, para poder referenciarlos
   const gn = selMulti && selMulti.owner === sel ? multiGraphs().size : 0;
-  if (gn && (sel.length || gn > 1)) txt = `${sel.length + gn} elementos seleccionados (${gn} gráfica${gn === 1 ? '' : 's'})`;
+  if (gn && (sel.length || gn > 1)) txt = `${sel.length + gn} objetos seleccionados (${gn} gráfica${gn === 1 ? '' : 's'})`;
   if (p && tool !== 'select') { const m = snapAt(p.x, p.y); txt += `   (${fmt(m.x)}, ${fmt(m.y)})${m.type !== 'free' ? ' ' + { pt: 'punto', ln: 'sobre línea', ci: 'sobre círculo' }[m.type] : ''}`; }
   statusOwner = null;
   { const ow = genOwners(doc, sel); if (ow.length) { statusOwner = ow[0]; txt += ` · generado por el texto ${ow.join(', ')} (toca aquí para verlo)`; } } // lo generado por un script: de que texto viene
