@@ -202,7 +202,8 @@ A string goes between quotes: `"Cumple"` (the iPad's curly quotes “ ” work t
 |---|---|---|---|
 | `num2str(x; n)`, `string(x)` | A number as text, with its unit and as the app shows it (n fixed decimals if given). | `"Tensión: " + num2str(210.254'MPa)=` | `“Tensión: 210.254 MPa”` |
 | `sprintf(formato; …)` | Format: %d, %f, %.2f, %e, %g, %s, %%. Without units: divide by the unit you want (F/1'kN). | `sprintf("%.1f kN"; 12.345)=` | `“12.3 kN”` |
-| `str2double(s)`, `str2num(s)` | The number written in a string. | `str2double("3.25")*2` | `6.5` |
+| `str2double(s)` | The number written in a string (just a number: `"3.25"`, `"-2e3"`). | `str2double("3.25")*2` | `6.5` |
+| `str2num(s)` | Evaluates the string as an expression, as in MATLAB: it can be a number, a calculation, a matrix, a quantity with units, or use variables defined **earlier** in the drawing (and functions). If it is not understood it gives ⚠ with the reason. To read just a number, `str2double`. | `str2num("2+3")*2` | `10` |
 | `strcat(a; b; …)` | Joins strings (like +). | `strcat("A"; "-"; "CAD")=` | `“A-CAD”` |
 | `typeof(x)`, `isa(x; "tipo")` | What arrived in a function: `"number"`, `"string"`, `"strings"`, `"matrix"`, `"complex"`, or a drawing object (`"point"`, `"line"`, `"circle"`, `"arc"`, `"ellipse"`, `"spline"`, `"contour"`, `"group"`), a text (`"text"`) or a dimension (`"dimension"`). `isa` gives 1 if it is of that type and 0 if not; `isa(x; "earc")` gives 1 only for an elliptical arc (which `typeof` also calls `"ellipse"`, like the full ellipse: ask about `"earc"` first). They work with `varargin`: `if isa(varargin_1; "line"): …`. | `typeof("a")=` | `“string”` |
 | `error("mensaje")` | Stops the calculation with that message, to validate what a function receives: `else: error("solo se admite T, L o R")`. The message is flagged in the text, with the name of the function. |  |  |

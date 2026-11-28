@@ -1826,6 +1826,18 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       A = A.map((a) => (a?.cells ? needSimple(a, name) : a));
     }
     const sep = decimalMode() === '.' ? ' (sepáralos con «,»)' : decimalMode() === ',' ? ' (sepáralos con «;»)' : ' (sepáralos con «;»: «2,5» es un solo número)';
+    if (name === 'str2num') { // como en MATLAB: la cadena se calcula como una expresion (con las variables definidas antes en el dibujo); str2double solo lee un numero
+      if (A.length !== 1) throw new Error('str2num recibe 1 valor: la cadena que se calcula');
+      if (typeof A[0].str !== 'string') throw new Error('str2num: el argumento es una cadena, p. ej. str2num("2+3")');
+      if (depth >= 40) throw new Error('str2num se llama a sí misma demasiadas veces');
+      let r;
+      try { r = evalExpr(A[0].str, { radians, vars, allowMat: true, allowCplx: true, depth: depth + 1, globals: globals || vars }); } catch (e) { throw /^str2num/.test(e.message) ? e : new Error(`str2num: «${A[0].str}»: ${e.message}`); }
+      if (r.str !== undefined) return { str: r.str };
+      if (r.strs) return { strs: r.strs };
+      if (r.cells) return { cells: r.cells };
+      if (r.mat) return wd({ m: r.mat, ...(r.mi ? { mi: r.mi } : {}) }, r.dim);
+      return wd({ v: r.value, ...(r.im ? { im: r.im } : {}), r: !!r.rad }, r.dim);
+    }
     if (name in SF) { // funciones de cadenas
       const [lo, hi] = SF[name].n;
       if (A.length < lo || A.length > hi) throw new Error(`«${name}» recibe ${hi === lo ? `${lo} ${lo === 1 ? 'valor' : 'valores'}` : `de ${lo} a ${hi} valores`}${sep}`);

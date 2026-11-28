@@ -66,4 +66,15 @@ t('en los textos: “…”, vectores, indices; las unidades y los # no se tocan
   assert.deepEqual(textVarErrors(d).map((e) => e.msg), ['«k»: una cadena no lleva unidad']);
 });
 
+t('str2num calcula la cadena como una expresion (como en MATLAB); str2double solo lee un numero', () => {
+  const V = { x: { v: 4, r: false }, t: { str: 'x*2' }, s: { str: 'str2num(s)' } };
+  const ev = (q) => evalExpr(q, { vars: V, allowMat: true, allowCplx: true });
+  assert.equal(ev('str2num("3.5")').value, 3.5); assert.equal(ev('str2num("2+3")').value, 5); assert.equal(ev('str2num("x^2")').value, 16); assert.equal(ev('str2num(t)').value, 8);
+  assert.deepEqual(ev('str2num("[1,2;3,4]")').mat, [[1, 2], [3, 4]]); assert.deepEqual(ev("str2num(\"5'mm\")").dim, [1, 0, 0, 0, 0, 0, 0]); assert.equal(ev('str2num("sum_(k=1)^3(k)")').value, 6);
+  assert.equal(ev('str2num("3.5")*2').value, 7);
+  assert.throws(() => ev('str2double("2+3")'), /no es un número/); // sigue estricto
+  assert.throws(() => ev('str2num("abc")'), /str2num: «abc»/); assert.throws(() => ev('str2num("q:[1,2]")'), /str2num: «q:\[1,2\]»/); assert.throws(() => ev('str2num(5)'), /el argumento es una cadena/);
+  assert.throws(() => ev('str2num(s)'), /demasiadas veces/); // una cadena que se llama a si misma: un solo error, no 40 anidados
+});
+
 console.log(`\n${passed} pruebas de cadenas pasaron`);
