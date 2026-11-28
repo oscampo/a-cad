@@ -4,6 +4,7 @@ import { evalExpr } from '../src/expr.js';
 import { newDoc, addPoint, addText } from '../src/model.js';
 import { textVars } from '../src/params.js';
 import { shownText } from '../src/text.js';
+import { parse } from '../src/asciimath.js';
 import { setDecimal } from '../src/locale.js';
 
 setDecimal(undefined);
@@ -115,6 +116,15 @@ t('asignar a una celda dentro de un programa: elemento, rangos, :, end y crecer;
   const z = run('seq(A_(1,2):3+4j; A)'); assert.equal(z.mat[0][1], 3); assert.equal(z.mi[0][1], 4);
   assert.deepEqual(run("seq(p:zeros(1, 3), p_2:5'mm, p)").dim, [1, 0, 0, 0, 0, 0, 0]);
   assert.throws(() => run('seq(A_(1..2,1):[1,2,3]; A)'), /recibe 2×1 elementos y el valor es de 1×3/); assert.throws(() => run('seq(A_(2..1,1):0; A)'), /va de menor a mayor/); assert.throws(() => run('seq(v_(:):0; v)'), /Un «:» solo no vale/);
+});
+
+t('un texto con «;» o «,» dentro de una celda no parte la matriz al dibujarla (una tabla leida de un archivo con importData)', () => {
+  const d = newDoc();
+  const L = ['C:["a;b", "c, d"; 1, 2; "x", 3]', 'C='];
+  const T = L.map((x, i) => d.texts[addText(d, addPoint(d, 0, -i * 40), '$$' + x + '$$', {})]);
+  const tree = parse(shownText(d, T[1]).text.replace(/^\$\$|\$\$$/g, ''));
+  const m = tree.c.find((n) => n.t === 'mat');
+  assert.ok(m, 'se dibuja como matriz'); assert.equal(m.rows.length, 3); assert.ok(m.rows.every((r) => r.length === 2));
 });
 
 console.log(passed + ' pruebas de matrices con celdas de distinto tipo');

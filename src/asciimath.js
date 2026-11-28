@@ -174,6 +174,8 @@ export function tokenize(s) {
 }
 
 const EMPTY = () => ({ t: 'row', c: [] });
+// Parte por un separador de afuera de las comillas: un texto de una celda («"a; b"», «"c, d"») puede llevar «;» y «,» sin partirse.
+const splitOut = (s, sep) => { const out = []; let cur = '', q = false; for (const ch of s) { if (ch === '"') q = !q; if (!q && ch === sep) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out; };
 // Como en AsciiMath, los parentesis, corchetes y llaves que son el operando de una fraccion, raiz, indice... no se ven.
 const unwrap = (n) => (n.t === 'group' && (n.l === '(' || n.l === '[' || n.l === '{' || n.l === '{:') && n.body ? n.body : n);
 
@@ -258,7 +260,7 @@ function parseS(p) {
       return m ? { t: 'ss', base: { t: 'v', s: m[1] }, sub: { t: 'txt', s: m[2] }, sup: null, nm: true } : { t: 'v', s: k.v, ...(k.call ? { call: true } : {}) };
     }
     case 'vec': { // «[1, 2, 3]», «[1; 2]», «[1, 2; 3, 4]» (viene de una salida x=): matriz sin comas
-      const rows = k.v.trim().replace(/^\[/, '').replace(/\]$/, '').split(rowChar()).map((r) => r.split(elemChar()).map((e) => parse(e.trim())).filter((c) => c.c.length)).filter((r) => r.length);
+      const rows = splitOut(k.v.trim().replace(/^\[/, '').replace(/\]$/, ''), rowChar()).map((r) => splitOut(r, elemChar()).map((e) => parse(e.trim())).filter((c) => c.c.length)).filter((r) => r.length);
       return rows.length && rows.every((r) => r.length === rows[0].length) ? { t: 'mat', l: '[', r: ']', rows, bars: [] } : EMPTY();
     }
     case 'str': return { t: 'txt', s: k.v };
