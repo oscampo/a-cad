@@ -247,10 +247,22 @@ export function splitRangeN(s, mode = decimalMode()) {
   }
   return [...out, cur];
 }
+// Parte por los «..» de afuera de parentesis, corchetes y llaves (un «A_(2..4,1)» dentro de un indice es un rango de indices, no un rango de numeros).
+function splitTopDots(s) {
+  const out = []; let d = 0, cur = '';
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if ('([{'.includes(ch)) d++; else if (')]}'.includes(ch)) d--;
+    if (d === 0 && ch === '.' && s[i + 1] === '.') { out.push(cur); cur = ''; i++; } else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
 export function parseRange(src) {
   const s = String(src ?? '');
   if (!s.includes('..')) return null;
-  const p = s.split('..');
+  const p = splitTopDots(s);
+  if (p.length === 1) return null; // los «..» estan dentro de un parentesis: no es un rango de numeros
   if (p.length === 2) { const q = splitRangeN(p[1]); return q.length === 2 ? { kind: 'n', parts: [p[0], q[0], q[1]] } : { kind: 'bad', parts: [] }; }
   if (p.length === 3) return { kind: 'step', parts: p };
   return { kind: 'bad', parts: [] };

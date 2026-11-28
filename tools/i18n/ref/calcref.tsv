@@ -182,6 +182,7 @@ f4z8n87p	Matriz <b>por bloques</b>: los elementos pueden ser vectores o matrices
 1drqqvi17	Transpuesta: de un vector fila, el columna.	Transpose: of a row vector, the column one.
 4nx2mr14	Elemento de un vector, contando desde 1.	Element of a vector, counting from 1.
 14di8hs13	Elemento de una matriz (fila, columna).	Element of a matrix (row, column).
+8ciz9389	Una <b>parte</b> de una matriz: un rango de filas y de columnas (de menor a mayor, desde 1). <code>end</code> es el último de esa dirección: <code>A_(end,1)</code>. También sirve en un vector (<code>v_(2..end)</code>) y en uno de cadenas. La parte se opera como cualquier matriz, con sus unidades.	A <b>part</b> of a matrix: a range of rows and columns (from lowest to highest, starting at 1). <code>end</code> is the last one in that direction: <code>A_(end,1)</code>. It also works on a vector (<code>v_(2..end)</code>) and on a vector of strings. The part is operated like any matrix, with its units.
 12js6l2u	Una fila o una columna entera.	A whole row or column.
 1qjfbh9s	Resolver el sistema A·x = b.	Solve the system A·x = b.
 111054jh	Funciones propias	Custom functions

@@ -184,6 +184,7 @@ export const REF_EN = {
   "1drqqvi17": "Transpose: of a row vector, the column one.",
   "4nx2mr14": "Element of a vector, counting from 1.",
   "14di8hs13": "Element of a matrix (row, column).",
+  "8ciz9389": "A <b>part</b> of a matrix: a range of rows and columns (from lowest to highest, starting at 1). <code>end</code> is the last one in that direction: <code>A_(end,1)</code>. It also works on a vector (<code>v_(2..end)</code>) and on a vector of strings. The part is operated like any matrix, with its units.",
   "12js6l2u": "A whole row or column.",
   "1qjfbh9s": "Solve the system A·x = b.",
   "111054jh": "Custom functions",

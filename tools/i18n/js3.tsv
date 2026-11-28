@@ -622,3 +622,7 @@ importData: {0}: la fila no tiene esa columna	importData: {0}: the row does not 
 importData: las celdas mezclan magnitudes con unidades distintas (o algunas no tienen unidad)	importData: the cells mix quantities with different units (or some have no unit)
 importData: A-CAD no tiene matrices de texto: lee una sola columna o una sola fila (c_1 = c_2, o r_1 = r_2), o usa f = 0 para números	importData: A-CAD has no text matrices: read a single column or a single row (c_1 = c_2, or r_1 = r_2), or use f = 0 for numbers
 importData: no se mezclan textos con magnitudes con unidades en un vector	importData: texts and quantities with units are not mixed in a vector
+Rango fuera de «{0}»: pides {1}..{2} y tiene {3} cadenas (de menor a mayor)	Range outside «{0}»: you ask for {1}..{2} and it has {3} strings (from lowest to highest)
+Rango fuera de «{0}»: pides las filas {1}..{2} y hay {3} (de menor a mayor, desde 1)	Range outside «{0}»: you ask for rows {1}..{2} and there are {3} (from lowest to highest, starting at 1)
+Rango fuera de «{0}»: pides las columnas {1}..{2} y hay {3} (de menor a mayor, desde 1)	Range outside «{0}»: you ask for columns {1}..{2} and there are {3} (from lowest to highest, starting at 1)
+Rango fuera de «{0}»: pides los elementos {1}..{2} y hay {3} (de menor a mayor, desde 1)	Range outside «{0}»: you ask for elements {1}..{2} and there are {3} (from lowest to highest, starting at 1)

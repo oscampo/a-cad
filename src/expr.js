@@ -110,6 +110,15 @@ const splitIdx = (s, mode = decimalMode()) => { // «i, j+1» -> ['i', 'j+1'] (l
   out.push(cur.trim());
   return out;
 };
+// «2..4» en un indice (un rango, de menor a mayor) -> ['2', '4']; el «..» de afuera de parentesis y corchetes. null si no es un rango.
+const rangeSplit = (s) => {
+  let d = 0;
+  for (let i = 0; i < s.length - 1; i++) {
+    const ch = s[i];
+    if ('(['.includes(ch)) d++; else if (')]'.includes(ch)) d--; else if (d === 0 && ch === '.' && s[i + 1] === '.') return [s.slice(0, i).trim(), s.slice(i + 2).trim()];
+  }
+  return null;
+};
 // Letras griegas: un nombre se escribe con su letra o con su nombre de AsciiMath y es la misma variable («alpha» y «α», «Delta_1» y
 // «Δ_1»): se guarda y se busca con la letra, la misma que se dibuja (phi es ϕ y varphi es φ, como en asciimath.js). «pi» no cambia:
 // es la constante (π ya lo es).
@@ -1900,22 +1909,48 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     if (k.t === 'idx' && vars[k.base]?.strs) { // un elemento de un vector de cadenas: s_2
       const L = vars[k.base].strs, ix = splitIdx(k.src);
       if (ix.length !== 1) throw new Error(`«${k.base}» es un vector de cadenas: lleva un índice`);
-      const q = Math.round(evalExpr(ix[0], { vars, depth: depth + 1, globals }).value);
+      const evi = (e) => Math.round(evalExpr(e, { vars: { ...vars, end: { v: L.length, r: false } }, depth: depth + 1, globals }).value); // «end»: la ultima
+      const rg = rangeSplit(ix[0]);
+      if (rg) { // s_(2..3): una parte del vector
+        const a = evi(rg[0]), b = evi(rg[1]);
+        if (!(a >= 1 && b <= L.length && a <= b)) throw new Error(`Rango fuera de «${k.base}»: pides ${a}..${b} y tiene ${L.length} cadenas (de menor a mayor)`);
+        const sl = L.slice(a - 1, b);
+        return sl.length === 1 ? { str: sl[0] } : { strs: sl };
+      }
+      const q = evi(ix[0]);
       if (!(q >= 1 && q <= L.length)) throw new Error(`Índice fuera de rango: «${k.base}» tiene ${L.length} cadenas y pides la ${q}`);
       return { str: L[q - 1] };
     }
     if (k.t === 'idx') { // v_2, A_(i,j), A_(i,:), A_(:,j): un elemento, una fila o una columna (los indices empiezan en 1)
       if (!vars[k.base].vec && !vars[k.base].mat) throw new Error(vars[k.base].unset ? `«${k.base}» se usa antes de darle un valor` : `«${k.base}» no es un vector ni una matriz: no lleva índice`);
       const x = vars[k.base], xd = x.d, m = x.mat || [x.vec], R = m.length, C = m[0].length, name = `${k.base}_(${k.src})`;
-      const ix = splitIdx(k.src).map((s) => {
+      const ix = splitIdx(k.src).map((s, pos, all) => {
         if (!s) throw new Error(`Falta un índice en «${name}»`);
         if (s === ':') return ':';
-        const v = evalExpr(s, { vars, depth: depth + 1, globals }).value;
-        if (!Number.isInteger(Math.round(v * 1e9) / 1e9)) throw new Error(`El índice «${s}» de «${k.base}» debe ser un entero (vale ${Math.round(v * 1e6) / 1e6})`);
-        return Math.round(v);
+        const n = all.length === 2 ? (pos === 0 ? R : C) : R === 1 ? C : R, vv = { ...vars, end: { v: n, r: false } }; // «end»: el ultimo de esa direccion
+        const one = (e) => {
+          const v = evalExpr(e, { vars: vv, depth: depth + 1, globals }).value;
+          if (!Number.isInteger(Math.round(v * 1e9) / 1e9)) throw new Error(`El índice «${e}» de «${k.base}» debe ser un entero (vale ${Math.round(v * 1e6) / 1e6})`);
+          return Math.round(v);
+        };
+        const rg = rangeSplit(s);
+        return rg ? { a: one(rg[0]), b: one(rg[1]) } : one(s); // un rango «2..4» es { a, b }
       });
       if (ix.length > 2) throw new Error('Un elemento lleva un índice (vector) o dos (matriz): A_(fila,columna)');
       if (ix.length === 1 && (ix[0] === ':' || (R > 1 && C > 1))) throw new Error(ix[0] === ':' ? 'Un «:» solo no vale: usa A_(fila,:) o A_(:,columna)' : `«${k.base}» es una matriz de ${R}×${C}: lleva dos índices, ${k.base}_(fila,columna)`);
+      if (ix.some((q) => q !== ':' && typeof q === 'object')) { // un rango: una parte de la matriz (A_(2..4,1), A_(:,1..2), A_(1..2,2..3)); de menor a mayor
+        const pick = (q, n, nombre) => {
+          if (q === ':') return Array.from({ length: n }, (_, t) => t + 1);
+          const lo = typeof q === 'object' ? q.a : q, hi = typeof q === 'object' ? q.b : q;
+          if (lo > hi || lo < 1 || hi > n) throw new Error(nombre === 'las filas' ? `Rango fuera de «${k.base}»: pides las filas ${lo}..${hi} y hay ${n} (de menor a mayor, desde 1)` : nombre === 'las columnas' ? `Rango fuera de «${k.base}»: pides las columnas ${lo}..${hi} y hay ${n} (de menor a mayor, desde 1)` : `Rango fuera de «${k.base}»: pides los elementos ${lo}..${hi} y hay ${n} (de menor a mayor, desde 1)`);
+          return Array.from({ length: hi - lo + 1 }, (_, t) => lo + t);
+        };
+        let rs, cs;
+        if (ix.length === 2) { rs = pick(ix[0], R, 'las filas'); cs = pick(ix[1], C, 'las columnas'); } else if (R === 1) { rs = [1]; cs = pick(ix[0], C, 'los elementos'); } else { rs = pick(ix[0], R, 'los elementos'); cs = [1]; }
+        const sub = rs.map((r) => cs.map((c) => m[r - 1][c - 1])), subi = x.mi ? rs.map((r) => cs.map((c) => x.mi[r - 1][c - 1])) : null;
+        if (rs.length === 1 && cs.length === 1) return wd(subi && subi[0][0] ? { v: sub[0][0], im: subi[0][0], r: false } : { v: sub[0][0], r: false }, xd);
+        return wd(subi && subi.some((r) => r.some((x) => x)) ? fromCm(sub.map((r, a) => r.map((v, b) => [v, subi[a][b]]))) : { m: sub }, xd);
+      }
       const [i, j] = ix.length === 2 ? ix : R === 1 ? [1, ix[0]] : [ix[0], 1];
       const out = (q, lim) => q !== ':' && (q < 1 || q > lim);
       if (out(i, R) || out(j, C)) throw new Error(`Índice fuera de rango: «${k.base}» es ${R === 1 ? `un vector de ${C}` : C === 1 ? `un vector de ${R}` : `una matriz de ${R}×${C}`}` + (ix.length === 2 ? ` y pides la fila ${i}, columna ${j}` : ` y pides el elemento ${ix[0]}`));

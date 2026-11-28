@@ -181,6 +181,7 @@ export const CALC_GROUPS = [
       [c('x^T'), 'Transpuesta: de un vector fila, el columna.', 'x:1..3;3\nx^T=', 'x:=[1, 2, 3]\nx^T=[1; 2; 3]', 't'],
       [c('x_2', 'x_i', 'x_(i+1)'), 'Elemento de un vector, contando desde 1.', 'x:1..3;3\nx_2=', 'x:=[1, 2, 3]\nx_2=2', 't'],
       [c('A_(i,j)'), 'Elemento de una matriz (fila, columna).', 'A:[1,2;3,4]\nA_(2,1)=', 'A:=[1, 2; 3, 4]\nA_(2,1)=3', 't'],
+      [c('A_(2..3,1)', 'A_(:,1..2)', 'A_(2..end,2)'), 'Una <b>parte</b> de una matriz: un rango de filas y de columnas (de menor a mayor, desde 1). ' + c('end') + ' es el último de esa dirección: ' + c('A_(end,1)') + '. También sirve en un vector (' + c('v_(2..end)') + ') y en uno de cadenas. La parte se opera como cualquier matriz, con sus unidades.', 'A:[1,2,3;4,5,6;7,8,9]\nA_(2..3,1)=', 'A:=[1, 2, 3; 4, 5, 6; 7, 8, 9]\nA_(2..3,1)=[4; 7]', 't'],
       [c('A_(2,:)', 'A_(:,2)'), 'Una fila o una columna entera.', 'A:[1,2;3,4]\nA_(:,2)=', 'A:=[1, 2; 3, 4]\nA_(:,2)=[2; 4]', 't'],
       [c('A^(-1)*b'), 'Resolver el sistema A·x = b.', 'A:[1,1;10,1]\nb:[-25;250]\nx:A^(-1)*b=', 'A:=[1, 1; 10, 1]\nb:=[-25; 250]\nx:=[30.556; -55.556]', 't'],
     ],

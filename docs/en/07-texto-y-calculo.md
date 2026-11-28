@@ -178,6 +178,7 @@ They are written in brackets: the comma separates the elements of a row, the sem
 | `x^T` | Transpose: of a row vector, the column one. | `x:1..3;3`<br>`x^T=` | `x:=[1, 2, 3]`<br>`x^T=[1; 2; 3]` |
 | `x_2`, `x_i`, `x_(i+1)` | Element of a vector, counting from 1. | `x:1..3;3`<br>`x_2=` | `x:=[1, 2, 3]`<br>`x_2=2` |
 | `A_(i,j)` | Element of a matrix (row, column). | `A:[1,2;3,4]`<br>`A_(2,1)=` | `A:=[1, 2; 3, 4]`<br>`A_(2,1)=3` |
+| `A_(2..3,1)`, `A_(:,1..2)`, `A_(2..end,2)` | A **part** of a matrix: a range of rows and columns (from lowest to highest, starting at 1). `end` is the last one in that direction: `A_(end,1)`. It also works on a vector (`v_(2..end)`) and on a vector of strings. The part is operated like any matrix, with its units. | `A:[1,2,3;4,5,6;7,8,9]`<br>`A_(2..3,1)=` | `A:=[1, 2, 3; 4, 5, 6; 7, 8, 9]`<br>`A_(2..3,1)=[4; 7]` |
 | `A_(2,:)`, `A_(:,2)` | A whole row or column. | `A:[1,2;3,4]`<br>`A_(:,2)=` | `A:=[1, 2; 3, 4]`<br>`A_(:,2)=[2; 4]` |
 | `A^(-1)*b` | Solve the system A·x = b. | `A:[1,1;10,1]`<br>`b:[-25;250]`<br>`x:A^(-1)*b=` | `A:=[1, 1; 10, 1]`<br>`b:=[-25; 250]`<br>`x:=[30.556; -55.556]` |
 
