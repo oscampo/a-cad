@@ -1152,6 +1152,7 @@ const SF = {
   strsplit: { n: [1, 2], f: (A) => { const t = strArg(A[0], 'strsplit(s, separador)'), d = A[1] ? strArg(A[1], 'strsplit(s, separador)', 'el separador') : null; return { strs: d ? t.split(d) : t.trim().split(/\s+/) }; } },
   strjoin: { n: [1, 2], f: (A) => { if (!A[0].strs && typeof A[0].str !== 'string') throw new Error('strjoin(v, separador): v es un vector de cadenas'); const d = A[1] ? strArg(A[1], 'strjoin(v, separador)', 'el separador') : ' '; return { str: (A[0].strs || [A[0].str]).join(d) }; } },
   strlength: { n: [1, 1], f: (A) => (A[0].strs ? { m: [A[0].strs.map((x) => [...x].length)] } : { v: [...strArg(A[0], 'strlength(s)')].length, r: false }) },
+  importData: { n: [1, 9], f: (A) => importData(A) }, // lee un archivo de la carpeta Datos como una matriz o un vector (ver importData mas abajo)
   contains: { n: [2, 2], f: (A) => bool(strArg(A[0], 'contains(s, patrón)').includes(strArg(A[1], 'contains(s, patrón)', 'el patrón'))) },
   startsWith: { n: [2, 2], f: (A) => bool(strArg(A[0], 'startsWith(s, patrón)').startsWith(strArg(A[1], 'startsWith(s, patrón)', 'el patrón'))) },
   endsWith: { n: [2, 2], f: (A) => bool(strArg(A[0], 'endsWith(s, patrón)').endsWith(strArg(A[1], 'endsWith(s, patrón)', 'el patrón'))) },
@@ -2084,6 +2085,106 @@ function readData(t) {
   if (r.dim) x.d = r.dim;
   return x;
 }
+// importData(nombre; d_dec; d_arg; d_col; r_1; r_2; c_1; c_2; f): lee un archivo de la carpeta Datos (un CSV, un PRN, texto con columnas) como una matriz o un vector.
+//   nombre: el archivo (cadena). d_dec: «,» o «.» (0: el del dibujo). d_arg: «;» o «,» (0: el del dibujo; solo vale para las expresiones). d_col: lo que separa las
+//   columnas (0: espacios; «\t» es el tabulador). r_1, r_2, c_1, c_2: la primera y la ultima fila y columna que se leen (desde 1; 0: desde la primera o hasta la ultima).
+//   f: 0 numeros; 1 expresiones («"texto"», «$matematicas$», una cuenta); 2 mixto (un numero se lee como numero, «"texto"» y «$…$» como en 1, y otro texto va tal cual).
+// Las celdas con comillas o entre «$» no se parten por el delimitador. Las expresiones se evaluan solas (sin las variables del dibujo). Si hay texto, el resultado solo
+// puede ser una columna o una fila (A-CAD no tiene matrices de texto).
+const NUM_CELL = /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/;
+function splitCells(line, delim) {
+  const ws = delim === ' ', cells = [];
+  let cur = '', q = false, m = false, i = 0;
+  while (i < line.length) {
+    const ch = line[i];
+    if (q) { cur += ch; if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } i++; continue; }
+    if (m) { cur += ch; if (ch === '$') m = false; i++; continue; }
+    if (ch === '"') { q = true; cur += ch; i++; continue; }
+    if (ch === '$') { m = true; cur += ch; i++; continue; }
+    if (ws ? /\s/.test(ch) : line.startsWith(delim, i)) {
+      if (ws) { if (cur !== '') { cells.push(cur); cur = ''; } i++; } else { cells.push(cur); cur = ''; i += delim.length; }
+      continue;
+    }
+    cur += ch; i++;
+  }
+  if (!ws || cur !== '') cells.push(cur);
+  return cells;
+}
+function importData(A) {
+  const FN = 'importData(nombre; d_dec; d_arg; d_col; r_1; r_2; c_1; c_2; f)';
+  const name = dataName(strArg(A[0], FN, 'el nombre del archivo'));
+  const text = dataRead(name);
+  if (text === null) throw new Error(`importData: no hay datos «${name}» (se agregan en Archivo → Datos)`);
+  const zero = (a) => a === undefined || (!isS(a) && !isM(a) && a.v === 0);
+  const sArg = (a, what, ok) => { if (zero(a)) return null; const s = strArg(a, FN, what); if (ok && !ok.includes(s)) throw new Error(`importData: ${what} es ${ok.map((x) => '«' + x + '»').join(' o ')} (o 0)`); return s; };
+  const nArg = (a, what) => { if (a === undefined) return 0; if (isS(a) || isM(a) || !Number.isInteger(a.v) || a.v < 0) throw new Error(`importData: ${what} es un entero (0 o más)`); return a.v; };
+  const dec = sArg(A[1], 'd_dec', [',', '.']) ?? (decimalMode() === ',' ? ',' : '.');
+  const argc = sArg(A[2], 'd_arg', [';', ',']);
+  let delim = sArg(A[3], 'd_col') ?? ' ';
+  if (delim === '\\t') delim = '\t';
+  if (argc && argc === dec) throw new Error(`importData: «${argc}» no puede ser a la vez el separador decimal y el de argumentos`);
+  const [r1, r2, c1, c2] = [nArg(A[4], 'r_1'), nArg(A[5], 'r_2'), nArg(A[6], 'c_1'), nArg(A[7], 'c_2')];
+  const f = A[8] === undefined ? 0 : A[8].v;
+  if (isS(A[8]) || ![0, 1, 2].includes(f)) throw new Error('importData: f es 0 (números), 1 (expresiones) o 2 (mixto)');
+  const lines = String(text).split(/\r\n|\n|\r/).filter((l) => l.trim() !== '');
+  const R = lines.length;
+  if (!R) throw new Error(`importData: «${name}» está vacío`);
+  const ra = r1 || 1, rb = r2 || R;
+  if (ra > R || rb > R || ra > rb) throw new Error(`importData: las filas ${ra} a ${rb} no caben en «${name}» (tiene ${R})`);
+  const fileRows = lines.slice(ra - 1, rb).map((l) => splitCells(l, delim));
+  const C = Math.max(...fileRows.map((r) => r.length)), ca = c1 || 1, cb = c2 || C;
+  if (ca > C || cb > C || ca > cb) throw new Error(`importData: las columnas ${ca} a ${cb} no caben en «${name}» (tiene ${C})`);
+  const where = (i, j) => `«${name}» fila ${ra + i}, columna ${ca + j}`;
+  const cell = (raw, i, j) => {
+    const t = raw.trim();
+    try {
+      if (f === 0) {
+        let u = t.replace(/−/g, '-');
+        if (dec === ',') { if ((u.match(/,/g) || []).length > 1) u = ''; u = u.replace(',', '.'); }
+        if (!NUM_CELL.test(u)) throw new Error(t === '' ? 'la celda está vacía' : `«${t}» no es un número`);
+        return { v: Number(u) };
+      }
+      if (f === 2 && t !== '') {
+        let u = t.replace(/−/g, '-');
+        if (dec === ',' && (u.match(/,/g) || []).length === 1) u = u.replace(',', '.');
+        if (NUM_CELL.test(u)) return { v: Number(u) };
+        if (!/^"[\s\S]*"$/.test(t) && !/^\$[\s\S]*\$$/.test(t)) return { s: t }; // otro texto: tal cual
+      }
+      if (t === '') { if (f === 2) return { s: '' }; throw new Error('la celda está vacía'); }
+      if (/^"[\s\S]*"$/.test(t) && t.length >= 2) return { s: t.slice(1, -1).replace(/""/g, '"') };
+      const body = /^\$[\s\S]*\$$/.test(t) && t.length >= 2 ? t.slice(1, -1) : t;
+      const prev = decimalMode();
+      setDecimal(dec);
+      let r;
+      try { r = evalExpr(body, { allowCplx: true, allowMat: true }); } finally { setDecimal(prev); }
+      if (r.str !== undefined) return { s: r.str };
+      if (r.strs || r.mat) throw new Error('una celda no puede ser un vector ni una matriz');
+      if (r.im) throw new Error('una celda no puede ser un número complejo');
+      return { v: r.value, ...(r.dim ? { d: r.dim } : {}), ...(r.rad ? { r: true } : {}) };
+    } catch (e) { throw new Error(`importData: ${where(i, j)}: ${e.message}`); }
+  };
+  const cells = fileRows.map((row, i) => {
+    const out = [];
+    for (let j = 0; j < cb - ca + 1; j++) {
+      if (ca - 1 + j >= row.length) { if (f === 2) { out.push({ s: '' }); continue; } throw new Error(`importData: ${where(i, j)}: la fila no tiene esa columna`); }
+      out.push(cell(row[ca - 1 + j], i, j));
+    }
+    return out;
+  });
+  const all = cells.flat(), nr = cells.length, nc = cells[0].length;
+  if (!all.some((x) => x.s !== undefined)) { // todo numeros: una matriz (un vector si es una fila o una columna; un numero si es una celda)
+    const dims = all.filter((x) => x.d && x.d.some((e) => e));
+    if (dims.length && (dims.length !== all.length || dims.some((x) => !sameDim(x.d, dims[0].d)))) throw new Error('importData: las celdas mezclan magnitudes con unidades distintas (o algunas no tienen unidad)');
+    const d = dims.length ? { d: dims[0].d } : {}, rad = all.every((x) => x.r) ? { r: true } : { r: false };
+    if (nr === 1 && nc === 1) return { v: all[0].v, ...rad, ...d };
+    return { m: cells.map((r) => r.map((x) => x.v)), ...d };
+  }
+  if (nr !== 1 && nc !== 1) throw new Error('importData: A-CAD no tiene matrices de texto: lee una sola columna o una sola fila (c_1 = c_2, o r_1 = r_2), o usa f = 0 para números');
+  if (all.some((x) => x.v !== undefined && x.d && x.d.some((e) => e))) throw new Error('importData: no se mezclan textos con magnitudes con unidades en un vector');
+  const texts = all.map((x) => (x.s !== undefined ? x.s : numText({ v: x.v, r: false })));
+  return texts.length === 1 ? { str: texts[0] } : { strs: texts };
+}
+
 const close = (x, y) => Math.abs(x - y) <= 1e-9 * Math.max(1, Math.abs(x), Math.abs(y));
 function sameValue(b, a) {
   if (isS(a)) return JSON.stringify(a.str ?? a.strs) === JSON.stringify(b.str ?? b.strs);
