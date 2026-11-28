@@ -1351,7 +1351,18 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   const addU = (a, b, s) => { if (!sameDim(a.d, b.d)) { if (zero0(b)) return a.d; if (zero0(a)) return b.d; throw new Error(`No se puede ${s > 0 ? 'sumar' : 'restar'} ${unitMsg(a.d)} y ${unitMsg(b.d)}`); } return a.d || b.d; };
   // 0 (sin unidades) por cualquier cosa es el 0 que vale con cualquier unidad: «P*0» o el 0 de una rama de if() no se vuelve «0 N» y se
   // puede sumar a un momento. Salvo con una unidad escrita (asUnit): «0'mm» y «0*'m» siguen siendo 0 mm y 0 m.
-  const mulU = (a, b, s, v, asUnit = false) => (!asUnit && (zero0(a) || (s > 0 && zero0(b))) ? { v: 0, r: false } : { v, r: a.r || b.r, d: mulDim(a.d, b.d, s) });
+  // Una temperatura absoluta en °C o °F (a.ab, de «30'°C») no se multiplica, divide ni eleva: ¿el cero de la escala o el tamaño del grado? Se pide explícito.
+  const noAbs = (a, b, o) => { if (a.ab || b?.ab) throw new Error(`«${o}» no vale con una temperatura en °C o °F (es absoluta, con su cero): para el número en °C usa (T-0'°C)/1'K, y para una diferencia o una escala sin cero, K o °R`); };
+  const mulU = (a, b, s, v, asUnit = false) => (!asUnit && (zero0(a) || (s > 0 && zero0(b))) ? { v: 0, r: false } : { v, r: a.r || b.r, d: mulDim(a.d, b.d, s), ...(a.dl || b.dl ? { dl: 1 } : {}) });
+  // Temperaturas: ab = escala con cero (°C, °F); dl = una diferencia (el resultado de restar dos temperaturas): se muestra sin el desplazamiento.
+  const isTemp = (d) => !!d && sameDim(d, [0, 0, 0, 0, 1, 0, 0]);
+  const tempFlags = (a, b, s) => {
+    if (!isTemp(a.d) || !isTemp(b.d)) return {};
+    if (s > 0) return a.dl && b.dl ? { dl: 1 } : (a.ab || b.ab ? { ab: 1 } : {});
+    if (a.dl) return { dl: 1 };
+    if (b.dl) return a.ab ? { ab: 1 } : {};
+    return { dl: 1 }; // dos temperaturas absolutas: su resta es una diferencia
+  };
 
   // comparacion (la de menor precedencia): da 1 si se cumple y 0 si no. «==» y «!=» toleran el error de redondeo.
   const ASG_MSG = () => `«:» asigna un valor solo dentro de seq(), for() o while(), p. ej. seq(s:0${argText()} s:s+1${argText()} s)`;
@@ -1613,7 +1624,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     closeCall('wfile', SIG);
     if (a?.fn || (!isS(a) && !isM(a) && !Number.isFinite(a?.v))) throw new Error('wfile guarda un número, un vector, una matriz o una cadena');
     const big = isM(a) ? Math.max(...a.m.flat().map(Math.abs), ...(a.mi ? a.mi.flat().map(Math.abs) : [])) : Math.hypot(a.v || 0, a.im || 0);
-    const units = [single?.pu && single.pf && !single.dv && sameDim(single.d, a.d) && !userUnitNames().includes(single.pu) ? { name: single.pu, f: single.pf } : null, autoUnit(big, a.d)];
+    const units = [single?.pu && single.pf && !single.dv && sameDim(single.d, a.d) && !userUnitNames().includes(single.pu) ? { name: single.pu, f: single.pf, o: a.dl ? 0 : single.po || 0 } : null, autoUnit(big, a.d)];
     dataWrite(name, valueText(a, units, (t) => sameValue(readData(t), a)));
     return { v: 1, r: false };
   }
@@ -1787,8 +1798,9 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       const o = toks[p++].v, s = o === '+' ? 1 : -1; let b = term();
       if (a.cells || b.cells) { a = nc(a, o); b = nc(b, o); }
       if (isS(a) || isS(b)) { a = strAdd(a, b, s); continue; } // cadenas: «+» las une
+      if (a.ab && b.ab && s > 0) throw new Error("No se suman dos temperaturas en °C o °F (son absolutas, con su cero): una diferencia se resta, y para sumar usa K");
       if (isC(a) || isC(b)) { const d = addU(a, b, s); a = isM(a) || isM(b) ? wd(caddM(a, b, s), d) : cval(cadd(cpair(a), cscale(cpair(b), s)), a.r || b.r, d); continue; }
-      a = isM(a) || isM(b) ? wd(addM(a, b, s), addU(a, b, s)) : { v: a.v + s * b.v, r: a.r || b.r, d: addU(a, b, s) };
+      a = isM(a) || isM(b) ? wd(addM(a, b, s), addU(a, b, s)) : { v: a.v + s * b.v, r: a.r || b.r, d: addU(a, b, s), ...tempFlags(a, b, s) };
     }
     return a;
   }
@@ -1809,12 +1821,14 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
         const o = toks[p++].v; let b = unary();
         if (a.cells || b.cells) { a = nc(a, o); b = nc(b, o); }
         if (isS(a) || isS(b)) throw new Error('Una cadena no se multiplica ni se divide');
+        noAbs(a, b, o);
         if (isC(a) || isC(b)) { a = cMulDiv(a, b, o); continue; }
         if (!isM(a) && !isM(b)) { if (o === './' && b.v === 0) throw rt('División entre cero'); a = mulU(a, b, o === '.*' ? 1 : -1, o === '.*' ? a.v * b.v : a.v / b.v); } else a = wd(o === '.*' ? elementwise(a, b, (x, y) => x * y, 'multiplicar elemento a elemento') : elementwise(a, b, divEl, 'dividir elemento a elemento'), mulDim(a.d, b.d, o === '.*' ? 1 : -1));
       } else if (isOp('*') || isOp('/')) {
         const ot = toks[p++], o = ot.v, asUnit = peek()?.t === 'unit'; let b = unary();
         if (a.cells || b.cells) { a = nc(a, o); b = nc(b, o); }
         if (isS(a) || isS(b)) throw new Error('Una cadena no se multiplica ni se divide');
+        noAbs(a, b, o);
         if (isC(a) || isC(b)) { a = cMulDiv(a, b, o); continue; }
         if (o === '*' && (ot.x || ot.d)) { // «×» y «·» tecleados: ver dotTimes
           const kind = ot.x ? 'x' : 'd', bv = isVec(b), av = isVec(a);
@@ -1832,6 +1846,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
         const asUnit = peek()?.t === 'unit'; let b = unary();
         if (a.cells || b.cells) { a = nc(a, '*'); b = nc(b, '*'); }
         if (isS(a) || isS(b)) throw new Error('Una cadena no se multiplica ni se divide');
+        noAbs(a, b, '*');
         if (isC(a) || isC(b)) { a = cMulDiv(a, b, '*'); continue; }
         a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit);
       } else return a;
@@ -1889,11 +1904,11 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       // un numero con su unidad es UNA cantidad: se une antes que / y * («10'kN/2'm» es 10 kN entre 2 m; antes daba 10 kN/2·m). El
       // exponente que sigue es de la unidad («2'm^2» son 2 m², no (2 m)²).
       const uk = toks[p++];
-      let u = { v: uk.u.f, r: !!uk.u.r, d: uk.u.d };
+      let u = { v: uk.u.f, r: !!uk.u.r, d: uk.u.d, ...(uk.u.o ? { o: uk.u.o } : {}) };
       if (isOp('^') && toks[p + 1]?.t !== 'tr') { p++; const e = unary(); if (isM(e) || isC(e) || isS(e) || e.d) throw new Error('El exponente de una unidad es un número'); u = { v: u.v ** e.v, r: u.r, d: powDim(u.d, e.v) }; }
-      return a.im ? cval([0, a.im * u.v], false, u.d) : wd({ v: a.v * u.v, r: u.r }, u.d);
+      return a.im ? cval([0, a.im * u.v], false, u.d) : wd({ v: a.v * u.v + (u.o || 0), r: u.r, ...(u.o ? { ab: 1 } : {}) }, u.d); // 30'°C: la temperatura 303,15 K (con su cero)
     }
-    if (k.t === 'unit') return { v: k.u.f, r: !!k.u.r, d: k.u.d }; // 'N, 'mm: vale su factor al SI, con su dimension
+    if (k.t === 'unit') return { v: k.u.f, r: !!k.u.r, d: k.u.d, ...(k.u.o ? { ab: 1 } : {}) }; // 'N, 'mm: vale su factor al SI, con su dimension
     if (k.t === 'idx' && vars[k.base]?.gen && !vars[k.base].gen.list) throw new Error(`«${k.base}» no es un spline ni un contorno: no tiene «${k.base}_i» (es ${GEN_TYPE[vars[k.base].gen.k] || 'otra cosa'})`);
     if (k.t === 'idx' && vars[k.base]?.gen?.list) { // s_i (el i-esimo punto de un spline), k1_i (el i-esimo elemento de un grupo de contorno); con .prop, su propiedad (k1_i.len)
       const L = vars[k.base].gen.list, ix = splitIdx(k.src);
@@ -2020,7 +2035,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (x.args) throw new Error(`«${k.v}» es la lista de los valores de más: usa ${k.v}_1, ${k.v}_(k) y nargin`);
       if (x.mat) return wd({ m: x.mat, ...(x.mi ? { mi: x.mi } : {}) }, x.d);
       if (x.vec) return wd({ m: [x.vec] }, x.d);
-      return { v: x.v, ...(x.im ? { im: x.im } : {}), r: !!x.r, d: x.d };
+      return { v: x.v, ...(x.im ? { im: x.im } : {}), r: !!x.r, d: x.d, ...(x.ab ? { ab: 1 } : {}), ...(x.dl ? { dl: 1 } : {}) };
     }
     if (k.t === 'sqrt') { const a = primary(); if (isC(a) || (isM(a) ? a.m.some((r) => r.some((x) => x < 0)) : a.v < 0)) return isM(a) ? wd(cmapM(a, csqrt), powDim(a.d, 0.5)) : cval(csqrt(cpair(a)), a.r, powDim(a.d, 0.5)); if (isM(a)) { if (a.m.some((r) => r.some((x) => x < 0))) throw rt('Raíz de un número negativo'); return wd(mapM(a, Math.sqrt), powDim(a.d, 0.5)); } if (a.v < 0) throw rt('Raíz de un número negativo'); return { v: Math.sqrt(a.v), r: a.r, d: powDim(a.d, 0.5) }; }
     if (k.t === 'op' && k.v === '[') {
@@ -2031,7 +2046,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       const raw = [[]]; let mixed = false; // lo leido por filas; mixed: hay una cadena o una matriz con celdas (texto y numeros mezclados)
       for (;;) {
         const s0 = p; let a = cmp();
-        if (!isS(a) && !a.cells && !a.m && p === s0 + 1 && toks[s0].t === 'var') { const x = vars?.[toks[s0].v]; if (x?.pu && x.pf && !x.dv) a = { ...a, pu: x.pu, pf: x.pf }; } // la celda recuerda en que unidad estaba la variable (30 K sigue siendo K)
+        if (!isS(a) && !a.cells && !a.m && p === s0 + 1 && toks[s0].t === 'var') { const x = vars?.[toks[s0].v]; if (x?.pu && x.pf && !x.dv) a = { ...a, pu: x.pu, pf: x.pf, ...(x.po ? { po: x.po } : {}) }; } // la celda recuerda en que unidad estaba la variable (30 K sigue siendo K)
         if (isS(a) || a.cells) mixed = true;
         raw.at(-1).push(a);
         const s = peek();
@@ -2136,7 +2151,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     return { mat: res.m, ...(res.mi ? { mi: res.mi } : {}), value: NaN, rad: false, dim: res.d };
   }
   if (!Number.isFinite(res.v) || (res.im !== undefined && !Number.isFinite(res.im))) throw new Error('El resultado no es un número');
-  return { value: res.v, ...(res.im ? { im: res.im } : {}), rad: res.r, dim: res.d };
+  return { value: res.v, ...(res.im ? { im: res.im } : {}), rad: res.r, dim: res.d, ...(res.dl ? { dl: 1 } : {}) };
 }
 
 // ¿Lo que sigue es el nombre de archivo de rfile(…) (justo tras «rfile(») o de wfile(valor, …) (justo tras su primera coma)?

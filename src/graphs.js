@@ -130,7 +130,7 @@ function* graphGen(doc, g, solveFn) {
   const unitOf = (side, dim, v) => {
     if (units.has(side)) return units.get(side);
     let u = null;
-    if (dim) for (const nm of [side, ...exprRefs(side)]) { const x = base[nm]; if (x?.pu && !x.dv && sameDim(x.d, dim)) { u = { name: x.pu, f: x.pf }; break; } }
+    if (dim) for (const nm of [side, ...exprRefs(side)]) { const x = base[nm]; if (x?.pu && !x.dv && sameDim(x.d, dim)) { u = { name: x.pu, f: x.pf, o: x.po || 0 }; break; } }
     if (dim && !u) u = autoUnit(v, dim);
     units.set(side, u); if (dim) udim.set(side, dim);
     return u;
@@ -148,7 +148,7 @@ function* graphGen(doc, g, solveFn) {
       if (m.length === 1) v = m[0]; else if (m.every((row) => row.length === 1)) v = m.map((row) => row[0]);
       else throw new Error('«' + side + '»: da una matriz, no un vector');
     }
-    if (v && d) { const u = unitOf(side, d, Math.max(...v.map(Math.abs))); v = v.map((x) => x / u.f); }
+    if (v && d) { const u = unitOf(side, d, Math.max(...v.map(Math.abs))); v = v.map((x) => (x - (u.o || 0)) / u.f); }
     vecs.set(side, v);
     return v;
   };
@@ -178,7 +178,9 @@ function* graphGen(doc, g, solveFn) {
     let v, d;
     if (bareRe.test(src) && src in env) { const x = env[src]; if (x.str !== undefined || x.strs) throw new Error(`«${src}» es una cadena: una gráfica dibuja números`); if (x.im) throw new Error(`«${src}» es un número complejo: grafica abs(${src}), angle(${src}), real(${src}) o imag(${src})`); if (x.r && dimless(x.d)) return x.v * deg; v = x.v; d = x.d; }
     else { const r = evalExpr(src, { vars: env, radians: rad }); if (r.rad && dimless(r.dim)) return r.value * deg; v = r.value; d = r.dim; }
-    return d && Number.isFinite(v) ? v / unitOf(src, d, v).f : v;
+    if (!(d && Number.isFinite(v))) return v;
+    const u = unitOf(src, d, v);
+    return (v - (u.o || 0)) / u.f;
   };
   if (needSim) {
     let sim = null;

@@ -636,3 +636,5 @@ Para apilar (con «{0}») las filas deben tener el mismo número de columnas: un
 Índice fuera de rango: «{0}» tiene {1} columnas y pides la {2}	Index out of range: "{0}" has {1} columns and you ask for number {2}
 Índice fuera de rango: «{0}» tiene {1} elementos y pides la {2}	Index out of range: "{0}" has {1} elements and you ask for number {2}
 El resultado es una matriz con texto: aquí hace falta un número	The result is a matrix with text: a number is needed here
+«{0}» no vale con una temperatura en °C o °F (es absoluta, con su cero): para el número en °C usa (T-0'°C)/1'K, y para una diferencia o una escala sin cero, K o °R	"{0}" does not work with a temperature in °C or °F (it is absolute, with its zero): for the number in °C use (T-0'°C)/1'K, and for a difference or a scale without zero, K or °R
+No se suman dos temperaturas en °C o °F (son absolutas, con su cero): una diferencia se resta, y para sumar usa K	Two temperatures in °C or °F are not added (they are absolute, with their zero): a difference is subtracted, and to add use K

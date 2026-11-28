@@ -354,7 +354,7 @@ export const textDefs = (doc) => readingEvents(doc).filter((e) => e.kind === 'de
 // para todos sus elementos («v:[1, 2, 3]'mm»).
 // El valor que guarda una variable de texto a partir del resultado de evalDef
 function valOf(r) {
-  const u = { ...(r.dim ? { d: r.dim } : {}), ...(r.pu ? { pu: r.pu, pf: r.pf } : {}) };
+  const u = { ...(r.dim ? { d: r.dim } : {}), ...(r.pu ? { pu: r.pu, pf: r.pf, ...(r.po ? { po: r.po } : {}) } : {}), ...(r.ab ? { ab: 1 } : {}), ...(r.dl ? { dl: 1 } : {}) };
   return r.str !== undefined ? { str: r.str, ...(r.gen ? { gen: r.gen } : {}) } : r.strs ? { strs: r.strs } : r.cells ? { cells: r.cells } : r.mi ? { mat: r.mat, mi: r.mi, r: false, ...u } : r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false, ...u } : { mat: r.mat, r: false, ...u }) : { v: r.value, r: r.rad, ...u, ...(r.im ? { im: r.im } : {}) }; // un complejo guarda su parte imaginaria (una matriz compleja, siempre como mat + mi) // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
 }
 export function evalDef(expr, unit, vars) {
@@ -366,7 +366,7 @@ export function evalDef(expr, unit, vars) {
   try { r = chk(all(expr)); } catch (e) {
     try { return finish(all(expr + "'" + unit)); } catch (e2) { throw e; } // «L1+3'mm»: 3 sin unidades no se suma a L1, 3 mm si
   }
-  function finish(w) { return w.dim && sameDim(w.dim, u.d) ? { ...w, pu: unit, pf: u.f } : w; }
+  function finish(w) { return w.dim && sameDim(w.dim, u.d) ? { ...w, pu: unit, pf: u.f, ...(u.o ? { po: u.o, ab: 1 } : {}) } : w; }
   const fit = withUnit(r, unit, u);
   if (fit) return fit;
   let w = null;
@@ -377,8 +377,9 @@ export function evalDef(expr, unit, vars) {
 // La cola «'unidad» sobre un valor ya calculado: sin unidades, vale el valor en esa unidad; con la misma magnitud, solo dice en que unidad
 // mostrarlo; si no cuadra, null.
 function withUnit(r, unit, u) {
-  if (!r.dim) return r.mat ? { ...r, mat: r.mat.map((row) => row.map((x) => x * u.f)), ...(r.mi ? { mi: r.mi.map((row) => row.map((x) => x * u.f)) } : {}), dim: u.d, pu: unit, pf: u.f } : { value: r.value * u.f, ...(r.im ? { im: r.im * u.f } : {}), rad: r.rad || !!u.r, dim: u.d, pu: unit, pf: u.f };
-  return sameDim(r.dim, u.d) ? { ...r, pu: unit, pf: u.f } : null;
+  const po = u.o ? { po: u.o, ab: 1 } : {}; // °C y °F: el cero de la escala (un valor sin unidades escrito en °C es esa temperatura absoluta)
+  if (!r.dim) return r.mat ? { ...r, mat: r.mat.map((row) => row.map((x) => x * u.f + (u.o || 0))), ...(r.mi ? { mi: r.mi.map((row) => row.map((x) => x * u.f)) } : {}), dim: u.d, pu: unit, pf: u.f, ...po } : { value: r.value * u.f + (u.o || 0), ...(r.im ? { im: r.im * u.f } : {}), rad: r.rad || !!u.r, dim: u.d, pu: unit, pf: u.f, ...po };
+  return sameDim(r.dim, u.d) ? { ...r, pu: unit, pf: u.f, ...po } : null;
 }
 // Un rango, con unidades si las llevan sus extremos («0'mm..10'mm;5») o la cola («0..10;5'mm»).
 export function evalRangeDef(rg, unit, vars) {

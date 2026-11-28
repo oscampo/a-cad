@@ -17,15 +17,31 @@ const E = (src) => evalExpr(src, { allowMat: true, allowCplx: true });
 const near = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) <= e * Math.max(1, Math.abs(b)), `${a} != ${b}`);
 const K = [0, 0, 0, 0, 1, 0, 0];
 
+t('en un texto: 30 K en °C es -243.15, 30 °C en K es 303.15; restar da una diferencia que no lleva el cero; la función de fatiga con °C sigue dando lo mismo', () => {
+  const d = newDoc();
+  const L = ["T:30'K", "T='°C", "U:30'°C", "U='K", "V:20'°C", 'U-V=', "W:100'°F", "W='°C", "Ct(T):if(T <= 450'°C, 1, if(T <= 550'°C, 1 - 0.0058*((T-0'°C)/1'K - 450), \"no definido\"))", "Ct(500'°C)=", "Ct(773.15'K)=", "Cv(25'°C):25'°C/1'°C", "Cv(25'°C)="];
+  const T = L.map((x, i) => d.texts[addText(d, addPoint(d, 0, -i * 40), '$$' + x + '$$', {})]);
+  const show = (q) => shownText(d, q).text.replace(/[-]/g, '');
+  assert.equal(show(T[1]), '$$T=-243.15 " °C"$$'); assert.equal(show(T[3]), '$$U=303.15 " K"$$'); assert.equal(show(T[5]), '$$U-V=10 " °C"$$');
+  assert.equal(show(T[7]), '$$W=37.778 " °C"$$'); assert.equal(show(T[9]), '$$Ct(500 " °C")=0.71$$'); assert.equal(show(T[10]), '$$Ct(773.15 " K")=0.71$$');
+  assert.ok(show(T[12]).endsWith('⚠$$')); // T/1'°C con una temperatura en °C: pide la forma explicita
+});
+
 t('una temperatura sin unidad pedida se muestra en la absoluta del sistema: K en SI, °R en anglosajon', () => {
   const K1 = E("1'K").dim;
   try { setUnitSystem('SI'); assert.equal(autoUnit(30, K1).name, 'K'); setUnitSystem('US'); assert.equal(autoUnit(30, K1).name, '°R'); } finally { setUnitSystem('SI'); }
 });
 
-t('temperatura sin desplazamiento: °C es un kelvin de tamaño, °F y °R 5/9', () => {
-  const c = E("500'°C"); near(c.value, 500); assert.deepEqual(c.dim, K);
-  near(E("500'°C/1'°C").value, 500); near(E("9'°F/1'K").value, 5); near(E("9'degR/1'degC").value, 5);
-  near(E("500'°C/1'°C - 450").value, 50); // T/1'°C quita la unidad (antes daba K²)
+t('temperatura: °C y °F son absolutas con su cero (500 °C = 773,15 K); K y °R no; el número en °C se saca explícito', () => {
+  const c = E("500'°C"); near(c.value, 773.15); assert.deepEqual(c.dim, K);
+  near(E("0'°C").value, 273.15); near(E("32'°F").value, 273.15); near(E("491.67'°R").value, 273.15); near(E("30'K").value, 30);
+  near(E("500'°C-450'°C").value, 50); near(E("500'°C").value - E("450'°C").value, 50); // restar dos absolutas: una diferencia, en K
+  near(E("(500'°C-0'°C)/1'K").value, 500); near(E("1 - 0.0058*((500'°C-0'°C)/1'K - 450)").value, 1 - 0.0058 * 50); // el coeficiente de temperatura de fatiga
+  assert.equal(E("500'°C<=550'°C").value, 1); assert.equal(E("600'°C<=550'°C").value, 0);
+  near(E("9'W/(1'm^2*1'K)").value, 9); near(E("10'W").value, 10); // los demás casos sin cambios
+  assert.throws(() => E("500'°C/1'°C"), /no vale con una temperatura en °C o °F/); assert.throws(() => E("2*30'°C"), /es absoluta, con su cero/);
+  assert.throws(() => E("30'°C+10'°C"), /No se suman dos temperaturas/);
+  near(E("30'°C+10'K").value, 313.15); // absoluta + diferencia = absoluta
 });
 
 t('un número con su unidad es una sola cantidad («10\'kN/2\'m» es 5 kN/m)', () => {

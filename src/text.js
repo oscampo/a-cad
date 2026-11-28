@@ -45,9 +45,9 @@ const fmtQ = (x) => (Math.abs(x) >= sciFrom() && Number.isFinite(x) ? sciText(x)
 // La magnitud de un vector (su texto, t.vecOf) es su etiqueta: ahi si manda la unidad de su cota («30 kN»), como en la etiqueta de una cota.
 let KEEP_DIM_UNIT = false;
 function pickUnit(dim, env, src, want, v) {
-  if (want) { const u = parseUnit(want); return sameDim(dim, u.d) ? { name: want, f: u.f } : null; }
+  if (want) { const u = parseUnit(want); return sameDim(dim, u.d) ? { name: want, f: u.f, o: u.o || 0 } : null; }
   const refs = [normName(String(src).trim()), ...exprRefs(src, (n) => !!env && n in env)];
-  for (const n of refs) { const x = env?.[n]; if (x?.pu && (!x.dv || KEEP_DIM_UNIT) && sameDim(x.d, dim)) return { name: x.pu, f: x.pf }; }
+  for (const n of refs) { const x = env?.[n]; if (x?.pu && (!x.dv || KEEP_DIM_UNIT) && sameDim(x.d, dim)) return { name: x.pu, f: x.pf, o: x.po || 0 }; }
   for (const n of refs) { const u = prefUnit(env?.[n], dim); if (u) return u; } // una celda de la matriz que viene en esa unidad // la de una cota no: manda el sistema de unidades
   return autoUnit(v, dim);
 }
@@ -70,18 +70,19 @@ const showStr = (r, math) => { const q = (x) => '“' + x + '”', t = r.cells ?
 // Una formula con cadenas literales: lo de afuera pasa por f (unidades, subindices); cada cadena se dibuja como texto, sin tocar su interior («"it's"» no tiene segundos)
 const outStr = (seg, f) => { let out = '', at = 0; for (const m of seg.matchAll(STR_RE)) { out += f(seg.slice(at, m.index)) + asText('“' + m[0].slice(1, -1).replace(/""/g, '"') + '”'); at = m.index + m[0].length; } return out + f(seg.slice(at)); };
 const parC = (s) => (/[+-]/.test(s.slice(1)) ? '(' + s + ')' : s); // «(3+4j) Ω»
+const off = (r, u) => (r.dl ? 0 : u.o || 0); // una diferencia de temperaturas (r.dl) se muestra sin el cero de la escala
 function qty(r, env, src, want, math) {
   if (r.im) { // complejo: las dos partes en la misma unidad (el prefijo, segun el modulo)
     const mag = Math.hypot(r.value, r.im);
-    if (want) { const u = pickUnit(r.dim, env, src, want, mag); return u ? parC(cfmt(r.value / u.f, r.im / u.f, fmtQ)) + tailOf(want, math) : '⚠'; }
+    if (want) { const u = pickUnit(r.dim, env, src, want, mag); return u ? parC(cfmt((r.value - off(r, u)) / u.f, r.im / u.f, fmtQ)) + tailOf(want, math) : '⚠'; }
     if (!r.dim) return cfmt(r.value, r.im, numFmt);
     const u = pickUnit(r.dim, env, src, null, mag);
-    return parC(cfmt(r.value / u.f, r.im / u.f, fmtQ)) + tailOf(u.name, math);
+    return parC(cfmt((r.value - off(r, u)) / u.f, r.im / u.f, fmtQ)) + tailOf(u.name, math);
   }
-  if (want) { const u = pickUnit(r.dim, env, src, want, r.value); return u ? fmtQ(r.value / u.f) + tailOf(want, math) : '⚠'; }
+  if (want) { const u = pickUnit(r.dim, env, src, want, r.value); return u ? fmtQ((r.value - off(r, u)) / u.f) + tailOf(want, math) : '⚠'; }
   if (!r.dim) return fmtPlain(r.value); // 3e-4 no sale como 0; el ruido de redondeo (sin(180)) sale «≈0»
   const u = pickUnit(r.dim, env, src, null, r.value);
-  return fmtQ(r.value / u.f) + tailOf(u.name, math);
+  return fmtQ((r.value - off(r, u)) / u.f) + tailOf(u.name, math);
 }
 // Un vector o una matriz: dentro de una formula entre marcas VB0/VB1 (se dibuja como vector fila, sin comas). Con unidades, todos los
 // elementos en la misma unidad, elegida como en qty (el prefijo automatico, segun el elemento mas grande).
@@ -95,7 +96,7 @@ function matQ(m, dim, env, src, want, math, mi = null) {
   }
   if (!dim) return want ? '⚠' : box(matText(m, fmtPlain));
   const u = pickUnit(dim, env, src, want, Math.max(...m.flat().map(Math.abs)));
-  return u ? box(matText(m.map((r) => r.map((x) => x / u.f)), fmtQ)) + tailOf(want || u.name, math) : '⚠';
+  return u ? box(matText(m.map((r) => r.map((x) => (x - (u.o || 0)) / u.f)), fmtQ)) + tailOf(want || u.name, math) : '⚠';
 }
 export function textValue(doc, t) {
   KEEP_DIM_UNIT = !!t?.vecOf;

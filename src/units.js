@@ -1,8 +1,9 @@
 // Unidades físicas de los cálculos de texto: «F:250'N», «a:F/m='km/h», «L:2'm+30'cm».
 // Cada cantidad lleva su valor en unidades del SI y su dimensión, un vector de exponentes de las 7 magnitudes base.
 // Tabla propia (no copiada de ningún programa): unidades del SI con sus prefijos, más las usuales de ingeniería.
-// Temperatura: °C, K, °F y °R SIN desplazamiento (como diferencias: 1 °C = 1 K, 1 °F = 5/9 K). Así «T/1'°C» da el número escrito en °C y
-// «T ≤ 450'°C» compara bien, pero una temperatura absoluta no se convierte sola entre escalas (300 K no son 26,85 °C: se suma 273,15 a mano).
+// Temperatura: K y °R son absolutas sin desplazamiento (también sirven para una diferencia: 1 K, 1 °R = 5/9 K). °C y °F llevan desplazamiento (o: lo
+// que vale su cero en K): «30'°C» es la temperatura 303,15 K y «30'K» en °C es -243,15. Solo cuando la unidad es esa sola («'°C», «='°C») el
+// desplazamiento cuenta; dentro de una unidad compuesta («W/(m²·°C)», «1/°C») °C y °F son el tamaño del grado (una diferencia).
 
 export const BASE = ['m', 'kg', 's', 'A', 'K', 'mol', 'cd'];
 const D = (m = 0, kg = 0, s = 0, A = 0, K = 0, mol = 0, cd = 0) => [m, kg, s, A, K, mol, cd];
@@ -24,7 +25,7 @@ const U = {
   lb: { f: 0.45359237, d: D(0, 1) }, oz: { f: 0.028349523125, d: D(0, 1) }, in: { f: 0.0254, d: D(1) }, ft: { f: 0.3048, d: D(1) },
   yd: { f: 0.9144, d: D(1) }, mi: { f: 1609.344, d: D(1) }, cal: { f: 4.184, d: D(2, 1, -2), p: 1 }, Wh: { f: 3600, d: D(2, 1, -2), p: 1 },
   hp: { f: 745.69987158227, d: D(2, 1, -3) }, gal: { f: 0.003785411784, d: D(3) },
-  '°C': { f: 1, d: D(0, 0, 0, 0, 1) }, degC: { f: 1, d: D(0, 0, 0, 0, 1) }, '°F': { f: 5 / 9, d: D(0, 0, 0, 0, 1) }, degF: { f: 5 / 9, d: D(0, 0, 0, 0, 1) },
+  '°C': { f: 1, d: D(0, 0, 0, 0, 1), o: 273.15 }, degC: { f: 1, d: D(0, 0, 0, 0, 1), o: 273.15 }, '°F': { f: 5 / 9, d: D(0, 0, 0, 0, 1), o: 459.67 * 5 / 9 }, degF: { f: 5 / 9, d: D(0, 0, 0, 0, 1), o: 459.67 * 5 / 9 },
   '°R': { f: 5 / 9, d: D(0, 0, 0, 0, 1) }, degR: { f: 5 / 9, d: D(0, 0, 0, 0, 1) },
   deg: { f: DEG, d: D(), r: 1 }, '°': { f: DEG, d: D(), r: 1 }, rad: { f: 1, d: D(), r: 1 }, '%': { f: 0.01, d: D() },
 };
@@ -84,7 +85,7 @@ export function parseUnit(src) {
     if (/^\d/.test(m[0])) return { f: Number(m[0]), d: undefined };
     const u = unitByName(m[0]);
     if (!u) fail(`No conozco la unidad «${m[0]}»`);
-    return { f: u.f, d: norm(u.d), r: u.r };
+    return { f: u.f, d: norm(u.d), r: u.r, ...(u.o ? { o: u.o } : {}) };
   }
   function pow() {
     const a = atom();

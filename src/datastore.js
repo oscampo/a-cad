@@ -50,13 +50,13 @@ const baseUnit = (d) => ({ name: d.map((e, i) => (e ? BASE_U[i] + (e !== 1 ? '^'
 export function valueText(a, units, check) {
   if (typeof a?.str === 'string') return '"' + a.str.replace(/"/g, '""') + '"';
   if (a?.strs) return '[' + a.strs.map((s) => '"' + s.replace(/"/g, '""') + '"').join(', ') + ']';
-  const body = (f) => {
-    if (a.m) { const rows = a.m.map((r, i) => r.map((x, q) => (a.mi ? cplxText(x / f, a.mi[i][q] / f) : numText(x / f))).join(', ')); return '[' + rows.join('; ') + ']'; }
-    const s = cplxText(a.v / f, (a.im || 0) / f);
+  const body = (f, o = 0) => { // o: el cero de la escala (°C, °F)
+    if (a.m) { const rows = a.m.map((r, i) => r.map((x, q) => (a.mi ? cplxText(x / f, a.mi[i][q] / f) : numText((x - o) / f))).join(', ')); return '[' + rows.join('; ') + ']'; }
+    const s = cplxText((a.v - o) / f, (a.im || 0) / f);
     return a.im && a.d ? '(' + s + ')' : s;
   };
   if (!a.d || a.d.every((e) => !e)) return body(1);
   const cands = [...units.filter(Boolean), baseUnit(a.d)];
-  for (const u of cands) { const t = body(u.f) + unitTail(u.name); if (!check || check(t)) return t; }
+  for (const u of cands) { const t = body(u.f, u.o || 0) + unitTail(u.name); if (!check || check(t)) return t; }
   return body(1) + unitTail(baseUnit(a.d).name);
 }
