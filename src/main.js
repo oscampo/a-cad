@@ -188,9 +188,11 @@ const SESSION_SEED = (Date.now() ^ Math.floor(Math.random() * 2 ** 31)) >>> 0;
 let shuffleStep = 0;
 setShuffleSeed(() => rngMix(SESSION_SEED, shuffleStep));
 const usesShuffle = () => Object.values(doc.texts || {}).some((t) => /shuffle/i.test(String(t.text ?? '')));
-const usesWfile = () => Object.values(doc.texts || {}).some((t) => /wfile\s*\(/i.test(String(t.text ?? '')));
+// eval(…) puede ejecutar un wfile o un play que venga en una cadena (una celda de una tabla importada): un texto con eval tambien entra al paso que graba
+const RUNS = /wfile\s*\(|play\s*\(|\beval\s*\(/i;
+const usesWfile = () => Object.values(doc.texts || {}).some((t) => /wfile\s*\(|\beval\s*\(/i.test(String(t.text ?? '')));
 // play("nombre") en un texto o en una funcion de una biblioteca insertada
-const usesPlay = () => Object.values(doc.texts || {}).some((t) => /play\s*\(/i.test(String(t.text ?? '')) || (t.lib?.defs || []).some((d) => /play\s*\(/i.test(String(d.expr ?? ''))));
+const usesPlay = () => Object.values(doc.texts || {}).some((t) => /play\s*\(|\beval\s*\(/i.test(String(t.text ?? '')) || (t.lib?.defs || []).some((d) => /play\s*\(/i.test(String(d.expr ?? ''))));
 function flushData() {
   if (sim || drag || !(usesWfile() || usesPlay())) return;
   if (dataDoc !== doc.texts) { dataDoc = doc.texts; dataToast = false; } // otro dibujo (abierto o deshecho): el aviso vuelve a salir una vez
@@ -200,7 +202,7 @@ function flushData() {
   const st = dataStore();
   dataChanged(); clearDataWrites(); // sin la memoria del calculo: wfile tiene que ejecutarse en este paso (y rng("shuffle") cambia)
   setSoundsActive(true); // play("nombre") solo anota el sonido mientras se calcula este paso
-  try { textVars(doc); for (const t of Object.values(doc.texts)) if (/wfile\s*\(|play\s*\(/i.test(t.text)) shownText(doc, t); } catch { /* los errores ya se muestran en el dibujo */ }
+  try { textVars(doc); for (const t of Object.values(doc.texts)) if (RUNS.test(t.text)) shownText(doc, t); } catch { /* los errores ya se muestran en el dibujo */ }
   const snd = takeSounds(); setSoundsActive(false);
   if (snd.length) playSounds(snd);
   const done = [];
