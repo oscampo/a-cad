@@ -137,4 +137,12 @@ t('una matriz con celdas de distinto tipo: wfile la guarda (cada celda con su un
   }
 });
 
+t('una celda compleja con unidad en una matriz con celdas: wfile la guarda entre parentesis y rfile la devuelve', () => {
+  fresh();
+  const w = page('.', ["$$z:(3+4j)'kΩ$$", '$$C:["a", z; 2, "b"]$$', '$$wfile(C, "cz.txt")=$$']);
+  assert.deepEqual(w.errs, []); assert.equal(w.w['cz.txt'], `["a", (3+4j)'kΩ; 2, "b"]`);
+  const r = page('.', ['$$R:rfile("cz.txt")$$', '$$R_(1,2)=$$', '$$R_(1,2)*2=$$', '$$R_(2,1)=$$']);
+  assert.deepEqual(r.errs, []); assert.equal(r.shown[1], '$$R_(1,2)=(3+4j) " kΩ"$$'); assert.equal(r.shown[2], '$$R_(1,2)*2=(6+8j) " kΩ"$$'); assert.equal(r.shown[3], '$$R_(2,1)=2$$');
+});
+
 console.log(`\n${passed} pruebas de datos pasaron`);

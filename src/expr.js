@@ -2204,8 +2204,8 @@ function readData(t) {
 //   nombre: el archivo (cadena). d_dec: «,» o «.» (0: el del dibujo). d_arg: «;» o «,» (0: el del dibujo; solo vale para las expresiones). d_col: lo que separa las
 //   columnas (0: espacios; «\t» es el tabulador). r_1, r_2, c_1, c_2: la primera y la ultima fila y columna que se leen (desde 1; 0: desde la primera o hasta la ultima).
 //   f: 0 numeros; 1 expresiones («"texto"», «$matematicas$», una cuenta); 2 mixto (un numero se lee como numero, «"texto"» y «$…$» como en 1, y otro texto va tal cual).
-// Las celdas con comillas o entre «$» no se parten por el delimitador. Las expresiones se evaluan solas (sin las variables del dibujo). Si hay texto, el resultado solo
-// puede ser una columna o una fila (A-CAD no tiene matrices de texto).
+// Las celdas con comillas o entre «$» no se parten por el delimitador. Las expresiones se evaluan solas (sin las variables del dibujo). El resultado es el valor mas simple:
+// una matriz numerica, un vector de cadenas o, si hay texto y numeros (o unidades distintas), una matriz con celdas.
 const NUM_CELL = /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/;
 function splitCells(line, delim) {
   const ws = delim === ' ', cells = [];
@@ -2274,8 +2274,7 @@ function importData(A) {
       try { r = evalExpr(body, { allowCplx: true, allowMat: true }); } finally { setDecimal(prev); }
       if (r.str !== undefined) return { s: r.str };
       if (r.strs || r.mat) throw new Error('una celda no puede ser un vector ni una matriz');
-      if (r.im) throw new Error('una celda no puede ser un número complejo');
-      return { v: r.value, ...(r.dim ? { d: r.dim } : {}), ...(r.rad ? { r: true } : {}) };
+      return { v: r.value, ...(r.im ? { im: r.im } : {}), ...(r.dim ? { d: r.dim } : {}), ...(r.rad ? { r: true } : {}) };
     } catch (e) { throw new Error(`importData: ${where(i, j)}: ${e.message}`); }
   };
   const cells = fileRows.map((row, i) => {
@@ -2286,18 +2285,9 @@ function importData(A) {
     }
     return out;
   });
-  const all = cells.flat(), nr = cells.length, nc = cells[0].length;
-  if (!all.some((x) => x.s !== undefined)) { // todo numeros: una matriz (un vector si es una fila o una columna; un numero si es una celda)
-    const dims = all.filter((x) => x.d && x.d.some((e) => e));
-    if (dims.length && (dims.length !== all.length || dims.some((x) => !sameDim(x.d, dims[0].d)))) throw new Error('importData: las celdas mezclan magnitudes con unidades distintas (o algunas no tienen unidad)');
-    const d = dims.length ? { d: dims[0].d } : {}, rad = all.every((x) => x.r) ? { r: true } : { r: false };
-    if (nr === 1 && nc === 1) return { v: all[0].v, ...rad, ...d };
-    return { m: cells.map((r) => r.map((x) => x.v)), ...d };
-  }
-  if (nr !== 1 && nc !== 1) throw new Error('importData: A-CAD no tiene matrices de texto: lee una sola columna o una sola fila (c_1 = c_2, o r_1 = r_2), o usa f = 0 para números');
-  if (all.some((x) => x.v !== undefined && x.d && x.d.some((e) => e))) throw new Error('importData: no se mezclan textos con magnitudes con unidades en un vector');
-  const texts = all.map((x) => (x.s !== undefined ? x.s : numText({ v: x.v, r: false })));
-  return texts.length === 1 ? { str: texts[0] } : { strs: texts };
+  // La cuadricula de celdas (cada una un numero con su unidad o un texto) como el valor mas simple que la contiene: una matriz numerica si todo son numeros de una misma
+  // magnitud, un vector de cadenas si todo es texto en una fila o columna y, si hay de todo (o unidades distintas), una matriz con celdas.
+  return cellsToValue(cells.map((r) => r.map((x) => (x.s !== undefined ? { str: x.s } : { v: x.v, ...(x.im ? { im: x.im } : {}), ...(x.d ? { d: x.d } : {}), r: !!x.r }))));
 }
 
 const close = (x, y) => Math.abs(x - y) <= 1e-9 * Math.max(1, Math.abs(x), Math.abs(y));
