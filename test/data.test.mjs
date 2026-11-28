@@ -42,7 +42,7 @@ t('rfile devuelve el mismo valor con sus unidades, también en un dibujo con com
   assert.equal(r.shown[4], '$$rfile(S)="“di ″hola″”"$$');
   assert.equal(r.shown[5], '$$rfile(Z)=(3+4j) " kΩ"$$');
   assert.equal(r.shown[6], '$$rfile(P1)=6 " N·m"$$');
-  assert.equal(r.shown[7], '$$rfile(T1)=20 " °C"$$');
+  assert.equal(r.shown[7], '$$rfile(T1)=20 " K"$$');
 });
 
 t('con coma decimal: el separador es «;» y el archivo igual lleva punto', () => {
