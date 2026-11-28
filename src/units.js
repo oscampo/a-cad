@@ -139,7 +139,7 @@ export const setUnitSystem = (s) => { SYS = s === 'US' ? 'US' : 'SI'; };
 export const unitSystem = () => SYS;
 const HABIT = {
   SI: [['mm', 'm'], ['mm²', 'm²'], ['mm³', 'm³'], ['mm^4', 'm^4'], ['N', 'kN', 'MN'], ['N·mm', 'N·m', 'kN·m', 'MN·m'], ['Pa', 'kPa', 'MPa', 'GPa'], ['g', 'kg', 't'], ['K']],
-  US: [['in', 'ft'], ['in²', 'ft²'], ['in³', 'ft³'], ['in^4', 'ft^4'], ['lbf', 'kip'], ['lbf·in', 'kip·in', 'kip·ft'], ['psi', 'ksi'], ['lb'], ['°F']],
+  US: [['in', 'ft'], ['in²', 'ft²'], ['in³', 'ft³'], ['in^4', 'ft^4'], ['lbf', 'kip'], ['lbf·in', 'kip·in', 'kip·ft'], ['psi', 'ksi'], ['lb'], ['°R']],
 };
 const HCACHE = new Map();
 const habitLists = () => {

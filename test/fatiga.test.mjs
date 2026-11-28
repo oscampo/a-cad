@@ -7,6 +7,7 @@ import { newDoc, addPoint, addText } from '../src/model.js';
 import { shownText } from '../src/text.js';
 import { textVarErrors } from '../src/params.js';
 import { solveEqs } from '../src/nsolve.js';
+import { autoUnit, setUnitSystem } from '../src/units.js';
 import { computeGraph } from '../src/graphs.js';
 
 setDecimal('.');
@@ -15,6 +16,11 @@ const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
 const E = (src) => evalExpr(src, { allowMat: true, allowCplx: true });
 const near = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) <= e * Math.max(1, Math.abs(b)), `${a} != ${b}`);
 const K = [0, 0, 0, 0, 1, 0, 0];
+
+t('una temperatura sin unidad pedida se muestra en la absoluta del sistema: K en SI, °R en anglosajon', () => {
+  const K1 = E("1'K").dim;
+  try { setUnitSystem('SI'); assert.equal(autoUnit(30, K1).name, 'K'); setUnitSystem('US'); assert.equal(autoUnit(30, K1).name, '°R'); } finally { setUnitSystem('SI'); }
+});
 
 t('temperatura sin desplazamiento: °C es un kelvin de tamaño, °F y °R 5/9', () => {
   const c = E("500'°C"); near(c.value, 500); assert.deepEqual(c.dim, K);
