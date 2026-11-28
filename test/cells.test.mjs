@@ -76,11 +76,11 @@ t('la celda captura el valor al definir la matriz (un T posterior no la cambia);
   assert.ok([...run(['q:["a",q_(2,1);"b",2]']).st.errs.values()].length > 0);
 });
 
-t('al dibujar la matriz, las cadenas van sin comillas; sueltas, con ellas', () => {
+t('las cadenas conservan sus comillas dentro de la matriz: "30 K" (texto) no se confunde con 30 K como cantidad', () => {
   const d = newDoc();
   const T = ['q:["datos","c1";"f1",2]', '"hola"='].map((x, i) => d.texts[addText(d, addPoint(d, 0, -i * 40), '$$' + x + '$$', {})]);
   const show = (q) => shownText(d, q).text.replace(/[-]/g, '');
-  assert.equal(show(T[0]), '$$q:=["datos","c1";"f1",2]$$'); assert.equal(show(T[1]), '$$"“hola”"="“hola”"$$');
+  assert.equal(show(T[0]), '$$q:=["“datos”","“c1”";"“f1”",2]$$'); assert.equal(show(T[1]), '$$"“hola”"="“hola”"$$');
 });
 
 t('una celda con una variable en K o mm se muestra en esa unidad, no en la automatica', () => {
