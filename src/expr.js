@@ -1148,6 +1148,7 @@ const SF = {
   string: { n: [1, 1], f: (A) => (A[0].strs ? A[0] : { str: numText(A[0]) }) },
   str2double: { n: [1, 1], f: (A) => { const t = strArg(A[0], 'str2double(s)').trim().replace(',', '.'), v = Number(t); if (!t || !Number.isFinite(v)) throw rt(`str2double: «${A[0].str}» no es un número`); return { v, r: false }; } },
   str2num: { n: [1, 1], f: (A) => SF.str2double.f(A) },
+  eval: { n: [1, 1], f: () => { throw new Error('eval'); } }, // se calcula en call(): necesita las variables del dibujo
   sprintf: { n: [1, 50], f: sprintfA },
   strcat: { n: [1, 50], f: (A) => A.reduce((acc, a) => (acc ? strAdd(acc, a, 1) : (isS(a) ? a : (() => { throw strErr('strcat une cadenas'); })())), null) },
   upper: { n: [1, 1], f: (A) => strOrVec(A[0], 'upper(s)', (x) => x.toUpperCase()) },
@@ -1826,12 +1827,16 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       A = A.map((a) => (a?.cells ? needSimple(a, name) : a));
     }
     const sep = decimalMode() === '.' ? ' (sepáralos con «,»)' : decimalMode() === ',' ? ' (sepáralos con «;»)' : ' (sepáralos con «;»: «2,5» es un solo número)';
-    if (name === 'str2num') { // como en MATLAB: la cadena se calcula como una expresion (con las variables definidas antes en el dibujo); str2double solo lee un numero
-      if (A.length !== 1) throw new Error('str2num recibe 1 valor: la cadena que se calcula');
-      if (typeof A[0].str !== 'string') throw new Error('str2num: el argumento es una cadena, p. ej. str2num("2+3")');
-      if (depth >= 40) throw new Error('str2num se llama a sí misma demasiadas veces');
+    if (name === 'str2num' || name === 'eval') { // la cadena se calcula: str2num como una expresion (como en MATLAB), eval como instrucciones (con «:» y «;», asignan variables locales y vale la ultima)
+      if (A.length !== 1) throw new Error(name === 'eval' ? 'eval recibe 1 valor: la cadena que se ejecuta' : 'str2num recibe 1 valor: la cadena que se calcula');
+      if (typeof A[0].str !== 'string') throw new Error(name === 'eval' ? 'eval: el argumento es una cadena, p. ej. eval("a:2; a*3")' : 'str2num: el argumento es una cadena, p. ej. str2num("2+3")');
+      if (depth >= 40) throw new Error(name === 'eval' ? 'eval se llama a sí misma demasiadas veces' : 'str2num se llama a sí misma demasiadas veces');
+      if (!A[0].str.trim()) throw new Error(name === 'eval' ? 'eval: la cadena está vacía' : 'str2num: la cadena está vacía');
+      let bad = null;
+      try { bad = tokenize(A[0].str, vars, true).find((t) => t.t === 'id' && (t.v === 'wfile' || t.v === 'play')); } catch (e) { /* lo que no se entiende lo dice el calculo */ }
+      if (bad) throw new Error(name === 'eval' ? 'eval: wfile y play no se ejecutan desde una cadena' : 'str2num: wfile y play no se ejecutan desde una cadena');
       let r;
-      try { r = evalExpr(A[0].str, { radians, vars, allowMat: true, allowCplx: true, depth: depth + 1, globals: globals || vars }); } catch (e) { throw /^str2num/.test(e.message) ? e : new Error(`str2num: «${A[0].str}»: ${e.message}`); }
+      try { r = evalExpr(name === 'eval' ? `seq(${A[0].str})` : A[0].str, { radians, vars, allowMat: true, allowCplx: true, depth: depth + 1, globals: globals || vars }); } catch (e) { throw /^(str2num|eval)/.test(e.message) ? e : new Error(`${name}: «${A[0].str}»: ${e.message}`); }
       if (r.str !== undefined) return { str: r.str };
       if (r.strs) return { strs: r.strs };
       if (r.cells) return { cells: r.cells };

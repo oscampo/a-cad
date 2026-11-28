@@ -77,4 +77,19 @@ t('str2num calcula la cadena como una expresion (como en MATLAB); str2double sol
   assert.throws(() => ev('str2num(s)'), /demasiadas veces/); // una cadena que se llama a si misma: un solo error, no 40 anidados
 });
 
+t('eval ejecuta la cadena como instrucciones (variables locales, vale la ultima); no define variables del dibujo; wfile y play no se ejecutan', () => {
+  const V = { x: { v: 4, r: false }, s: { str: 'eval(s)' }, c: { str: 'q:["datos","c1";"f1",2]' } };
+  const ev = (q) => evalExpr(q, { vars: V, allowMat: true, allowCplx: true });
+  assert.equal(ev('eval("a:2; a*3")').value, 6); assert.equal(ev('eval("a:x*2; b:a+1; b")').value, 9); assert.equal(ev('eval("q:[1,2]; q_2")').value, 2); assert.equal(ev('eval("2+3")').value, 5);
+  const m = ev('eval(c)'); assert.equal(m.cells[1][1].v, 2); assert.equal(m.cells[0][0].str, 'datos'); // la definicion de una celda: da la matriz
+  assert.throws(() => ev('q'), /No reconozco/); // la q de la cadena era local
+  assert.throws(() => ev('eval("wfile(x; N)")'), /wfile y play no se ejecutan/); assert.throws(() => ev('str2num("play(1)")'), /wfile y play no se ejecutan/);
+  assert.throws(() => ev('eval(s)'), /demasiadas veces/); assert.throws(() => ev('eval(5)'), /el argumento es una cadena/); assert.throws(() => ev('eval("")'), /vacía/); assert.throws(() => ev('eval("zzz")'), /eval: «zzz»/);
+  const d = newDoc();
+  const L = ['T:["a","b";"q:[1,2;3,4]","w"]', 'M:eval(T_(2,1))', 'M=', 'q='];
+  const Tx = L.map((x, i) => d.texts[addText(d, addPoint(d, 0, -i * 40), '$$' + x + '$$', {})]);
+  const show = (q) => shownText(d, q).text.replace(/[-]/g, '');
+  assert.ok(show(Tx[2]).endsWith('=[1, 2; 3, 4]$$')); assert.ok(show(Tx[3]).endsWith('⚠$$')); // M guarda el valor; q no existe en el dibujo
+});
+
 console.log(`\n${passed} pruebas de cadenas pasaron`);
