@@ -1289,7 +1289,7 @@ function loopTick() {
 // La notacion de una sumatoria o productoria, «sum_(k=1)^8(k^2)» y «prod_(k=1)^n(k)» (en AsciiMath se dibuja Σ y Π), se calcula como
 // sumatoria(k^2; k; 1; 8) y productoria(k; k; 1; n). El sumando va entre parentesis: sin ellos no se sabe donde termina.
 const matchClose = (s, open) => { let d = 0, q = false; for (let i = open; i < s.length; i++) { const c = s[i]; if (c === '"') q = !q; if (q) continue; if (c === '(') d++; else if (c === ')' && --d === 0) return i; } return -1; };
-export function rewriteSeries(S) {
+function rewriteSums(S) {
   const re = /(?<![A-Za-z0-9_α-ωΑ-Ω\\])\\?(sum|prod)\s*_\(/g; // también «\sum» y «\prod» (como en LaTeX)
   let m, out = S;
   for (let guard = 0; guard < 40 && (re.lastIndex = 0, m = (() => { re.lastIndex = 0; let f; while ((f = re.exec(out))) { const o = f.index + f[0].length - 1, c = matchClose(out, o); if (c > 0 && /^\s*[A-Za-zα-ωΑ-Ω_][A-Za-zα-ωΑ-Ω_0-9]*\s*=/.test(out.slice(o + 1, c))) return { f, o, c }; } return null; })()); guard++) {
@@ -1306,6 +1306,48 @@ export function rewriteSeries(S) {
     out = out.slice(0, f.index) + `${name === 'sum' ? 'sumatoria' : 'productoria'}(${out.slice(r + 1, re2)}; ${hm[1]}; ${hm[2].trim()}; ${hi.trim()})` + out.slice(re2 + 1);
   }
   return out;
+}
+// La notacion de una integral, «int_0^3(x^2)dx», «int_(a)^(b) f(x) dx» (en AsciiMath se dibuja ∫), se calcula como integral(x^2; x; 0; 3). El diferencial («dx», «dt»)
+// cierra el integrando y dice la variable; va separado de lo que lo precede (un espacio o «)»). Los limites: un numero, un nombre o algo entre parentesis.
+function rewriteIntegrals(S) {
+  const re = /(?<![A-Za-z0-9_α-ωΑ-Ω\\])\\?int\s*_/g, bound = (out, q) => {
+    while (out[q] === ' ') q++;
+    if (out[q] === '(') { const e = matchClose(out, q); return e < 0 ? null : { text: out.slice(q + 1, e), end: e + 1 }; }
+    const m = /^-?[A-Za-z0-9_.α-ωΑ-Ω]+/.exec(out.slice(q));
+    return m ? { text: m[0], end: q + m[0].length } : null;
+  };
+  let out = S;
+  for (let guard = 0; guard < 40; guard++) {
+    // de la ultima a la primera: en «int_0^2 int_0^x y dy dx» la de adentro cierra con el primer diferencial y la de afuera con el siguiente
+    let f = null, lo = null, q = 0;
+    for (const c of [...out.matchAll(re)].reverse()) {
+      const l = bound(out, c.index + c[0].length);
+      let r = l ? l.end : 0; while (out[r] === ' ') r++;
+      if (l && out[r] === '^') { f = c; lo = l; q = r; break; } // lo demas no es la notacion de una integral (p. ej. un nombre con subindice)
+    }
+    if (!f) break;
+    const hi = bound(out, q + 1);
+    if (!hi) throw new Error('Falta el límite superior de la integral: int_0^3(x^2)dx');
+    let i = hi.end, d = 0, quote = false, end = -1, v = '';
+    for (; i < out.length; i++) {
+      const c = out[i];
+      if (c === '"') quote = !quote;
+      if (quote) continue;
+      if (c === '(' || c === '[') d++; else if (c === ')' || c === ']') d--;
+      else if (d === 0 && c === 'd' && !/[A-Za-z0-9_α-ωΑ-Ω.]/.test(out[i - 1] || ' ')) {
+        const m = /^d([A-Za-zα-ωΑ-Ω][A-Za-zα-ωΑ-Ω0-9_]*)(?![A-Za-zα-ωΑ-Ω0-9_(])/.exec(out.slice(i));
+        if (m && out.slice(hi.end, i).trim()) { end = i + m[0].length; v = m[1]; break; }
+      }
+    }
+    if (end < 0) throw new Error('Falta el diferencial de la integral (dx, dt…), separado del integrando: int_0^3(x^2)dx');
+    const body = out.slice(hi.end, end - 1 - v.length).trim();
+    out = out.slice(0, f.index) + `integral(${body}; ${v}; ${lo.text.trim()}; ${hi.text.trim()})` + out.slice(end);
+  }
+  return out;
+}
+export function rewriteSeries(S) {
+  if (!/\\?int\s*_|(sum|prod)\s*_\(/.test(S)) return S;
+  return rewriteIntegrals(rewriteSums(S));
 }
 // La incognita de fzero(…; x; …) puede no existir todavia: se le da un lugar para poder leer la formula (no tiene valor; lo pone fzero).
 function withUnknowns(s, vars) {

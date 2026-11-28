@@ -649,3 +649,5 @@ productoria(expresión; k; desde; hasta)	productoria(expression; k; from; to)
 {0}: la expresión da un número complejo; usa real(…) e imag(…) por separado	{0}: the expression gives a complex number; use real(…) and imag(…) separately
 {0}: la expresión da una cadena	{0}: the expression gives a string
 {0}: los términos deben tener las mismas unidades ({1} y {2})	{0}: the terms must have the same units ({1} and {2})
+Falta el límite superior de la integral: int_0^3(x^2)dx	The upper limit of the integral is missing: int_0^3(x^2)dx
+Falta el diferencial de la integral (dx, dt…), separado del integrando: int_0^3(x^2)dx	The differential of the integral (dx, dt…) is missing, separated from the integrand: int_0^3(x^2)dx

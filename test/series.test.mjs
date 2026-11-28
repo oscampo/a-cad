@@ -1,4 +1,4 @@
-// Sumatorias y productorias: sum_(k=1)^8(k), \sum_(k=1)^8(k), prod_(k=1)^n(k) y sumatoria(k; k; 1; 8).
+// Sumatorias, productorias e integrales: sum_(k=1)^8(k), \sum_(k=1)^8(k), prod_(k=1)^n(k), sumatoria(k; k; 1; 8), int_0^3 x^2 dx.
 import assert from 'node:assert/strict';
 import { evalExpr } from '../src/expr.js';
 import { newDoc, addPoint, addText } from '../src/model.js';
@@ -10,7 +10,7 @@ setDecimal(undefined);
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
 const BS = String.fromCharCode(92);
-const vars = { n: { v: 4, r: false }, x: { v: 2, r: false }, v: { vec: [10, 20, 30], r: false } };
+const vars = { n: { v: 4, r: false }, a: { v: 2, r: false }, x: { v: 2, r: false }, v: { vec: [10, 20, 30], r: false } };
 const ev = (s) => evalExpr(s, { vars, allowMat: true, allowCplx: true });
 const err = (s, re) => assert.throws(() => ev(s), re);
 
@@ -47,6 +47,32 @@ t('en un texto del dibujo: se calcula, se dibuja Σ y la variable puede definirs
   const T = L.map((q, i) => d.texts[addText(d, addPoint(d, 0, -i * 40), '$$' + q + '$$', {})]);
   const show = (q) => shownText(d, q).text.replace(/[-]/g, '');
   assert.ok(show(T[0]).endsWith('=36$$')); assert.ok(show(T[2]).endsWith('=30$$')); assert.ok(show(T[3]).endsWith('⚠$$')); assert.ok(show(T[5]).endsWith('=15$$')); assert.ok(show(T[7]).endsWith('=10$$'));
+  assert.deepEqual(textVarErrors(d).map((e) => e.msg), []);
+});
+
+t('integrales: int_0^3 x^2 dx, con \int, limites con parentesis, el diferencial cierra el integrando y dice la variable', () => {
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, a + ' != ' + b);
+  near(ev('int_0^3(x^2)dx').value, 9); near(ev(BS + 'int_0^3(x^2)dx').value, 9); near(ev(BS + 'int_0^3 x^2 dx').value, 9); near(ev('int_0^3 t^2 dt').value, 9);
+  near(ev('int_(0)^(n) x^2 dx').value, 64 / 3); near(ev('int_-1^1 x^2 dx').value, 2 / 3); near(ev('int_a^3 x dx').value, 2.5); near(ev('int_0^1 a*x dx').value, 1);
+  near(ev('int_0^3 x^2 dx + 1').value, 10); near(ev('2*int_0^1 t dt').value, 1);
+  const u = ev("int_(0'm)^(3'm) 2 dx"); near(u.value, 6); assert.deepEqual(u.dim, [1, 0, 0, 0, 0, 0, 0]);
+});
+
+t('integrales dobles y sumas de integrales; dentro de una sumatoria', () => {
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, a + ' != ' + b);
+  near(ev('int_0^2 int_0^x y dy dx').value, 4 / 3); near(ev('int_0^1(int_0^2 (x*y) dy) dx').value, 1); near(ev('int_0^1 x dx + int_0^2 y dy').value, 2.5); near(ev('sum_(k=1)^3(int_0^k x dx)').value, 7);
+});
+
+t('errores de la integral: sin diferencial, sin limite superior', () => {
+  err('int_0^3 x^2', /Falta el diferencial de la integral/); err('int_0^3 dx', /Falta el diferencial/); err('int_0^ x dx', /Falta el diferencial|límite superior/);
+});
+
+t('integrales en un texto del dibujo', () => {
+  const d = newDoc();
+  const L = [BS + 'int_0^3(x^2)dx=', 'c:2', 'int_0^3 c*x dx=', 'F:int_0^1 x dx', 'F=', 'g(x):x^2', 'int_0^2 g(x) dx=', 'int_0^3 x^2='];
+  const T = L.map((q, i) => d.texts[addText(d, addPoint(d, 0, -i * 40), '$$' + q + '$$', {})]);
+  const show = (q) => shownText(d, q).text.replace(/[-]/g, '');
+  assert.ok(show(T[0]).endsWith('=9$$')); assert.ok(show(T[2]).endsWith('=9$$')); assert.ok(show(T[4]).endsWith('=0.5$$')); assert.ok(show(T[6]).endsWith('=2.667$$')); assert.ok(show(T[7]).endsWith('⚠$$'));
   assert.deepEqual(textVarErrors(d).map((e) => e.msg), []);
 });
 
