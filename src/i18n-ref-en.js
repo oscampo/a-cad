@@ -354,6 +354,7 @@ export const REF_EN = {
   "c8ddqi19": "The most frequent value (with a tie, the smallest).",
   "1newj6222": "Trapezoidal integral of data (and cumulative). With a single vector, step 1.",
   "ycw84a4e": "Integral of an expression in the variable x, between a and b (numerical, adaptive). As in fzero, the variable is named. With units: those of expr times those of x.",
+  "1h57hg68l": "The sum (or product) of expr with k = a, a+1, …, b (integers, no units); an empty one is 0 (1). Also written with the notation <code>sum_(k=1)^8(k^2)</code> and <code>prod_(k=1)^n(k)</code> (drawn as Σ and Π; the term goes in parentheses). Inside, k also works as an index: <code>sum_(i=1)^3(v_i)</code>.",
   "1wd26f2q": "Interpolation and polynomials",
   "ncnyrz2m": "A polynomial is the vector of its coefficients, from highest degree to lowest: [1, 0, -2] is x² − 2.",
   "mkrq725m": "Linear interpolation in a table (x a number or a vector; keeps the units of ys). Outside the table it gives ⚠; with <code>interp1(xs; ys; x; \"extrap\")</code> it extrapolates using the first or last segment.",

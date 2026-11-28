@@ -157,6 +157,7 @@ Con números reales (inv, det, linsolve y eig también con complejos). eig admit
 | `mode(v)` | El valor más repetido (con empate, el menor). | `mode([1,2,2,3,3])` | `2` |
 | `trapz(x; y)`, `cumtrapz(x; y)` | Integral por trapecios de datos (y acumulada). Con un solo vector, paso 1. | `trapz([0,1,2]; [0,1,4])` | `3` |
 | `integral(expr; x; a; b)` | Integral de una expresión con la variable x, entre a y b (numérica, adaptativa). Como en fzero, la variable se nombra. Con unidades: las de expr por las de x. | `integral(x^2; x; 0; 3)` | `9` |
+| `sumatoria(expr; k; a; b)`, `productoria(expr; k; a; b)` | La suma (o el producto) de expr con k = a, a+1, …, b (enteros, sin unidades); vacía vale 0 (1). Se escribe también con la notación `sum_(k=1)^8(k^2)` y `prod_(k=1)^n(k)` (se dibujan Σ y Π; el sumando va entre paréntesis). Dentro, k sirve también de índice: `sum_(i=1)^3(v_i)`. | `sum_(k=1)^8(k^2)` | `204` |
 
 ## Interpolación y polinomios
 

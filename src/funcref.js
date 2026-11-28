@@ -150,6 +150,7 @@ export const FUNC_GROUPS = [
       ['<code>mode(v)</code>', 'El valor más repetido (con empate, el menor).', 'mode([1,2,2,3,3])', '2', 'n'],
       ['<code>trapz(x; y)</code>, <code>cumtrapz(x; y)</code>', 'Integral por trapecios de datos (y acumulada). Con un solo vector, paso 1.', 'trapz([0,1,2]; [0,1,4])', '3', 'n'],
       ['<code>integral(expr; x; a; b)</code>', 'Integral de una expresión con la variable x, entre a y b (numérica, adaptativa). Como en fzero, la variable se nombra. Con unidades: las de expr por las de x.', 'integral(x^2; x; 0; 3)', '9', 'n'],
+      ['<code>sumatoria(expr; k; a; b)</code>, <code>productoria(expr; k; a; b)</code>', 'La suma (o el producto) de expr con k = a, a+1, …, b (enteros, sin unidades); vacía vale 0 (1). Se escribe también con la notación <code>sum_(k=1)^8(k^2)</code> y <code>prod_(k=1)^n(k)</code> (se dibujan Σ y Π; el sumando va entre paréntesis). Dentro, k sirve también de índice: <code>sum_(i=1)^3(v_i)</code>.', 'sum_(k=1)^8(k^2)', '204', 'n'],
     ],
   },
   {

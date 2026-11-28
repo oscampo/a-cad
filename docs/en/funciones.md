@@ -157,6 +157,7 @@ With real numbers (inv, det, linsolve and eig also with complex numbers). eig su
 | `mode(v)` | The most frequent value (with a tie, the smallest). | `mode([1,2,2,3,3])` | `2` |
 | `trapz(x; y)`, `cumtrapz(x; y)` | Trapezoidal integral of data (and cumulative). With a single vector, step 1. | `trapz([0,1,2]; [0,1,4])` | `3` |
 | `integral(expr; x; a; b)` | Integral of an expression in the variable x, between a and b (numerical, adaptive). As in fzero, the variable is named. With units: those of expr times those of x. | `integral(x^2; x; 0; 3)` | `9` |
+| `sumatoria(expr; k; a; b)`, `productoria(expr; k; a; b)` | The sum (or product) of expr with k = a, a+1, …, b (integers, no units); an empty one is 0 (1). Also written with the notation `sum_(k=1)^8(k^2)` and `prod_(k=1)^n(k)` (drawn as Σ and Π; the term goes in parentheses). Inside, k also works as an index: `sum_(i=1)^3(v_i)`. | `sum_(k=1)^8(k^2)` | `204` |
 
 ## Interpolation and polynomials
 

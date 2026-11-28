@@ -60,7 +60,7 @@ Object.assign(MULTI, {
   nchoosek: { n: [2, 2], f: (A) => { const n = intOf(A[0], 'nchoosek(n, k)', 'n'), k = intOf(A[1], 'nchoosek(n, k)', 'k'); if (k < 0 || n < 0 || k > n) throw new Error('nchoosek(n, k): hace falta 0 ≤ k ≤ n'); let c = 1; for (let i = 1; i <= Math.min(k, n - k); i++) c = (c * (n - Math.min(k, n - k) + i)) / i; return { v: Math.round(c), r: false }; } },
   nthroot: { n: [2, 2], f: (A) => { const x = A[0].v, n = A[1].v; if (!Number.isInteger(n) || n === 0) throw new Error('nthroot(x, n): n debe ser un entero distinto de 0'); if (x < 0 && n % 2 === 0) throw rt('nthroot(x, n): con x negativo, n debe ser impar (para un complejo usa x^(1/n))'); return { v: Math.sign(x) * Math.abs(x) ** (1 / n), r: false }; } },
 });
-const LAZY = new Set(['if', 'si', 'fzero', 'seq', 'for', 'while', 'integral', 'wfile', 'rfile', 'break', 'continue', 'return', 'entered']); // break, continue y return: senales de los programas (ver lazyFor) // wfile/rfile: el nombre del archivo no se evalua (ver lazyWfile) // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
+const LAZY = new Set(['if', 'si', 'fzero', 'seq', 'for', 'while', 'integral', 'sumatoria', 'productoria', 'wfile', 'rfile', 'break', 'continue', 'return', 'entered']); // break, continue y return: senales de los programas (ver lazyFor) // wfile/rfile: el nombre del archivo no se evalua (ver lazyWfile) // fzero(ecuacion; x; inicial): la ecuacion se calcula muchas veces (ver lazyFzero) // if(condicion; si_verdadero; si_falso), o si(...) como alias: solo se evalua la rama elegida
 // Funciones de vectores y matrices (reciben un vector o una matriz): inv, det; resumenes (sobre todos los elementos): sum, prod, mean, median, std, variance, norm, len;
 // forma: rows, cols, trace, diag, eye(n); acumuladas: cumsum, cumprod; entre dos vectores: dot, cross. min(x) y max(x) con un solo vector tambien resumen.
 const MATFN = new Set(['inv', 'det', 'sum', 'prod', 'mean', 'median', 'std', 'variance', 'norm', 'len', 'rows', 'cols', 'trace', 'diag', 'eye', 'cumsum', 'cumprod', 'dot', 'cross']);
@@ -304,7 +304,7 @@ export function convertExpr(src, from, to) {
 export function exprRefs(src, has = null) {
   try {
     const out = [];
-    for (const k of tokenize(String(src ?? ''), null, true)) {
+    for (const k of tokenize(rewriteSeries(String(src ?? '')), null, true)) {
       if (k.t !== 'var') continue;
       const ip = has && !has(k.v) ? indexParts(k.v) : null;
       if (ip && has(ip.base)) out.push(ip.base, ...splitIdx(ip.src).filter((s) => s && s !== ':').flatMap((s) => exprRefs(s, has))); else out.push(k.v);
@@ -1286,13 +1286,34 @@ function loopTick() {
   if (!loopT0) loopT0 = Date.now();
   else if ((loopN & 255) === 0 && Date.now() - loopT0 > LOOP_MS) throw new Error(`El ciclo tardó más de ${LOOP_MS / 1000} s: revisa la condición del while o el rango del for`);
 }
+// La notacion de una sumatoria o productoria, «sum_(k=1)^8(k^2)» y «prod_(k=1)^n(k)» (en AsciiMath se dibuja Σ y Π), se calcula como
+// sumatoria(k^2; k; 1; 8) y productoria(k; k; 1; n). El sumando va entre parentesis: sin ellos no se sabe donde termina.
+const matchClose = (s, open) => { let d = 0, q = false; for (let i = open; i < s.length; i++) { const c = s[i]; if (c === '"') q = !q; if (q) continue; if (c === '(') d++; else if (c === ')' && --d === 0) return i; } return -1; };
+export function rewriteSeries(S) {
+  const re = /(?<![A-Za-z0-9_α-ωΑ-Ω\\])\\?(sum|prod)\s*_\(/g; // también «\sum» y «\prod» (como en LaTeX)
+  let m, out = S;
+  for (let guard = 0; guard < 40 && (re.lastIndex = 0, m = (() => { re.lastIndex = 0; let f; while ((f = re.exec(out))) { const o = f.index + f[0].length - 1, c = matchClose(out, o); if (c > 0 && /^\s*[A-Za-zα-ωΑ-Ω_][A-Za-zα-ωΑ-Ω_0-9]*\s*=/.test(out.slice(o + 1, c))) return { f, o, c }; } return null; })()); guard++) {
+    const { f, o, c } = m, hm = /^\s*([A-Za-zα-ωΑ-Ω_][A-Za-zα-ωΑ-Ω_0-9]*)\s*=\s*([\s\S]+)$/.exec(out.slice(o + 1, c)), name = f[1] === 'sum' ? 'sum' : 'prod';
+    let q = c + 1; while (out[q] === ' ') q++;
+    if (out[q] !== '^') throw new Error('«sum_(k=…)» necesita el límite superior y el sumando entre paréntesis: sum_(k=1)^8(k)');
+    q++; while (out[q] === ' ') q++;
+    let hi, qe;
+    if (out[q] === '(') { qe = matchClose(out, q); if (qe < 0) throw new Error('Falta cerrar un paréntesis'); hi = out.slice(q + 1, qe); qe++; } else { const hm2 = /^[A-Za-z0-9_.α-ωΑ-Ω]+/.exec(out.slice(q)); if (!hm2) throw new Error('Falta el límite superior de la sumatoria: sum_(k=1)^8(k)'); hi = hm2[0]; qe = q + hi.length; }
+    let r = qe; while (out[r] === ' ') r++;
+    if (out[r] !== '(') throw new Error('El sumando va entre paréntesis: sum_(k=1)^8(k), no sum_(k=1)^8 k');
+    const re2 = matchClose(out, r);
+    if (re2 < 0) throw new Error('Falta cerrar un paréntesis');
+    out = out.slice(0, f.index) + `${name === 'sum' ? 'sumatoria' : 'productoria'}(${out.slice(r + 1, re2)}; ${hm[1]}; ${hm[2].trim()}; ${hi.trim()})` + out.slice(re2 + 1);
+  }
+  return out;
+}
 // La incognita de fzero(…; x; …) puede no existir todavia: se le da un lugar para poder leer la formula (no tiene valor; lo pone fzero).
 function withUnknowns(s, vars) {
-  if (!/fzero|integral/i.test(s)) return vars;
+  if (!/fzero|integral|sumatoria|productoria/i.test(s)) return vars;
   let out = vars;
   const lt = tokenize(s, vars, true);
   for (let i = 0; i < lt.length; i++) {
-    if (!(lt[i].t === 'id' && (lt[i].v === 'fzero' || lt[i].v === 'integral') && lt[i + 1]?.t === 'op' && lt[i + 1].v === '(')) continue; // la incognita de fzero o la variable de integral
+    if (!(lt[i].t === 'id' && (lt[i].v === 'fzero' || lt[i].v === 'integral' || lt[i].v === 'sumatoria' || lt[i].v === 'productoria') && lt[i + 1]?.t === 'op' && lt[i + 1].v === '(')) continue; // la incognita de fzero o la variable de integral
     let d = 0, j = i + 2;
     for (; j < lt.length; j++) { const t = lt[j]; if (t.t === 'op' && (t.v === '(' || t.v === '[')) d++; else if (t.t === 'op' && (t.v === ')' || t.v === ']')) { if (d === 0) break; d--; } else if (t.t === 'sep' && d === 0) break; }
     const x = lt[j]?.t === 'sep' ? lt[j + 1] : null;
@@ -1302,7 +1323,7 @@ function withUnknowns(s, vars) {
   return out;
 }
 function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allowCplx = false, depth = 0, globals = null, members = null } = {}) {
-  const S = String(src ?? '');
+  const S = rewriteSeries(String(src ?? ''));
   vars = withLocals(S, withUnknowns(S, vars));
   const toks = tokenize(S, vars);
   if (!toks.length) throw new Error('Escribe un valor');
@@ -1681,6 +1702,37 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   // integral(expr; x; a; b): la integral de expr (con la variable x) entre a y b, numerica (Gauss-Kronrod adaptativa). Como fzero, la x de la
   // expresion es la variable de integracion, no la de afuera. Con unidades: las de expr por las de x.
   const INT_MSG = () => `integral(expresión${argText()} x${argText()} a${argText()} b): la expresión, el nombre de la variable y los límites`;
+  // sumatoria(expr; k; desde; hasta) y productoria(...): la expresion con k = desde, desde+1, ..., hasta (enteros, sin unidades). Una sumatoria vacia vale 0 y una productoria, 1.
+  function lazySeries(fn) {
+    const SM = () => (fn === 'productoria' ? 'productoria(expresión; k; desde; hasta)' : 'sumatoria(expresión; k; desde; hasta)'), a0 = p; skipArg(); const a1 = p;
+    if (a1 === a0 || peek()?.t !== 'sep') throw new Error(SM());
+    p++;
+    const xt = peek();
+    if (xt?.t !== 'var' && xt?.t !== 'ufn') throw new Error(SM());
+    p++;
+    if (peek()?.t !== 'sep') throw new Error(SM());
+    p++;
+    const lo = cmp();
+    if (peek()?.t !== 'sep') throw new Error(SM());
+    p++;
+    const hi = cmp();
+    if (!isOp(')')) throw new Error(SM());
+    p++;
+    const num = (b) => !isM(b) && !isC(b) && !isS(b) && !b.cells && !b.d && Number.isInteger(b.v);
+    if (!num(lo) || !num(hi)) throw new Error(`${fn}: los límites son números enteros sin unidades`);
+    if (hi.v - lo.v + 1 > 100000) throw new Error(`${fn}: hasta 100000 términos`);
+    const src = S.slice(toks[a0].i, toks[a1 - 1].j), name = xt.v, prod = fn === 'productoria';
+    let acc = prod ? 1 : 0, d, n = 0;
+    for (let k = lo.v; k <= hi.v; k++) {
+      const r = evalExpr(src, { radians, vars: { ...(vars || {}), [name]: { v: k, r: false } }, depth: depth + 1, globals: globals || vars });
+      if (r.mat || r.cells) throw new Error(`${fn}: la expresión da un vector o una matriz; el término es un número`);
+      if (r.im) throw new Error(`${fn}: la expresión da un número complejo; usa real(…) e imag(…) por separado`);
+      if (r.str !== undefined || r.strs) throw new Error(`${fn}: la expresión da una cadena`);
+      if (n === 0) d = r.dim || undefined; else if (!sameDim(d, r.dim) && !(!prod && (r.value === 0))) throw new Error(`${fn}: los términos deben tener las mismas unidades (${unitMsg(d)} y ${unitMsg(r.dim)})`);
+      acc = prod ? acc * r.value : acc + r.value; n++;
+    }
+    return n === 0 ? { v: prod ? 1 : 0, r: false } : { v: acc, r: false, ...(prod ? (d ? { d: powDim(d, n) } : {}) : (d ? { d } : {})) };
+  }
   function lazyIntegral() { // ya se leyo «integral(»
     const a0 = p; skipArg(); const a1 = p;
     if (a1 === a0 || peek()?.t !== 'sep') throw new Error(INT_MSG());
@@ -2106,6 +2158,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       p++;
       if (k.v === 'fzero') return lazyFzero();
       if (k.v === 'integral') return lazyIntegral();
+      if (k.v === 'sumatoria' || k.v === 'productoria') return lazySeries(k.v);
       if (k.v === 'seq') return lazySeq();
       if (k.v === 'for') return lazyFor();
       if (k.v === 'while') return lazyWhile();
