@@ -1832,9 +1832,8 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (typeof A[0].str !== 'string') throw new Error(name === 'eval' ? 'eval: el argumento es una cadena, p. ej. eval("a:2; a*3")' : 'str2num: el argumento es una cadena, p. ej. str2num("2+3")');
       if (depth >= 40) throw new Error(name === 'eval' ? 'eval se llama a sí misma demasiadas veces' : 'str2num se llama a sí misma demasiadas veces');
       if (!A[0].str.trim()) throw new Error(name === 'eval' ? 'eval: la cadena está vacía' : 'str2num: la cadena está vacía');
-      let bad = null;
-      try { bad = tokenize(A[0].str, vars, true).find((t) => t.t === 'id' && (t.v === 'wfile' || t.v === 'play')); } catch (e) { /* lo que no se entiende lo dice el calculo */ }
-      if (bad) throw new Error(name === 'eval' ? 'eval: wfile y play no se ejecutan desde una cadena' : 'str2num: wfile y play no se ejecutan desde una cadena');
+      // wfile y play no se ejecutan desde una cadena. Se busca por texto (no con el analizador, que falla con lo que no entiende, como un «=» al final y dejaria pasar el bloqueo).
+      if (/(^|[^A-Za-z0-9_α-ωΑ-Ω.])(wfile|play)\s*\(/i.test(A[0].str)) throw new Error(name === 'eval' ? 'eval: wfile y play no se ejecutan desde una cadena' : 'str2num: wfile y play no se ejecutan desde una cadena');
       let r;
       const code = name === 'eval' ? A[0].str.replace(/(^|[^=<>!~])=\s*$/, '$1') : A[0].str; // en eval, un «=» al final es la marca de «dame el valor» de un texto: «q_(2,2)=» es q_(2,2) (no «==», «<=», «>=» ni «!=»)
       if (!code.trim()) throw new Error(name === 'eval' ? 'eval: la cadena está vacía' : 'str2num: la cadena está vacía');

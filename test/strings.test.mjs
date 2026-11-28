@@ -101,4 +101,11 @@ t('eval: un «=» al final pide el valor (como en un texto); «==», «<=», «>
   assert.throws(() => ev('str2num("x*2=")'), /str2num: «x\*2=»/); // str2num sigue siendo solo expresiones
 });
 
+t('eval y str2num no ejecutan wfile ni play desde una cadena, tampoco con un «=» al final ni escrito con mayusculas', () => {
+  const V = { C: { v: 1, r: false }, w1: { str: 'wfile(C,"mixta.txt")=' }, w2: { str: 'WFile(C; N)' }, w3: { str: 'a:1; play("x")=' }, ok: { str: 'mywfile=2' } };
+  const ev = (q) => evalExpr(q, { vars: V, allowMat: true, allowCplx: true });
+  for (const n of ['w1', 'w2', 'w3']) { assert.throws(() => ev(`eval(${n})`), /wfile y play no se ejecutan/, n); assert.throws(() => ev(`str2num(${n})`), /wfile y play no se ejecutan/, n); }
+  assert.throws(() => ev('eval(ok)'), (e) => !/wfile y play no se ejecutan/.test(e.message)); // un nombre que solo contiene «wfile» no se confunde
+});
+
 console.log(`\n${passed} pruebas de cadenas pasaron`);
