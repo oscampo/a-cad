@@ -153,4 +153,13 @@ t('eval ejecuta wfile y rfile desde una cadena: el archivo se escribe y se lee (
   assert.deepEqual(r.errs, []); assert.equal(r.shown[1], '$$R_(2,2)=5 " mm"$$');
 });
 
+t('celdas con unidad escritas en la matriz (5 mm, 30 °C, 3+4j kΩ): wfile las guarda con una unidad habitual, sin NaN, y rfile las devuelve igual', () => {
+  fresh();
+  const w = page('.', ["$$C:[\"id\",\"nota\",\"L\";1,4.5,5'mm;2,\"-\",30'°C;3,\"z\",(3+4j)'kΩ]$$", '$$wfile(C,"lit.txt")=$$']);
+  assert.deepEqual(w.errs, []); assert.equal(w.w['lit.txt'], `["id", "nota", "L"; 1, 4.5, 5'mm; 2, "-", 303.15'K; 3, "z", (3+4j)'kΩ]`);
+  assert.ok(!/NaN/.test(w.w['lit.txt']));
+  const r = page('.', ['$$R:rfile("lit.txt")$$', '$$R_(2,3)=$$', '$$R_(3,3)=$$', '$$R_(4,3)*2=$$']);
+  assert.deepEqual(r.errs, []); assert.equal(r.shown[1], '$$R_(2,3)=5 " mm"$$'); assert.equal(r.shown[2], '$$R_(3,3)=303.15 " K"$$'); assert.equal(r.shown[3], '$$R_(4,3)*2=(6+8j) " kΩ"$$');
+});
+
 console.log(`\n${passed} pruebas de datos pasaron`);

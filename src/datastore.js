@@ -4,6 +4,7 @@
 // Durante un calculo, rfile() lee lo guardado y wfile() solo anota lo que hay que escribir; main.js lo graba al confirmar un cambio del
 // dibujo (no al arrastrar ni en la simulacion), asi cada cambio avanza un paso, como cada recalculo de SMath. Sin DOM: el almacen real
 // (localStorage) lo pone main.js; en las pruebas es un Map.
+import { autoUnit } from './units.js';
 let store = new Map(); // nombre -> texto
 let ver = 0; // cambia cuando cambia lo guardado: el calculo de los textos lo usa en su memoria (ver textVarState)
 const pending = new Map();
@@ -51,7 +52,8 @@ const baseUnit = (d) => ({ name: d.map((e, i) => (e ? BASE_U[i] + (e !== 1 ? '^'
 const cellText = (c) => {
   if (c.str !== undefined) return '"' + c.str.replace(/"/g, '""') + '"';
   if (!c.d || c.d.every((e) => !e)) return cplxText(c.v, c.im || 0);
-  const u = c.pu && c.pf ? { name: c.pu, f: c.pf, o: c.po || 0 } : baseUnit(c.d), s = cplxText((c.v - u.o) / u.f, (c.im || 0) / u.f);
+  const u0 = c.pu && c.pf ? { name: c.pu, f: c.pf, o: c.po } : (autoUnit(Math.hypot(c.v, c.im || 0), c.d) || baseUnit(c.d)); // la de su variable, o la habitual (5'mm); si no, las unidades base
+  const u = { ...u0, o: u0.o || 0 }, s = cplxText((c.v - u.o) / u.f, (c.im || 0) / u.f);
   return (c.im ? '(' + s + ')' : s) + unitTail(u.name);
 };
 export function valueText(a, units, check) {
