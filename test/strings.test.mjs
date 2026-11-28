@@ -77,13 +77,13 @@ t('str2num calcula la cadena como una expresion (como en MATLAB); str2double sol
   assert.throws(() => ev('str2num(s)'), /demasiadas veces/); // una cadena que se llama a si misma: un solo error, no 40 anidados
 });
 
-t('eval ejecuta la cadena como instrucciones (variables locales, vale la ultima); no define variables del dibujo; wfile y play no se ejecutan', () => {
+t('eval ejecuta la cadena como instrucciones (variables locales, vale la ultima); no define variables del dibujo', () => {
   const V = { x: { v: 4, r: false }, s: { str: 'eval(s)' }, c: { str: 'q:["datos","c1";"f1",2]' } };
   const ev = (q) => evalExpr(q, { vars: V, allowMat: true, allowCplx: true });
   assert.equal(ev('eval("a:2; a*3")').value, 6); assert.equal(ev('eval("a:x*2; b:a+1; b")').value, 9); assert.equal(ev('eval("q:[1,2]; q_2")').value, 2); assert.equal(ev('eval("2+3")').value, 5);
   const m = ev('eval(c)'); assert.equal(m.cells[1][1].v, 2); assert.equal(m.cells[0][0].str, 'datos'); // la definicion de una celda: da la matriz
   assert.throws(() => ev('q'), /No reconozco/); // la q de la cadena era local
-  assert.throws(() => ev('eval("wfile(x; N)")'), /wfile y play no se ejecutan/); assert.throws(() => ev('str2num("play(1)")'), /wfile y play no se ejecutan/);
+  assert.throws(() => ev('str2num("play(1)")'), /wfile y play no se ejecutan/); // str2num es solo de expresiones
   assert.throws(() => ev('eval(s)'), /demasiadas veces/); assert.throws(() => ev('eval(5)'), /el argumento es una cadena/); assert.throws(() => ev('eval("")'), /vacía/); assert.throws(() => ev('eval("zzz")'), /eval: «zzz»/);
   const d = newDoc();
   const L = ['T:["a","b";"q:[1,2;3,4]","w"]', 'M:eval(T_(2,1))', 'M=', 'q='];
@@ -101,11 +101,12 @@ t('eval: un «=» al final pide el valor (como en un texto); «==», «<=», «>
   assert.throws(() => ev('str2num("x*2=")'), /str2num: «x\*2=»/); // str2num sigue siendo solo expresiones
 });
 
-t('eval y str2num no ejecutan wfile ni play desde una cadena, tampoco con un «=» al final ni escrito con mayusculas', () => {
+t('str2num no ejecuta wfile ni play desde una cadena (tampoco con un «=» al final ni con mayusculas); eval si los ejecuta', () => {
   const V = { C: { v: 1, r: false }, w1: { str: 'wfile(C,"mixta.txt")=' }, w2: { str: 'WFile(C; N)' }, w3: { str: 'a:1; play("x")=' }, ok: { str: 'mywfile=2' } };
   const ev = (q) => evalExpr(q, { vars: V, allowMat: true, allowCplx: true });
-  for (const n of ['w1', 'w2', 'w3']) { assert.throws(() => ev(`eval(${n})`), /wfile y play no se ejecutan/, n); assert.throws(() => ev(`str2num(${n})`), /wfile y play no se ejecutan/, n); }
-  assert.throws(() => ev('eval(ok)'), (e) => !/wfile y play no se ejecutan/.test(e.message)); // un nombre que solo contiene «wfile» no se confunde
+  for (const n of ['w1', 'w2', 'w3']) assert.throws(() => ev(`str2num(${n})`), /wfile y play no se ejecutan/, n);
+  assert.equal(ev('eval(w1)').value, 1); assert.equal(ev('eval(w2)').value, 1); // eval ejecuta wfile (solo anota: lo graba el paso que confirma)
+  assert.throws(() => ev('str2num(ok)'), (e) => !/wfile y play no se ejecutan/.test(e.message)); // un nombre que solo contiene «wfile» no se confunde
 });
 
 console.log(`\n${passed} pruebas de cadenas pasaron`);

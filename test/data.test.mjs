@@ -145,4 +145,12 @@ t('una celda compleja con unidad en una matriz con celdas: wfile la guarda entre
   assert.deepEqual(r.errs, []); assert.equal(r.shown[1], '$$R_(1,2)=(3+4j) " kΩ"$$'); assert.equal(r.shown[2], '$$R_(1,2)*2=(6+8j) " kΩ"$$'); assert.equal(r.shown[3], '$$R_(2,1)=2$$');
 });
 
+t('eval ejecuta wfile y rfile desde una cadena: el archivo se escribe y se lee (como la celda de una tabla importada)', () => {
+  fresh();
+  const w = page('.', ["$$m:5'mm$$", '$$C:["id", "L"; 1, m]$$', '$$s:"wfile(C; ""ev.txt"")="$$', '$$eval(s)=$$']);
+  assert.deepEqual(w.errs, []); assert.equal(w.shown[3], '$$eval(s)=1$$'); assert.equal(w.w['ev.txt'], `["id", "L"; 1, 5'mm]`);
+  const r = page('.', ['$$R:eval("rfile(""ev.txt"")")$$', '$$R_(2,2)=$$']);
+  assert.deepEqual(r.errs, []); assert.equal(r.shown[1], '$$R_(2,2)=5 " mm"$$');
+});
+
 console.log(`\n${passed} pruebas de datos pasaron`);
