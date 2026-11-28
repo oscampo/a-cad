@@ -1,0 +1,71 @@
+// Matrices con celdas de distinto tipo: [ "Datos", "col1"; "fil1", 1 ], indices, rangos, colapso a numerica o de cadenas y errores que nombran la celda.
+import assert from 'node:assert/strict';
+import { evalExpr } from '../src/expr.js';
+import { newDoc, addPoint, addText } from '../src/model.js';
+import { textVars } from '../src/params.js';
+import { setDecimal } from '../src/locale.js';
+
+setDecimal(undefined);
+let passed = 0;
+const t = (name, fn) => { fn(); passed++; console.log('ok  ' + name); };
+const C = { cells: [[{ str: 'Datos' }, { str: 'col1' }, { str: 'col2' }], [{ str: 'fil1' }, { v: 1 }, { v: 2 }], [{ str: 'fil2' }, { v: 4 }, { str: 'texto' }], [{ str: 'fil3' }, { v: 7 }, { v: 8 }]] };
+const ev = (s, vars = {}) => evalExpr(s, { vars: { C, ...vars }, allowMat: true, allowCplx: true });
+const err = (s, re) => assert.throws(() => ev(s), re);
+const plain = (r) => r.cells.map((row) => row.map((c) => (c.str !== undefined ? c.str : c.v)));
+
+t('un literal con texto y numeros es una matriz con celdas, de varias filas', () => {
+  assert.deepEqual(plain(ev('["Datos", "col1"; "fil1", 1]')), [['Datos', 'col1'], ['fil1', 1]]);
+  assert.deepEqual(plain(ev('[1, "x"; 2, "y"]')), [[1, 'x'], [2, 'y']]);
+  assert.deepEqual(plain(ev('["a", 1]')), [['a', 1]]);
+});
+
+t('si todo es de un solo tipo vuelve a la forma de siempre', () => {
+  assert.deepEqual(ev('["a", "b"]').strs, ['a', 'b']); assert.deepEqual(ev('["a"; "b"]').strs, ['a', 'b']);
+  assert.deepEqual(ev('["a", ["b", "c"]]').strs, ['a', 'b', 'c']); assert.deepEqual(ev('[1, 2; 3, 4]').mat, [[1, 2], [3, 4]]);
+});
+
+t('indices: celda, fila, columna y rangos con end', () => {
+  assert.equal(ev('C_(2,2)').value, 1); assert.equal(ev('C_(3,3)').str, 'texto'); assert.equal(ev('C_(end,end)').value, 8);
+  assert.deepEqual(ev('C_(1,:)').strs, ['Datos', 'col1', 'col2']); assert.deepEqual(ev('C_(:,1)').strs, ['Datos', 'fil1', 'fil2', 'fil3']);
+  assert.deepEqual(ev('C_(2..4,2)').mat, [[1], [4], [7]]); assert.deepEqual(plain(ev('C_(2..4,3)')), [[2], ['texto'], [8]]);
+});
+
+t('medidas y forma: size, rows, cols, numel, typeof, transpuesta, horzcat y vertcat', () => {
+  assert.deepEqual(ev('size(C)').mat, [[4, 3]]); assert.equal(ev('rows(C)').value, 4); assert.equal(ev('cols(C)').value, 3); assert.equal(ev('numel(C)').value, 12);
+  assert.equal(ev('typeof(C)').str, 'matrix');
+  assert.deepEqual(plain(ev('C^T'))[1], ['col1', 1, 4, 7]);
+  assert.equal(ev('horzcat(C; C)').cells[0].length, 6); assert.equal(plain(ev('vertcat(C_(1,:); C_(2,:))')).length, 2);
+});
+
+t('las partes numericas se operan; las mezcladas dicen cual celda estorba', () => {
+  assert.deepEqual(ev('C_(2..4,2)+C_(2..4,2)').mat, [[2], [8], [14]]); assert.equal(ev('sum(C_(2..4,2))').value, 12);
+  assert.deepEqual(ev('strcmp(C_(:,1); "fil2")').mat, [[0, 0, 1, 0]]); assert.equal(ev('find(strcmp(C_(:,1); "fil2"))').value, 3);
+  err('C+1', /fila 1, columna 1 es texto/); err('sum(C)', /«sum» no recibe una matriz con texto y números mezclados/); err('-C', /mezclados/); err('C==1', /mezclados/);
+  err('C_(2..4,3)+1', /fila 2, columna 1 es texto/);
+});
+
+t('errores de indice claros', () => {
+  err('C_(5,1)', /«C» tiene 4 filas y pides la 5/); err('C_(2..9,1)', /pides las filas 2\.\.9 y hay 4/);
+});
+
+t('cada celda puede llevar su unidad; solo colapsa a numerica si son de la misma dimension', () => {
+  assert.deepEqual(plain(ev('["L", 3\'m; "t", 2\'s]')), [['L', 3], ['t', 2]]);
+  const m = ev('["L", 3\'m, 4\'m]'); assert.equal(m.cells[0][2].v, 4);
+  const M = { cells: [[{ str: 'L' }, { v: 3, d: m.cells[0][1].d }, { v: 4, d: m.cells[0][2].d }]] };
+  const r = ev('M_(2..3)', { M }); assert.deepEqual(r.mat, [[3, 4]]); assert.ok(r.dim && r.dim[0] === 1);
+});
+
+t('una celda puede ser una expresion que se evalua en el sitio', () => {
+  const r = ev('[1+1, "a"; sqrt(16), "b"]'); assert.deepEqual(plain(r), [[2, 'a'], [4, 'b']]);
+});
+
+t('en un texto del dibujo: definir, cortar y operar', () => {
+  const d = newDoc();
+  addText(d, addPoint(d, 0, 0), '$$T:["id","nota";1,4.5;2,3.5;3,5]$$', {});
+  addText(d, addPoint(d, 0, -40), '$$p:sum(T_(2..4,2))/3=$$', {});
+  addText(d, addPoint(d, 0, -80), '$$h:T_(1,2)=$$', {});
+  const st = textVars(d);
+  assert.deepEqual([...st.errs.values()], []); assert.ok(Math.abs(st.vals.p.v - 13 / 3) < 1e-12); assert.equal(st.vals.h.str, 'nota');
+});
+
+console.log(passed + ' pruebas de matrices con celdas de distinto tipo');

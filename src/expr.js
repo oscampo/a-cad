@@ -9,6 +9,7 @@ import { solveEqs } from './nsolve.js';
 import { dataRead, dataWrite, dataName, valueText, isEntered, soundPlay } from './datastore.js';
 import { GREEK, GREEK_UP, addCalcFns } from './asciimath.js';
 import { nameToId } from './names.js';
+import { gridOf, cellsToValue, needSimple, stackGrids, transposeGrid, sizeOfGrid } from './cells.js';
 import { setDecimal, decimalMode, elemChar, rowChar, argChar, argText, localNum, setSci } from './locale.js';
 
 const TAU_DEG = 180 / Math.PI;
@@ -99,7 +100,7 @@ export function indexParts(raw) {
 }
 function indexOfVar(raw, vars) {
   const ip = indexParts(raw), x = ip && Object.prototype.hasOwnProperty.call(vars, ip.base) ? vars[ip.base] : null;
-  return x && (x.vec || x.mat || x.loc || x.strs || x.gen) ? ip : null; // gen.list: un spline o un grupo de contorno: s_i es su i-esimo punto, k1_i su i-esimo elemento
+  return x && (x.vec || x.mat || x.cells || x.loc || x.strs || x.gen) ? ip : null; // gen.list: un spline o un grupo de contorno: s_i es su i-esimo punto, k1_i su i-esimo elemento
 }
 const splitIdx = (s, mode = decimalMode()) => { // «i, j+1» -> ['i', 'j+1'] (las comas de dentro de parentesis no separan)
   const out = []; let d = 0, cur = '';
@@ -1065,7 +1066,7 @@ function typeOf(a) {
   if (a?.gen && GEN_TYPE[a.gen.k]) return GEN_TYPE[a.gen.k];
   if (typeof a?.str === 'string') return 'string';
   if (a?.strs) return 'strings';
-  if (a?.mat || a?.m) return 'matrix';
+  if (a?.mat || a?.m || a?.cells) return 'matrix';
   if (a?.im) return 'complex';
   return 'number';
 }
@@ -1366,7 +1367,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       let a;
       try { a = cmp(); } finally { LOC = prevLoc; }
       bindGen(vars, k.v, a.gen); // pto2.x, s1.L, e.a.x: lo que dibuja o recibe una variable local tiene sus propiedades (las de una asignacion anterior se borran)
-      vars[k.v] = isS(a) ? { ...a, loc: true } : isM(a) ? wd({ mat: a.m, ...(a.mi ? { mi: a.mi } : {}), loc: true }, a.d) : { v: a.v, ...(a.im ? { im: a.im } : {}), r: !!a.r, d: a.d, loc: true };
+      vars[k.v] = a.cells ? { cells: a.cells, loc: true } : isS(a) ? { ...a, loc: true } : isM(a) ? wd({ mat: a.m, ...(a.mi ? { mi: a.mi } : {}), loc: true }, a.d) : { v: a.v, ...(a.im ? { im: a.im } : {}), r: !!a.r, d: a.d, loc: true };
       return a;
     }
     return cmp();
@@ -1479,6 +1480,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   const LG_STOP = { and: ['and', 'or', 'xor'], or: ['or', 'xor'] };
   const isLg = (...w) => peek()?.t === 'lg' && w.includes(peek().v);
   const truth = (a, w) => {
+    if (a?.cells) a = needSimple(a, w);
     if (isM(a)) throw new Error(`«${w}» compara números, no vectores ni matrices`);
     if (isC(a)) throw new Error(`«${w}» no vale con números complejos: usa abs(…), real(…) o imag(…)`);
     if (isS(a)) throw new Error(`«${w}» no vale con cadenas: compáralas, p. ej. s == "sí"`);
@@ -1516,11 +1518,13 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     return a;
   }
   function cmpOp() {
-    const a = expr(), k = peek();
+    let a = expr();
+    const k = peek();
     if (k?.t === 'asg') throw new Error(ASG_MSG());
     if (!k || k.t !== 'cmp') return a;
     p++;
-    const b = expr();
+    let b = expr();
+    if (a.cells || b.cells) { a = nc(a, k.v); b = nc(b, k.v); }
     if (isS(a) || isS(b)) { // cadenas: solo == y != entre dos cadenas
       if (!isS(a) || !isS(b)) throw new Error('Una cadena solo se compara con otra cadena (para un número, num2str(…))');
       if (k.v !== '==' && k.v !== '!=') throw new Error(`Las cadenas se comparan con == y !=, no con «${k.v}»`);
@@ -1551,7 +1555,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   }
   function lazyIf(name) { // ya se leyo «if(» (o «si(»)
     if (isOp(')')) throw new Error(`«${name}» necesita al menos un valor`);
-    const c = cmp();
+    const c = nc(cmp(), 'if');
     if (isM(c)) throw new Error('La condición de if() es un número, no un vector ni una matriz');
     if (isC(c)) throw new Error('La condición de if() no puede ser un número complejo: usa abs(…), real(…) o imag(…)');
     if (isS(c)) throw new Error('La condición de if() no puede ser una cadena: compárala, p. ej. s == "sí"');
@@ -1699,6 +1703,11 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     return wd({ v, r: false }, mulDim(fd || undefined, xd));
   }
   function call(name, A) {
+    if (A.some((a) => a?.cells)) { // una matriz con celdas: size, rows, cols, numel, transpose, horzcat, vertcat y typeof la entienden; las demas la reciben numerica (o de cadenas) o dan un error
+      const cr = cellsCall(name, A);
+      if (cr) return cr;
+      A = A.map((a) => (a?.cells ? needSimple(a, name) : a));
+    }
     const sep = decimalMode() === '.' ? ' (sepáralos con «,»)' : decimalMode() === ',' ? ' (sepáralos con «;»)' : ' (sepáralos con «;»: «2,5» es un solo número)';
     if (name in SF) { // funciones de cadenas
       const [lo, hi] = SF[name].n;
@@ -1752,10 +1761,10 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     if (!va && A.length !== f.params.length) throw new Error(`«${name}» recibe ${f.params.length === 1 ? 'un valor' : dotArgs() ? `${f.params.length} valores separados por «,»` : `${f.params.length} valores separados por «;»`}: ${name}(${f.params.join(argText() + ' ')})`);
     if (depth >= 200) throw new Error(`«${name}» se llama a sí misma demasiadas veces (200 niveles)`);
     const g = globals || vars, local = { ...g, ...(f.lib || {}) }; // f.lib: las funciones locales de un script (ver script.js)
-    const keep = (a) => isS(a) ? { ...a } : isM(a) ? wd({ mat: a.m, ...(a.mi ? { mi: a.mi } : {}) }, a.d) : { v: a.v, ...(a.im ? { im: a.im } : {}), r: !!a.r, d: a.d };
+    const keep = (a) => a.cells ? { cells: a.cells } : isS(a) ? { ...a } : isM(a) ? wd({ mat: a.m, ...(a.mi ? { mi: a.mi } : {}) }, a.d) : { v: a.v, ...(a.im ? { im: a.im } : {}), r: !!a.r, d: a.d };
     if (va) local.varargin = { args: A.slice(nFix).map(keep), loc: true };
     local.nargin = { v: A.length, r: false, loc: true };
-    f.params.slice(0, nFix).forEach((q, i) => { local[q] = isS(A[i]) ? { ...A[i] } : isM(A[i]) ? wd({ mat: A[i].m, ...(A[i].mi ? { mi: A[i].mi } : {}) }, A[i].d) : { v: A[i].v, ...(A[i].im ? { im: A[i].im } : {}), r: !!A[i].r, d: A[i].d }; });
+    f.params.slice(0, nFix).forEach((q, i) => { local[q] = A[i].cells ? { cells: A[i].cells } : isS(A[i]) ? { ...A[i] } : isM(A[i]) ? wd({ mat: A[i].m, ...(A[i].mi ? { mi: A[i].mi } : {}) }, A[i].d) : { v: A[i].v, ...(A[i].im ? { im: A[i].im } : {}), r: !!A[i].r, d: A[i].d }; });
     f.params.slice(0, nFix).forEach((q, i) => { if (A[i]?.gen) bindGen(local, q, A[i].gen, true); }); // un parametro que es un punto, una linea…: tiene sus propiedades (p.x, l.L)
     try {
       const memOut = depth === 0 ? {} : null; // la llamada de mas afuera guarda lo que sus locales dibujaron (takeMembers)
@@ -1763,6 +1772,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (memOut) LAST_MEMBERS = memOut;
       if (typeof r.str === 'string') return r.gen ? { str: r.str, gen: r.gen } : { str: r.str }; // gen: los datos del objeto que dibuja (ver point)
       if (r.strs) return { strs: r.strs };
+      if (r.cells) return { cells: r.cells };
       return r.mat ? wd({ m: r.mat, ...(r.mi ? { mi: r.mi } : {}) }, r.dim) : { v: r.value, ...(r.im ? { im: r.im } : {}), r: r.rad, d: r.dim };
     } catch (e) {
       if (/^En «/.test(e.message)) throw e;
@@ -1770,10 +1780,12 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     }
   }
 
+  const nc = (a, what) => (a?.cells ? needSimple(a, what) : a); // una matriz con celdas en un operador: numerica (o de cadenas) si se puede, o un error que dice por que
   function expr() {
     let a = term();
     while (isOp('+') || isOp('-')) {
-      const o = toks[p++].v, s = o === '+' ? 1 : -1; const b = term();
+      const o = toks[p++].v, s = o === '+' ? 1 : -1; let b = term();
+      if (a.cells || b.cells) { a = nc(a, o); b = nc(b, o); }
       if (isS(a) || isS(b)) { a = strAdd(a, b, s); continue; } // cadenas: «+» las une
       if (isC(a) || isC(b)) { const d = addU(a, b, s); a = isM(a) || isM(b) ? wd(caddM(a, b, s), d) : cval(cadd(cpair(a), cscale(cpair(b), s)), a.r || b.r, d); continue; }
       a = isM(a) || isM(b) ? wd(addM(a, b, s), addU(a, b, s)) : { v: a.v + s * b.v, r: a.r || b.r, d: addU(a, b, s) };
@@ -1794,12 +1806,14 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     for (;;) {
       if (!(isOp('*') && (peek().x || peek().d))) last = null; // cualquier otro operador rompe la cadena
       if (isOp('.*') || isOp('./')) { // elemento a elemento
-        const o = toks[p++].v, b = unary();
+        const o = toks[p++].v; let b = unary();
+        if (a.cells || b.cells) { a = nc(a, o); b = nc(b, o); }
         if (isS(a) || isS(b)) throw new Error('Una cadena no se multiplica ni se divide');
         if (isC(a) || isC(b)) { a = cMulDiv(a, b, o); continue; }
         if (!isM(a) && !isM(b)) { if (o === './' && b.v === 0) throw rt('División entre cero'); a = mulU(a, b, o === '.*' ? 1 : -1, o === '.*' ? a.v * b.v : a.v / b.v); } else a = wd(o === '.*' ? elementwise(a, b, (x, y) => x * y, 'multiplicar elemento a elemento') : elementwise(a, b, divEl, 'dividir elemento a elemento'), mulDim(a.d, b.d, o === '.*' ? 1 : -1));
       } else if (isOp('*') || isOp('/')) {
-        const ot = toks[p++], o = ot.v, asUnit = peek()?.t === 'unit'; const b = unary();
+        const ot = toks[p++], o = ot.v, asUnit = peek()?.t === 'unit'; let b = unary();
+        if (a.cells || b.cells) { a = nc(a, o); b = nc(b, o); }
         if (isS(a) || isS(b)) throw new Error('Una cadena no se multiplica ni se divide');
         if (isC(a) || isC(b)) { a = cMulDiv(a, b, o); continue; }
         if (o === '*' && (ot.x || ot.d)) { // «×» y «·» tecleados: ver dotTimes
@@ -1815,7 +1829,8 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
           a = isM(a) ? wd(mapM(a, (x) => x / b.v), mulDim(a.d, b.d, -1)) : mulU(a, b, -1, a.v / b.v, asUnit);
         } else a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit);
       } else if (startsFactor()) { // multiplicacion implicita: 2π, 3(4+1)
-        const asUnit = peek()?.t === 'unit', b = unary();
+        const asUnit = peek()?.t === 'unit'; let b = unary();
+        if (a.cells || b.cells) { a = nc(a, '*'); b = nc(b, '*'); }
         if (isS(a) || isS(b)) throw new Error('Una cadena no se multiplica ni se divide');
         if (isC(a) || isC(b)) { a = cMulDiv(a, b, '*'); continue; }
         a = isM(a) || isM(b) ? wd(mulM(a, b), mulDim(a.d, b.d)) : mulU(a, b, 1, a.v * b.v, asUnit);
@@ -1823,17 +1838,18 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     }
   }
   function unary() {
-    if (isOp('-')) { p++; const a = unary(); if (isS(a)) throw new Error('Una cadena no lleva signo'); if (isC(a)) return isM(a) ? wd(cmapM(a, (z) => [-z[0], -z[1]]), a.d) : cval([-a.v, -a.im], a.r, a.d); return isM(a) ? wd(mapM(a, (x) => -x), a.d) : { v: -a.v, r: a.r, d: a.d }; }
+    if (isOp('-')) { p++; const a = nc(unary(), '-'); if (isS(a)) throw new Error('Una cadena no lleva signo'); if (isC(a)) return isM(a) ? wd(cmapM(a, (z) => [-z[0], -z[1]]), a.d) : cval([-a.v, -a.im], a.r, a.d); return isM(a) ? wd(mapM(a, (x) => -x), a.d) : { v: -a.v, r: a.r, d: a.d }; }
     if (isOp('+')) { p++; return unary(); }
     return power();
   }
   function power() {
-    const a = primary();
+    let a = primary();
     if (isS(a) && (isOp('^') || isOp('.^')) && toks[p + 1]?.t !== 'tr') throw new Error('Una cadena no se eleva a una potencia');
     if (isOp('^')) {
       p++;
-      if (peek()?.t === 'tr') { p++; return isM(a) ? wd(isC(a) ? ctransposeM(a) : transposeM(a), a.d) : a; } // x^T (un vector de cadenas queda igual)
-      const b = unary();
+      if (peek()?.t === 'tr') { p++; return a.cells ? cellsToValue(transposeGrid(a.cells)) : isM(a) ? wd(isC(a) ? ctransposeM(a) : transposeM(a), a.d) : a; } // x^T (un vector de cadenas queda igual)
+      a = nc(a, '^');
+      const b = nc(unary(), '^');
       if (isS(b)) throw new Error('El exponente no puede ser una cadena');
       if (b.d) throw new Error(`El exponente no puede llevar unidades (lleva ${unitMsg(b.d)})`);
       if (isC(b) && (isM(a) || a.d)) throw new Error('Un exponente complejo solo vale con un número sin unidades');
@@ -1845,7 +1861,8 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     }
     if (isOp('.^')) { // elemento a elemento
       p++;
-      const b = unary();
+      a = nc(a, '.^');
+      const b = nc(unary(), '.^');
       if (b.d) throw new Error(`El exponente no puede llevar unidades (lleva ${unitMsg(b.d)})`);
       const neg = (q) => (isM(q) ? q.m.some((r) => r.some((x) => x < 0)) : q.v < 0), frac = (q) => (isM(q) ? q.m.some((r) => r.some((x) => !Number.isInteger(x))) : !Number.isInteger(q.v));
       if (isC(a) || isC(b) || (neg(a) && frac(b))) { // complejos (o una base negativa con exponente no entero): como en MATLAB
@@ -1921,6 +1938,28 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (!(q >= 1 && q <= L.length)) throw new Error(`Índice fuera de rango: «${k.base}» tiene ${L.length} cadenas y pides la ${q}`);
       return { str: L[q - 1] };
     }
+    if (k.t === 'idx' && vars[k.base]?.cells) { // C_(i,j), C_(i,:), C_(2..4,1): un elemento (un numero o una cadena) o una parte, que vuelve a ser numerica o de cadenas si es de un solo tipo
+      const grid = vars[k.base].cells, R = grid.length, C = grid[0].length, name = `${k.base}_(${k.src})`;
+      const ix = splitIdx(k.src).map((s2, pos, all) => {
+        if (!s2) throw new Error(`Falta un índice en «${name}»`);
+        if (s2 === ':') return ':';
+        const n = all.length === 2 ? (pos === 0 ? R : C) : R === 1 ? C : R, vv = { ...vars, end: { v: n, r: false } };
+        const one = (e) => { const v = evalExpr(e, { vars: vv, depth: depth + 1, globals }).value; if (!Number.isInteger(Math.round(v * 1e9) / 1e9)) throw new Error(`El índice «${e}» de «${k.base}» debe ser un entero (vale ${Math.round(v * 1e6) / 1e6})`); return Math.round(v); };
+        const rg = rangeSplit(s2);
+        return rg ? { a: one(rg[0]), b: one(rg[1]) } : one(s2);
+      });
+      if (ix.length > 2) throw new Error('Un elemento lleva un índice (vector) o dos (matriz): A_(fila,columna)');
+      if (ix.length === 1 && (ix[0] === ':' || (R > 1 && C > 1))) throw new Error(ix[0] === ':' ? 'Un «:» solo no vale: usa A_(fila,:) o A_(:,columna)' : `«${k.base}» es una matriz de ${R}×${C}: lleva dos índices, ${k.base}_(fila,columna)`);
+      const pick = (q, n, nom) => {
+        if (q === ':') return Array.from({ length: n }, (_, t) => t + 1);
+        const lo = typeof q === 'object' ? q.a : q, hi = typeof q === 'object' ? q.b : q;
+        if (lo > hi || lo < 1 || hi > n) throw new Error(typeof q === 'object' ? (nom === 'f' ? `Rango fuera de «${k.base}»: pides las filas ${lo}..${hi} y hay ${n} (de menor a mayor, desde 1)` : nom === 'c' ? `Rango fuera de «${k.base}»: pides las columnas ${lo}..${hi} y hay ${n} (de menor a mayor, desde 1)` : `Rango fuera de «${k.base}»: pides los elementos ${lo}..${hi} y hay ${n} (de menor a mayor, desde 1)`) : (nom === 'f' ? `Índice fuera de rango: «${k.base}» tiene ${n} filas y pides la ${lo}` : nom === 'c' ? `Índice fuera de rango: «${k.base}» tiene ${n} columnas y pides la ${lo}` : `Índice fuera de rango: «${k.base}» tiene ${n} elementos y pides la ${lo}`));
+        return Array.from({ length: hi - lo + 1 }, (_, t) => lo + t);
+      };
+      let rs, cs;
+      if (ix.length === 2) { rs = pick(ix[0], R, 'f'); cs = pick(ix[1], C, 'c'); } else if (R === 1) { rs = [1]; cs = pick(ix[0], C, 'e'); } else { rs = pick(ix[0], R, 'e'); cs = [1]; }
+      return cellsToValue(rs.map((r) => cs.map((c) => grid[r - 1][c - 1])));
+    }
     if (k.t === 'idx') { // v_2, A_(i,j), A_(i,:), A_(:,j): un elemento, una fila o una columna (los indices empiezan en 1)
       if (!vars[k.base].vec && !vars[k.base].mat) throw new Error(vars[k.base].unset ? `«${k.base}» se usa antes de darle un valor` : `«${k.base}» no es un vector ni una matriz: no lleva índice`);
       const x = vars[k.base], xd = x.d, m = x.mat || [x.vec], R = m.length, C = m[0].length, name = `${k.base}_(${k.src})`;
@@ -1976,6 +2015,7 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (x.unset) throw new Error(`«${k.v}» se usa antes de darle un valor (dentro del programa: ${k.v}:valor)`);
       if (typeof x.str === 'string') return x.gen ? { str: x.str, gen: x.gen } : { str: x.str };
       if (x.strs) return { strs: x.strs };
+      if (x.cells) return { cells: x.cells };
       if (x.fn) throw new Error(`«${k.v}» es una función: escríbela con paréntesis, p. ej. ${k.v}(…)`);
       if (x.args) throw new Error(`«${k.v}» es la lista de los valores de más: usa ${k.v}_1, ${k.v}_(k) y nargin`);
       if (x.mat) return wd({ m: x.mat, ...(x.mi ? { mi: x.mi } : {}) }, x.d);
@@ -1988,27 +2028,27 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       // matriz (por bloques): «,» pone los bloques lado a lado (mismo numero de filas) y «;» uno debajo del otro (mismo numero de
       // columnas): con V y M filas de 2, [V; M] es la matriz de 2×2 y [V, M] una fila de 4.
       if (isOp(']')) throw new Error('Una matriz no puede estar vacía');
-      const brow = [[]]; // filas de bloques; cada bloque, una matriz (un numero es de 1×1)
-      let d0 = null, z0 = true; // todos los elementos con la misma dimension (la de la matriz); z0: hasta aqui solo ceros sin unidades
-      const strEls = []; let numEls = 0, rowsN = 1;
+      const raw = [[]]; let mixed = false; // lo leido por filas; mixed: hay una cadena o una matriz con celdas (texto y numeros mezclados)
       for (;;) {
         const a = cmp();
-        if (isS(a)) { if (a.strs) throw new Error('Un vector de cadenas no va dentro de otro: usa horzcat o strjoin'); strEls.push(a.str); const s2 = peek(); if (s2?.t === 'sep') { p++; if (s2.c === rowChar()) rowsN++; continue; } break; }
-        numEls++;
-        if (d0 === null || (z0 && !zero0(a))) { if (!zero0(a) || d0 === null) d0 = a.d; } else if (!sameDim(a.d, d0) && !zero0(a)) throw new Error(`Los elementos de una matriz deben tener las mismas unidades (hay ${unitMsg(d0)} y ${unitMsg(a.d)})`);
-        if (!zero0(a)) z0 = false;
-        brow.at(-1).push(isM(a) ? a : { m: [[a.v]], ...(a.im ? { mi: [[a.im]] } : {}) });
+        if (isS(a) || a.cells) mixed = true;
+        raw.at(-1).push(a);
         const s = peek();
-        if (s?.t === 'sep') { p++; if (s.c === rowChar()) brow.push([]); continue; } // filas: «;» (o «|» con coma decimal); elementos: «,» (o «;»)
+        if (s?.t === 'sep') { p++; if (s.c === rowChar()) raw.push([]); continue; } // filas: «;» (o «|» con coma decimal); elementos: «,» (o «;»)
         break;
       }
       if (!isOp(']')) throw new Error('Falta cerrar un corchete');
       p++;
-      if (strEls.length) { // ["a", "b"]: un vector de cadenas (fila; sin numeros mezclados)
-        if (numEls) throw new Error('Un vector no mezcla cadenas y números (para un número, num2str(…))');
-        if (rowsN > 1) throw new Error('Un vector de cadenas es una sola fila: ["a", "b"]');
-        return { strs: strEls };
+      if (mixed) { // una matriz con texto: celdas de distinto tipo (cells.js); un vector de cadenas de una fila sigue siendo { strs }, y lo que sea de un solo tipo vuelve a ser numerico
+        if (raw.length === 1 && raw[0].every((a) => a.str !== undefined)) return { strs: raw[0].map((a) => a.str) };
+        return cellsToValue(stackGrids(raw.map((r) => r.map(gridOf)), rowChar(), elemChar()));
       }
+      let d0 = null, z0 = true; // todos los elementos con la misma dimension (la de la matriz); z0: hasta aqui solo ceros sin unidades
+      for (const r of raw) for (const a of r) {
+        if (d0 === null || (z0 && !zero0(a))) { if (!zero0(a) || d0 === null) d0 = a.d; } else if (!sameDim(a.d, d0) && !zero0(a)) throw new Error(`Los elementos de una matriz deben tener las mismas unidades (hay ${unitMsg(d0)} y ${unitMsg(a.d)})`);
+        if (!zero0(a)) z0 = false;
+      }
+      const brow = raw.map((r) => r.map((a) => (isM(a) ? a : { m: [[a.v]], ...(a.im ? { mi: [[a.im]] } : {}) }))); // filas de bloques; cada bloque, una matriz (un numero es de 1×1)
       const blocky = brow.some((r) => r.some((b) => b.m.length !== 1 || b.m[0].length !== 1));
       const rows = [], rowsI = [], cplx = brow.some((r) => r.some((b) => b.mi));
       brow.forEach((bs, i) => {
@@ -2084,6 +2124,10 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     if (!allowCplx) throw new Error('El resultado es una cadena: aquí hace falta un número');
     return res.strs ? { strs: res.strs, value: NaN } : { str: res.str, ...(res.gen ? { gen: res.gen } : {}), value: NaN };
   }
+  if (res.cells) { // una matriz con celdas de distinto tipo: solo sale en los textos de calculo y las funciones
+    if (!allowCplx) throw new Error('El resultado es una matriz con texto: aquí hace falta un número');
+    return { cells: res.cells, value: NaN };
+  }
   if (isC(res) && !allowCplx) throw new Error('El resultado es un número complejo: aquí hace falta un número real (usa abs(…), angle(…), real(…) o imag(…))');
   if (isM(res)) {
     if (!allowMat) throw new Error(`El resultado es ${nameM(res)}, no un número`);
@@ -2107,6 +2151,25 @@ function fileNamePos(toks) {
     else if (t.t === 'op' && (t.v === '(' || t.v === '[')) { if (!d) return t.v === '(' && toks[q - 1]?.t === 'id' && toks[q - 1].v === 'wfile'; d--; } // en rfile, despues de la coma va el valor inicial
   }
   return false;
+}
+// Una matriz con celdas como texto simple, para mostrarla: [“Datos”, “col1”; “fil1”, 1] (la tabla dibujada es otra cosa).
+export function cellsPlain(grid) {
+  return '[' + grid.map((r) => r.map((c) => (c.str !== undefined ? '“' + c.str + '”' : numText({ v: c.v, ...(c.im ? { im: c.im } : {}), r: !!c.r, ...(c.d ? { d: c.d } : {}) }))).join(elemChar() + ' ')).join(rowChar() === ';' ? '; ' : ' | ') + ']';
+}
+// Las funciones que entienden una matriz con celdas tal cual (el resto la recibe numerica o de cadenas, o da un error): medidas, transponer, juntar y el tipo.
+function cellsCall(name, A) {
+  const one = A.length === 1 ? A[0] : null;
+  if (name === 'size' && one) return { m: [sizeOfGrid(one.cells)] };
+  if (name === 'rows' && one) return { v: one.cells.length, r: false };
+  if (name === 'cols' && one) return { v: one.cells[0].length, r: false };
+  if (name === 'numel' && one) return { v: one.cells.length * one.cells[0].length, r: false };
+  if ((name === 'len' || name === 'length') && one) return { v: Math.max(one.cells.length, one.cells[0].length), r: false };
+  if (name === 'isempty' && one) return { v: 0, r: false };
+  if (name === 'transpose' && one) return cellsToValue(transposeGrid(one.cells));
+  if (name === 'typeof' && one) return { str: 'matrix' };
+  if (name === 'isa' && A.length === 2) return { v: A[1].str === 'matrix' ? 1 : 0, r: false };
+  if (name === 'horzcat' || name === 'vertcat') { const gs = A.map(gridOf); return cellsToValue(name === 'horzcat' ? stackGrids([gs]) : stackGrids(gs.map((g) => [g]))); }
+  return null;
 }
 // El valor que guarda un archivo de datos, como lo usa el evaluador por dentro. Se lee siempre con punto decimal (asi lo escribe wfile).
 function readData(t) {

@@ -32,8 +32,8 @@ t('errores claros: cadenas con numeros, n invalido; los numeros siguen igual', (
   assert.deepEqual(ev('horzcat([1,2]; [3])').mat, [[1, 2, 3]]);
 });
 
-t('el mensaje de «un vector de cadenas no va dentro de otro» dice algo que funciona', () => {
-  assert.throws(() => ev('[s, "c"]', { s: { strs: ['a'], loc: true } }), /horzcat/);
+t('un vector de cadenas dentro de corchetes se une al resto (como horzcat)', () => {
+  assert.deepEqual(ev('[s, "c"]', { s: { strs: ['a'], loc: true } }).strs, ['a', 'c']);
   assert.deepEqual(ev('horzcat(s; "c")', { s: { strs: ['a'], loc: true } }).strs, ['a', 'c']);
 });
 

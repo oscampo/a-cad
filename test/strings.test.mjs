@@ -45,7 +45,7 @@ t('funciones de cadenas', () => {
 t('errores claros donde se espera un numero; una cota o una grafica piden un numero', () => {
   assert.throws(() => E('"a" + 1'), /num2str/); assert.throws(() => E('"a" * 2'), /no se multiplica/);
   assert.throws(() => E('"a" < "b"'), /== y !=/); assert.throws(() => E('sin("a")'), /no recibe cadenas/);
-  assert.throws(() => E('["a", 1]'), /no mezcla/); assert.throws(() => E('if("a", 1, 2)'), /no puede ser una cadena/);
+  assert.throws(() => E('["a", 1] + 1'), /mezclados/); assert.throws(() => E('if("a", 1, 2)'), /no puede ser una cadena/);
   assert.throws(() => evalExpr('"hola"'), /cadena: aquí hace falta un número/);
   assert.equal(evalExpr('strlength("abc")').value, 3);
 });

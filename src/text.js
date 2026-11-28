@@ -1,7 +1,7 @@
 // Geometria de los textos: caja imaginaria, punto de insercion y orientacion. Sin DOM.
 // measure(linea) -> ancho de la linea para una altura de texto de 1 (en el navegador sale
 // de measureText; en las pruebas puede ser una aproximacion).
-import { evalExpr, setAngleMode, rngSet, rngMix, rngReset, approxTol } from './expr.js';
+import { evalExpr, setAngleMode, rngSet, rngMix, rngReset, approxTol, cellsPlain } from './expr.js';
 import { varsOf, textVars } from './params.js';
 import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, showFlat, scriptStmt, clearCall, solveCall, unitDefOf, UDEF_ERR } from './tvars.js';
 import { normName, exprRefs } from './expr.js';
@@ -63,7 +63,7 @@ function cfmt(re, im, f) {
 // Cadenas: se muestran entre comillas tipograficas, como texto recto («msg = “Cumple”»); un vector de cadenas, «[“a”, “b”]».
 const STR_RE = /"(?:[^"]|"")*"|“[^”"]*[”"]|”[^“”"]*[“”"]/g;
 const asText = (s) => '"' + String(s).replace(/"/g, '″') + '"'; // texto de AsciiMath (no puede llevar «"» dentro)
-const showStr = (r, math) => { const q = (x) => '“' + x + '”', t = r.strs ? '[' + r.strs.map(q).join(elemChar() + ' ') + ']' : q(r.str); return math ? asText(t) : t; };
+const showStr = (r, math) => { const q = (x) => '“' + x + '”', t = r.cells ? cellsPlain(r.cells) : r.strs ? '[' + r.strs.map(q).join(elemChar() + ' ') + ']' : q(r.str); return math ? asText(t) : t; };
 // Una formula con cadenas literales: lo de afuera pasa por f (unidades, subindices); cada cadena se dibuja como texto, sin tocar su interior («"it's"» no tiene segundos)
 const outStr = (seg, f) => { let out = '', at = 0; for (const m of seg.matchAll(STR_RE)) { out += f(seg.slice(at, m.index)) + asText('“' + m[0].slice(1, -1).replace(/""/g, '"') + '”'); at = m.index + m[0].length; } return out + f(seg.slice(at)); };
 const parC = (s) => (/[+-]/.test(s.slice(1)) ? '(' + s + ')' : s); // «(3+4j) Ω»
@@ -189,7 +189,7 @@ function textValue1(doc, t) {
       rngSet(st?.outRng?.get(k0) ?? rngMix(rngReset(), oidx)); // rand: la tirada de esta salida es siempre la misma (la pantalla se redibuja a menudo)
       if (st?.rngOut?.has(k0)) { const r0 = st.rngOut.get(k0); return qty(r0, env, p.expr, p.unit, math); } // «rng("shuffle")=»: la semilla que se uso al calcular, no una nueva en cada dibujo
       const r = evalExpr(p.expr, { vars: env, allowMat: true, allowCplx: true });
-      if (r.str !== undefined || r.strs) return showStr(r, math);
+      if (r.str !== undefined || r.strs || r.cells) return showStr(r, math);
       return r.mat ? matQ(r.mat, r.dim, env, p.expr, p.unit, math, r.mi) : qty(r, env, p.expr, p.unit, math);
     } catch (e) { return '⚠'; }
   };
@@ -200,7 +200,7 @@ function textValue1(doc, t) {
     if (!env || params.split(/[;,]/).some((q) => !(normName(q.trim()) in env))) return '';
     try {
       const r = evalExpr(callSrc, { vars: env, allowMat: true, allowCplx: true });
-      if (r.str !== undefined || r.strs) return '=' + showStr(r, true);
+      if (r.str !== undefined || r.strs || r.cells) return '=' + showStr(r, true);
       return '=' + (r.mat ? matQ(r.mat, r.dim, env, '', null, true, r.mi) : qty(r, env, '', null, true));
     } catch (e) { return '=⚠'; }
   };
@@ -217,7 +217,7 @@ function textValue1(doc, t) {
     const mx = vm && (/^\s*\[/.test(p.expr) || !/[A-Za-zα-ωΑ-Ω_][\w.']*\s*\(/.test(p.expr)) ? vm : null;
     const call = p.params !== undefined ? '(' + p.params.trim() + ')' : ''; // funcion: f(x; y):=...
     // «x:expr=»: ademas del valor asignado, «=valor» (un vector escrito a mano ya muestra su valor)
-    const shownVal = p.eq === undefined || mx ? '' : vm ? '=' + matQ(vm, val.d, { [name]: val }, name, null, true, val.mi) : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? (val.str !== undefined || val.strs ? showStr(val, true) : qty({ value: val.v, im: val.im, dim: val.d }, { [name]: val }, name, null, true)) : '⚠');
+    const shownVal = p.eq === undefined || mx ? '' : vm ? '=' + matQ(vm, val.d, { [name]: val }, name, null, true, val.mi) : val?.fn ? fnVal(name + call, p.params, st.fnEnv.get(dk)) : '=' + (val ? (val.str !== undefined || val.strs || val.cells ? showStr(val, true) : qty({ value: val.v, im: val.im, dim: val.d }, { [name]: val }, name, null, true)) : '⚠');
     // «x:valor'unidad»: la unidad va detras del valor; con «=valor», el valor ya sale en esa unidad
     const un = p.unit && !(shownVal && !shownVal.endsWith('⚠')) ? unitMath(p.unit.replace(/^\((.*)\)$/, '$1')) : '';
     return p.pre + (mx ? IT0 + shown + ':=' + IT1 + matQ(mx, val.d, { [name]: val }, name, null, true, val.mi) + (val.d ? '' : un) : IT0 + shown + call + ':=' + outStr(p.expr.trim(), (q) => showU(wrapNames(libPre(q)))) + (bad && !shownVal ? ' ⚠' : '') + IT1 + un + shownVal) + p.post;

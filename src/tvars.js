@@ -355,7 +355,7 @@ export const textDefs = (doc) => readingEvents(doc).filter((e) => e.kind === 'de
 // El valor que guarda una variable de texto a partir del resultado de evalDef
 function valOf(r) {
   const u = { ...(r.dim ? { d: r.dim } : {}), ...(r.pu ? { pu: r.pu, pf: r.pf } : {}) };
-  return r.str !== undefined ? { str: r.str, ...(r.gen ? { gen: r.gen } : {}) } : r.strs ? { strs: r.strs } : r.mi ? { mat: r.mat, mi: r.mi, r: false, ...u } : r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false, ...u } : { mat: r.mat, r: false, ...u }) : { v: r.value, r: r.rad, ...u, ...(r.im ? { im: r.im } : {}) }; // un complejo guarda su parte imaginaria (una matriz compleja, siempre como mat + mi) // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
+  return r.str !== undefined ? { str: r.str, ...(r.gen ? { gen: r.gen } : {}) } : r.strs ? { strs: r.strs } : r.cells ? { cells: r.cells } : r.mi ? { mat: r.mat, mi: r.mi, r: false, ...u } : r.mat ? (r.mat.length === 1 ? { vec: r.mat[0], r: false, ...u } : { mat: r.mat, r: false, ...u }) : { v: r.value, r: r.rad, ...u, ...(r.im ? { im: r.im } : {}) }; // un complejo guarda su parte imaginaria (una matriz compleja, siempre como mat + mi) // un vector fila sigue siendo «vec»; el resto de matrices, «mat»
 }
 export function evalDef(expr, unit, vars) {
   const all = (s) => evalExpr(s, { vars, allowMat: true, allowCplx: true }); // los textos de calculo aceptan complejos

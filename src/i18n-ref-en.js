@@ -185,6 +185,7 @@ export const REF_EN = {
   "4nx2mr14": "Element of a vector, counting from 1.",
   "14di8hs13": "Element of a matrix (row, column).",
   "8ciz9389": "A <b>part</b> of a matrix: a range of rows and columns (from lowest to highest, starting at 1). <code>end</code> is the last one in that direction: <code>A_(end,1)</code>. It also works on a vector (<code>v_(2..end)</code>) and on a vector of strings. The part is operated like any matrix, with its units.",
+  "fu68ekbq": "A <b>matrix with cells of different types</b>: text and numbers (each number with its unit) in the same matrix. By convention the first row and column hold the names. It is sliced like any matrix (<code>C_(2,2)</code>, <code>C_(2..4,2)</code>) and, if the slice has a single type, it becomes a numeric matrix or a vector of strings again. Operating on a mixed matrix gives an error that says which cell is in the way.",
   "12js6l2u": "A whole row or column.",
   "1qjfbh9s": "Solve the system A·x = b.",
   "111054jh": "Custom functions",
