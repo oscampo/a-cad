@@ -83,4 +83,11 @@ t('al dibujar la matriz, las cadenas van sin comillas; sueltas, con ellas', () =
   assert.equal(show(T[0]), '$$q:=["datos","c1";"f1",2]$$'); assert.equal(show(T[1]), '$$"“hola”"="“hola”"$$');
 });
 
+t('una celda con una variable en K o mm se muestra en esa unidad, no en la automatica', () => {
+  const d = newDoc();
+  const T = ["T:30'K", 'q:["a",T;"b",2]', 'q_(1,2)=', "m:5'mm", 'n:["a",m]', 'n_(1,2)='].map((x, i) => d.texts[addText(d, addPoint(d, 0, -i * 40), '$$' + x + '$$', {})]);
+  const show = (q) => shownText(d, q).text.replace(/[-]/g, '');
+  assert.equal(show(T[2]), '$$q_(1,2)=30 " K"$$'); assert.equal(show(T[5]), '$$n_(1,2)=5 " mm"$$');
+});
+
 console.log(passed + ' pruebas de matrices con celdas de distinto tipo');

@@ -6,6 +6,7 @@ import { varsOf, textVars } from './params.js';
 import { IT0, IT1, VB0, VB1, NM0, NM1, runsOf, calcParse, calcStmts, contBack, showFlat, scriptStmt, clearCall, solveCall, unitDefOf, UDEF_ERR } from './tvars.js';
 import { normName, exprRefs } from './expr.js';
 import { parseUnit, sameDim, autoUnit } from './units.js';
+import { prefUnit } from './cells.js';
 export { runsOf, plainText } from './tvars.js';
 import { fmtNum } from './dims.js';
 import { hasMath, layoutText, splitMath } from './mathlayout.js';
@@ -45,7 +46,9 @@ const fmtQ = (x) => (Math.abs(x) >= sciFrom() && Number.isFinite(x) ? sciText(x)
 let KEEP_DIM_UNIT = false;
 function pickUnit(dim, env, src, want, v) {
   if (want) { const u = parseUnit(want); return sameDim(dim, u.d) ? { name: want, f: u.f } : null; }
-  for (const n of [normName(String(src).trim()), ...exprRefs(src)]) { const x = env?.[n]; if (x?.pu && (!x.dv || KEEP_DIM_UNIT) && sameDim(x.d, dim)) return { name: x.pu, f: x.pf }; } // la de una cota no: manda el sistema de unidades
+  const refs = [normName(String(src).trim()), ...exprRefs(src, (n) => !!env && n in env)];
+  for (const n of refs) { const x = env?.[n]; if (x?.pu && (!x.dv || KEEP_DIM_UNIT) && sameDim(x.d, dim)) return { name: x.pu, f: x.pf }; }
+  for (const n of refs) { const u = prefUnit(env?.[n], dim); if (u) return u; } // una celda de la matriz que viene en esa unidad // la de una cota no: manda el sistema de unidades
   return autoUnit(v, dim);
 }
 const tailOf = (n, math) => (math ? unitMath(n) : ' ' + n);

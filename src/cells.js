@@ -12,11 +12,11 @@ export function gridOf(a) {
   if (a.strs) return [a.strs.map((s) => ({ str: s }))];
   if (a.str !== undefined) return [[{ str: a.str }]];
   if (a.m) return a.m.map((r, i) => r.map((v, j) => ({ v, ...(a.mi && a.mi[i][j] ? { im: a.mi[i][j] } : {}), ...(a.d ? { d: a.d } : {}), r: false })));
-  return [[{ v: a.v, ...(a.im ? { im: a.im } : {}), ...(a.d ? { d: a.d } : {}), r: !!a.r }]];
+  return [[{ v: a.v, ...(a.im ? { im: a.im } : {}), ...(a.d ? { d: a.d } : {}), ...(a.pu ? { pu: a.pu, pf: a.pf } : {}), r: !!a.r }]];
 }
 
 // Una celda como valor del evaluador.
-export const cellValue = (c) => (c.str !== undefined ? { str: c.str } : { v: c.v, ...(c.im ? { im: c.im } : {}), r: !!c.r, ...(c.d ? { d: c.d } : {}) });
+export const cellValue = (c) => (c.str !== undefined ? { str: c.str } : { v: c.v, ...(c.im ? { im: c.im } : {}), r: !!c.r, ...(c.d ? { d: c.d } : {}), ...(c.pu ? { pu: c.pu, pf: c.pf } : {}) });
 
 // La cuadricula como el valor mas simple que la contiene: un numero, una matriz numerica, una cadena, un vector de cadenas o, si hay de todo, { cells }.
 export function cellsToValue(grid) {
@@ -26,7 +26,7 @@ export function cellsToValue(grid) {
     for (const c of flat) { if (!zero0(c) && c.d && c.d.some((e) => e)) { if (d === null) d = c.d; else if (!sameDim(c.d, d)) return { cells: grid }; } }
     if (d !== null && flat.some((c) => !zero0(c) && !(c.d && c.d.some((e) => e)))) return { cells: grid }; // un numero sin unidad junto a otro con unidad
     const cplx = flat.some((c) => c.im);
-    if (R === 1 && C === 1) return { v: flat[0].v, ...(flat[0].im ? { im: flat[0].im } : {}), r: !!flat[0].r, ...(d ? { d } : {}) };
+    if (R === 1 && C === 1) return { v: flat[0].v, ...(flat[0].im ? { im: flat[0].im } : {}), r: !!flat[0].r, ...(d ? { d } : {}), ...(flat[0].pu ? { pu: flat[0].pu, pf: flat[0].pf } : {}) };
     return { m: grid.map((r) => r.map((c) => c.v)), ...(cplx ? { mi: grid.map((r) => r.map((c) => c.im || 0)) } : {}), ...(d ? { d } : {}) };
   }
   if (flat.every((c) => !isNum(c)) && (R === 1 || C === 1)) return flat.length === 1 ? { str: flat[0].str } : { strs: flat.map((c) => c.str) };
@@ -69,3 +69,11 @@ export function stackGrids(rows, sepRow = ';', sepEl = ',') {
 
 export const transposeGrid = (g) => g[0].map((_, j) => g.map((r) => r[j]));
 export const sizeOfGrid = (g) => [g.length, g[0].length];
+
+// La unidad en la que mostrar un valor de dimension dim que viene de la variable x: la suya (pu) o la de alguna de sus celdas (30 K en una celda se muestra en K).
+export function prefUnit(x, dim) {
+  if (!x) return null;
+  if (x.pu && (!x.dv) && sameDim(x.d, dim)) return { name: x.pu, f: x.pf };
+  const c = x.cells?.flat().find((k) => k.pu && k.d && sameDim(k.d, dim));
+  return c ? { name: c.pu, f: c.pf } : null;
+}

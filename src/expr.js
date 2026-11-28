@@ -2030,7 +2030,8 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       if (isOp(']')) throw new Error('Una matriz no puede estar vacía');
       const raw = [[]]; let mixed = false; // lo leido por filas; mixed: hay una cadena o una matriz con celdas (texto y numeros mezclados)
       for (;;) {
-        const a = cmp();
+        const s0 = p; let a = cmp();
+        if (!isS(a) && !a.cells && !a.m && p === s0 + 1 && toks[s0].t === 'var') { const x = vars?.[toks[s0].v]; if (x?.pu && x.pf && !x.dv) a = { ...a, pu: x.pu, pf: x.pf }; } // la celda recuerda en que unidad estaba la variable (30 K sigue siendo K)
         if (isS(a) || a.cells) mixed = true;
         raw.at(-1).push(a);
         const s = peek();
