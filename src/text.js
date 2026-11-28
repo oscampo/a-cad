@@ -65,7 +65,8 @@ const STR_RE = /"(?:[^"]|"")*"|“[^”"]*[”"]|”[^“”"]*[“”"]/g;
 const asText = (s) => '"' + String(s).replace(/"/g, '″') + '"'; // texto de AsciiMath (no puede llevar «"» dentro)
 const showStr = (r, math) => { const q = (x) => '“' + x + '”', t = r.cells ? cellsPlain(r.cells) : r.strs ? '[' + r.strs.map(q).join(elemChar() + ' ') + ']' : q(r.str); return math ? asText(t) : t; };
 // Una formula con cadenas literales: lo de afuera pasa por f (unidades, subindices); cada cadena se dibuja como texto, sin tocar su interior («"it's"» no tiene segundos)
-const outStr = (seg, f) => { let out = '', at = 0; for (const m of seg.matchAll(STR_RE)) { out += f(seg.slice(at, m.index)) + asText('“' + m[0].slice(1, -1).replace(/""/g, '"') + '”'); at = m.index + m[0].length; } return out + f(seg.slice(at)); };
+// Dentro de corchetes (una matriz o un vector) la cadena va sin comillas: la columna ya dice que es texto y las comillas estorban en una tabla.
+const outStr = (seg, f) => { let out = '', at = 0, depth = 0; for (const m of seg.matchAll(STR_RE)) { const pre = seg.slice(at, m.index); depth += (pre.match(/\[/g) || []).length - (pre.match(/\]/g) || []).length; const body = m[0].slice(1, -1).replace(/""/g, '"'); out += f(pre) + asText(depth > 0 ? body : '“' + body + '”'); at = m.index + m[0].length; } return out + f(seg.slice(at)); };
 const parC = (s) => (/[+-]/.test(s.slice(1)) ? '(' + s + ')' : s); // «(3+4j) Ω»
 function qty(r, env, src, want, math) {
   if (r.im) { // complejo: las dos partes en la misma unidad (el prefijo, segun el modulo)

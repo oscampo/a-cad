@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { evalExpr } from '../src/expr.js';
 import { newDoc, addPoint, addText } from '../src/model.js';
 import { textVars } from '../src/params.js';
+import { shownText } from '../src/text.js';
 import { setDecimal } from '../src/locale.js';
 
 setDecimal(undefined);
@@ -66,6 +67,20 @@ t('en un texto del dibujo: definir, cortar y operar', () => {
   addText(d, addPoint(d, 0, -80), '$$h:T_(1,2)=$$', {});
   const st = textVars(d);
   assert.deepEqual([...st.errs.values()], []); assert.ok(Math.abs(st.vals.p.v - 13 / 3) < 1e-12); assert.equal(st.vals.h.str, 'nota');
+});
+
+t('la celda captura el valor al definir la matriz (un T posterior no la cambia); la autorreferencia da error y no cuelga', () => {
+  const run = (L) => { const d = newDoc(); const ids = L.map((x, i) => addText(d, addPoint(d, 0, -i * 40), '$$' + x + '$$', {})); return { st: textVars(d), d, ids }; };
+  const a = run(['T:1', 'q:["a",T;"b",2]', 'x:q_(1,2)=', 'T:5', 'y:q_(1,2)=']);
+  assert.deepEqual([...a.st.errs.values()], []); assert.equal(a.st.vals.x.v, 1); assert.equal(a.st.vals.y.v, 1);
+  assert.ok([...run(['q:["a",q_(2,1);"b",2]']).st.errs.values()].length > 0);
+});
+
+t('al dibujar la matriz, las cadenas van sin comillas; sueltas, con ellas', () => {
+  const d = newDoc();
+  const T = ['q:["datos","c1";"f1",2]', '"hola"='].map((x, i) => d.texts[addText(d, addPoint(d, 0, -i * 40), '$$' + x + '$$', {})]);
+  const show = (q) => shownText(d, q).text.replace(/[-]/g, '');
+  assert.equal(show(T[0]), '$$q:=["datos","c1";"f1",2]$$'); assert.equal(show(T[1]), '$$"“hola”"="“hola”"$$');
 });
 
 console.log(passed + ' pruebas de matrices con celdas de distinto tipo');
