@@ -90,4 +90,14 @@ t('una celda con una variable en K o mm se muestra en esa unidad, no en la autom
   assert.equal(show(T[2]), '$$q_(1,2)=30 " K"$$'); assert.equal(show(T[5]), '$$n_(1,2)=5 " mm"$$');
 });
 
+t('una columna con texto y numeros se dibuja como una columna (matriz), no como una lista plana; cada numero con su unidad', () => {
+  const d = newDoc();
+  const L = ['D:["i","y";1,"-";2,3.5]', 'y:D_(2..end;2)', 'y=', "m:5'mm", 'c:["a",m;"b",2]', 'c='];
+  const T = L.map((x, i) => d.texts[addText(d, addPoint(d, 0, -i * 40), '$$' + x + '$$', {})]);
+  const raw = (q) => shownText(d, q).text;
+  assert.ok(/[-]/.test(raw(T[2])), 'va entre las marcas de matriz');
+  const show = (q) => raw(q).replace(/[-]/g, '');
+  assert.equal(show(T[2]), '$$y=["“-”"; 3.5]$$'); assert.equal(show(T[5]), '$$c=["“a”", 5 " mm"; "“b”", 2]$$');
+});
+
 console.log(passed + ' pruebas de matrices con celdas de distinto tipo');

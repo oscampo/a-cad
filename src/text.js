@@ -66,7 +66,15 @@ function cfmt(re, im, f) {
 // Cadenas: se muestran entre comillas tipograficas, como texto recto («msg = “Cumple”»); un vector de cadenas, «[“a”, “b”]».
 const STR_RE = /"(?:[^"]|"")*"|“[^”"]*[”"]|”[^“”"]*[“”"]/g;
 const asText = (s) => '"' + String(s).replace(/"/g, '″') + '"'; // texto de AsciiMath (no puede llevar «"» dentro)
-const showStr = (r, math) => { const q = (x) => '“' + x + '”', t = r.cells ? cellsPlain(r.cells) : r.strs ? '[' + r.strs.map(q).join(elemChar() + ' ') + ']' : q(r.str); return math ? asText(t) : t; };
+// Una celda de una matriz con celdas: el texto con sus comillas (como texto recto) o el numero con su unidad (la de su variable o la automatica).
+const cellText = (c) => {
+  if (c.str !== undefined) return asText('“' + c.str + '”');
+  if (c.im) return cfmt(c.v, c.im, numFmt);
+  if (!c.d) return fmtPlain(c.v);
+  const u = c.pu ? { name: c.pu, f: c.pf, o: c.po || 0 } : autoUnit(c.v, c.d);
+  return u ? fmtQ((c.v - (u.o || 0)) / u.f) + tailOf(u.name, true) : '⚠';
+};
+const showStr = (r, math) => { if (r.cells && math) return VB0 + matText(r.cells, cellText) + VB1; const q = (x) => '“' + x + '”', t = r.cells ? cellsPlain(r.cells) : r.strs ? '[' + r.strs.map(q).join(elemChar() + ' ') + ']' : q(r.str); return math ? asText(t) : t; };
 // Una formula con cadenas literales: lo de afuera pasa por f (unidades, subindices); cada cadena se dibuja como texto, sin tocar su interior («"it's"» no tiene segundos)
 const outStr = (seg, f) => { let out = '', at = 0; for (const m of seg.matchAll(STR_RE)) { out += f(seg.slice(at, m.index)) + asText('“' + m[0].slice(1, -1).replace(/""/g, '"') + '”'); at = m.index + m[0].length; } return out + f(seg.slice(at)); };
 const parC = (s) => (/[+-]/.test(s.slice(1)) ? '(' + s + ')' : s); // «(3+4j) Ω»
