@@ -1836,7 +1836,9 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
       try { bad = tokenize(A[0].str, vars, true).find((t) => t.t === 'id' && (t.v === 'wfile' || t.v === 'play')); } catch (e) { /* lo que no se entiende lo dice el calculo */ }
       if (bad) throw new Error(name === 'eval' ? 'eval: wfile y play no se ejecutan desde una cadena' : 'str2num: wfile y play no se ejecutan desde una cadena');
       let r;
-      try { r = evalExpr(name === 'eval' ? `seq(${A[0].str})` : A[0].str, { radians, vars, allowMat: true, allowCplx: true, depth: depth + 1, globals: globals || vars }); } catch (e) { throw /^(str2num|eval)/.test(e.message) ? e : new Error(`${name}: «${A[0].str}»: ${e.message}`); }
+      const code = name === 'eval' ? A[0].str.replace(/(^|[^=<>!~])=\s*$/, '$1') : A[0].str; // en eval, un «=» al final es la marca de «dame el valor» de un texto: «q_(2,2)=» es q_(2,2) (no «==», «<=», «>=» ni «!=»)
+      if (!code.trim()) throw new Error(name === 'eval' ? 'eval: la cadena está vacía' : 'str2num: la cadena está vacía');
+      try { r = evalExpr(name === 'eval' ? `seq(${code})` : code, { radians, vars, allowMat: true, allowCplx: true, depth: depth + 1, globals: globals || vars }); } catch (e) { throw /^(str2num|eval)/.test(e.message) ? e : name === 'eval' && /Carácter no válido «=»/.test(e.message) ? new Error(`eval: «${A[0].str}»: «=» solo vale al final (muestra el valor); para asignar usa «:», p. ej. a:4`) : new Error(`${name}: «${A[0].str}»: ${e.message}`); }
       if (r.str !== undefined) return { str: r.str };
       if (r.strs) return { strs: r.strs };
       if (r.cells) return { cells: r.cells };

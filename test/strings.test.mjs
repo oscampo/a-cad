@@ -92,4 +92,13 @@ t('eval ejecuta la cadena como instrucciones (variables locales, vale la ultima)
   assert.ok(show(Tx[2]).endsWith('=[1, 2; 3, 4]$$')); assert.ok(show(Tx[3]).endsWith('⚠$$')); // M guarda el valor; q no existe en el dibujo
 });
 
+t('eval: un «=» al final pide el valor (como en un texto); «==», «<=», «>=» y «!=» no se tocan; «x=4» da un error que dice usar «:»', () => {
+  const V = { q: { cells: [[{ str: 'datos' }, { str: 'c1' }], [{ str: 'f1' }, { v: 2 }]] }, x: { v: 4, r: false } };
+  const ev = (q) => evalExpr(q, { vars: V, allowMat: true, allowCplx: true });
+  assert.equal(ev('eval("q_(2,2)=")').value, 2); assert.equal(ev('eval("q_(2,2)= ")').value, 2); assert.equal(ev('eval("x*2=")').value, 8); assert.equal(ev('eval("a:2; a*3=")').value, 6);
+  assert.equal(ev('eval("x==4")').value, 1); assert.equal(ev('eval("x<=4")').value, 1); assert.equal(ev('eval("x>=5")').value, 0); assert.equal(ev('eval("x!=4")').value, 0);
+  assert.throws(() => ev('eval("x=4")'), /solo vale al final.*asignar usa «:»/); assert.throws(() => ev('eval("=")'), /vacía/);
+  assert.throws(() => ev('str2num("x*2=")'), /str2num: «x\*2=»/); // str2num sigue siendo solo expresiones
+});
+
 console.log(`\n${passed} pruebas de cadenas pasaron`);

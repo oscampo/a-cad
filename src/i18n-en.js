@@ -1608,6 +1608,7 @@ export const EN = {
   "str2num: wfile y play no se ejecutan desde una cadena": "str2num: wfile and play are not run from a string",
   "eval: la cadena está vacía": "eval: the string is empty",
   "str2num: la cadena está vacía": "str2num: the string is empty",
+  "eval: «{0}»: «=» solo vale al final (muestra el valor); para asignar usa «:», p. ej. a:4": "eval: \"{0}\": \"=\" is only valid at the end (it shows the value); to assign use \":\", e.g. a:4",
   "Detener": "Stop",
   "Elementos": "Elements",
   "Restricciones": "Constraints",
