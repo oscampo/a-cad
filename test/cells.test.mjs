@@ -100,4 +100,21 @@ t('una columna con texto y numeros se dibuja como una columna (matriz), no como 
   assert.equal(show(T[2]), '$$y=["“-”"; 3.5]$$'); assert.equal(show(T[5]), '$$c=["“a”", 5 " mm"; "“b”", 2]$$');
 });
 
+t('asignar a una celda dentro de un programa: elemento, rangos, :, end y crecer; a una matriz numerica, de cadenas o con celdas', () => {
+  const V = () => ({ A: { mat: [[1, 2], [3, 4]], r: false }, v: { vec: [1, 2, 3], r: false }, N: { strs: ['a', 'b'] }, C: { cells: [[{ str: 'x' }, { v: 1 }], [{ v: 2 }, { str: 'y' }]] } });
+  const run = (s) => evalExpr(s, { vars: V(), allowMat: true, allowCplx: true });
+  assert.deepEqual(run('seq(A_(1,2):9; A)').mat, [[1, 9], [3, 4]]); assert.deepEqual(run('seq(A_(1..2,1):[7;8]; A)').mat, [[7, 2], [8, 4]]); assert.deepEqual(run('seq(A_(1..2,1):0; A)').mat, [[0, 2], [0, 4]]);
+  assert.deepEqual(run('seq(A_(:,2):[5,6]; A)').mat, [[1, 5], [3, 6]]); assert.deepEqual(run('seq(A_(1,:):[5,6]; A)').mat, [[5, 6], [3, 4]]); // un vector en una fila o columna, en cualquier orientacion
+  assert.deepEqual(run('seq(A_(end+1,1):9; A)').mat, [[1, 2], [3, 4], [9, 0]]); assert.deepEqual(run('seq(v_(end+1):4; v)').mat, [[1, 2, 3, 4]]); assert.deepEqual(run('seq(v_(2..3):[20,30]; v)').mat, [[1, 20, 30]]);
+  assert.deepEqual(run('seq(M:[0], for(i, 1..3, M_(end+1,1):i), M)').mat, [[0], [1], [2], [3]]); // agregar filas en un ciclo
+  assert.deepEqual(plain(run('seq(A_(1,2):"s"; A)')), [[1, 's'], [3, 4]]); // un texto en una matriz numerica: queda con celdas
+  assert.deepEqual(plain(run('seq(C_(1,2):7; C)')), [['x', 7], [2, 'y']]); assert.deepEqual(plain(run('seq(C_(2,2):"z"; C)')), [['x', 1], [2, 'z']]);
+  assert.deepEqual(plain(run('seq(C_(3,1):"new"; C)')), [['x', 1], [2, 'y'], ['new', '']]); // lo que crece se rellena con cadenas vacias si hay texto
+  assert.deepEqual(run('seq(C_(1,1):1; C_(2,2):2; C)').mat, [[1, 1], [2, 2]]); // todo numero: vuelve a ser numerica
+  assert.deepEqual(run('seq(N_(3):"c"; N)').strs, ['a', 'b', 'c']); assert.deepEqual(run('seq(N_(1..2):"q"; N)').strs, ['q', 'q']); assert.deepEqual(plain(run('seq(N_(2):5; N)')), [['a', 5]]);
+  const z = run('seq(A_(1,2):3+4j; A)'); assert.equal(z.mat[0][1], 3); assert.equal(z.mi[0][1], 4);
+  assert.deepEqual(run("seq(p:zeros(1, 3), p_2:5'mm, p)").dim, [1, 0, 0, 0, 0, 0, 0]);
+  assert.throws(() => run('seq(A_(1..2,1):[1,2,3]; A)'), /recibe 2×1 elementos y el valor es de 1×3/); assert.throws(() => run('seq(A_(2..1,1):0; A)'), /va de menor a mayor/); assert.throws(() => run('seq(v_(:):0; v)'), /Un «:» solo no vale/);
+});
+
 console.log(passed + ' pruebas de matrices con celdas de distinto tipo');

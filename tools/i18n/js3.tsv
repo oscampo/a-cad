@@ -651,3 +651,5 @@ productoria(expresión; k; desde; hasta)	productoria(expression; k; from; to)
 {0}: los términos deben tener las mismas unidades ({1} y {2})	{0}: the terms must have the same units ({1} and {2})
 Falta el límite superior de la integral: int_0^3(x^2)dx	The upper limit of the integral is missing: int_0^3(x^2)dx
 Falta el diferencial de la integral (dx, dt…), separado del integrando: int_0^3(x^2)dx	The differential of the integral (dx, dt…) is missing, separated from the integrand: int_0^3(x^2)dx
+El rango «{0}» de «{1}» va de menor a mayor	The range "{0}" of "{1}" goes from lowest to highest
+«{0}» recibe {1}×{2} elementos y el valor es de {3}×{4}	"{0}" receives {1}×{2} elements and the value is {3}×{4}

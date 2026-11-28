@@ -90,7 +90,7 @@ t('asignar a un elemento dentro de un programa: p_i, A_(i,j) y cadenas, sobre un
   assert.throws(() => ev("seq(p:[1'mm, 2'mm], p_1:3'kN, p)"), /lleva m: no se le asigna N/);
   assert.throws(() => ev('seq(p:[1, 2], p_0:1, p)'), /entero desde 1/);
   assert.throws(() => ev('seq(A:[1, 2; 3, 4], A_2:0, A)'), /lleva dos índices/);
-  assert.throws(() => ev('seq(p:[1, 2], p_1:[1, 2], p)'), /se le asigna un número/);
+  assert.throws(() => ev('seq(p:[1, 2], p_1:[1, 2], p)'), /recibe 1×1 elementos y el valor es de 1×2/);
 });
 
 t('índices con paréntesis dentro: b_(k + 7*(j - 1)), funciones en el índice, el índice de un nombre con subíndice y asignar', () => {

@@ -1449,44 +1449,56 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
   // Asignar a un elemento dentro de un programa: «p_i:p_i + 1», «A_(i,j):0», «s_2:"x"». Se trabaja sobre una copia local (la variable
   // del documento no cambia fuera del programa). Como en MATLAB, un indice mas alla del final agranda el vector (o la matriz) con ceros.
   // El valor tiene la magnitud del vector; un vector de ceros sin unidades toma la del primer valor que recibe. Vale el valor asignado.
+  // p_i:valor, A_(i,j):valor, A_(2..3,1):valor, A_(:,2):[...], A_(end+1,1):valor (dentro de un programa, sobre una copia local). El destino se trata como una cuadricula de celdas:
+  // una celda puede pasar de numero a texto (la matriz queda con celdas de distinto tipo) y lo que crece se rellena con 0, o con cadenas vacias si ya hay texto.
   function assignElem(k, a) {
     const x = vars[k.base], name = `${k.base}_(${k.src})`;
-    if (!x || (!x.vec && !x.mat && !x.strs)) throw new Error(x?.unset ? `«${k.base}» se usa antes de darle un valor` : `«${k.base}» no es un vector ni una matriz: no se le asigna un elemento`);
-    const ix = splitIdx(k.src).map((s0) => {
-      if (!s0 || s0 === ':') throw new Error(`Para asignar, «${name}» lleva índices enteros (no «:»)`);
-      const v = evalExpr(s0, { vars, depth: depth + 1, globals }).value;
+    if (!x || (!x.vec && !x.mat && !x.strs && !x.cells)) throw new Error(x?.unset ? `«${k.base}» se usa antes de darle un valor` : `«${k.base}» no es un vector ni una matriz: no se le asigna un elemento`);
+    if (a?.fn) throw new Error(`A «${name}» se le asigna un valor, no una función`);
+    const grid0 = x.cells ? x.cells : x.strs ? [x.strs.map((t) => ({ str: t }))] : gridOf({ m: x.mat || [x.vec], ...(x.mi ? { mi: x.mi } : {}), ...(x.d ? { d: x.d } : {}) });
+    const R = grid0.length, C = grid0[0].length, parts = splitIdx(k.src);
+    if (parts.length > 2) throw new Error('Un elemento lleva un índice (vector) o dos (matriz): A_(fila,columna)');
+    if (parts.length === 1 && (parts[0] === ':' || (R > 1 && C > 1))) throw new Error(parts[0] === ':' ? 'Un «:» solo no vale: usa A_(fila,:) o A_(:,columna)' : `«${k.base}» es una matriz de ${R}×${C}: lleva dos índices, ${k.base}_(fila,columna)`);
+    const grow = (n) => { if (n > LOOP_MAX) throw new Error(`«${name}»: el vector no puede pasar de ${LOOP_MAX.toLocaleString('es')} elementos`); };
+    const one = (s0, n) => { // «end» es el ultimo de esa direccion (A_(end+1,1) agrega una fila)
+      const v = evalExpr(s0, { vars: { ...vars, end: { v: n, r: false } }, depth: depth + 1, globals }).value;
       if (!Number.isInteger(Math.round(v * 1e9) / 1e9) || Math.round(v) < 1) throw new Error(`El índice «${s0}» de «${k.base}» debe ser un entero desde 1 (vale ${Math.round(v * 1e6) / 1e6})`);
       return Math.round(v);
+    };
+    const sel = parts.map((s0, pos) => {
+      if (!s0) throw new Error(`Falta un índice en «${name}»`);
+      const n = parts.length === 2 ? (pos === 0 ? R : C) : (R === 1 ? C : R);
+      if (s0 === ':') return Array.from({ length: n }, (_, t) => t + 1);
+      const rg = rangeSplit(s0);
+      if (!rg) return [one(s0, n)];
+      const lo = one(rg[0], n), hi = one(rg[1], n);
+      if (lo > hi) throw new Error(`El rango «${s0}» de «${name}» va de menor a mayor`);
+      grow(hi);
+      return Array.from({ length: hi - lo + 1 }, (_, t) => lo + t);
     });
-    if (ix.length > 2) throw new Error('Un elemento lleva un índice (vector) o dos (matriz): A_(fila,columna)');
-    const grow = (n) => { if (n > LOOP_MAX) throw new Error(`«${name}»: el vector no puede pasar de ${LOOP_MAX.toLocaleString('es')} elementos`); };
-    if (x.strs) { // vector de cadenas
-      if (ix.length !== 1) throw new Error(`«${k.base}» es un vector de cadenas: lleva un índice`);
-      if (!isS(a) || a.strs) throw new Error(`«${k.base}» es un vector de cadenas: a «${name}» se le asigna una cadena`);
-      grow(ix[0]); const L = [...x.strs]; while (L.length < ix[0]) L.push(''); L[ix[0] - 1] = a.str;
-      vars[k.base] = { strs: L, loc: true };
-      return a;
+    const rs = parts.length === 2 ? sel[0] : R === 1 ? [1] : sel[0], cs = parts.length === 2 ? sel[1] : R === 1 ? sel[0] : [1];
+    if ((x.vec || x.mat) && !isS(a) && !a.cells && !sameDim(x.d, a.d) && !zero0(a)) { // un destino numerico con unidades no recibe otra magnitud (con ceros sin unidades, toma la del valor)
+      if (!(!x.d && (x.mat || [x.vec]).every((row) => row.every((v) => v === 0)))) throw new Error(`«${name}» lleva ${unitMsg(x.d)}: no se le asigna ${unitMsg(a.d)}`);
     }
-    if (isS(a)) throw new Error(`«${k.base}» es de números: a «${name}» no se le asigna una cadena`);
-    if (isM(a)) throw new Error(`A «${name}» se le asigna un número, no un vector ni una matriz`);
-    const m = (x.mat || [x.vec]).map((r) => [...r]), mi = x.mi ? x.mi.map((r) => [...r]) : null;
-    let R = m.length, C = m[0].length;
-    if (ix.length === 1 && R > 1 && C > 1) throw new Error(`«${k.base}» es una matriz de ${R}×${C}: lleva dos índices, ${k.base}_(fila,columna)`);
-    const [i, j] = ix.length === 2 ? ix : R === 1 ? [1, ix[0]] : [ix[0], 1];
-    let d = x.d;
-    if (!sameDim(d, a.d) && !zero0(a)) {
-      if (!d && m.every((r) => r.every((v) => v === 0))) d = a.d; // vector de ceros sin unidades: toma la del valor
-      else throw new Error(`«${name}» lleva ${unitMsg(d)}: no se le asigna ${unitMsg(a.d)}`);
+    const vg = gridOf(a), nr = rs.length, nc = cs.length, vr = vg.length, vc = vg[0].length;
+    let place;
+    if (vr === 1 && vc === 1) place = () => vg[0][0]; // un valor para todas las celdas
+    else if (vr === nr && vc === nc) place = (i, j) => vg[i][j];
+    else if ((nr === 1 || nc === 1) && (vr === 1 || vc === 1) && vr * vc === nr * nc) place = (i, j) => (vr === 1 ? vg[0][i * nc + j] : vg[i * nc + j][0]); // un vector en un vector, fila o columna
+    else throw new Error(`«${name}» recibe ${nr}×${nc} elementos y el valor es de ${vr}×${vc}`);
+    const maxR = Math.max(R, ...rs), maxC = Math.max(C, ...cs);
+    grow(maxR * maxC);
+    const g = Array.from({ length: maxR }, (_, i) => Array.from({ length: maxC }, (_, j) => grid0[i]?.[j] ?? { pad: 1 }));
+    rs.forEach((r, i) => cs.forEach((c, j) => { g[r - 1][c - 1] = { ...place(i, j) }; }));
+    const hasText = g.some((row) => row.some((c) => c.str !== undefined));
+    for (const row of g) row.forEach((c, j) => { if (c.pad) row[j] = hasText ? { str: '' } : { v: 0, r: false }; });
+    const val = cellsToValue(g);
+    if (val.cells) vars[k.base] = { cells: g, loc: true };
+    else if (val.str !== undefined || val.strs) vars[k.base] = { strs: g.flat().map((c) => c.str), loc: true };
+    else {
+      const m = g.map((row) => row.map((c) => c.v)), mi = g.some((row) => row.some((c) => c.im)) ? { mi: g.map((row) => row.map((c) => c.im || 0)) } : {}, d = val.d;
+      vars[k.base] = g.length === 1 && !x.mat ? { vec: m[0], ...mi, r: false, d, loc: true } : { mat: m, ...mi, d, loc: true };
     }
-    grow(i * j);
-    while (m.length < i) { m.push(new Array(C).fill(0)); if (mi) mi.push(new Array(C).fill(0)); }
-    R = m.length;
-    if (j > C) { for (const r of m) while (r.length < j) r.push(0); if (mi) for (const r of mi) while (r.length < j) r.push(0); C = j; }
-    m[i - 1][j - 1] = a.v;
-    let mi2 = mi;
-    if (a.im) { mi2 ||= m.map((r) => r.map(() => 0)); mi2[i - 1][j - 1] = a.im; } else if (mi2) mi2[i - 1][j - 1] = 0;
-    const cplx = mi2 && mi2.some((r) => r.some((v) => v)) ? { mi: mi2 } : {};
-    vars[k.base] = R === 1 && !x.mat ? { vec: m[0], ...cplx, r: false, d, loc: true } : { mat: m, ...cplx, d, loc: true };
     return a;
   }
   const progSep = (msg) => { if (peek()?.t !== 'sep') throw new Error(msg()); p++; };
