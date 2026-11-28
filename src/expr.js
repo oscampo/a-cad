@@ -1622,8 +1622,8 @@ function evalExpr1(src, { radians = DEF_RAD, vars = null, allowMat = false, allo
     p++;
     const name = fileArg('wfile');
     closeCall('wfile', SIG);
-    if (a?.fn || (!isS(a) && !isM(a) && !Number.isFinite(a?.v))) throw new Error('wfile guarda un número, un vector, una matriz o una cadena');
-    const big = isM(a) ? Math.max(...a.m.flat().map(Math.abs), ...(a.mi ? a.mi.flat().map(Math.abs) : [])) : Math.hypot(a.v || 0, a.im || 0);
+    if (a?.fn || (!isS(a) && !isM(a) && !a?.cells && !Number.isFinite(a?.v))) throw new Error('wfile guarda un número, un vector, una matriz o una cadena');
+    const big = a.cells ? 0 : isM(a) ? Math.max(...a.m.flat().map(Math.abs), ...(a.mi ? a.mi.flat().map(Math.abs) : [])) : Math.hypot(a.v || 0, a.im || 0);
     const units = [single?.pu && single.pf && !single.dv && sameDim(single.d, a.d) && !userUnitNames().includes(single.pu) ? { name: single.pu, f: single.pf, o: a.dl ? 0 : single.po || 0 } : null, autoUnit(big, a.d)];
     dataWrite(name, valueText(a, units, (t) => sameValue(readData(t), a)));
     return { v: 1, r: false };
@@ -2195,6 +2195,7 @@ function readData(t) {
   try { r = evalExpr(t, { allowCplx: true, allowMat: true }); } finally { setDecimal(prev); }
   if (r.str !== undefined) return { str: r.str };
   if (r.strs) return { strs: r.strs };
+  if (r.cells) return { cells: r.cells };
   const x = r.mat ? { m: r.mat, ...(r.mi ? { mi: r.mi } : {}) } : { v: r.value, ...(r.im ? { im: r.im } : {}), r: !!r.rad };
   if (r.dim) x.d = r.dim;
   return x;
@@ -2301,6 +2302,7 @@ function importData(A) {
 
 const close = (x, y) => Math.abs(x - y) <= 1e-9 * Math.max(1, Math.abs(x), Math.abs(y));
 function sameValue(b, a) {
+  if (a.cells) return !!b.cells && a.cells.length === b.cells.length && a.cells.every((r, i) => r.length === b.cells[i].length && r.every((c, q) => { const e = b.cells[i][q]; return c.str !== undefined ? c.str === e.str : e.str === undefined && close(c.v, e.v) && close(c.im || 0, e.im || 0) && (c.d ? sameDim(c.d, e.d || []) : !e.d || e.d.every((z) => !z)); }));
   if (isS(a)) return JSON.stringify(a.str ?? a.strs) === JSON.stringify(b.str ?? b.strs);
   if (!(a.d ? sameDim(a.d, b.d || []) : !b.d || b.d.every((e) => !e))) return false;
   if (isM(a)) return isM(b) && a.m.length === b.m.length && a.m.every((r, i) => r.length === b.m[i].length && r.every((x, q) => close(x, b.m[i][q]) && close(a.mi?.[i][q] || 0, b.mi?.[i][q] || 0)));

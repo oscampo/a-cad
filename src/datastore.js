@@ -47,7 +47,15 @@ const baseUnit = (d) => ({ name: d.map((e, i) => (e ? BASE_U[i] + (e !== 1 ? '^'
 
 // El texto de un valor del evaluador ({ v, im, d } | { m, mi, d } | { str } | { strs }). units: las unidades candidatas en orden
 // ({ name, f }); se usa la primera con la que el texto vuelve a dar el mismo valor (check), y si ninguna, las unidades base.
+// Una matriz con celdas: «[“texto”, 5'mm; 2, "x"]», cada celda con su propia unidad (la de su variable si la tiene; si no, las unidades base).
+const cellText = (c) => {
+  if (c.str !== undefined) return '"' + c.str.replace(/"/g, '""') + '"';
+  if (!c.d || c.d.every((e) => !e)) return cplxText(c.v, c.im || 0);
+  const u = c.pu && c.pf ? { name: c.pu, f: c.pf, o: c.po || 0 } : baseUnit(c.d), s = cplxText((c.v - u.o) / u.f, (c.im || 0) / u.f);
+  return (c.im ? '(' + s + ')' : s) + unitTail(u.name);
+};
 export function valueText(a, units, check) {
+  if (a?.cells) return '[' + a.cells.map((r) => r.map(cellText).join(', ')).join('; ') + ']';
   if (typeof a?.str === 'string') return '"' + a.str.replace(/"/g, '""') + '"';
   if (a?.strs) return '[' + a.strs.map((s) => '"' + s.replace(/"/g, '""') + '"').join(', ') + ']';
   const body = (f, o = 0) => { // o: el cero de la escala (°C, °F)

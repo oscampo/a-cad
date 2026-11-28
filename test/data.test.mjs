@@ -122,4 +122,19 @@ t('numText: todas las cifras útiles, en una forma que se vuelve a leer', () => 
   for (const x of ['1e21', '1.2e-7']) assert.equal(evalExpr(x, {}).value, Number(x));
 });
 
+t('una matriz con celdas de distinto tipo: wfile la guarda (cada celda con su unidad) y rfile la devuelve igual, tambien con coma decimal', () => {
+  for (const dec of ['.', ',']) {
+    const c = dec === ',', e = c ? '; ' : ', ', row = c ? ' | ' : '; ', ix = (a, b) => `(${a}${c ? ';' : ','}${b})`;
+    fresh();
+    const w = page(dec, ["$$m:5'mm$$", "$$T:30'°C$$", `$$C:["id"${e}"nota"${e}"L"${row}1${e}${c ? '4,5' : '4.5'}${e}m${row}2${e}"-"${e}T]$$`, `$$wfile(C${c ? ';' : ','} "mixta.txt")=$$`]);
+    assert.deepEqual(w.errs, [], dec);
+    assert.equal(w.w['mixta.txt'], `["id", "nota", "L"; 1, 4.5, 5'mm; 2, "-", 30'°C]`);
+    const r = page(dec, ['$$R:rfile("mixta.txt")$$', `$$R_${ix(3, 3)}=$$`, `$$R_${ix(2, 2)}=$$`, `$$R_${ix(2, 1)}+R_${ix(3, 1)}=$$`, `$$R_${ix(2, 3)}=$$`]);
+    assert.deepEqual(r.errs, [], dec);
+    const p = c ? ',' : '.';
+    assert.equal(r.shown[1], `$$R_${ix(3, 3)}=303${p}15 " K"$$`); assert.equal(r.shown[2], `$$R_${ix(2, 2)}=4${p}5$$`); assert.equal(r.shown[3], `$$R_${ix(2, 1)}+R_${ix(3, 1)}=3$$`);
+    assert.equal(r.shown[4], `$$R_${ix(2, 3)}=5 " mm"$$`);
+  }
+});
+
 console.log(`\n${passed} pruebas de datos pasaron`);
